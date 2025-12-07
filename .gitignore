@@ -2,3 +2,9 @@ node_modules
 .env
 .env.local
 supabase.env
+.next
+out
+build
+.vercel
+*.log
+.DS_Store
