@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { User, AuthState, LoginCredentials, RegisterData } from '@/types';
 
 interface AuthStore extends AuthState {
@@ -13,6 +13,8 @@ interface AuthStore extends AuthState {
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   bypassLogin: (email?: string) => void;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -23,6 +25,11 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      _hasHydrated: false,
+      
+      setHasHydrated: (state: boolean) => {
+        set({ _hasHydrated: state });
+      },
 
       login: async (credentials: LoginCredentials) => {
         set({ isLoading: true, error: null });
@@ -103,7 +110,7 @@ export const useAuthStore = create<AuthStore>()(
           email: email || 'guest@demo.com',
           name: 'Misafir',
           surname: 'Kullanıcı',
-          role: 'ADMIN' as any, // geçici yetkiler
+          role: 'ADMIN' as any,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -119,11 +126,25 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => {
+        // SSR'da localStorage yok, boş bir storage döndür
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+        return localStorage;
+      }),
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
