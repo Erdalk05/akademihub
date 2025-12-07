@@ -24,6 +24,7 @@ interface RoleContextType {
   isTeacher: boolean;
   isParent: boolean;
   reloadPermissions: () => void;
+  isHydrated: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -31,6 +32,7 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Yetkileri localStorage'dan yükle ve ROLE_PERMISSIONS'ı güncelle
   const loadDynamicPermissions = useCallback(() => {
@@ -61,39 +63,46 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load user from localStorage on mount
+  // Load user from localStorage on mount (client-side only)
   useEffect(() => {
+    // SSR kontrolü
+    if (typeof window === 'undefined') return;
+    
     // Önce yetkileri yükle
     loadDynamicPermissions();
     
     // Sonra kullanıcıyı yükle
-    const storedUser = localStorage.getItem('akademi_current_user');
-    if (storedUser) {
-      try {
+    try {
+      const storedUser = localStorage.getItem('akademi_current_user');
+      if (storedUser) {
         const user = JSON.parse(storedUser);
         setCurrentUser(user);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
       }
-    } else {
-      // Default to ADMIN for development
-      const defaultUser: User = {
-        id: 'admin_001',
-        name: 'Admin User',
-        email: 'admin@akademihub.com',
-        role: UserRole.ADMIN,
-      };
-      setCurrentUser(defaultUser);
-      localStorage.setItem('akademi_current_user', JSON.stringify(defaultUser));
+      // Development'ta varsayılan kullanıcı EKLEME - kullanıcı giriş yapmalı
+    } catch (error) {
+      console.error('Failed to parse stored user:', error);
     }
+    
+    // Hydration tamamlandı
+    setIsHydrated(true);
   }, [loadDynamicPermissions]);
 
-  // Save user to localStorage when it changes
+  // Save user to localStorage when it changes (client-side only)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     if (currentUser) {
-      localStorage.setItem('akademi_current_user', JSON.stringify(currentUser));
+      try {
+        localStorage.setItem('akademi_current_user', JSON.stringify(currentUser));
+      } catch (error) {
+        console.error('Failed to save user:', error);
+      }
     } else {
-      localStorage.removeItem('akademi_current_user');
+      try {
+        localStorage.removeItem('akademi_current_user');
+      } catch (error) {
+        console.error('Failed to remove user:', error);
+      }
     }
   }, [currentUser]);
 
@@ -140,6 +149,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         isTeacher,
         isParent,
         reloadPermissions: loadDynamicPermissions,
+        isHydrated,
       }}
     >
       {children}
