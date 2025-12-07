@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CustomerSelect, { CustomerOption } from '@/components/finance/CustomerSelect';
 import NewSalesCustomerDialog from '@/components/finance/NewSalesCustomerDialog';
 
-export default function NewSalePage() {
+// useSearchParams kullanan içerik bileşeni
+function NewSaleContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStudentId = useMemo(
@@ -69,12 +70,10 @@ export default function NewSalePage() {
     }
 
     if (total <= 0) {
-      // eslint-disable-next-line no-alert
       alert('Önce en az bir satış kalemi ekleyip toplam tutarı oluşturun.');
       return;
     }
     if (!installmentCount || installmentCount <= 0) {
-      // eslint-disable-next-line no-alert
       alert('Geçerli bir taksit sayısı girin.');
       return;
     }
@@ -102,7 +101,6 @@ export default function NewSalePage() {
 
   const handleSave = async () => {
     if (!selectedCustomer) {
-      // eslint-disable-next-line no-alert
       alert('Lütfen müşteri seçin');
       return;
     }
@@ -111,7 +109,6 @@ export default function NewSalePage() {
       (l) => l.productName.trim() && l.quantity > 0 && l.unitPrice > 0,
     );
     if (!validLines.length) {
-      // eslint-disable-next-line no-alert
       alert('En az bir geçerli satır ekleyin');
       return;
     }
@@ -140,16 +137,13 @@ export default function NewSalePage() {
       });
       const js = await res.json().catch(() => null);
       if (!res.ok || !js?.success) {
-        // eslint-disable-next-line no-alert
         alert(js?.error || 'Satış kaydedilemedi');
         return;
       }
 
-      // eslint-disable-next-line no-alert
       alert('Satış başarıyla oluşturuldu');
       router.push('/finance/sales');
     } catch (e: any) {
-      // eslint-disable-next-line no-alert
       alert(e?.message || 'Satış kaydedilemedi');
     } finally {
       setSaving(false);
@@ -163,8 +157,7 @@ export default function NewSalePage() {
           <div>
             <h1 className="mb-1 text-xl font-semibold text-gray-900">Yeni Satış</h1>
             <p className="text-xs text-gray-500">
-              Öğrenciler ve harici müşteriler için satış oluşturun. Öğrenciler students
-              tablosundan, harici müşteriler ise sales_customers tablosundan gelir.
+              Öğrenciler ve harici müşteriler için satış oluşturun.
             </p>
           </div>
           <button
@@ -176,7 +169,6 @@ export default function NewSalePage() {
           </button>
         </div>
 
-        {/* Üst grid: Sol müşteri, sağ finans özeti */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <CustomerSelect
@@ -214,24 +206,15 @@ export default function NewSalePage() {
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-[11px] text-gray-500">
-              Müşteri ve satış kalemlerini girdikçe tutarlar otomatik güncellenir.
-            </p>
           </div>
         </div>
 
-        {/* Alt kart: Satış kalemleri + ödeme tipi + taksit planı */}
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-gray-900">Satış Kalemleri</h2>
-          <p className="mb-4 text-xs text-gray-500">
-            Hızlı başlamak için ürün adını, adet ve birim fiyatları elle girebilirsiniz.
-            Daha sonra ürün havuzunu (`/finance/products`) bu alanla entegre edebiliriz.
-          </p>
 
           <div className="space-y-3">
             {lines.map((line, idx) => (
               <div
-                // eslint-disable-next-line react/no-array-index-key
                 key={idx}
                 className="grid grid-cols-5 gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
               >
@@ -240,11 +223,9 @@ export default function NewSalePage() {
                   <input
                     type="text"
                     value={line.productName}
-                    onChange={(e) =>
-                      handleLineChange(idx, 'productName', e.target.value)
-                    }
+                    onChange={(e) => handleLineChange(idx, 'productName', e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="Örn: Matematik 9. Sınıf Kitabı"
+                    placeholder="Örn: Matematik Kitabı"
                   />
                 </div>
                 <div className="space-y-1">
@@ -285,7 +266,6 @@ export default function NewSalePage() {
               </span>
             </div>
 
-            {/* Ödeme tipi sekmeleri + taksit ayarları */}
             <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
               <div className="mb-2 inline-flex rounded-xl bg-white p-1 text-xs font-medium text-gray-600">
                 <button
@@ -341,9 +321,7 @@ export default function NewSalePage() {
                         type="number"
                         min={1}
                         value={installmentCount}
-                        onChange={(e) =>
-                          setInstallmentCount(Number(e.target.value || 0))
-                        }
+                        onChange={(e) => setInstallmentCount(Number(e.target.value || 0))}
                         className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
@@ -385,9 +363,7 @@ export default function NewSalePage() {
                                 {new Date(t.dueDate).toLocaleDateString('tr-TR')}
                               </td>
                               <td className="px-3 py-1.5 text-right font-medium text-gray-900">
-                                ₺{t.amount.toLocaleString('tr-TR', {
-                                  minimumFractionDigits: 2,
-                                })}
+                                ₺{t.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                               </td>
                             </tr>
                           ))}
@@ -396,13 +372,6 @@ export default function NewSalePage() {
                     </div>
                   )}
                 </>
-              )}
-
-              {paymentType === 'installment' && installments.length === 0 && (
-                <p className="text-[11px] text-gray-400">
-                  Plan görmek için taksit sayısı ve ilk vade tarihini girip &quot;Taksit
-                  Planı Oluştur&quot; butonuna basın.
-                </p>
               )}
             </div>
 
@@ -445,4 +414,18 @@ export default function NewSalePage() {
   );
 }
 
-
+// Ana sayfa bileşeni - Suspense ile sarılmış
+export default function NewSalePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-500">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <NewSaleContent />
+    </Suspense>
+  );
+}

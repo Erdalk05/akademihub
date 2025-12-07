@@ -1,4 +1,22 @@
 {
+  "app/dashboard/page.tsx -> @/components/dashboard/GraphicsTabPanel": {
+    "id": "app/dashboard/page.tsx -> @/components/dashboard/GraphicsTabPanel",
+    "files": [
+      "static/chunks/_app-pages-browser_components_dashboard_GraphicsTabPanel_tsx.js"
+    ]
+  },
+  "app/dashboard/page.tsx -> @/components/dashboard/PendingPaymentsWidget": {
+    "id": "app/dashboard/page.tsx -> @/components/dashboard/PendingPaymentsWidget",
+    "files": [
+      "static/chunks/_app-pages-browser_components_dashboard_PendingPaymentsWidget_tsx.js"
+    ]
+  },
+  "app/dashboard/page.tsx -> @/components/dashboard/TodayCollectionWidget": {
+    "id": "app/dashboard/page.tsx -> @/components/dashboard/TodayCollectionWidget",
+    "files": [
+      "static/chunks/_app-pages-browser_components_dashboard_TodayCollectionWidget_tsx.js"
+    ]
+  },
   "app/settings/page.tsx -> @/lib/types/role-types": {
     "id": "app/settings/page.tsx -> @/lib/types/role-types",
     "files": []
