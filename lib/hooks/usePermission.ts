@@ -104,16 +104,11 @@ export interface UsePermissionReturn {
 }
 
 export function usePermission(): UsePermissionReturn {
-  const { currentUser, reloadPermissions } = useRole();
+  const { currentUser, isHydrated } = useRole();
   const role = currentUser?.role || UserRole.STAFF;
   
-  // Client-side yüklenme kontrolü - currentUser henüz yüklenmediyse
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  const isLoading = !isClient;
+  // isLoading - hydration tamamlanana kadar true
+  const isLoading = !isHydrated;
 
   const hasPermission = useCallback((permission: Permission): boolean => {
     if (role === UserRole.ADMIN) return true; // Admin her şeyi yapabilir
@@ -207,7 +202,6 @@ export function usePermission(): UsePermissionReturn {
     };
 
     return {
-      isLoading,
       role,
       isAdmin,
       isAccounting,
@@ -259,7 +253,11 @@ export function usePermission(): UsePermissionReturn {
     };
   }, [role, hasPermission, hasAnyPermission]);
 
-  return permissions;
+  // isLoading'i useMemo dışında döndür
+  return {
+    ...permissions,
+    isLoading,
+  };
 }
 
 export default usePermission;
