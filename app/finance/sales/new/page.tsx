@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import CustomerSelect, { CustomerOption } from '@/components/finance/CustomerSelect';
 import NewSalesCustomerDialog from '@/components/finance/NewSalesCustomerDialog';
 
+// Bu sayfayı dynamic olarak işaretle - prerendering devre dışı
+export const dynamic = 'force-dynamic';
+
 // useSearchParams kullanan içerik bileşeni
 function NewSaleContent() {
   const router = useRouter();

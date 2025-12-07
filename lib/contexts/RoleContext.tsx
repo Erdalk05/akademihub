@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   UserRole, 
   Permission, 
@@ -8,7 +8,6 @@ import {
   User, 
   DynamicRolePermissions,
   updateRolePermissions,
-  convertToPermissionArray,
   DEFAULT_ROLE_PERMISSIONS
 } from '@/lib/types/role-types';
 
@@ -31,104 +30,86 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Yetkileri localStorage'dan yükle ve ROLE_PERMISSIONS'ı güncelle
-  const loadDynamicPermissions = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    
+  // Client-side initialization
+  useEffect(() => {
+    // SSR guard
+    if (typeof window === 'undefined') {
+      setIsHydrated(true);
+      return;
+    }
+
     try {
+      // Load permissions
       const savedPermissions = localStorage.getItem('akademi_role_permissions');
       if (savedPermissions) {
-        const parsed = JSON.parse(savedPermissions) as {
-          accounting: DynamicRolePermissions;
-          staff: DynamicRolePermissions;
-        };
-        
-        // ROLE_PERMISSIONS'ı runtime'da güncelle
-        updateRolePermissions('accounting', parsed.accounting);
-        updateRolePermissions('staff', parsed.staff);
-        
-        console.log('✅ Dinamik yetkiler yüklendi');
+        const parsed = JSON.parse(savedPermissions);
+        if (parsed.accounting) updateRolePermissions('accounting', parsed.accounting);
+        if (parsed.staff) updateRolePermissions('staff', parsed.staff);
       } else {
-        // Varsayılan yetkileri kullan
         updateRolePermissions('accounting', DEFAULT_ROLE_PERMISSIONS.accounting);
         updateRolePermissions('staff', DEFAULT_ROLE_PERMISSIONS.staff);
       }
-      setPermissionsLoaded(true);
-    } catch (error) {
-      console.error('Yetki yükleme hatası:', error);
-      setPermissionsLoaded(true);
-    }
-  }, []);
 
-  // Load user from localStorage on mount (client-side only)
-  useEffect(() => {
-    // SSR kontrolü
-    if (typeof window === 'undefined') return;
-    
-    // Önce yetkileri yükle
-    loadDynamicPermissions();
-    
-    // Sonra kullanıcıyı yükle
-    try {
+      // Load user
       const storedUser = localStorage.getItem('akademi_current_user');
       if (storedUser) {
-        const user = JSON.parse(storedUser);
-        setCurrentUser(user);
+        setCurrentUser(JSON.parse(storedUser));
       }
-      // Development'ta varsayılan kullanıcı EKLEME - kullanıcı giriş yapmalı
     } catch (error) {
-      console.error('Failed to parse stored user:', error);
+      console.error('RoleContext init error:', error);
     }
-    
-    // Hydration tamamlandı
+
     setIsHydrated(true);
-  }, [loadDynamicPermissions]);
+  }, []);
 
-  // Save user to localStorage when it changes (client-side only)
+  // Save user changes
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    if (currentUser) {
-      try {
+    if (typeof window === 'undefined' || !isHydrated) return;
+
+    try {
+      if (currentUser) {
         localStorage.setItem('akademi_current_user', JSON.stringify(currentUser));
-      } catch (error) {
-        console.error('Failed to save user:', error);
-      }
-    } else {
-      try {
+      } else {
         localStorage.removeItem('akademi_current_user');
-      } catch (error) {
-        console.error('Failed to remove user:', error);
       }
+    } catch (error) {
+      console.error('Save user error:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, isHydrated]);
 
-  const hasPermission = useCallback(
-    (permission: Permission): boolean => {
-      if (!currentUser) return false;
-      const permissions = ROLE_PERMISSIONS[currentUser.role];
-      return permissions?.includes(permission) ?? false;
-    },
-    [currentUser, permissionsLoaded]
-  );
+  // Simple permission check
+  const hasPermission = (permission: Permission): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === UserRole.ADMIN) return true;
+    const permissions = ROLE_PERMISSIONS[currentUser.role];
+    return permissions?.includes(permission) ?? false;
+  };
 
-  const hasAnyPermission = useCallback(
-    (permissions: Permission[]): boolean => {
-      return permissions.some(permission => hasPermission(permission));
-    },
-    [hasPermission]
-  );
+  const hasAnyPermission = (permissions: Permission[]): boolean => {
+    return permissions.some(p => hasPermission(p));
+  };
 
-  const hasAllPermissions = useCallback(
-    (permissions: Permission[]): boolean => {
-      return permissions.every(permission => hasPermission(permission));
-    },
-    [hasPermission]
-  );
+  const hasAllPermissions = (permissions: Permission[]): boolean => {
+    return permissions.every(p => hasPermission(p));
+  };
 
+  const reloadPermissions = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedPermissions = localStorage.getItem('akademi_role_permissions');
+      if (savedPermissions) {
+        const parsed = JSON.parse(savedPermissions);
+        if (parsed.accounting) updateRolePermissions('accounting', parsed.accounting);
+        if (parsed.staff) updateRolePermissions('staff', parsed.staff);
+      }
+    } catch (error) {
+      console.error('Reload permissions error:', error);
+    }
+  };
+
+  // Role checks
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   const isAccounting = currentUser?.role === UserRole.ACCOUNTING;
   const isStaff = currentUser?.role === UserRole.STAFF;
@@ -148,7 +129,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         isStaff,
         isTeacher,
         isParent,
-        reloadPermissions: loadDynamicPermissions,
+        reloadPermissions,
         isHydrated,
       }}
     >
