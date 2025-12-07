@@ -1,144 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';
+// Memory store - Gerçek projede database kullanılmalı
+let activityLogs: any[] = [];
 
-/**
- * GET /api/activity-logs
- * Fetch activity logs with optional filters
- */
-export async function GET(req: NextRequest) {
+// GET - Logları getir
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     
-    // Filters
     const userId = searchParams.get('userId');
     const action = searchParams.get('action');
     const entityType = searchParams.get('entityType');
-    const entityId = searchParams.get('entityId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
-
-    // TODO: Replace with actual Supabase query when table is created
-    // For now, return mock data from localStorage
-
-    // Mock data structure
-    const mockLogs = [
-      {
-        id: '1',
-        userId: 'admin_001',
-        userName: 'Admin User',
-        action: 'student_create',
-        entityType: 'student',
-        entityId: 'std_001',
-        description: 'Yeni öğrenci kaydı oluşturuldu: Ahmet Yılmaz',
-        metadata: { studentName: 'Ahmet Yılmaz', class: '9' },
-        timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-      },
-      {
-        id: '2',
-        userId: 'admin_001',
-        userName: 'Admin User',
-        action: 'payment_create',
-        entityType: 'payment',
-        entityId: 'pay_001',
-        description: 'Ahmet Yılmaz için 5000 TL ödeme kaydedildi',
-        metadata: { amount: 5000 },
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      },
-      {
-        id: '3',
-        userId: 'accounting_001',
-        userName: 'Muhasebe User',
-        action: 'excel_export',
-        description: 'Öğrenci Listesi için 25 kayıt Excel\'e aktarıldı',
-        metadata: { rowCount: 25, exportType: 'Öğrenci Listesi' },
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      },
-    ];
-
-    // Apply filters
-    let filteredLogs = mockLogs;
-
-    if (userId) {
-      filteredLogs = filteredLogs.filter(log => log.userId === userId);
-    }
-
-    if (action) {
-      filteredLogs = filteredLogs.filter(log => log.action === action);
-    }
-
-    if (entityType) {
-      filteredLogs = filteredLogs.filter(log => log.entityType === entityType);
-    }
-
-    if (entityId) {
-      filteredLogs = filteredLogs.filter(log => log.entityId === entityId);
-    }
-
+    
+    let logs = [...activityLogs];
+    
+    if (userId) logs = logs.filter(l => l.userId === userId);
+    if (action) logs = logs.filter(l => l.action === action);
+    if (entityType) logs = logs.filter(l => l.entityType === entityType);
     if (startDate) {
-      filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= new Date(startDate));
+      const start = new Date(startDate);
+      logs = logs.filter(l => new Date(l.timestamp) >= start);
     }
-
     if (endDate) {
-      filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) <= new Date(endDate));
+      const end = new Date(endDate);
+      logs = logs.filter(l => new Date(l.timestamp) <= end);
     }
-
-    // Apply limit
-    filteredLogs = filteredLogs.slice(0, limit);
-
-    return NextResponse.json({
-      success: true,
-      logs: filteredLogs,
-      count: filteredLogs.length,
-    });
+    
+    logs = logs
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, limit);
+    
+    return NextResponse.json({ success: true, logs, total: logs.length });
   } catch (error: any) {
-    console.error('Activity logs fetch error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch activity logs' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
 
-/**
- * POST /api/activity-logs
- * Create a new activity log entry
- */
-export async function POST(req: NextRequest) {
+// POST - Yeni log ekle
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-
-    // Validate required fields
-    if (!body.userId || !body.userName || !body.action || !body.description) {
+    const body = await request.json();
+    
+    if (!body.userId || !body.action || !body.description) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, message: 'userId, action ve description zorunludur' },
         { status: 400 }
       );
     }
-
-    // TODO: Save to Supabase when table is created
-    // For now, just log to console
-    const log = {
-      id: `log_${Date.now()}`,
-      ...body,
+    
+    const newLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: body.userId,
+      userName: body.userName || 'Bilinmeyen',
+      action: body.action,
+      entityType: body.entityType || null,
+      entityId: body.entityId || null,
+      description: body.description,
+      metadata: body.metadata || {},
+      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
       timestamp: new Date().toISOString(),
     };
-
-    // eslint-disable-next-line no-console
-    console.log('[Activity Log]', log);
-
-    return NextResponse.json({
-      success: true,
-      log,
-    });
+    
+    activityLogs.unshift(newLog);
+    if (activityLogs.length > 1000) activityLogs = activityLogs.slice(0, 1000);
+    
+    return NextResponse.json({ success: true, log: newLog });
   } catch (error: any) {
-    // eslint-disable-next-line no-console
-    console.error('Activity log creation error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to create activity log' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
 
+// DELETE - Logları temizle
+export async function DELETE() {
+  try {
+    activityLogs = [];
+    return NextResponse.json({ success: true, message: 'Loglar temizlendi' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}

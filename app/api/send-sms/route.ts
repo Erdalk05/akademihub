@@ -1,11 +1,4 @@
-import twilio from 'twilio';
 import { NextRequest, NextResponse } from 'next/server';
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-
-const client = twilio(accountSid, authToken);
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,12 +13,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Twilio credentials kontrol et
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
     if (!accountSid || !authToken || !fromNumber) {
       return NextResponse.json(
-        { error: 'Twilio yapılandırması eksik. .env.local dosyasını kontrol et.' },
-        { status: 500 }
+        { error: 'SMS servisi yapılandırılmamış (Twilio ayarları eksik)' },
+        { status: 503 }
       );
     }
+
+    // Dinamik import - sadece çalışma zamanında
+    const twilio = (await import('twilio')).default;
+    const client = twilio(accountSid, authToken);
 
     // SMS gönder
     const message = await client.messages.create({
@@ -39,14 +40,12 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    // eslint-disable-next-line no-console
     console.error('SMS Gönderme Hatası:', error);
 
     return NextResponse.json(
       {
         error: 'SMS API hatası',
         details: error.message,
-        // Twilio hatası ise daha detaylı bilgi ver
         code: error.code,
       },
       { status: 500 }

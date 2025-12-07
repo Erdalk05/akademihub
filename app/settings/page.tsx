@@ -6,13 +6,17 @@ import {
   Settings, Building2, Users, Calendar, Mail, FileText, 
   CreditCard, Save, Plus, Trash2, Edit, Check, X, 
   ChevronRight, Shield, Eye, EyeOff,
-  Smartphone, Globe, Upload, Loader2
+  Smartphone, Globe, Upload, Loader2, Database, Server, Keyboard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/lib/hooks/usePermission';
+import BackupRestore from '@/components/settings/BackupRestore';
+import APISettings from '@/components/settings/APISettings';
+import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
+import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 
 // Tab Types
-type SettingsTab = 'general' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments';
+type SettingsTab = 'general' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts';
 
 // Interfaces
 interface SchoolInfo {
@@ -782,7 +786,13 @@ export default function SettingsPage() {
     { id: 'communication', label: 'İletişim Ayarları', icon: Mail, description: 'SMS, Email, WhatsApp' },
     { id: 'contracts', label: 'Sözleşme Şablonları', icon: FileText, description: 'KVKK ve kayıt sözleşmesi' },
     { id: 'payments', label: 'Ödeme Şablonları', icon: CreditCard, description: 'Program ücretleri' },
+    { id: 'api', label: 'API Ayarları', icon: Server, description: 'SMS, E-posta provider' },
+    { id: 'backup', label: 'Yedekleme', icon: Database, description: 'Veri yedekleme ve geri yükleme' },
+    { id: 'shortcuts', label: 'Klavye Kısayolları', icon: Keyboard, description: 'Hızlı erişim tuşları' },
   ];
+  
+  // Klavye kısayolları hook
+  const { shortcuts, showShortcutsModal, setShowShortcutsModal } = useKeyboardShortcuts();
 
   if (!isClient) {
     return (
@@ -2231,11 +2241,97 @@ export default function SettingsPage() {
               </div>
                 )}
 
+                {/* API Ayarları Sekmesi */}
+                {activeTab === 'api' && (
+                  <APISettings />
+                )}
+
+                {/* Yedekleme Sekmesi */}
+                {activeTab === 'backup' && (
+                  <BackupRestore />
+                )}
+
+                {/* Klavye Kısayolları Sekmesi */}
+                {activeTab === 'shortcuts' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <Keyboard className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900">Klavye Kısayolları</h2>
+                        <p className="text-sm text-slate-500">Hızlı erişim için klavye kısayollarını kullanın</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                      <p className="text-sm text-blue-700">
+                        💡 <strong>İpucu:</strong> Herhangi bir sayfada <kbd className="px-1.5 py-0.5 bg-white border border-blue-200 rounded text-xs font-mono">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-white border border-blue-200 rounded text-xs font-mono">?</kbd> tuşlarına basarak kısayolları görebilirsiniz.
+                      </p>
+                    </div>
+
+                    {/* Kısayol Kategorileri */}
+                    {Object.entries(
+                      shortcuts.reduce((acc: Record<string, typeof shortcuts>, s) => {
+                        if (!acc[s.category]) acc[s.category] = [];
+                        acc[s.category].push(s);
+                        return acc;
+                      }, {})
+                    ).map(([category, items]) => (
+                      <div key={category} className="bg-white border border-slate-200 rounded-xl p-5">
+                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                          {category}
+                        </h3>
+                        <div className="space-y-3">
+                          {items.map((shortcut, idx) => (
+                            <div 
+                              key={idx}
+                              className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 transition"
+                            >
+                              <span className="text-sm text-slate-700">{shortcut.description}</span>
+                              <div className="flex items-center gap-1">
+                                {shortcut.ctrlKey && (
+                                  <>
+                                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono">⌘/Ctrl</kbd>
+                                    <span className="text-slate-400 text-xs">+</span>
+                                  </>
+                                )}
+                                {shortcut.shiftKey && (
+                                  <>
+                                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono">Shift</kbd>
+                                    <span className="text-slate-400 text-xs">+</span>
+                                  </>
+                                )}
+                                {shortcut.altKey && (
+                                  <>
+                                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono">Alt</kbd>
+                                    <span className="text-slate-400 text-xs">+</span>
+                                  </>
+                                )}
+                                <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono min-w-[28px] text-center">
+                                  {shortcut.key === '?' ? '?' : shortcut.key.toUpperCase()}
+                                </kbd>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Klavye Kısayolları Modal */}
+      <KeyboardShortcutsModal 
+        isOpen={showShortcutsModal} 
+        onClose={() => setShowShortcutsModal(false)} 
+        shortcuts={shortcuts}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 {
-  "/login/page": "app/login/page.js",
-  "/finance/reports/page": "app/finance/reports/page.js",
+  "/api/settings/route": "app/api/settings/route.js",
   "/settings/page": "app/settings/page.js",
-  "/finance/reports/builder/page": "app/finance/reports/builder/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/api/academic-years/route": "app/api/academic-years/route.js",
+  "/api/settings/payment-templates/route": "app/api/settings/payment-templates/route.js"
 }

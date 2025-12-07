@@ -1,7 +1,4 @@
-import { Resend } from 'resend';
 import { NextRequest, NextResponse } from 'next/server';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,9 +12,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // API Key kontrolü
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'E-posta servisi yapılandırılmamış (RESEND_API_KEY eksik)' },
+        { status: 503 }
+      );
+    }
+
+    // Dinamik import - sadece çalışma zamanında
+    const { Resend } = await import('resend');
+    const resend = new Resend(apiKey);
+
     // E-posta gönder
     const response = await resend.emails.send({
-      from: 'AkademiHub <info@onayli-domainim.com>',
+      from: 'AkademiHub <info@akademihub.com>',
       to,
       subject,
       html: body,
@@ -35,7 +45,6 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    // eslint-disable-next-line no-console
     console.error('E-posta Gönderme Hatası:', error);
 
     return NextResponse.json(
