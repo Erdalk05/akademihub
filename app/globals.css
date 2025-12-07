@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* WhatsApp Theme Colors */
+:root {
+  --wa-dark-green: #075E54;
+  --wa-green: #128C7E;
+  --wa-light-green: #25D366;
+  --wa-chat-bg: #DCF8C6;
+  --primary-color: #25D366;
+  --secondary-color: #128C7E;
+}
+
+/* Base */
+body {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
+  min-height: 100vh;
+}
+
+/* Uppercase Inputs */
+input:not([type="checkbox"]):not([type="radio"]):not([type="password"]):not([type="email"]):not([type="date"]):not([type="number"]),
+textarea, select, option {
+  text-transform: uppercase !important;
+}
+
+input::placeholder, textarea::placeholder {
+  text-transform: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #DCF8C6; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #25D366; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #128C7E; }
+
+/* WhatsApp Color Overrides */
+.bg-indigo-600, .bg-purple-600, .bg-blue-600 { background-color: #25D366 !important; }
+.bg-indigo-600:hover, .bg-purple-600:hover, .bg-blue-600:hover { background-color: #128C7E !important; }
+.bg-indigo-50, .bg-purple-50, .bg-blue-50 { background-color: #DCF8C6 !important; }
+.text-indigo-600, .text-purple-600, .text-blue-600 { color: #25D366 !important; }
+.text-indigo-700, .text-purple-700, .text-blue-700 { color: #075E54 !important; }
+.border-indigo-500, .border-purple-500, .border-blue-500 { border-color: #25D366 !important; }
+
+/* Dark Mode */
+html.dark body { background: linear-gradient(135deg, #0d1f12 0%, #1a3d27 50%, #0f2818 100%) !important; }
+html.dark .bg-white { @apply bg-[#1a3d27] text-slate-100; }
+html.dark input, html.dark textarea, html.dark select { @apply bg-[#0d1f12] text-slate-100 border-[#25D366]/30; }
+html.dark ::-webkit-scrollbar-track { background: #0d1f12; }
