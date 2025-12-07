@@ -8,36 +8,49 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  // Client-side check
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch notifications from localStorage (or API in future)
   const fetchNotifications = useCallback(async () => {
+    // SSR kontrolü
+    if (typeof window === 'undefined') return;
+    
     try {
-      // For now, load from localStorage
       const stored = localStorage.getItem('akademi_notifications');
       if (stored) {
         const parsed = JSON.parse(stored);
         setNotifications(parsed);
       }
-
-      // TODO: Replace with API call
-      // const response = await fetch('/api/notifications');
-      // const data = await response.json();
-      // setNotifications(data.notifications);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    if (isClient) {
+      fetchNotifications();
+    }
+  }, [isClient, fetchNotifications]);
 
   // Save to localStorage whenever notifications change
   useEffect(() => {
+    // SSR kontrolü
+    if (typeof window === 'undefined') return;
+    if (!isClient) return;
+    
     if (notifications.length > 0) {
-      localStorage.setItem('akademi_notifications', JSON.stringify(notifications));
+      try {
+        localStorage.setItem('akademi_notifications', JSON.stringify(notifications));
+      } catch (error) {
+        console.error('Failed to save notifications:', error);
+      }
     }
-  }, [notifications]);
+  }, [notifications, isClient]);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
     const newNotification: Notification = {
@@ -79,7 +92,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const clearAll = useCallback(() => {
     setNotifications([]);
-    localStorage.removeItem('akademi_notifications');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('akademi_notifications');
+      } catch (error) {
+        console.error('Failed to clear notifications:', error);
+      }
+    }
     toast.success('Tüm bildirimler temizlendi');
   }, []);
 
@@ -124,8 +143,3 @@ function getNotificationIcon(type: NotificationType): string {
   };
   return icons[type] || '🔔';
 }
-
-
-
-
-
