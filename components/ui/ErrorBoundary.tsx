@@ -61,15 +61,14 @@ class ErrorBoundary extends Component<Props, State> {
               Üzgünüz, beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin veya ana sayfaya dönün.
             </p>
 
-            {/* Error Details (Development only) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="mb-6 text-left">
+            {/* Error Details - Her zaman göster */}
+            {this.state.error && (
+              <details className="mb-6 text-left" open>
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                  Hata Detayları (Geliştirici)
+                  Hata Detayları
                 </summary>
-                <pre className="mt-2 p-3 bg-gray-100 rounded text-xs text-gray-800 overflow-auto">
+                <pre className="mt-2 p-3 bg-gray-100 rounded text-xs text-gray-800 overflow-auto max-h-40">
                   {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
                 </pre>
               </details>
             )}
