@@ -14,7 +14,7 @@ import { usePermission } from '@/lib/hooks/usePermission';
 const TopBar: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const { isAdmin } = usePermission();
+  const { isAdmin, isLoading } = usePermission();
 
   useEffect(() => {
     setMounted(true);
@@ -64,7 +64,7 @@ const TopBar: React.FC = () => {
         )}
 
         {/* Settings - Sadece Admin görebilir */}
-        {isAdmin && (
+        {mounted && !isLoading && isAdmin && (
           <a
             href="/settings"
             className="p-2.5 hover:bg-[#DCF8C6] dark:hover:bg-[#128C7E] rounded-xl transition"
@@ -78,7 +78,7 @@ const TopBar: React.FC = () => {
         <NotificationBell />
 
         {/* Activity Logs - Sadece Admin görebilir */}
-        {isAdmin && <ActivityLogButton />}
+        {mounted && !isLoading && isAdmin && <ActivityLogButton />}
       </div>
     </nav>
   );

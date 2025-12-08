@@ -23,26 +23,45 @@ export default function LayoutWrapper({
 
   // Load sidebar state from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('sidebarOpen');
-    if (saved !== null) {
-      setIsOpen(saved === 'true');
-    } else {
-      setIsOpen(false);
+    // SSR guard
+    if (typeof window === 'undefined') {
+      setMounted(true);
+      return;
+    }
+    
+    try {
+      const saved = localStorage.getItem('sidebarOpen');
+      if (saved !== null) {
+        setIsOpen(saved === 'true');
+      } else {
+        setIsOpen(false);
+      }
+    } catch (error) {
+      console.error('localStorage error:', error);
     }
     setMounted(true);
   }, []);
 
   // Save sidebar state to localStorage
   useEffect(() => {
-    if (mounted) {
+    // SSR guard
+    if (typeof window === 'undefined') return;
+    if (!mounted) return;
+    
+    try {
       localStorage.setItem('sidebarOpen', String(isOpen));
+    } catch (error) {
+      console.error('localStorage save error:', error);
     }
   }, [isOpen, mounted]);
 
   // Global shortcut: Cmd/Ctrl + K to open search
   useEffect(() => {
+    // SSR guard
+    if (typeof window === 'undefined') return;
+    
     const handler = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const isMac = typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC');
       if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowSearch(true);
@@ -104,10 +123,10 @@ export default function LayoutWrapper({
           collapsed ? 'w-16' : 'w-64'
         } ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         onMouseEnter={() => {
-          if (window.innerWidth >= 1024) setCollapsed(false);
+          if (typeof window !== 'undefined' && window.innerWidth >= 1024) setCollapsed(false);
         }}
         onMouseLeave={() => {
-          if (window.innerWidth >= 1024) setCollapsed(true);
+          if (typeof window !== 'undefined' && window.innerWidth >= 1024) setCollapsed(true);
         }}
       >
         <Sidebar onClose={() => setIsOpen(false)} collapsed={collapsed} />
