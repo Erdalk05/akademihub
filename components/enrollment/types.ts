@@ -174,6 +174,9 @@ export const ACADEMIC_YEARS = [
 
 // Otomatik öğrenci numarası oluştur
 export const generateStudentNo = (): string => {
+  if (typeof window === 'undefined') {
+    return '250000'; // SSR için sabit değer
+  }
   const year = new Date().getFullYear().toString().slice(-2);
   const random = Math.floor(Math.random() * 9000) + 1000;
   return `${year}${random}`;
@@ -184,7 +187,7 @@ export const defaultStudent: Student = {
   firstName: '',
   lastName: '',
   tcNo: '',
-  studentNo: generateStudentNo(),
+  studentNo: '', // Client tarafında generateStudentNo() ile set edilecek
   birthDate: '',
   birthPlace: '',
   nationality: 'TC',
@@ -226,7 +229,7 @@ export const defaultEducation: Education = {
   gradeName: '',
   branchId: '',
   branchName: '',
-  academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+  academicYear: '2024-2025',
   studentType: 'new',
 };
 
@@ -236,7 +239,7 @@ export const defaultPayment: Payment = {
   discountReason: '',
   netFee: 0,
   downPayment: 0,
-  downPaymentDate: new Date().toISOString().split('T')[0], // Bugünün tarihi
+  downPaymentDate: '', // Client tarafında set edilecek
   installmentCount: 1,
   firstInstallmentDate: '', // İlk taksit başlangıç tarihi
   monthlyInstallment: 0,

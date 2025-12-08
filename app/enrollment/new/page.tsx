@@ -35,6 +35,15 @@ export default function NewEnrollmentPage() {
 
   useEffect(() => {
     setIsHydrated(true);
+    // Client tarafında studentNo ve downPaymentDate'i set et
+    if (!store.student.studentNo) {
+      const year = new Date().getFullYear().toString().slice(-2);
+      const random = Math.floor(Math.random() * 9000) + 1000;
+      store.updateStudent({ studentNo: `${year}${random}` });
+    }
+    if (!store.payment.downPaymentDate) {
+      store.updatePayment({ downPaymentDate: new Date().toISOString().split('T')[0] });
+    }
   }, []);
 
   const handlePrint = () => setShowPrint(true);
