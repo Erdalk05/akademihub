@@ -36,30 +36,30 @@ export default function RootLayout({
             <RoleProvider>
               <NotificationProvider>
                 <Toaster 
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '12px 20px',
-                  fontSize: '14px',
-                },
-                success: {
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#fff',
-                  },
-                },
-                error: {
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
-                  },
-                },
-              }}
-            />
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                      borderRadius: '8px',
+                      padding: '12px 20px',
+                      fontSize: '14px',
+                    },
+                    success: {
+                      iconTheme: {
+                        primary: '#10b981',
+                        secondary: '#fff',
+                      },
+                    },
+                    error: {
+                      iconTheme: {
+                        primary: '#ef4444',
+                        secondary: '#fff',
+                      },
+                    },
+                  }}
+                />
                 <LayoutWrapper>
                   {children}
                 </LayoutWrapper>
