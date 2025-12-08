@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Student } from '@/types/student.types';
 
 export interface PaymentPlan {
@@ -292,6 +292,17 @@ export const useStudentStore = create<StudentStoreState>()(
     }),
     {
       name: 'student-store',
+      storage: createJSONStorage(() => {
+        // SSR'da localStorage yok
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+        return localStorage;
+      }),
     }
   )
 );
