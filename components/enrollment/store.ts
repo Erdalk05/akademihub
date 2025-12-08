@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { 
   EnrollmentData, 
   Student, 
@@ -204,16 +204,6 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         payment: state.payment,
         contract: state.contract,
         status: state.status,
-      }),
-      storage: createJSONStorage(() => {
-        if (typeof window === 'undefined') {
-          return {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {},
-          };
-        }
-        return localStorage;
       }),
     }
   )
