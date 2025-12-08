@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import {
   UserPlus,
@@ -9,7 +9,6 @@ import {
   BarChart3,
   FileText,
   FileSignature,
-  Settings,
 } from 'lucide-react';
 import { usePermission } from '@/lib/hooks/usePermission';
 
@@ -24,7 +23,16 @@ interface QuickAction {
 }
 
 const QuickAccessPanel: React.FC = () => {
-  const { isAdmin, isAccounting } = usePermission();
+  const { isAdmin, isAccounting, isLoading } = usePermission();
+
+  // Loading durumunda boş dön
+  if (isLoading) {
+    return <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-gray-200 rounded-2xl h-32" />
+      ))}
+    </div>;
+  }
 
   // WhatsApp temalı hızlı erişim butonları
   const allQuickActions: QuickAction[] = [
@@ -41,7 +49,7 @@ const QuickAccessPanel: React.FC = () => {
       icon: <CreditCard size={24} />,
       gradient: 'from-[#25D366] to-[#128C7E]',
       description: 'Öğrenci seçerek ödeme al',
-      accountingOrAdmin: true, // Sadece Admin veya Muhasebe
+      accountingOrAdmin: true,
     },
     {
       label: 'Öğrenci Listesi',
@@ -56,7 +64,7 @@ const QuickAccessPanel: React.FC = () => {
       icon: <BarChart3 size={24} />,
       gradient: 'from-[#075E54] to-[#25D366]',
       description: 'Mali özet',
-      accountingOrAdmin: true, // Sadece Admin veya Muhasebe
+      accountingOrAdmin: true,
     },
     {
       label: 'Rapor Oluştur',
@@ -64,7 +72,7 @@ const QuickAccessPanel: React.FC = () => {
       icon: <FileText size={24} />,
       gradient: 'from-[#128C7E] to-[#25D366]',
       description: 'Detaylı raporlar',
-      accountingOrAdmin: true, // Sadece Admin veya Muhasebe
+      accountingOrAdmin: true,
     },
     {
       label: 'Sözleşmeler',
@@ -75,21 +83,13 @@ const QuickAccessPanel: React.FC = () => {
     },
   ];
 
-  // Rol bazlı filtreleme
-  const quickActions = useMemo(() => {
-    return allQuickActions.filter(action => {
-      // Admin her şeyi görebilir
-      if (isAdmin) return true;
-      
-      // Admin only öğeler - sadece admin görebilir
-      if (action.adminOnly) return false;
-      
-      // Accounting veya Admin gerektiren öğeler
-      if (action.accountingOrAdmin && !isAccounting) return false;
-      
-      return true;
-    });
-  }, [isAdmin, isAccounting]);
+  // Rol bazlı filtreleme - useMemo kaldırıldı
+  const quickActions = allQuickActions.filter(action => {
+    if (isAdmin) return true;
+    if (action.adminOnly) return false;
+    if (action.accountingOrAdmin && !isAccounting) return false;
+    return true;
+  });
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

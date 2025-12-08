@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -40,7 +40,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
 }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAdmin, isAccounting, canViewSettings, canViewReports, menuVisibility } = usePermission();
+  const { isAdmin, isAccounting, isLoading } = usePermission();
   const { currentUser, setCurrentUser } = useRole();
   const { logout } = useAuthStore();
   
@@ -92,36 +92,27 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
     },
   ];
 
-  // Rol bazlı filtreleme
-  const navigationItems = useMemo(() => {
-    return allNavigationItems
-      .filter(item => {
-        // Admin her şeyi görebilir
-        if (isAdmin) return true;
-        
-        // Admin only öğeler
-        if (item.adminOnly) return false;
-        
-        // Accounting veya Admin gerektiren öğeler
-        if (item.accountingOrAdmin && !isAccounting) return false;
-        
-        return true;
-      })
-      .map(item => {
-        // Alt menüleri de filtrele
-        if (item.submenu) {
-          return {
-            ...item,
-            submenu: item.submenu.filter(subItem => {
-              if (isAdmin) return true;
-              if (subItem.adminOnly) return false;
-              return true;
-            }),
-          };
-        }
-        return item;
-      });
-  }, [isAdmin, isAccounting]);
+  // Rol bazlı filtreleme - useMemo kaldırıldı
+  const navigationItems = allNavigationItems
+    .filter(item => {
+      if (isAdmin) return true;
+      if (item.adminOnly) return false;
+      if (item.accountingOrAdmin && !isAccounting) return false;
+      return true;
+    })
+    .map(item => {
+      if (item.submenu) {
+        return {
+          ...item,
+          submenu: item.submenu.filter(subItem => {
+            if (isAdmin) return true;
+            if (subItem.adminOnly) return false;
+            return true;
+          }),
+        };
+      }
+      return item;
+    });
   
   const getActiveMenu = () => {
     if (pathname.startsWith('/finance/reports')) return 'Raporlar';
@@ -170,6 +161,27 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   };
 
   const roleBadge = getRoleBadge();
+
+  // Loading durumunda basit sidebar göster
+  if (isLoading) {
+    return (
+      <div className="h-full flex flex-col bg-gradient-to-b from-[#075E54] via-[#128C7E] to-[#075E54]">
+        <div className="p-6 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
+              AH
+            </div>
+            {!collapsed && <span className="font-bold text-lg text-white">AkademiHub</span>}
+          </div>
+        </div>
+        <div className="flex-1 p-4 animate-pulse">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-12 bg-white/10 rounded-xl mb-2" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-[#075E54] via-[#128C7E] to-[#075E54]">
