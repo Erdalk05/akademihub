@@ -4,8 +4,10 @@
  * AI Features: Auto-draft, Smart suggestions, Real-time validation
  */
 
+'use client';
+
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import type { Contract, ContractTemplate, ContractFormData, AIContractAnalysis, AIContractSuggestions, ContractValidationResult } from '@/types/contract.types';
 
 interface ContractStore {
@@ -428,6 +430,16 @@ export const useContractStore = create<ContractStore>()(
       }),
       {
         name: 'contract-store',
+        storage: createJSONStorage(() => {
+          if (typeof window === 'undefined') {
+            return {
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+            };
+          }
+          return localStorage;
+        }),
         partialize: (state) => ({
           draftFormData: state.draftFormData,
           contracts: state.contracts,

@@ -1,5 +1,7 @@
+'use client';
+
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Eğitim yıllarını oluştur (son 5 yıl + gelecek 2 yıl)
 const generateAcademicYears = () => {
@@ -44,6 +46,16 @@ export const useAcademicYearStore = create<AcademicYearState>()(
     }),
     {
       name: 'academic-year-storage',
+      storage: createJSONStorage(() => {
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+        return localStorage;
+      }),
     }
   )
 );
