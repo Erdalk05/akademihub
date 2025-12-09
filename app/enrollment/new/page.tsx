@@ -24,6 +24,7 @@ const STEPS = [
 ];
 
 export default function NewEnrollmentPage() {
+  const store = useEnrollmentStore();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -32,29 +33,9 @@ export default function NewEnrollmentPage() {
   const [showPrint, setShowPrint] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Store'u ayrı olarak al - hydration sonrası
-  const store = useEnrollmentStore();
-
   useEffect(() => {
     setIsHydrated(true);
   }, []);
-
-  // Hydration tamamlandıktan sonra studentNo ve downPaymentDate'i set et
-  useEffect(() => {
-    if (isHydrated) {
-      const currentStudentNo = useEnrollmentStore.getState().student.studentNo;
-      const currentDownPaymentDate = useEnrollmentStore.getState().payment.downPaymentDate;
-      
-      if (!currentStudentNo) {
-        const year = new Date().getFullYear().toString().slice(-2);
-        const random = Math.floor(Math.random() * 9000) + 1000;
-        useEnrollmentStore.getState().updateStudent({ studentNo: `${year}${random}` });
-      }
-      if (!currentDownPaymentDate) {
-        useEnrollmentStore.getState().updatePayment({ downPaymentDate: new Date().toISOString().split('T')[0] });
-      }
-    }
-  }, [isHydrated]);
 
   const handlePrint = () => setShowPrint(true);
 
