@@ -47,7 +47,7 @@ const WidgetSkeleton = () => (
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, token } = useAuthStore();
+  const { user, token, _hasHydrated } = useAuthStore();
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,12 +58,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // Auth kontrolü - hydration tamamlandıktan sonra
+  useEffect(() => {
+    if (!_hasHydrated) return; // Hydration bekle
+    
     if (!token) {
       router.push('/login');
       return;
     }
     fetchDashboardData(selectedYear);
-  }, [token, router, selectedYear]);
+  }, [_hasHydrated, token, router, selectedYear]);
 
   const fetchDashboardData = async (academicYear: string) => {
     setIsLoading(true);
@@ -86,7 +92,7 @@ export default function DashboardPage() {
     setIsYearDropdownOpen(false);
   };
 
-  if (!isClient || !user) {
+  if (!isClient || !_hasHydrated || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#075E54] to-[#128C7E] flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-white animate-spin" />
