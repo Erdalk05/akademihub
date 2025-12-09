@@ -34,8 +34,6 @@ export default function NewEnrollmentPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Manuel hydration - store'u client tarafında hydrate et
-    useEnrollmentStore.persist.rehydrate();
     setIsHydrated(true);
   }, []);
 

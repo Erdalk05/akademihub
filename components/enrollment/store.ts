@@ -215,7 +215,6 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         }
         return localStorage;
       }),
-      skipHydration: true,
     }
   )
 );
