@@ -154,16 +154,27 @@ export default function LoginPage() {
       updatedAt: new Date(),
     };
     
+    // Token oluştur
+    const token = 'secure_token_' + Date.now();
+    
     // Her iki store'u da güncelle
     setCurrentUser(roleUser);
     setUser(authUser);
+    
+    // AuthStore'a token'ı da ekle
+    useAuthStore.setState({ 
+      user: authUser, 
+      token: token, 
+      isAuthenticated: true,
+      _hasHydrated: true 
+    });
     
     // localStorage'a da kaydet
     localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
     localStorage.setItem('auth-storage', JSON.stringify({
       state: {
         user: authUser,
-        token: 'secure_token_' + Date.now(),
+        token: token,
         isAuthenticated: true,
       },
       version: 0,
@@ -178,7 +189,11 @@ export default function LoginPage() {
     localStorage.setItem('akademi_users', JSON.stringify(updatedUsers));
     
     toast.success(`Hoş geldiniz, ${foundUser.name}!`);
-    router.push('/dashboard');
+    
+    // State güncellemelerinin tamamlanmasını bekle
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 100);
   };
 
   return (
