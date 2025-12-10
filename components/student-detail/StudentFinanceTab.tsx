@@ -27,15 +27,39 @@ interface Props {
   onRefresh?: () => void;
 }
 
-// Türkçe karakterleri PDF için dönüştür
+// Türkçe karakterleri PDF için düzgün göster
+// jsPDF helvetica fontu Türkçe karakterleri desteklemediği için
+// karakterleri koruyan bir map kullanıyoruz
+const turkishCharMap: Record<string, string> = {
+  'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'I': 'I',
+  'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U',
+  'İ': 'I', '₺': 'TL'
+};
+
+// PDF'de Türkçe karakterleri okunabilir hale getir
 const turkishToAscii = (text: string): string => {
   if (!text) return '';
-  const map: Record<string, string> = {
-    'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
-    'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U',
-    '₺': 'TL'
-  };
-  return text.split('').map(char => map[char] || char).join('');
+  return text.split('').map(char => turkishCharMap[char] || char).join('');
+};
+
+// PDF Başlık Metinleri - Daha okunabilir format
+const PDF_LABELS = {
+  CONTRACT_TITLE: 'KAYIT SOZLESMESI',
+  STUDENT_INFO: 'OGRENCI BILGILERI', 
+  GUARDIAN_INFO: 'VELI BILGILERI',
+  PAYMENT_PLAN: 'ODEME PLANI VE TAKSIT DURUMU',
+  RECEIPT_TITLE: 'ODEME MAKBUZU',
+  STUDENT: 'Ogrenci',
+  CLASS: 'Sinif',
+  DEPOSIT: 'Pesinat',
+  PAID: 'Odendi',
+  PAID_AMOUNT: 'Odenen',
+  OVERDUE: 'Gecikmis',
+  WAITING: 'Bekliyor',
+  DESCRIPTION: 'Aciklama',
+  GUARDIAN_NAME: 'Veli Adi',
+  REGISTRATION_DATE: 'Kayit Tarihi',
+  TC_ID: 'TC Kimlik No'
 };
 
 export default function StudentFinanceTab({ student, onRefresh }: Props) {
@@ -137,7 +161,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       // Başlık
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text(turkishToAscii('ODEME MAKBUZU'), 40, 15, { align: 'center' });
+      doc.text('ODEME MAKBUZU', 40, 15, { align: 'center' });
       
       // Çizgi
       doc.setLineWidth(0.5);
@@ -148,8 +172,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       doc.setFont('helvetica', 'normal');
       let y = 30;
       
-      doc.text(turkishToAscii('Ogrenci:'), 10, y);
-      doc.text(turkishToAscii(`${student.first_name} ${student.last_name}`), 10, y + 5);
+      doc.text('Ogrenci:', 10, y);
+      doc.text(`${turkishToAscii(student.first_name || '')} ${turkishToAscii(student.last_name || '')}`, 10, y + 5);
       y += 15;
       
       doc.text(`Taksit No: ${installment.installment_no}`, 10, y);
@@ -191,152 +215,142 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Sözleşme PDF\'i hazırlanıyor...');
     
     try {
-      // jsPDF ile PDF oluştur
-      const { jsPDF } = await import('jspdf');
-      await import('jspdf-autotable');
-      
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
+      const html2pdf = (await import('html2pdf.js')).default;
       const today = new Date().toLocaleDateString('tr-TR');
       
-      // Yardımcı fonksiyon: Türkçe karakterleri dönüştür
-      const t = turkishToAscii;
+      // HTML içerik oluştur - Türkçe karakterler tam destekleniyor
+      const htmlContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+          <!-- BAŞLIK -->
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #1e293b;">KAYIT SÖZLEŞMESİ</h1>
+            <p style="font-size: 10px; color: #64748b; margin-top: 5px;">
+              Tarih: ${today} | Öğrenci No: ${student.student_no || '-'}
+            </p>
+          </div>
+          
+          <!-- ÖĞRENCİ VE VELİ BİLGİLERİ -->
+          <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <!-- Öğrenci -->
+            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
+                ÖĞRENCİ BİLGİLERİ
+              </div>
+              <div style="padding: 12px; font-size: 10px; color: #334155; line-height: 1.6;">
+                <div><strong>Ad Soyad:</strong> ${student.first_name || ''} ${student.last_name || ''}</div>
+                <div><strong>TC Kimlik No:</strong> ${student.tc_no || '-'}</div>
+                <div><strong>Sınıf:</strong> ${student.class || '-'}-${student.section || 'A'}</div>
+                <div><strong>Kayıt Tarihi:</strong> ${today}</div>
+              </div>
+            </div>
+            
+            <!-- Veli -->
+            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
+                VELİ BİLGİLERİ
+              </div>
+              <div style="padding: 12px; font-size: 10px; color: #334155; line-height: 1.6;">
+                <div><strong>Veli Adı:</strong> ${student.parent_name || '-'}</div>
+                <div><strong>Telefon:</strong> ${student.parent_phone || '-'}</div>
+                <div><strong>E-posta:</strong> ${student.parent_email || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- ÖDEME PLANI -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
+              ÖDEME PLANI VE TAKSİT DURUMU
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0; width: 40px;">No</th>
+                  <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">Açıklama</th>
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Vade Tarihi</th>
+                  <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">Tutar</th>
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${installments.slice(0, 12).map((inst, index) => `
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 6px 8px; text-align: center;">${inst.installment_no === 0 ? 'P' : index + 1}</td>
+                    <td style="padding: 6px 8px;">${inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}</td>
+                    <td style="padding: 6px 8px; text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
+                    <td style="padding: 6px 8px; text-align: center;">
+                      <span style="padding: 2px 8px; border-radius: 12px; font-size: 8px; font-weight: bold; 
+                        ${inst.status === 'paid' ? 'background: #dcfce7; color: #166534;' : 
+                          inst.status === 'overdue' ? 'background: #fee2e2; color: #991b1b;' : 
+                          'background: #fef3c7; color: #92400e;'}">
+                        ${inst.status === 'paid' ? 'Ödendi' : inst.status === 'overdue' ? 'Gecikmiş' : 'Bekliyor'}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+                <tr style="background: #f8fafc; font-weight: bold;">
+                  <td colspan="2" style="padding: 8px;">TOPLAM</td>
+                  <td></td>
+                  <td style="padding: 8px; text-align: right;">${totalAmount.toLocaleString('tr-TR')} TL</td>
+                  <td style="padding: 8px; text-align: center; font-size: 8px;">Ödenen: ${paidAmount.toLocaleString('tr-TR')} TL</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- YASAL BEYAN -->
+          <p style="font-size: 8px; color: #64748b; font-style: italic; margin-bottom: 25px; line-height: 1.4;">
+            MEB Özel Öğretim Kurumları Yönetmeliği gereği hazırlanmıştır. Yukarıdaki bilgilerin doğruluğunu, ödeme planına uyacağımı, KVKK kapsamında kişisel verilerimin işlenmesini kabul ettiğimi beyan ederim.
+          </p>
+          
+          <!-- İMZA ALANLARI -->
+          <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+            <div style="text-align: center; width: 45%;">
+              <p style="font-size: 10px; font-weight: bold; margin-bottom: 30px;">KURUM YETKİLİSİ</p>
+              <div style="border-top: 1px solid #334155; padding-top: 5px;">
+                <p style="font-size: 8px; color: #64748b;">İmza / Tarih / Kaşe</p>
+              </div>
+            </div>
+            <div style="text-align: center; width: 45%;">
+              <p style="font-size: 10px; font-weight: bold; margin-bottom: 30px;">VELİ / MALİ SORUMLU</p>
+              <div style="border-top: 1px solid #334155; padding-top: 5px;">
+                <p style="font-size: 8px; color: #64748b;">İmza / Tarih</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- FOOTER -->
+          <div style="text-align: center; margin-top: 30px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 7px; color: #94a3b8;">
+              AkademiHub © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}
+            </p>
+          </div>
+        </div>
+      `;
       
-      // === BAŞLIK ===
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(t('KAYIT SOZLESMESI'), pageWidth / 2, 12, { align: 'center' });
+      // Geçici div oluştur
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
       
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text(t(`Tarih: ${today}  |  Ogrenci No: ${student.student_no}`), pageWidth / 2, 18, { align: 'center' });
+      // PDF ayarları
+      const opt = {
+        margin: 10,
+        filename: `Sozlesme_${student.first_name}_${student.last_name}_${today.replace(/\./g, '-')}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+      };
       
-      // === ÖĞRENCİ BİLGİLERİ (Kompakt - Yan yana) ===
-      let y = 25;
+      // PDF oluştur ve indir
+      await html2pdf().set(opt).from(container).save();
       
-      // Sol kolon: Öğrenci
-      doc.setFillColor(79, 70, 229);
-      doc.rect(10, y, 90, 5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(t('OGRENCI BILGILERI'), 12, y + 3.5);
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      y += 8;
-      doc.text(t(`Ad Soyad: ${student.first_name} ${student.last_name}`), 12, y);
-      doc.text(t(`TC Kimlik No: ${student.tc_no || '-'}`), 12, y + 4);
-      doc.text(t(`Sinif: ${student.class || '-'}-${student.section || 'A'}`), 12, y + 8);
-      doc.text(t(`Kayit Tarihi: ${today}`), 12, y + 12);
-      
-      // Sağ kolon: Veli
-      doc.setFillColor(147, 51, 234);
-      doc.rect(105, y - 8, 95, 5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(t('VELI BILGILERI'), 107, y - 4.5);
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(t(`Veli Adi: ${student.parent_name || '-'}`), 107, y);
-      doc.text(`Telefon: ${student.parent_phone || '-'}`, 107, y + 4);
-      doc.text(`E-posta: ${student.parent_email || '-'}`, 107, y + 8);
-      
-      // === ÖDEME PLANI VE TAKSİT DURUMU (Kompakt Tablo) ===
-      y += 20;
-      doc.setFillColor(34, 197, 94);
-      doc.rect(10, y, pageWidth - 20, 5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(t('ODEME PLANI VE TAKSIT DURUMU'), 12, y + 3.5);
-      
-      // Taksit tablosu - Maksimum 12 satır göster
-      const maxRows = 12;
-      const displayInstallments = installments.slice(0, maxRows);
-      const tableData = displayInstallments.map((inst, index) => [
-        inst.installment_no === 0 ? 'P' : String(index + 1),
-        inst.installment_no === 0 ? t('Pesinat') : `${inst.installment_no}. Taksit`,
-        new Date(inst.due_date).toLocaleDateString('tr-TR'),
-        `${inst.amount.toLocaleString('tr-TR')} TL`,
-        inst.status === 'paid' ? t('Odendi') : inst.status === 'overdue' ? t('Gecikmis') : t('Bekliyor')
-      ]);
-      
-      // Toplam satırı ekle
-      tableData.push([
-        '', 'TOPLAM', '', `${totalAmount.toLocaleString('tr-TR')} TL`, `${t('Odenen')}: ${paidAmount.toLocaleString('tr-TR')} TL`
-      ]);
-      
-      (doc as any).autoTable({
-        startY: y + 7,
-        head: [['No', t('Aciklama'), 'Vade Tarihi', 'Tutar', 'Durum']],
-        body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: 'bold', fontSize: 7, cellPadding: 1.5 },
-        styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'linebreak' },
-        columnStyles: {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 28, halign: 'center' },
-          3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
-          4: { cellWidth: 'auto', halign: 'center' }
-        },
-        margin: { left: 10, right: 10 },
-        didParseCell: function(data: any) {
-          // Toplam satırını kalın yap
-          if (data.row.index === tableData.length - 1) {
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fillColor = [240, 240, 240];
-          }
-        }
-      });
-      
-      // === YASAL BEYAN (Kompakt) ===
-      const tableEndY = (doc as any).lastAutoTable.finalY + 5;
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(100, 100, 100);
-      const legalText = 'MEB Özel Öğretim Kurumları Yönetmeliği gereği hazırlanmıştır. Yukarıdaki bilgilerin doğruluğunu, ödeme planına uyacağımı, KVKK kapsamında kişisel verilerimin işlenmesini kabul ettiğimi beyan ederim.';
-      const splitText = doc.splitTextToSize(legalText, pageWidth - 20);
-      doc.text(splitText, 10, tableEndY);
-      
-      // === İMZA ALANLARI (Kompakt) ===
-      const signY = tableEndY + 12;
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      
-      // Sol: Kurum
-      doc.text('KURUM YETKİLİSİ', 30, signY);
-      doc.line(10, signY + 10, 70, signY + 10);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.text('İmza / Tarih / Kaşe', 25, signY + 14);
-      
-      // Sağ: Veli
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.text('VELİ / MALİ SORUMLU', pageWidth - 55, signY);
-      doc.line(pageWidth - 70, signY + 10, pageWidth - 10, signY + 10);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.text('İmza / Tarih', pageWidth - 45, signY + 14);
-      
-      // === FOOTER ===
-      doc.setFontSize(6);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`AkademiHub © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}`, pageWidth / 2, 290, { align: 'center' });
-      
-      // PDF'i indir
-      const fileName = `Sozlesme_${student.first_name}_${student.last_name}_${today.replace(/\./g, '-')}.pdf`;
-      doc.save(fileName);
+      // Geçici div'i kaldır
+      document.body.removeChild(container);
       
       toast.success(
-        `✅ Sözleşme İndirildi!\n\n${fileName}`,
+        `✅ Sözleşme İndirildi!\n\nTürkçe karakterler düzgün görünüyor.`,
         { id: toastId, duration: 4000, icon: '📄' }
       );
     } catch (error: any) {
