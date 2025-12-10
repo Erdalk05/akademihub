@@ -38,6 +38,7 @@ type Student = {
   section: string | null;
   tc_id: string | null;
   created_at: string;
+  status?: string | null;
 };
 
 type Installment = {
@@ -57,7 +58,7 @@ export default function ContractsPage() {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'overdue' | 'deleted'>('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,7 +135,15 @@ export default function ContractsPage() {
       
       if (!searchMatch) return false;
       
-      // "Tümü" seçildiğinde tüm öğrencileri göster
+      // Kaydı Silinen filtresi
+      if (statusFilter === 'deleted') {
+        return s.status === 'deleted';
+      }
+      
+      // Diğer filtrelerde kaydı silinen öğrencileri gizle
+      if (s.status === 'deleted') return false;
+      
+      // "Tümü" seçildiğinde aktif öğrencileri göster
       if (statusFilter === 'all') return true;
       
       const info = getStudentPaymentInfo(s.id);
@@ -457,14 +466,15 @@ export default function ContractsPage() {
                 { value: 'all', label: 'Tümü' },
                 { value: 'paid', label: 'Ödendi' },
                 { value: 'pending', label: 'Bekliyor' },
-                { value: 'overdue', label: 'Gecikmiş' }
+                { value: 'overdue', label: 'Gecikmiş' },
+                { value: 'deleted', label: '🗑️ Kaydı Silinen' }
               ].map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => { setStatusFilter(opt.value as any); setCurrentPage(1); }}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
                     statusFilter === opt.value 
-                      ? 'bg-white text-[#128C7E] shadow-sm' 
+                      ? opt.value === 'deleted' ? 'bg-red-100 text-red-700 shadow-sm' : 'bg-white text-[#128C7E] shadow-sm' 
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >

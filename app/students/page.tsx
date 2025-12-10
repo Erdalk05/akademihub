@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -58,16 +58,22 @@ type StudentRow = {
 
 export default function StudentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Data
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // URL'den filter parametresini oku
+  const urlFilter = searchParams.get('filter');
+  
   // Filters
   const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical' | 'deleted'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical' | 'deleted'>(
+    urlFilter === 'deleted' ? 'deleted' : 'all'
+  );
   const [classFilter, setClassFilter] = useState('');
   
   // UI
