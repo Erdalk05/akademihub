@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, TrendingUp, Users, FileText, ArrowRight, MessageCircle, Shield } from 'lucide-react';
+import { Sparkles, TrendingUp, Users, FileText, ArrowRight, Shield } from 'lucide-react';
 import { useRole } from '@/lib/contexts/RoleContext';
 
 interface HeroBannerProps {
@@ -16,17 +16,15 @@ interface HeroBannerProps {
 
 export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerProps) {
   const [isHovering, setIsHovering] = useState(false);
-  const { currentUser, isAdmin, isAccounting, isStaff } = useRole();
+  const { currentUser, isAdmin, isAccounting } = useRole();
   
-  // Kullanıcı adını al - öncelik: prop > currentUser > fallback
+  // Kullanıcı adını al
   const displayName = userName || currentUser?.name || 'Misafir';
   
-  // Rol bazlı karşılama
-  const getRoleGreeting = () => {
-    if (isAdmin) return '👑 Admin Paneli';
-    if (isAccounting) return '💰 Muhasebe Paneli';
-    if (isStaff) return '📋 Personel Paneli';
-    return '👋 Hoş geldiniz';
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) return `₺${(value / 1000000).toFixed(2)}M`;
+    if (value >= 1000) return `₺${(value / 1000).toFixed(0)}K`;
+    return `₺${value.toLocaleString('tr-TR')}`;
   };
 
   // Rol badge rengi
@@ -35,50 +33,31 @@ export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerPr
     if (isAccounting) return 'bg-emerald-500/30 text-emerald-100 border-emerald-400/50';
     return 'bg-sky-500/30 text-sky-100 border-sky-400/50';
   };
-  
-  const formatCurrency = (value: number) => {
-    if (value >= 1000000) return `₺${(value / 1000000).toFixed(2)}M`;
-    if (value >= 1000) return `₺${(value / 1000).toFixed(0)}K`;
-    return `₺${value.toLocaleString('tr-TR')}`;
-  };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] p-8 mb-8 shadow-2xl">
-      {/* Animated background elements */}
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] p-5 mb-4 shadow-xl">
+      {/* Animated background */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse" />
-      </div>
-      
-      {/* WhatsApp pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-4 left-4">
-          <MessageCircle className="w-16 h-16" />
-        </div>
-        <div className="absolute top-20 right-20">
-          <MessageCircle className="w-12 h-12" />
-        </div>
-        <div className="absolute bottom-10 left-1/3">
-          <MessageCircle className="w-10 h-10" />
-        </div>
       </div>
 
       {/* Content */}
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="flex items-center gap-3 mb-3">
-              <p className="text-white/80 text-sm">Hoş geldiniz,</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-white/80 text-xs">Hoş geldiniz,</p>
               {currentUser && (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getRoleBadgeClass()}`}>
-                  <Shield className="w-3 h-3" />
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${getRoleBadgeClass()}`}>
+                  <Shield className="w-2.5 h-2.5" />
                   {isAdmin ? 'Admin' : isAccounting ? 'Muhasebe' : 'Personel'}
                 </span>
               )}
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-2xl font-bold text-white">
               {displayName}! 👋
             </h1>
-            <p className="text-white/70">
+            <p className="text-white/70 text-sm">
               AkademiHub AI sistemi ile yönetim kolaylaştırıldı
             </p>
           </div>
@@ -88,58 +67,58 @@ export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerPr
             onClick={onAIReport}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
-            className={`flex items-center gap-2 px-6 py-3 bg-white rounded-2xl font-semibold text-[#075E54] transition-all transform hover:scale-105 ${
-              isHovering ? 'shadow-2xl' : 'shadow-lg'
+            className={`flex items-center gap-2 px-4 py-2 bg-white rounded-xl font-semibold text-sm text-[#075E54] transition-all transform hover:scale-105 ${
+              isHovering ? 'shadow-xl' : 'shadow-md'
             }`}
           >
-            <Sparkles className="w-5 h-5 text-[#25D366]" />
+            <Sparkles className="w-4 h-4 text-[#25D366]" />
             AI Raporu Oluştur
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
 
-        {/* Quick Stats - Gerçek Veriler */}
+        {/* Quick Stats - Kompakt */}
         {stats && (
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-[#075E54]" />
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-sm">Toplam Sözleşme</span>
+                <span className="text-white/80 text-xs">Toplam Sözleşme</span>
               </div>
-              <p className="text-2xl font-bold text-white">{formatCurrency(stats.revenue)}</p>
-              <p className="text-white/50 text-xs mt-1">Canlı veri</p>
+              <p className="text-xl font-bold text-white">{formatCurrency(stats.revenue)}</p>
+              <p className="text-white/50 text-[10px]">Canlı veri</p>
             </div>
 
-            <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-[#075E54]" />
+            <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
+                  <Users className="w-4 h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-sm">Aktif Öğrenci</span>
+                <span className="text-white/80 text-xs">Aktif Öğrenci</span>
               </div>
-              <p className="text-2xl font-bold text-white">{stats.activeStudents}</p>
-              <p className="text-white/50 text-xs mt-1">Kayıtlı öğrenci</p>
+              <p className="text-xl font-bold text-white">{stats.activeStudents}</p>
+              <p className="text-white/50 text-[10px]">Kayıtlı öğrenci</p>
             </div>
 
-            <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-[#075E54]" />
+            <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-sm">Ödeme Oranı</span>
+                <span className="text-white/80 text-xs">Ödeme Oranı</span>
               </div>
-              <p className="text-2xl font-bold text-white">%{stats.paymentRate.toFixed(1)}</p>
-              <p className="text-white/50 text-xs mt-1">Gerçek oran</p>
+              <p className="text-xl font-bold text-white">%{stats.paymentRate.toFixed(1)}</p>
+              <p className="text-white/50 text-[10px]">Gerçek oran</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Decorative circles - WhatsApp themed */}
-      <div className="absolute top-0 right-0 w-72 h-72 bg-[#25D366]/20 rounded-full -mr-36 -mt-36" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#DCF8C6]/10 rounded-full -ml-32 -mb-32" />
+      {/* Decorative circles */}
+      <div className="absolute top-0 right-0 w-48 h-48 bg-[#25D366]/20 rounded-full -mr-24 -mt-24" />
+      <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#DCF8C6]/10 rounded-full -ml-20 -mb-20" />
     </div>
   );
 }
