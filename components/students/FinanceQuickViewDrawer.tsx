@@ -48,6 +48,7 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
         setInstallments(data.data.slice(0, 5));
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Failed to fetch installments:', error);
     } finally {
       setLoadingInstallments(false);

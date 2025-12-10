@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Download, CreditCard, X, Search, Check, Calendar, FileText, Filter, Loader2, ShieldAlert, Package } from 'lucide-react';
 import FinanceOverview from '@/components/finance/FinanceOverview';
 import CashFlowChart from '@/components/finance/CashFlowChart';
@@ -71,7 +70,6 @@ type CalendarDay = {
 };
 
 export default function FinancePage() {
-  const router = useRouter();
   const { isAdmin, isAccounting, isLoading: permissionLoading } = usePermission();
   
   const [activeTab, setActiveTab] = useState<'overview' | 'income' | 'expense' | 'cashflow'>(
@@ -79,32 +77,7 @@ export default function FinancePage() {
   );
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year'>('month');
   
-  // Erişim kontrolü - Sadece Admin ve Muhasebe erişebilir
-  useEffect(() => {
-    if (!permissionLoading && !isAdmin && !isAccounting) {
-      toast.error('Bu sayfaya erişim yetkiniz bulunmamaktadır.');
-      router.push('/dashboard');
-    }
-  }, [isAdmin, isAccounting, permissionLoading, router]);
-  
-  // Yükleniyor veya yetkisiz ise
-  if (permissionLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-10 h-10 text-[#25D366] animate-spin" />
-      </div>
-    );
-  }
-  
-  if (!isAdmin && !isAccounting) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
-        <ShieldAlert className="w-16 h-16 text-red-500" />
-        <h1 className="text-2xl font-bold text-gray-800">Erişim Reddedildi</h1>
-        <p className="text-gray-500">Bu sayfayı görüntüleme yetkiniz bulunmamaktadır.</p>
-      </div>
-    );
-  }
+  // TÜM HOOKS'LAR BURADA - EARLY RETURN'DEN ÖNCE
   const [installmentSummary, setInstallmentSummary] = useState<InstallmentSummary>({
     total: 0,
     paid: 0,
@@ -540,11 +513,12 @@ export default function FinancePage() {
       : 0;
   const overdueInstallmentCount = debtors.length;
 
-  // Export fonksiyonları
-  const handleExportPayments = (format: 'excel' | 'pdf') => {
+  // Export fonksiyonları (gelecekte kullanılacak)
+  const _handleExportPayments = (format: 'excel' | 'pdf') => {
     const label = format === 'excel' ? 'Excel' : 'PDF';
     alert(`Ödemeler için ${label} dışa aktarma henüz gerçek veriye bağlanmadı.`);
   };
+  void _handleExportPayments; // unused warning suppress
 
   // Not: Giderler için henüz gerçek tablo olmadığı için ayrı bir export butonu gösterilmiyor.
 
@@ -608,6 +582,7 @@ export default function FinancePage() {
         })
         .finally(() => setLoadingStudents(false));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showQuickPaymentModal]);
 
   // Öğrenci seçildiğinde taksitlerini çek
@@ -682,6 +657,7 @@ export default function FinancePage() {
 
       toast.success(`${payments.length} gelir, ${expenses.length} gider kaydı bulundu`);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Tarih filtresi hatası:', error);
       toast.error('Veriler yüklenirken hata oluştu');
     } finally {
@@ -879,12 +855,33 @@ export default function FinancePage() {
         alert('❌ Ödeme işlemi başarısız oldu');
       }
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.error('Ödeme hatası:', e);
       alert('❌ Ödeme işlenirken hata oluştu');
     } finally {
       setProcessingPayment(false);
     }
   };
+
+  // Erişim kontrolü - Yükleniyor
+  if (permissionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-10 h-10 text-[#25D366] animate-spin" />
+      </div>
+    );
+  }
+  
+  // Erişim kontrolü - Yetkisiz
+  if (!isAdmin && !isAccounting) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+        <ShieldAlert className="w-16 h-16 text-red-500" />
+        <h1 className="text-2xl font-bold text-gray-800">Erişim Reddedildi</h1>
+        <p className="text-gray-500">Bu sayfayı görüntüleme yetkiniz bulunmamaktadır.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -1044,7 +1041,7 @@ export default function FinancePage() {
               const paidCount = thisMonthInstallments.filter(i => i.status === 'Ödendi').length;
               const pendingCount = thisMonthInstallments.filter(i => i.status === 'Bekliyor').length;
               const overdueCount = thisMonthInstallments.filter(i => i.status === 'Gecikmiş').length;
-              const totalAmount = thisMonthInstallments.reduce((s, i) => s + i.amount, 0);
+              const _totalAmount = thisMonthInstallments.reduce((s, i) => s + i.amount, 0); void _totalAmount;
               const paidAmount = thisMonthInstallments.filter(i => i.status === 'Ödendi').reduce((s, i) => s + i.amount, 0);
               const pendingAmount = thisMonthInstallments.filter(i => i.status !== 'Ödendi').reduce((s, i) => s + i.remaining, 0);
               
@@ -1633,7 +1630,7 @@ export default function FinancePage() {
                         ))}
                         {dateFilteredData.payments.length > 10 && (
                           <p className="text-xs text-gray-500 text-center pt-2">
-                            +{dateFilteredData.payments.length - 10} kayıt daha (PDF'de görünür)
+                            +{dateFilteredData.payments.length - 10} kayıt daha (PDF&apos;de görünür)
                           </p>
                         )}
                       </div>
@@ -1668,7 +1665,7 @@ export default function FinancePage() {
               {!loadingDateReport && dateFilteredData.payments.length === 0 && dateFilteredData.expenses.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <FileText size={48} className="mx-auto mb-3 text-gray-300" />
-                  <p>Yukarıdan tarih seçip "Verileri Getir" butonuna tıklayın.</p>
+                  <p>Yukarıdan tarih seçip &quot;Verileri Getir&quot; butonuna tıklayın.</p>
                 </div>
               )}
             </div>

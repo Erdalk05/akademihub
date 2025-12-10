@@ -22,7 +22,6 @@ import {
   MoreHorizontal,
   X,
   RefreshCw,
-  ArrowUpDown,
   Loader2
 } from 'lucide-react';
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
