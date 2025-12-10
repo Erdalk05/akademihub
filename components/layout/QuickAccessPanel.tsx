@@ -28,9 +28,9 @@ const QuickAccessPanel: React.FC = () => {
 
   // Loading durumunda boş dön
   if (isLoading) {
-    return <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-gray-200 rounded-2xl h-32" />
+    return <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 animate-pulse">
+      {[...Array(7)].map((_, i) => (
+        <div key={i} className="bg-gray-200 rounded-xl h-28" />
       ))}
     </div>;
   }
@@ -40,14 +40,14 @@ const QuickAccessPanel: React.FC = () => {
     {
       label: 'Yeni Öğrenci',
       href: '/enrollment/new',
-      icon: <UserPlus size={24} />,
+      icon: <UserPlus size={20} />,
       gradient: 'from-[#075E54] to-[#128C7E]',
       description: 'Kayıt formu',
     },
     {
       label: 'Ödeme Al',
       href: '/students',
-      icon: <CreditCard size={24} />,
+      icon: <CreditCard size={20} />,
       gradient: 'from-[#25D366] to-[#128C7E]',
       description: 'Öğrenci seçerek ödeme al',
       accountingOrAdmin: true,
@@ -55,14 +55,14 @@ const QuickAccessPanel: React.FC = () => {
     {
       label: 'Öğrenci Listesi',
       href: '/students',
-      icon: <Users size={24} />,
+      icon: <Users size={20} />,
       gradient: 'from-[#128C7E] to-[#075E54]',
       description: 'Tüm öğrenciler',
     },
     {
       label: 'Finans',
       href: '/finance',
-      icon: <BarChart3 size={24} />,
+      icon: <BarChart3 size={20} />,
       gradient: 'from-[#075E54] to-[#25D366]',
       description: 'Mali özet',
       accountingOrAdmin: true,
@@ -70,7 +70,7 @@ const QuickAccessPanel: React.FC = () => {
     {
       label: 'Rapor Oluştur',
       href: '/finance/reports/builder',
-      icon: <FileText size={24} />,
+      icon: <FileText size={20} />,
       gradient: 'from-[#128C7E] to-[#25D366]',
       description: 'Detaylı raporlar',
       accountingOrAdmin: true,
@@ -78,17 +78,16 @@ const QuickAccessPanel: React.FC = () => {
     {
       label: 'Sözleşmeler',
       href: '/finance/reports/contracts',
-      icon: <FileSignature size={24} />,
+      icon: <FileSignature size={20} />,
       gradient: 'from-[#075E54] to-[#128C7E]',
       description: 'Sözleşme arşivi',
     },
     {
       label: 'Kaydı Silinen',
       href: '/students?filter=deleted',
-      icon: <UserX size={24} />,
+      icon: <UserX size={20} />,
       gradient: 'from-red-500 to-rose-600',
       description: 'Silinen öğrenciler',
-      accountingOrAdmin: true,
     },
   ];
 
