@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, CreditCard, X, Search, Check, Calendar, FileText, Filter, Loader2, ShieldAlert } from 'lucide-react';
+import { Download, CreditCard, X, Search, Check, Calendar, FileText, Filter, Loader2, ShieldAlert, Package } from 'lucide-react';
 import FinanceOverview from '@/components/finance/FinanceOverview';
 import CashFlowChart from '@/components/finance/CashFlowChart';
 import IncomeExpenseChart from '@/components/finance/IncomeExpenseChart';
@@ -952,8 +952,8 @@ export default function FinancePage() {
       {/* Özet Kartları */}
       <FinanceOverview data={stats} />
 
-      {/* Ek Finans Kartları: Tahsilat Oranı, Gecikmiş Taksit, Aktif Öğrenci */}
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Ek Finans Kartları: Tahsilat Oranı, Gecikmiş Taksit, Aktif Öğrenci, Diğer Gelirler */}
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg bg-white p-4 shadow-sm border border-gray-100">
           <p className="text-xs font-medium text-gray-500 mb-1">Tahsilat Oranı</p>
           <p className="text-2xl font-bold text-emerald-600">
@@ -977,6 +977,18 @@ export default function FinancePage() {
             Supabase öğrenci tablosundan okunan toplam
           </p>
         </div>
+        <a href="/finance/other-income" className="rounded-lg bg-white p-4 shadow-sm border border-blue-100 hover:border-blue-300 hover:shadow-md transition cursor-pointer block">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-blue-600">Diğer Gelirler</p>
+            <Package size={16} className="text-blue-500" />
+          </div>
+          <p className="text-lg font-bold text-blue-600">
+            Görüntüle →
+          </p>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Kitap, kırtasiye, yemek vb.
+          </p>
+        </a>
       </div>
 
       {/* Tabs */}

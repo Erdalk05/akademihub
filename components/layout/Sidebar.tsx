@@ -18,6 +18,7 @@ import {
   BarChart3,
   FileSignature,
   Shield,
+  Package,
 } from 'lucide-react';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -68,6 +69,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       submenu: [
         { label: 'Genel Bakis', href: '/finance', icon: <TrendingUp size={16} /> },
         { label: 'Tahsilatlar', href: '/finance/payments', icon: <CreditCard size={16} /> },
+        { label: 'Diger Gelirler', href: '/finance/other-income', icon: <Package size={16} /> },
         { label: 'Giderler', href: '/finance/expenses', icon: <Zap size={16} /> },
         { label: 'Kasa & Banka', href: '/finance/cash-bank', icon: <Wallet size={16} /> },
       ],
