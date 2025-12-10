@@ -34,9 +34,8 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(req.url);
     
-    // Akademik yıl parametresi
-    const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
-    const { start: yearStart, end: yearEnd } = getAcademicYearDates(academicYear);
+    // Akademik yıl parametresi (şu an sadece referans için, tüm aktif öğrenciler gösteriliyor)
+    // const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
     
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
@@ -63,33 +62,15 @@ function getCurrentAcademicYear() {
     if (studentsResult.error) throw studentsResult.error;
     if (installmentsResult.error) throw installmentsResult.error;
 
-    const allStudents = studentsResult.data || [];
+    // TÜM AKTİF öğrenciler (deleted olmayanlar)
+    const students = studentsResult.data || [];
     const allInstallments = installmentsResult.data || [];
     
-    // AKADEMİK YILA GÖRE FİLTRELEME
-    // Öğrencileri created_at tarihine göre filtrele
-    const students = allStudents.filter(s => {
-      if (s.created_at) {
-        return s.created_at >= yearStart && s.created_at <= yearEnd;
-      }
-      return true;
-    });
-    
-    // Sadece bu yıla ait öğrencilerin ID'lerini al
+    // Tüm öğrencilerin ID'lerini al
     const studentIds = new Set(students.map(s => s.id));
     
-    // Taksitleri filtrele: sadece bu yıla ait öğrencilerin taksitleri
-    // VE taksit tarihi bu akademik yıl içinde olanlar
-    const installments = allInstallments.filter(inst => {
-      // Önce öğrenci ID'sine göre filtrele
-      if (!studentIds.has(inst.student_id)) return false;
-      
-      // Taksit tarihi bu yıl içinde mi kontrol et
-      if (inst.due_date) {
-        return inst.due_date >= yearStart && inst.due_date <= yearEnd;
-      }
-      return true;
-    });
+    // Taksitleri filtrele: sadece aktif öğrencilerin taksitleri
+    const installments = allInstallments.filter(inst => studentIds.has(inst.student_id));
 
     // KPI HESAPLAMALARI (Seçilen yıla ait verilerden)
     const activeStudents = students.length;
