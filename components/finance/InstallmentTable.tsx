@@ -3,13 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FinanceInstallment } from '@/lib/types/finance';
-import { CheckCircle2, Clock, AlertCircle, CreditCard, FileText, Edit, User, Calendar, MessageSquare, MoreVertical, Trash2, DollarSign } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, CreditCard, FileText, Edit, User, Calendar, MessageSquare, MoreVertical, Trash2, DollarSign, MessageCircle } from 'lucide-react';
 
 interface Props {
   installments: FinanceInstallment[];
   onPay: (id: string) => void;
   onEdit: (id: string) => void;
   onReceipt: (id: string) => void;
+  onWhatsApp?: (installment: FinanceInstallment) => void;
   /**
    * Kaynak bağlamı:
    * - 'education' → Eğitim taksitleri
@@ -38,6 +39,7 @@ export default function InstallmentTable({
   onPay,
   onEdit,
   onReceipt,
+  onWhatsApp,
   source,
   sourceContext,
 }: Props) {
@@ -393,6 +395,21 @@ export default function InstallmentTable({
                               >
                                 <FileText size={16} />
                                 Makbuz Görüntüle
+                              </button>
+                            )}
+                            
+                            {/* WhatsApp ile Gönder */}
+                            {(isFullyPaid || isPartial) && onWhatsApp && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onWhatsApp(inst);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm font-medium text-green-700 hover:bg-green-50 flex items-center gap-3 transition-colors"
+                              >
+                                <MessageCircle size={16} />
+                                WhatsApp ile Gönder
                               </button>
                             )}
                             

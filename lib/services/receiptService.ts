@@ -1,5 +1,151 @@
 import { FinanceInstallment } from '@/lib/types/finance';
 
+// WhatsApp ile makbuz paylaşma
+export const shareReceiptViaWhatsApp = (
+  installment: FinanceInstallment, 
+  studentName: string,
+  parentPhone?: string
+) => {
+  const amount = Number(installment.paid_amount || installment.amount || 0);
+  const date = installment.paid_at 
+    ? new Date(installment.paid_at).toLocaleDateString('tr-TR') 
+    : new Date().toLocaleDateString('tr-TR');
+  const method = installment.payment_method === 'cash' ? 'Nakit' : 
+                 installment.payment_method === 'card' ? 'Kredi Kartı' : 
+                 installment.payment_method === 'bank' ? 'Havale/EFT' : 
+                 installment.payment_method || 'Belirtilmedi';
+  
+  const receiptNo = `#${installment.id.slice(0, 8).toUpperCase()}`;
+  
+  const message = `📄 *TAHSİLAT MAKBUZU*
+━━━━━━━━━━━━━━━━━━━
+📋 Belge No: ${receiptNo}
+📅 Tarih: ${date}
+━━━━━━━━━━━━━━━━━━━
+
+👤 *Öğrenci:* ${studentName}
+📚 *Taksit No:* ${installment.installment_no}. Taksit
+
+💰 *TAHSİL EDİLEN TUTAR*
+*₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}*
+
+💳 Ödeme Yöntemi: ${method}
+${installment.note ? `📝 Not: ${installment.note}` : ''}
+
+━━━━━━━━━━━━━━━━━━━
+✅ Bu makbuz AkademiHub sistemi tarafından otomatik oluşturulmuştur.
+
+_AkademiHub Eğitim Kurumları_`;
+
+  const encodedMessage = encodeURIComponent(message);
+  
+  if (parentPhone) {
+    const cleanPhone = parentPhone.replace(/[^0-9]/g, '');
+    const formattedPhone = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone;
+    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+  } else {
+    // Telefon yoksa sadece mesajı kopyala ve WhatsApp aç
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  }
+};
+
+// WhatsApp ile sözleşme özeti paylaşma
+export const shareContractViaWhatsApp = (
+  studentName: string,
+  studentNo: string,
+  className: string,
+  totalAmount: number,
+  paidAmount: number,
+  installmentCount: number,
+  monthlyAmount: number,
+  parentPhone?: string
+) => {
+  const remaining = totalAmount - paidAmount;
+  const today = new Date().toLocaleDateString('tr-TR');
+  
+  const message = `📋 *KAYIT SÖZLEŞMESİ ÖZETİ*
+━━━━━━━━━━━━━━━━━━━
+📅 Tarih: ${today}
+━━━━━━━━━━━━━━━━━━━
+
+👤 *ÖĞRENCİ BİLGİLERİ*
+• Ad Soyad: ${studentName}
+• Öğrenci No: ${studentNo}
+• Sınıf: ${className}
+
+💰 *ÖDEME PLANI*
+• Toplam Tutar: ₺${totalAmount.toLocaleString('tr-TR')}
+• Ödenen: ₺${paidAmount.toLocaleString('tr-TR')}
+• Kalan Borç: ₺${remaining.toLocaleString('tr-TR')}
+• Taksit Sayısı: ${installmentCount}
+• Aylık Taksit: ₺${monthlyAmount.toLocaleString('tr-TR')}
+
+━━━━━━━━━━━━━━━━━━━
+📌 Detaylı sözleşme ve taksit planı için okulumuzla iletişime geçebilirsiniz.
+
+_AkademiHub Eğitim Kurumları_`;
+
+  const encodedMessage = encodeURIComponent(message);
+  
+  if (parentPhone) {
+    const cleanPhone = parentPhone.replace(/[^0-9]/g, '');
+    const formattedPhone = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone;
+    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+  } else {
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  }
+};
+
+// WhatsApp ile taksit planı paylaşma
+export const shareInstallmentPlanViaWhatsApp = (
+  studentName: string,
+  installments: FinanceInstallment[],
+  totalAmount: number,
+  paidAmount: number,
+  parentPhone?: string
+) => {
+  const remaining = totalAmount - paidAmount;
+  const pendingInstallments = installments.filter(i => !i.is_paid).slice(0, 6); // İlk 6 bekleyen taksit
+  
+  let installmentList = pendingInstallments.map(inst => {
+    const dueDate = inst.due_date ? new Date(inst.due_date).toLocaleDateString('tr-TR') : '-';
+    const amount = Number(inst.amount || 0);
+    return `  ${inst.installment_no}. Taksit | ${dueDate} | ₺${amount.toLocaleString('tr-TR')}`;
+  }).join('\n');
+
+  if (installments.filter(i => !i.is_paid).length > 6) {
+    installmentList += `\n  ... ve ${installments.filter(i => !i.is_paid).length - 6} taksit daha`;
+  }
+
+  const message = `📊 *TAKSİT PLANI*
+━━━━━━━━━━━━━━━━━━━
+👤 Öğrenci: ${studentName}
+━━━━━━━━━━━━━━━━━━━
+
+💰 *ÖZET*
+• Toplam: ₺${totalAmount.toLocaleString('tr-TR')}
+• Ödenen: ₺${paidAmount.toLocaleString('tr-TR')}
+• Kalan: ₺${remaining.toLocaleString('tr-TR')}
+
+📅 *BEKLEYEN TAKSİTLER*
+${installmentList}
+
+━━━━━━━━━━━━━━━━━━━
+📌 Ödemelerinizi zamanında yapmanızı rica ederiz.
+
+_AkademiHub Eğitim Kurumları_`;
+
+  const encodedMessage = encodeURIComponent(message);
+  
+  if (parentPhone) {
+    const cleanPhone = parentPhone.replace(/[^0-9]/g, '');
+    const formattedPhone = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone;
+    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+  } else {
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  }
+};
+
 export const generateReceiptHTML = (installment: FinanceInstallment, studentName: string) => {
   const amount = Number(installment.paid_amount || installment.amount || 0);
   const date = installment.paid_at ? new Date(installment.paid_at).toLocaleDateString('tr-TR') : new Date().toLocaleDateString('tr-TR');

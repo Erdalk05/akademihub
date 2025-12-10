@@ -2,15 +2,16 @@
 
 import React from 'react';
 import { FinanceInstallment } from '@/lib/types/finance';
-import { CheckCircle2, Calendar, FileText, Edit } from 'lucide-react';
+import { CheckCircle2, Calendar, FileText, Edit, MessageCircle } from 'lucide-react';
 
 interface Props {
   installments: FinanceInstallment[];
   onEdit?: (id: string) => void;
   onReceipt?: (id: string) => void;
+  onWhatsApp?: (installment: FinanceInstallment) => void;
 }
 
-export default function OldPaymentsTable({ installments, onEdit, onReceipt }: Props) {
+export default function OldPaymentsTable({ installments, onEdit, onReceipt, onWhatsApp }: Props) {
   if (!installments || installments.length === 0) {
     return null;
   }
@@ -96,6 +97,16 @@ export default function OldPaymentsTable({ installments, onEdit, onReceipt }: Pr
                         title="Ödeme Makbuzu"
                       >
                         <FileText size={16} />
+                      </button>
+                    )}
+                    {onWhatsApp && (
+                      <button
+                        type="button"
+                        onClick={() => onWhatsApp(inst)}
+                        className="p-2 bg-white border border-green-200 text-green-600 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors"
+                        title="WhatsApp ile Gönder"
+                      >
+                        <MessageCircle size={16} />
                       </button>
                     )}
                     {onEdit && (

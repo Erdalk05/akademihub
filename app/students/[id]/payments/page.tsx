@@ -7,8 +7,8 @@ import {
   exportInstallmentPlanToExcel,
   exportInstallmentPlanToPDF,
 } from '@/lib/services/exportService';
-import { printReceipt } from '@/lib/services/receiptService';
-import { MessageCircle, History, FileText, Send, Phone, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { printReceipt, shareReceiptViaWhatsApp, shareInstallmentPlanViaWhatsApp } from '@/lib/services/receiptService';
+import { MessageCircle, History, FileText, Send, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 // Components
 import FinanceSummaryCard from './components/FinanceSummaryCard';
@@ -45,7 +45,6 @@ export default function StudentPaymentsPage() {
   const [restructureOpen, setRestructureOpen] = useState(false);
   const [addInstallmentOpen, setAddInstallmentOpen] = useState(false);
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
-  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   
   const [studentRecord, setStudentRecord] = useState<any | null>(null);
   const isRealStudent = isValidUuid(studentId);
@@ -262,6 +261,18 @@ export default function StudentPaymentsPage() {
     window.open(whatsappUrl, '_blank');
   };
 
+  // WhatsApp ile makbuz gönder
+  const handleWhatsAppReceipt = (installment: FinanceInstallment) => {
+    const phone = studentRecord?.parent_phone || studentRecord?.phone || '';
+    shareReceiptViaWhatsApp(installment, studentName, phone);
+  };
+
+  // WhatsApp ile taksit planı gönder
+  const handleWhatsAppPlan = () => {
+    const phone = studentRecord?.parent_phone || studentRecord?.phone || '';
+    shareInstallmentPlanViaWhatsApp(studentName, educationInstallments, total, paid, phone);
+  };
+
   // Ödeme geçmişi verileri
   const paidInstallments = educationInstallments
     .filter(it => it.is_paid || Number(it.paid_amount || 0) > 0)
@@ -345,6 +356,14 @@ export default function StudentPaymentsPage() {
           >
             <FileText className="w-5 h-5" />
             <span>Sayfa PDF İndir</span>
+          </button>
+
+          <button
+            onClick={handleWhatsAppPlan}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-xl hover:bg-green-100 transition-all shadow-sm font-medium"
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span>Taksit Planını WhatsApp ile Gönder</span>
           </button>
 
           {overdueInstallments.length > 0 && (
@@ -489,6 +508,7 @@ export default function StudentPaymentsPage() {
                   )}
                   onEdit={handleOpenEdit}
                   onReceipt={handleReceipt}
+                  onWhatsApp={handleWhatsAppReceipt}
                 />
 
                 {/* Yeni Taksit Planı */}
@@ -522,6 +542,7 @@ export default function StudentPaymentsPage() {
               }}
                     onEdit={handleOpenEdit}
                     onReceipt={handleReceipt}
+                    onWhatsApp={handleWhatsAppReceipt}
             />
                 </div>
               </div>
