@@ -1,70 +1,62 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import {
-  Plus,
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { 
+  Search,
   Download,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Users,
+  CheckCircle2,
+  MoreHorizontal,
   RefreshCw,
+  TrendingUp,
+  Wallet,
+  X,
+  FileText,
+  Filter,
+  CalendarRange,
+  Plus,
   Book,
   Shirt,
   UtensilsCrossed,
   Pencil,
   Package,
   Trash2,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  X,
   Check,
   Settings,
   Receipt,
-  FileText,
-  AlertTriangle,
-  Minus,
-  Search,
+  GraduationCap,
   User,
-  GraduationCap
+  Minus,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Varsayılan Kategoriler
-const DEFAULT_CATEGORIES = [
-  { id: 'book', label: 'Kitap', icon: 'Book', color: 'bg-blue-500' },
-  { id: 'uniform', label: 'Üniforma', icon: 'Shirt', color: 'bg-purple-500' },
-  { id: 'meal', label: 'Yemek', icon: 'UtensilsCrossed', color: 'bg-orange-500' },
-  { id: 'stationery', label: 'Kırtasiye', icon: 'Pencil', color: 'bg-green-500' },
-  { id: 'other', label: 'Diğer', icon: 'Package', color: 'bg-gray-500' },
+// Kategoriler
+const CATEGORIES = [
+  { id: 'all', label: 'Tümü', icon: Package, color: 'bg-slate-500' },
+  { id: 'book', label: 'Kitap', icon: Book, color: 'bg-blue-500' },
+  { id: 'uniform', label: 'Üniforma', icon: Shirt, color: 'bg-purple-500' },
+  { id: 'meal', label: 'Yemek', icon: UtensilsCrossed, color: 'bg-orange-500' },
+  { id: 'stationery', label: 'Kırtasiye', icon: Pencil, color: 'bg-green-500' },
+  { id: 'other', label: 'Diğer', icon: Package, color: 'bg-gray-500' },
 ];
 
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Book, Shirt, UtensilsCrossed, Pencil, Package
-};
-
-type OtherIncomeRecord = {
+type OtherIncomeRow = {
   id: string;
-  student_id: string | null;
+  studentId: string | null;
+  studentName: string;
   title: string;
   category: string;
   amount: number;
-  payment_type: string;
-  date: string;
+  date: Date;
+  paymentType: string;
   notes: string | null;
-  created_at: string;
-  students?: { first_name: string; last_name: string; class: string } | null;
-};
-
-type Category = {
-  id: string;
-  label: string;
-  icon: string;
-  color: string;
-};
-
-type InstallmentPreview = {
-  no: number;
-  dueDate: string;
-  amount: number;
-  remaining: number;
 };
 
 type Student = {
@@ -77,44 +69,83 @@ type Student = {
 };
 
 export default function OtherIncomePage() {
-  // State
-  const [data, setData] = useState<OtherIncomeRecord[]>([]);
+  const router = useRouter();
+  
+  // Data
+  const [incomes, setIncomes] = useState<OtherIncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  
+  // Filters
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
+  
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 25;
 
-  // Modal states
+  // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-
-  // Öğrenci Arama State
+  const [showReportModal, setShowReportModal] = useState(false);
+  
+  // Öğrenci Arama
   const [students, setStudents] = useState<Student[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Form states - Temel
+  // Form States
   const [formCategory, setFormCategory] = useState('book');
   const [formTitle, setFormTitle] = useState('');
-  const [formNotes, setFormNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  // Form states - Taksitlendirme
   const [formTotalAmount, setFormTotalAmount] = useState('');
   const [formDownPayment, setFormDownPayment] = useState('0');
   const [formDownPaymentDate, setFormDownPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [formInstallmentCount, setFormInstallmentCount] = useState(1);
   const [formFirstDueDate, setFormFirstDueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [formPeriod, setFormPeriod] = useState<'monthly' | 'bimonthly' | 'weekly' | 'custom'>('monthly');
+  const [saving, setSaving] = useState(false);
 
-  // New category form
-  const [newCategoryLabel, setNewCategoryLabel] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('bg-teal-500');
+  // Rapor States
+  const [reportType, setReportType] = useState<'single' | 'range'>('single');
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportStartDate, setReportStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportData, setReportData] = useState<OtherIncomeRow[]>([]);
 
-  // Öğrenci Listesi Fetch
+  // Fetch Data
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/finance/other-income');
+      const json = await res.json();
+      
+      if (json.success) {
+        const data = (json.data || []).map((r: any) => ({
+          id: r.id,
+          studentId: r.student_id,
+          studentName: r.students ? `${r.students.first_name || ''} ${r.students.last_name || ''}`.trim() : '-',
+          title: r.title || '-',
+          category: r.category || 'other',
+          amount: Number(r.amount) || 0,
+          date: new Date(r.date),
+          paymentType: r.payment_type || 'cash',
+          notes: r.notes,
+        }));
+        setIncomes(data.sort((a: OtherIncomeRow, b: OtherIncomeRow) => b.date.getTime() - a.date.getTime()));
+      }
+    } catch {
+      toast.error('Veriler yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Öğrenci Arama
   const fetchStudents = async (query: string = '') => {
     setLoadingStudents(true);
     try {
@@ -130,7 +161,6 @@ export default function OtherIncomePage() {
     }
   };
 
-  // Öğrenci arama
   useEffect(() => {
     if (studentSearchQuery.length >= 2) {
       const timer = setTimeout(() => {
@@ -144,20 +174,8 @@ export default function OtherIncomePage() {
     }
   }, [studentSearchQuery]);
 
-  // Filtrelenmiş öğrenciler
-  const filteredStudents = useMemo(() => {
-    if (!studentSearchQuery) return students;
-    const q = studentSearchQuery.toLowerCase();
-    return students.filter(s => 
-      (s.first_name?.toLowerCase().includes(q)) ||
-      (s.last_name?.toLowerCase().includes(q)) ||
-      (s.full_name?.toLowerCase().includes(q)) ||
-      (s.student_no?.toLowerCase().includes(q))
-    );
-  }, [students, studentSearchQuery]);
-
-  // Installment preview calculation
-  const installmentPreview = useMemo((): InstallmentPreview[] => {
+  // Taksit Önizleme
+  const installmentPreview = useMemo(() => {
     const total = Number(formTotalAmount) || 0;
     const downPayment = Number(formDownPayment) || 0;
     const remaining = total - downPayment;
@@ -166,102 +184,118 @@ export default function OtherIncomePage() {
     if (remaining <= 0 || count <= 0) return [];
     
     const installmentAmount = remaining / count;
-    const previews: InstallmentPreview[] = [];
-    let cumulativeRemaining = remaining;
+    const previews: { no: number; dueDate: string; amount: number }[] = [];
     
     for (let i = 0; i < count; i++) {
       const dueDate = new Date(formFirstDueDate);
-      
-      if (formPeriod === 'monthly') {
-        dueDate.setMonth(dueDate.getMonth() + i);
-      } else if (formPeriod === 'bimonthly') {
-        dueDate.setMonth(dueDate.getMonth() + (i * 2));
-      } else if (formPeriod === 'weekly') {
-        dueDate.setDate(dueDate.getDate() + (i * 7));
-      } else {
-        dueDate.setMonth(dueDate.getMonth() + i);
-      }
-      
-      cumulativeRemaining -= installmentAmount;
+      if (formPeriod === 'monthly') dueDate.setMonth(dueDate.getMonth() + i);
+      else if (formPeriod === 'bimonthly') dueDate.setMonth(dueDate.getMonth() + (i * 2));
+      else if (formPeriod === 'weekly') dueDate.setDate(dueDate.getDate() + (i * 7));
+      else dueDate.setMonth(dueDate.getMonth() + i);
       
       previews.push({
         no: i + 1,
         dueDate: dueDate.toISOString().split('T')[0],
         amount: Number(installmentAmount.toFixed(2)),
-        remaining: Math.max(0, Number(cumulativeRemaining.toFixed(2)))
       });
     }
-    
     return previews;
   }, [formTotalAmount, formDownPayment, formInstallmentCount, formFirstDueDate, formPeriod]);
 
-  // Fetch data
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (selectedCategory !== 'all') {
-        params.set('category', selectedCategory);
-      }
-      
-      const res = await fetch(`/api/finance/other-income?${params.toString()}`);
-      const json = await res.json();
-      
-      if (json.success) {
-        setData(json.data || []);
-      }
-    } catch {
-      toast.error('Veriler yüklenirken hata oluştu');
-    } finally {
-      setLoading(false);
+  // Period Filter
+  const filteredByPeriod = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    return incomes.filter(c => {
+      if (periodFilter === 'all') return true;
+      if (periodFilter === 'today') return c.date >= today;
+      if (periodFilter === 'week') return c.date >= weekAgo;
+      if (periodFilter === 'month') return c.date >= monthAgo;
+      return true;
+    });
+  }, [incomes, periodFilter]);
+
+  // Category + Search Filter
+  const filteredIncomes = useMemo(() => {
+    let result = filteredByPeriod;
+    
+    if (categoryFilter !== 'all') {
+      result = result.filter(c => c.category === categoryFilter);
     }
+    
+    if (search) {
+      const term = search.toLowerCase();
+      result = result.filter(c => 
+        c.studentName.toLowerCase().includes(term) || 
+        c.title.toLowerCase().includes(term)
+      );
+    }
+    
+    return result;
+  }, [filteredByPeriod, categoryFilter, search]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    const todayIncomes = incomes.filter(c => c.date >= todayStart);
+    const todayTotal = todayIncomes.reduce((sum, c) => sum + c.amount, 0);
+    const totalCollected = filteredByPeriod.reduce((sum, c) => sum + c.amount, 0);
+    
+    return {
+      todayTotal,
+      todayCount: todayIncomes.length,
+      periodTotal: totalCollected,
+      periodCount: filteredByPeriod.length,
+    };
+  }, [incomes, filteredByPeriod]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredIncomes.length / pageSize);
+  const paginatedData = filteredIncomes.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const formatMoney = (val: number) => {
+    if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `₺${(val / 1000).toFixed(0)}K`;
+    return `₺${val.toLocaleString('tr-TR')}`;
   };
 
-  useEffect(() => {
-    fetchData();
-    const saved = localStorage.getItem('other_income_categories');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCategories([...DEFAULT_CATEGORIES, ...parsed]);
-      } catch {
-        // ignore
-      }
-    }
-  }, [selectedCategory]);
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
-  // Stats by category
-  const categoryStats = useMemo(() => {
-    const stats: Record<string, { count: number; total: number }> = {};
-    categories.forEach(cat => {
-      const filtered = data.filter(d => d.category === cat.id);
-      stats[cat.id] = {
-        count: filtered.length,
-        total: filtered.reduce((sum, d) => sum + Number(d.amount), 0)
-      };
-    });
-    return stats;
-  }, [data, categories]);
+  const getPeriodLabel = () => {
+    if (periodFilter === 'today') return 'Bugün';
+    if (periodFilter === 'week') return 'Bu Hafta';
+    if (periodFilter === 'month') return 'Bu Ay';
+    return 'Tümü';
+  };
 
-  const totalStats = useMemo(() => ({
-    total: data.reduce((sum, d) => sum + Number(d.amount), 0),
-    count: data.length,
-  }), [data]);
+  const getCategoryInfo = (id: string) => CATEGORIES.find(c => c.id === id) || CATEGORIES[5];
 
-  const filteredData = data;
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  const paginatedData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const getCategoryInfo = (categoryId: string) => categories.find(c => c.id === categoryId) || categories[4];
-
-  // Öğrenci Seç
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
     setStudentSearchQuery('');
     setShowStudentDropdown(false);
   };
 
-  // Handle add income with installments
+  const resetForm = () => {
+    setFormCategory('book');
+    setFormTitle('');
+    setFormTotalAmount('');
+    setFormDownPayment('0');
+    setFormDownPaymentDate(new Date().toISOString().split('T')[0]);
+    setFormInstallmentCount(1);
+    setFormFirstDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setFormPeriod('monthly');
+    setSelectedStudent(null);
+    setStudentSearchQuery('');
+  };
+
   const handleAddIncome = async () => {
     if (!selectedStudent) {
       toast.error('Lütfen bir öğrenci seçin');
@@ -280,7 +314,6 @@ export default function OtherIncomePage() {
     try {
       const studentName = `${selectedStudent.first_name} ${selectedStudent.last_name}`;
       
-      // Peşinat varsa kaydet
       if (Number(formDownPayment) > 0) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
@@ -292,12 +325,11 @@ export default function OtherIncomePage() {
             amount: Number(formDownPayment),
             payment_type: 'cash',
             date: new Date(formDownPaymentDate).toISOString(),
-            notes: formNotes.trim() || null
+            notes: null
           })
         });
       }
 
-      // Taksitleri kaydet
       for (const inst of installmentPreview) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
@@ -309,12 +341,12 @@ export default function OtherIncomePage() {
             amount: inst.amount,
             payment_type: 'cash',
             date: new Date(inst.dueDate).toISOString(),
-            notes: `Öğrenci: ${studentName}, Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
+            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
           })
         });
       }
 
-      toast.success(`${selectedStudent.first_name} için ${installmentPreview.length} taksit oluşturuldu`);
+      toast.success(`${installmentPreview.length} taksit oluşturuldu`);
       setShowAddModal(false);
       resetForm();
       fetchData();
@@ -323,20 +355,6 @@ export default function OtherIncomePage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const resetForm = () => {
-    setFormCategory('book');
-    setFormTitle('');
-    setFormTotalAmount('');
-    setFormDownPayment('0');
-    setFormDownPaymentDate(new Date().toISOString().split('T')[0]);
-    setFormInstallmentCount(1);
-    setFormFirstDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-    setFormPeriod('monthly');
-    setFormNotes('');
-    setSelectedStudent(null);
-    setStudentSearchQuery('');
   };
 
   const handleDelete = async (id: string) => {
@@ -353,593 +371,567 @@ export default function OtherIncomePage() {
     }
   };
 
-  const handleAddCategory = () => {
-    if (!newCategoryLabel.trim()) {
-      toast.error('Kategori adı zorunludur');
-      return;
-    }
-    const newId = newCategoryLabel.toLowerCase().replace(/\s+/g, '_');
-    const newCategory: Category = { id: newId, label: newCategoryLabel.trim(), icon: 'Package', color: newCategoryColor };
-    const customCategories = categories.filter(c => !DEFAULT_CATEGORIES.find(d => d.id === c.id));
-    const updated = [...customCategories, newCategory];
-    localStorage.setItem('other_income_categories', JSON.stringify(updated));
-    setCategories([...DEFAULT_CATEGORIES, ...updated]);
-    setNewCategoryLabel('');
-    setShowCategoryModal(false);
-    toast.success('Kategori eklendi');
-  };
-
-  const formatMoney = (val: number) => `₺${val.toLocaleString('tr-TR', { minimumFractionDigits: 0 })}`;
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('tr-TR');
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 md:p-6">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
-                <Receipt size={24} className="text-white" />
-              </div>
+        {/* Header - Tahsilatlar ile aynı */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Diğer Gelirler</h1>
+            <p className="text-slate-500 text-sm">Kitap, kırtasiye, yemek ve diğer gelir kayıtları</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setLoading(true); fetchData(); }}
+              className="p-2.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition"
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+            
+            <button 
+              onClick={() => setShowReportModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+            >
+              <FileText size={16} />
+              Tarih Raporu
+            </button>
+
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition">
+              <Download size={16} />
+              Excel
+            </button>
+            
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition"
+            >
+              <Plus size={16} />
+              Yeni Gelir
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards - Tahsilatlar ile aynı stil, farklı renk */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-white rounded-xl p-4 border border-slate-100">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Diğer Gelirler</h1>
-                <p className="text-gray-500 text-sm">Kitap, kırtasiye, yemek ve diğer gelir kayıtları</p>
+                <p className="text-xs text-slate-500 mb-1">Bugün</p>
+                <p className="text-2xl font-bold text-teal-600">{stats.todayCount}</p>
               </div>
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                <TrendingUp size={18} className="text-teal-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Bugün Gelir</p>
+                <p className="text-2xl font-bold text-teal-600">{formatMoney(stats.todayTotal)}</p>
+              </div>
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                <Wallet size={18} className="text-teal-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">{getPeriodLabel()} Adet</p>
+                <p className="text-2xl font-bold text-cyan-600">{stats.periodCount}</p>
+              </div>
+              <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+                <Receipt size={18} className="text-cyan-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">{getPeriodLabel()} Toplam</p>
+                <p className="text-2xl font-bold text-slate-900">{formatMoney(stats.periodTotal)}</p>
+              </div>
+              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                <CheckCircle2 size={18} className="text-slate-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters - Tahsilatlar ile aynı stil */}
+        <div className="bg-white rounded-xl border border-slate-100 p-4 mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Öğrenci veya başlık ara..."
+                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+              />
             </div>
             
-            <div className="flex items-center gap-2">
-              <button onClick={fetchData} className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition">
-                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-              </button>
-              <button onClick={() => setShowCategoryModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-medium">
-                <Settings size={18} />
-                Kategoriler
-              </button>
-              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition shadow-lg shadow-emerald-200">
-                <Plus size={18} />
-                Yeni Gelir Ekle
-              </button>
+            {/* Period Filter */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              {[
+                { value: 'today', label: 'Bugün' },
+                { value: 'week', label: 'Hafta' },
+                { value: 'month', label: 'Ay' },
+                { value: 'all', label: 'Tümü' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setPeriodFilter(opt.value as any); setCurrentPage(1); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                    periodFilter === opt.value
+                      ? 'bg-white text-teal-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-sm">
-            <p className="text-xs font-medium text-gray-500 mb-1">Toplam Gelir</p>
-            <p className="text-2xl font-bold text-emerald-600">{formatMoney(totalStats.total)}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-teal-100 shadow-sm">
-            <p className="text-xs font-medium text-gray-500 mb-1">Kayıt Sayısı</p>
-            <p className="text-2xl font-bold text-teal-600">{totalStats.count}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm">
-            <p className="text-xs font-medium text-gray-500 mb-1">Kitap Geliri</p>
-            <p className="text-2xl font-bold text-blue-600">{formatMoney(categoryStats.book?.total || 0)}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-orange-100 shadow-sm">
-            <p className="text-xs font-medium text-gray-500 mb-1">Yemek Geliri</p>
-            <p className="text-2xl font-bold text-orange-600">{formatMoney(categoryStats.meal?.total || 0)}</p>
-          </div>
-        </div>
-
-        {/* Category Filter & Table */}
-        <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm mb-6">
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              <button onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${selectedCategory === 'all' ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                Tümü
-              </button>
-              {categories.map(cat => {
-                const IconComponent = ICON_MAP[cat.icon] || Package;
+            
+            {/* Category Filter */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              {CATEGORIES.map(cat => {
+                const Icon = cat.icon;
                 return (
-                  <button key={cat.id} onClick={() => { setSelectedCategory(cat.id); setCurrentPage(1); }} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${selectedCategory === cat.id ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                    <IconComponent size={16} />
+                  <button
+                    key={cat.id}
+                    onClick={() => { setCategoryFilter(cat.id); setCurrentPage(1); }}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                      categoryFilter === cat.id
+                        ? 'bg-white text-teal-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon size={12} />
                     {cat.label}
                   </button>
                 );
               })}
             </div>
+            
+            {/* Count */}
+            <span className="text-sm text-slate-500">{filteredIncomes.length} kayıt</span>
           </div>
+        </div>
 
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <FileText size={18} className="text-emerald-600" />
-                Gelir Hareketleri
-              </h3>
-              <span className="text-sm text-gray-500">{filteredData.length} kayıt</span>
+        {/* Table - Tahsilatlar ile aynı stil */}
+        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <RefreshCw size={24} className="animate-spin text-teal-600" />
             </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <RefreshCw size={32} className="animate-spin text-emerald-500" />
-              </div>
-            ) : paginatedData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                <Package size={48} className="mb-3 opacity-50" />
-                <p>Kayıt bulunamadı</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Tarih</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Öğrenci</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Başlık</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Kategori</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Tutar</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Durum</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase">İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {paginatedData.map((row) => {
-                      const catInfo = getCategoryInfo(row.category);
-                      const IconComponent = ICON_MAP[catInfo.icon] || Package;
-                      const studentName = row.students ? `${row.students.first_name} ${row.students.last_name}` : '-';
-                      return (
-                        <tr key={row.id} className="hover:bg-emerald-50/30 transition">
-                          <td className="py-4 px-4 text-sm font-medium text-gray-900">{formatDate(row.date)}</td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                                <User size={14} className="text-emerald-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900 text-sm">{studentName}</p>
-                                {row.students?.class && <p className="text-xs text-gray-500">{row.students.class}</p>}
-                              </div>
+          ) : paginatedData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <Receipt size={48} className="mb-3 opacity-50" />
+              <p>Kayıt bulunamadı</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tarih</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Başlık</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedData.map((row) => {
+                    const catInfo = getCategoryInfo(row.category);
+                    const CatIcon = catInfo.icon;
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-50/50 transition">
+                        <td className="px-4 py-3">
+                          <p className="text-slate-900 font-medium">{row.date.toLocaleDateString('tr-TR')}</p>
+                          <p className="text-xs text-slate-400">{row.date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-medium text-xs">
+                              {row.studentName !== '-' ? getInitials(row.studentName) : '?'}
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <p className="font-medium text-gray-900">{row.title}</p>
-                            {row.notes && <p className="text-xs text-gray-500 truncate max-w-[200px]">{row.notes}</p>}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
-                              <IconComponent size={14} />
-                              {catInfo.label}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <p className="font-bold text-emerald-600 text-lg">{formatMoney(row.amount)}</p>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                              <Check size={12} />
-                              Tahsil Edildi
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => handleDelete(row.id)} className="p-2 hover:bg-red-50 rounded-lg transition text-red-500">
-                                <Trash2 size={16} />
-                              </button>
-                              <button className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-500">
-                                <Download size={16} />
-                              </button>
+                            <div>
+                              <p className="font-medium text-slate-900">{row.studentName}</p>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-900">{row.title}</p>
+                          {row.notes && <p className="text-xs text-slate-500 truncate max-w-[200px]">{row.notes}</p>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
+                            <CatIcon size={12} />
+                            {catInfo.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-teal-600">₺{row.amount.toLocaleString('tr-TR')}</p>
+                          <p className="text-xs text-slate-400">{row.paymentType === 'cash' ? 'Nakit' : row.paymentType}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {row.studentId && (
+                              <Link
+                                href={`/students/${row.studentId}`}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500"
+                                title="Öğrenci Profili"
+                              >
+                                <Users size={16} />
+                              </Link>
+                            )}
+                            <button 
+                              onClick={() => handleDelete(row.id)}
+                              className="p-2 hover:bg-red-50 rounded-lg transition text-red-500"
+                              title="Sil"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                            <button className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500">
+                              <MoreHorizontal size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-            {totalPages > 1 && (
-              <div className="border-t border-gray-100 pt-4 mt-4 flex items-center justify-between">
-                <span className="text-sm text-gray-500">{filteredData.length} kayıt</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium">{currentPage}</span>
-                  <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                {filteredIncomes.length} kayıttan {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIncomes.length)} arası
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  İlk
+                </button>
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium">
+                  {currentPage}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Son
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* YENİ GELİR EKLE MODAL - TAKSİTLENDİRME STİLİNDE */}
+      {/* YENİ GELİR MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-5">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                     <Receipt size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">Diğer Gelir Taksitlendirme</h2>
-                    <p className="text-emerald-100 text-sm">Öğrenci seç ve toplam tutarı taksitlere böl</p>
+                    <h2 className="text-lg font-bold">Yeni Gelir Ekle</h2>
+                    <p className="text-teal-100 text-sm">Öğrenci seç ve taksitlendirme yap</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-400/50 rounded-lg text-amber-100 text-xs">
-                    <AlertTriangle size={14} />
-                    Bu işlem finansal kayıtları kalıcı olarak değiştirir.
-                  </div>
-                  <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-lg transition">
-                    <X size={20} />
-                  </button>
-                </div>
+                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-lg transition">
+                  <X size={20} />
+                </button>
               </div>
             </div>
 
-            {/* Content - İki Sütun */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x divide-gray-200 max-h-[65vh] overflow-y-auto">
-              {/* SOL TARAF - KATEGORİ ÖZETİ */}
-              <div className="p-6 bg-gray-50">
-                {/* Kategori Tablosu */}
-                <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">MEVCUT KATEGORİ ÖZETİ</h3>
-                  <p className="text-xs text-gray-500 mb-3">Kategorilere göre gelir dağılımı</p>
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50">
-                        <th className="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase">Kategori</th>
-                        <th className="text-right py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase">Adet</th>
-                        <th className="text-right py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase">Tutar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {categories.map(cat => {
-                        const stat = categoryStats[cat.id] || { count: 0, total: 0 };
-                        const IconComponent = ICON_MAP[cat.icon] || Package;
-                        return (
-                          <tr key={cat.id} className="hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-7 h-7 ${cat.color} rounded-lg flex items-center justify-center`}>
-                                  <IconComponent size={14} className="text-white" />
-                                </div>
-                                <span className="font-medium text-gray-900 text-sm">{cat.label}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-right text-sm text-gray-600">{stat.count}</td>
-                            <td className="py-3 px-4 text-right font-semibold text-gray-900">{formatMoney(stat.total)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Özet */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-xl p-4 border border-gray-200">
-                    <p className="text-xs font-medium text-gray-500 uppercase">Toplam Kayıt</p>
-                    <p className="text-xl font-bold text-gray-900 mt-1">{totalStats.count}</p>
+            <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+              {/* Öğrenci Seç */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Öğrenci Seç *</label>
+                {selectedStudent ? (
+                  <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-xl p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center">
+                        <GraduationCap size={20} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                        <p className="text-xs text-slate-600">{selectedStudent.class} • #{selectedStudent.student_no}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedStudent(null)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-500">
+                      <X size={16} />
+                    </button>
                   </div>
-                  <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-                    <p className="text-xs font-medium text-emerald-600 uppercase">Toplam Gelir</p>
-                    <p className="text-xl font-bold text-emerald-600 mt-1">{formatMoney(totalStats.total)}</p>
+                ) : (
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      placeholder="Öğrenci adı veya numarası ile ara..."
+                      className="w-full pl-10 pr-4 py-3 border border-amber-300 rounded-xl bg-amber-50 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                    />
+                    {loadingStudents && <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-teal-500" />}
+                    
+                    {showStudentDropdown && students.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                        {students.map(student => (
+                          <button
+                            key={student.id}
+                            onClick={() => handleSelectStudent(student)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-teal-50 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
+                          >
+                            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                              <User size={14} className="text-teal-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900 text-sm">{student.first_name} {student.last_name}</p>
+                              <p className="text-xs text-slate-500">{student.class} • #{student.student_no}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Kategori */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Kategori</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setFormCategory(cat.id)}
+                        className={`p-3 rounded-xl border-2 text-center transition ${formCategory === cat.id ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:border-slate-300'}`}
+                      >
+                        <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                          <Icon size={16} className="text-white" />
+                        </div>
+                        <p className="text-xs font-medium text-slate-700">{cat.label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Başlık + Tutar */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Başlık *</label>
+                  <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Örn: Matematik Seti" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Toplam Tutar (₺) *</label>
+                  <input type="number" value={formTotalAmount} onChange={(e) => setFormTotalAmount(e.target.value)} placeholder="0" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl font-bold" />
+                </div>
+              </div>
+
+              {/* Peşinat + Taksit */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Peşinat (₺)</label>
+                  <input type="text" inputMode="decimal" value={formDownPayment} onChange={(e) => setFormDownPayment(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0" className="w-full px-4 py-2.5 border border-amber-200 rounded-xl bg-amber-50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Taksit Sayısı</label>
+                  <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden">
+                    <button type="button" onClick={() => setFormInstallmentCount(Math.max(1, formInstallmentCount - 1))} className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100">
+                      <Minus size={16} />
+                    </button>
+                    <span className="flex-1 text-center font-bold">{formInstallmentCount}</span>
+                    <button type="button" onClick={() => setFormInstallmentCount(Math.min(24, formInstallmentCount + 1))} className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100">
+                      <Plus size={16} />
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* SAĞ TARAF - TAKSİTLENDİRME FORMU */}
-              <div className="p-6">
-                {/* ÖĞRENCİ SEÇİMİ - EN ÜSTTE */}
-                <div className="mb-5">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">1. ÖĞRENCİ SEÇ *</h3>
-                  
-                  {selectedStudent ? (
-                    <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center">
-                            <GraduationCap size={20} className="text-white" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
-                            <p className="text-xs text-gray-600">
-                              {selectedStudent.class && <span className="mr-2">{selectedStudent.class}</span>}
-                              {selectedStudent.student_no && <span className="text-gray-400">#{selectedStudent.student_no}</span>}
-                            </p>
-                          </div>
-                        </div>
-                        <button onClick={() => setSelectedStudent(null)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-500 transition">
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={studentSearchQuery}
-                          onChange={(e) => setStudentSearchQuery(e.target.value)}
-                          placeholder="Öğrenci adı veya numarası ile ara..."
-                          className="w-full pl-10 pr-4 py-3 border-2 border-amber-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-amber-50"
-                        />
-                        {loadingStudents && (
-                          <RefreshCw size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />
-                        )}
-                      </div>
-                      
-                      {/* Dropdown */}
-                      {showStudentDropdown && filteredStudents.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                          {filteredStudents.map(student => (
-                            <button
-                              key={student.id}
-                              onClick={() => handleSelectStudent(student)}
-                              className="w-full px-4 py-2.5 text-left hover:bg-emerald-50 flex items-center gap-3 transition border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                                <User size={14} className="text-emerald-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900 text-sm">{student.first_name} {student.last_name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {student.class && <span>{student.class}</span>}
-                                  {student.student_no && <span className="ml-2">#{student.student_no}</span>}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {showStudentDropdown && studentSearchQuery.length >= 2 && filteredStudents.length === 0 && !loadingStudents && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-center text-gray-500 text-sm">
-                          Öğrenci bulunamadı
-                        </div>
-                      )}
-                    </div>
-                  )}
+              {/* İlk Vade + Periyot */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">İlk Vade Tarihi</label>
+                  <input type="date" value={formFirstDueDate} onChange={(e) => setFormFirstDueDate(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl" />
                 </div>
-
-                <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">2. TAKSİTLENDİRME</h3>
-                  <p className="text-xs text-gray-500 mt-1">Toplam tutarı, taksit sayısını ve vade tarihini belirleyin</p>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Kategori + Başlık */}
-                  <div className="grid grid-cols-5 gap-2 mb-2">
-                    {categories.slice(0, 5).map(cat => {
-                      const IconComponent = ICON_MAP[cat.icon] || Package;
-                      return (
-                        <button key={cat.id} type="button" onClick={() => setFormCategory(cat.id)} className={`p-2 rounded-xl border-2 text-center transition ${formCategory === cat.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <div className={`w-6 h-6 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                            <IconComponent size={12} className="text-white" />
-                          </div>
-                          <p className="text-[9px] font-medium text-gray-700">{cat.label}</p>
-                        </button>
-                      );
-                    })}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Periyot</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[{ id: 'monthly', label: 'Aylık' }, { id: 'weekly', label: 'Haftalık' }].map(p => (
+                      <button key={p.id} onClick={() => setFormPeriod(p.id as any)} className={`px-3 py-2 rounded-lg text-xs font-medium ${formPeriod === p.id ? 'bg-teal-500 text-white' : 'bg-slate-100'}`}>
+                        {p.label}
+                      </button>
+                    ))}
                   </div>
-
-                  <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Başlık / Açıklama *" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
-
-                  {/* Toplam Tutar */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Toplam Tutar (₺) *</label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">₺</span>
-                        <input type="number" value={formTotalAmount} onChange={(e) => setFormTotalAmount(e.target.value)} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg font-bold" />
-                      </div>
-                      {formTotalAmount && (
-                        <div className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-medium whitespace-nowrap">
-                          Girilen: {formatMoney(Number(formTotalAmount))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Peşinat + Peşinat Tarihi */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Peşinat Tutarı (₺)</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-sm">₺</span>
-                        <input type="text" inputMode="decimal" value={formDownPayment} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setFormDownPayment(v); }} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-amber-50" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
-                        <Calendar size={12} />
-                        Peşinat Tarihi
-                      </label>
-                      <input type="date" value={formDownPaymentDate} onChange={(e) => setFormDownPaymentDate(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
-                    </div>
-                  </div>
-
-                  {/* Taksit Sayısı + İlk Vade */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Yeni Taksit Sayısı</label>
-                      <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                        <button type="button" onClick={() => setFormInstallmentCount(Math.max(1, formInstallmentCount - 1))} className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition">
-                          <Minus size={16} />
-                        </button>
-                        <span className="flex-1 text-center text-xl font-bold py-2">{formInstallmentCount}</span>
-                        <button type="button" onClick={() => setFormInstallmentCount(Math.min(24, formInstallmentCount + 1))} className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition">
-                          <Plus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
-                        <Calendar size={12} />
-                        İlk Vade Tarihi *
-                      </label>
-                      <input type="date" value={formFirstDueDate} onChange={(e) => setFormFirstDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
-                    </div>
-                  </div>
-
-                  {/* Periyot */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Periyot</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { id: 'monthly', label: 'Aylık' },
-                        { id: 'bimonthly', label: 'İki Aylık' },
-                        { id: 'weekly', label: 'Haftalık' },
-                        { id: 'custom', label: 'Özel' },
-                      ].map(p => (
-                        <button key={p.id} type="button" onClick={() => setFormPeriod(p.id as typeof formPeriod)} className={`px-3 py-2 rounded-xl text-xs font-medium transition ${formPeriod === p.id ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Önizleme Tablosu */}
-                  {installmentPreview.length > 0 && (
-                    <div className="bg-emerald-50 rounded-xl border border-emerald-200 overflow-hidden">
-                      <div className="px-4 py-2 bg-emerald-100 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1">
-                          <Check size={14} />
-                          Oluşturulacak Ödeme Planı
-                        </span>
-                        <span className="text-xs font-bold text-emerald-600">{formInstallmentCount} Taksit</span>
-                      </div>
-                      <div className="max-h-32 overflow-y-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-emerald-200">
-                              <th className="text-left py-2 px-3 font-semibold text-emerald-700">NO</th>
-                              <th className="text-left py-2 px-3 font-semibold text-emerald-700">VADE</th>
-                              <th className="text-right py-2 px-3 font-semibold text-emerald-700">TUTAR</th>
-                              <th className="text-right py-2 px-3 font-semibold text-emerald-700">KALAN</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-emerald-100">
-                            {installmentPreview.slice(0, 6).map(inst => (
-                              <tr key={inst.no}>
-                                <td className="py-2 px-3">{inst.no}. Taksit</td>
-                                <td className="py-2 px-3">{formatDate(inst.dueDate)}</td>
-                                <td className="py-2 px-3 text-right font-semibold text-emerald-700">{formatMoney(inst.amount)}</td>
-                                <td className="py-2 px-3 text-right text-gray-600">{formatMoney(inst.remaining)}</td>
-                              </tr>
-                            ))}
-                            {installmentPreview.length > 6 && (
-                              <tr>
-                                <td colSpan={4} className="py-2 px-3 text-center text-gray-500">+{installmentPreview.length - 6} taksit daha...</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {!formFirstDueDate && formTotalAmount && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-                      <p className="text-xs text-amber-700 flex items-center justify-center gap-1">
-                        <AlertTriangle size={14} />
-                        Taksitleri görmek için <strong>İlk Vade Tarihi</strong>&apos;ni seçin
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex flex-col gap-3 p-5 border-t border-gray-200 bg-gray-50">
-              {/* Eksik alan uyarıları */}
-              {(!selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0) && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {!selectedStudent && (
-                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Öğrenci seçilmedi</span>
-                  )}
-                  {!formTitle.trim() && (
-                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Başlık girilmedi</span>
-                  )}
-                  {!formTotalAmount && (
-                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Tutar girilmedi</span>
-                  )}
-                  {formTotalAmount && installmentPreview.length === 0 && (
-                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Vade tarihi seçilmedi</span>
-                  )}
+              {/* Önizleme */}
+              {installmentPreview.length > 0 && (
+                <div className="bg-teal-50 rounded-xl border border-teal-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-teal-800">Oluşturulacak Ödeme Planı</span>
+                    <span className="text-xs font-bold text-teal-600">{formInstallmentCount} Taksit</span>
+                  </div>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {installmentPreview.map(inst => (
+                      <div key={inst.no} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
+                        <span>{inst.no}. Taksit - {new Date(inst.dueDate).toLocaleDateString('tr-TR')}</span>
+                        <span className="font-bold text-teal-600">₺{inst.amount.toLocaleString('tr-TR')}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <AlertTriangle size={14} className="text-amber-500" />
-                  Bu işlem geri alınamaz. Taksitler sisteme eklenecektir.
+
+              {/* Uyarılar */}
+              {(!selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0) && (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {!selectedStudent && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Öğrenci seçilmedi</span>}
+                  {!formTitle.trim() && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Başlık girilmedi</span>}
+                  {!formTotalAmount && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Tutar girilmedi</span>}
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition">
-                    Vazgeç
-                  </button>
-                  <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
-                    {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
-                    {saving ? 'Kaydediliyor...' : 'Taksitlendirmeyi Onayla'}
-                  </button>
-                </div>
-              </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-5 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 text-slate-600 hover:text-slate-900">
+                Vazgeç
+              </button>
+              <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50">
+                {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Kategori Modal */}
-      {showCategoryModal && (
+      {/* TARİH RAPORU MODAL */}
+      {showReportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Kategori Yönetimi</h2>
-              <button onClick={() => setShowCategoryModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} className="text-gray-400" />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Calendar size={20} className="text-purple-600" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Tarih Bazlı Rapor</h2>
+              </div>
+              <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mevcut Kategoriler</label>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(cat => {
-                    const IconComponent = ICON_MAP[cat.icon] || Package;
-                    return (
-                      <span key={cat.id} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${cat.color}`}>
-                        <IconComponent size={14} />
-                        {cat.label}
-                      </span>
-                    );
-                  })}
-                </div>
+
+            <div className="p-5 space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setReportType('single')} className={`p-4 rounded-xl border-2 text-center ${reportType === 'single' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
+                  <CalendarRange size={24} className="mx-auto mb-2" />
+                  <p className="font-medium">Tek Gün</p>
+                </button>
+                <button onClick={() => setReportType('range')} className={`p-4 rounded-xl border-2 text-center ${reportType === 'range' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
+                  <CalendarRange size={24} className="mx-auto mb-2" />
+                  <p className="font-medium">Tarih Aralığı</p>
+                </button>
               </div>
-              <div className="border-t border-gray-100 pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Kategori Ekle</label>
-                <div className="flex gap-2">
-                  <input type="text" value={newCategoryLabel} onChange={(e) => setNewCategoryLabel(e.target.value)} placeholder="Kategori adı" className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl" />
-                  <select value={newCategoryColor} onChange={(e) => setNewCategoryColor(e.target.value)} className="px-3 py-2.5 border border-gray-200 rounded-xl">
-                    <option value="bg-teal-500">Teal</option>
-                    <option value="bg-cyan-500">Cyan</option>
-                    <option value="bg-emerald-500">Emerald</option>
-                  </select>
-                  <button onClick={handleAddCategory} className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl">
-                    <Plus size={18} />
-                  </button>
+
+              {reportType === 'single' ? (
+                <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
+                  <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
                 </div>
-              </div>
+              )}
+
+              <button
+                onClick={() => {
+                  let filtered: OtherIncomeRow[] = [];
+                  if (reportType === 'single') {
+                    const targetDate = new Date(reportDate).toDateString();
+                    filtered = incomes.filter(c => c.date.toDateString() === targetDate);
+                  } else {
+                    const start = new Date(reportStartDate);
+                    const end = new Date(reportEndDate);
+                    end.setHours(23, 59, 59, 999);
+                    filtered = incomes.filter(c => c.date >= start && c.date <= end);
+                  }
+                  setReportData(filtered);
+                  toast.success(`${filtered.length} kayıt bulundu`);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium"
+              >
+                <Filter size={18} />
+                Verileri Getir
+              </button>
+
+              {reportData.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-medium text-slate-700">{reportData.length} Kayıt</p>
+                    <p className="font-bold text-teal-600">₺{reportData.reduce((sum, r) => sum + r.amount, 0).toLocaleString('tr-TR')}</p>
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {reportData.slice(0, 10).map((r, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
+                        <div>
+                          <p className="font-medium">{r.title}</p>
+                          <p className="text-xs text-slate-500">{r.date.toLocaleDateString('tr-TR')}</p>
+                        </div>
+                        <p className="font-bold text-teal-600">₺{r.amount.toLocaleString('tr-TR')}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="p-5 border-t border-gray-100 bg-gray-50">
-              <button onClick={() => setShowCategoryModal(false)} className="w-full px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">
-                Kapat
+
+            <div className="flex items-center justify-between p-5 border-t border-slate-100 bg-slate-50">
+              <button onClick={() => setShowReportModal(false)} className="text-slate-600">Kapat</button>
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium">
+                <Download size={18} />
+                PDF İndir
               </button>
             </div>
           </div>
