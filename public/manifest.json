@@ -1,0 +1,37 @@
+{
+  "name": "AkademiHub - Eğitim Yönetim Sistemi",
+  "short_name": "AkademiHub",
+  "description": "K12 Eğitim Kurumları için Öğrenci ve Finans Yönetim Sistemi",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#075E54",
+  "theme_color": "#075E54",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard"
+    }
+  ],
+  "categories": ["education", "business", "finance"],
+  "lang": "tr-TR",
+  "dir": "ltr"
+}
+

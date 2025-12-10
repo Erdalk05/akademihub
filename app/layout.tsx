@@ -14,11 +14,27 @@ export const metadata: Metadata = {
   description: 'Modern, Responsive ve Performanslı Eğitim Yönetim Sistemi',
   keywords: ['eğitim', 'yönetim', 'AI', 'dashboard', 'akademi'],
   authors: [{ name: 'AkademiHub Team' }],
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'AkademiHub',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: '/icons/icon.svg',
+    apple: '/icons/icon.svg',
+  },
 }
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#075E54',
 };
 
 import LayoutWrapper from '@/components/layout/LayoutWrapper';
