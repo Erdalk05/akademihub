@@ -111,7 +111,7 @@ export default function FreeReportBuilderPage() {
       label: 'Tüm Öğrenciler', 
       icon: '👥',
       table: 'students',
-      fields: ['student_no', 'parent_name', 'class', 'section', 'status', 'parent_phone', 'created_at'],
+      fields: ['student_no', 'first_name', 'last_name', 'class', 'section', 'status', 'parent_phone', 'net_fee', 'installment_count', 'created_at'],
       description: 'Tüm kayıtlı öğrenciler'
     },
     { 
@@ -119,24 +119,48 @@ export default function FreeReportBuilderPage() {
       label: 'Tüm Taksitler', 
       icon: '💰',
       table: 'finance_installments',
-      fields: ['id', 'installment_no', 'amount', 'due_date', 'is_paid'],
+      fields: ['student_id', 'installment_no', 'amount', 'paid_amount', 'due_date', 'paid_at', 'is_paid', 'status', 'payment_method'],
       description: 'Taksit ödemeleri'
     },
     { 
       id: 'all_expenses', 
       label: 'Tüm Giderler', 
       icon: '📊',
-      table: 'expenses', // Doğru tablo adı: expenses (finance_expenses değil!)
-      fields: ['title', 'category', 'amount', 'date', 'status', 'description'],
+      table: 'expenses',
+      fields: ['title', 'category', 'amount', 'date', 'status', 'vendor', 'invoice_no', 'description'],
       description: 'Gider kayıtları'
     },
     { 
       id: 'all_payments', 
       label: 'Ödemeler', 
       icon: '💳',
-      table: 'finance_payments',
-      fields: ['id', 'amount', 'payment_type', 'payment_date', 'payment_method', 'status'],
+      table: 'payments',
+      fields: ['student_id', 'amount', 'payment_type', 'payment_method', 'payment_date', 'status', 'receipt_no'],
       description: 'Ödeme kayıtları'
+    },
+    { 
+      id: 'deleted_students', 
+      label: 'Kaydı Silinen', 
+      icon: '🗑️',
+      table: 'students',
+      fields: ['student_no', 'first_name', 'last_name', 'class', 'status', 'deleted_at', 'net_fee', 'created_at'],
+      description: 'Kaydı silinen öğrenciler'
+    },
+    { 
+      id: 'other_income', 
+      label: 'Diğer Gelirler', 
+      icon: '📦',
+      table: 'other_income',
+      fields: ['student_id', 'title', 'category', 'amount', 'payment_type', 'date', 'notes'],
+      description: 'Kitap, kırtasiye, yemek vb.'
+    },
+    { 
+      id: 'guardians', 
+      label: 'Veliler', 
+      icon: '👨‍👩‍👧',
+      table: 'guardians',
+      fields: ['student_id', 'first_name', 'last_name', 'relation', 'phone', 'email', 'occupation'],
+      description: 'Veli bilgileri'
     },
   ];
 
