@@ -19,9 +19,11 @@ import {
   Settings,
   Receipt,
   FileText,
-  DollarSign,
   AlertTriangle,
-  Minus
+  Minus,
+  Search,
+  User,
+  GraduationCap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -48,6 +50,7 @@ type OtherIncomeRecord = {
   date: string;
   notes: string | null;
   created_at: string;
+  students?: { first_name: string; last_name: string; class: string } | null;
 };
 
 type Category = {
@@ -64,6 +67,15 @@ type InstallmentPreview = {
   remaining: number;
 };
 
+type Student = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
+  class?: string;
+  student_no?: string;
+};
+
 export default function OtherIncomePage() {
   // State
   const [data, setData] = useState<OtherIncomeRecord[]>([]);
@@ -76,6 +88,13 @@ export default function OtherIncomePage() {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  // Öğrenci Arama State
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Form states - Temel
   const [formCategory, setFormCategory] = useState('book');
@@ -94,6 +113,48 @@ export default function OtherIncomePage() {
   // New category form
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('bg-teal-500');
+
+  // Öğrenci Listesi Fetch
+  const fetchStudents = async (query: string = '') => {
+    setLoadingStudents(true);
+    try {
+      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&limit=20`);
+      const json = await res.json();
+      if (json.success) {
+        setStudents(json.data || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  // Öğrenci arama
+  useEffect(() => {
+    if (studentSearchQuery.length >= 2) {
+      const timer = setTimeout(() => {
+        fetchStudents(studentSearchQuery);
+        setShowStudentDropdown(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setStudents([]);
+      setShowStudentDropdown(false);
+    }
+  }, [studentSearchQuery]);
+
+  // Filtrelenmiş öğrenciler
+  const filteredStudents = useMemo(() => {
+    if (!studentSearchQuery) return students;
+    const q = studentSearchQuery.toLowerCase();
+    return students.filter(s => 
+      (s.first_name?.toLowerCase().includes(q)) ||
+      (s.last_name?.toLowerCase().includes(q)) ||
+      (s.full_name?.toLowerCase().includes(q)) ||
+      (s.student_no?.toLowerCase().includes(q))
+    );
+  }, [students, studentSearchQuery]);
 
   // Installment preview calculation
   const installmentPreview = useMemo((): InstallmentPreview[] => {
@@ -193,8 +254,19 @@ export default function OtherIncomePage() {
 
   const getCategoryInfo = (categoryId: string) => categories.find(c => c.id === categoryId) || categories[4];
 
+  // Öğrenci Seç
+  const handleSelectStudent = (student: Student) => {
+    setSelectedStudent(student);
+    setStudentSearchQuery('');
+    setShowStudentDropdown(false);
+  };
+
   // Handle add income with installments
   const handleAddIncome = async () => {
+    if (!selectedStudent) {
+      toast.error('Lütfen bir öğrenci seçin');
+      return;
+    }
     if (!formTitle.trim()) {
       toast.error('Başlık zorunludur');
       return;
@@ -206,13 +278,16 @@ export default function OtherIncomePage() {
 
     setSaving(true);
     try {
+      const studentName = `${selectedStudent.first_name} ${selectedStudent.last_name}`;
+      
       // Peşinat varsa kaydet
       if (Number(formDownPayment) > 0) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: `${formTitle} - Peşinat`,
+            student_id: selectedStudent.id,
+            title: `${formTitle} - Peşinat (${studentName})`,
             category: formCategory,
             amount: Number(formDownPayment),
             payment_type: 'cash',
@@ -228,17 +303,18 @@ export default function OtherIncomePage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: `${formTitle} - ${inst.no}. Taksit`,
+            student_id: selectedStudent.id,
+            title: `${formTitle} - ${inst.no}. Taksit (${studentName})`,
             category: formCategory,
             amount: inst.amount,
             payment_type: 'cash',
             date: new Date(inst.dueDate).toISOString(),
-            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
+            notes: `Öğrenci: ${studentName}, Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
           })
         });
       }
 
-      toast.success(`${installmentPreview.length} taksit oluşturuldu`);
+      toast.success(`${selectedStudent.first_name} için ${installmentPreview.length} taksit oluşturuldu`);
       setShowAddModal(false);
       resetForm();
       fetchData();
@@ -259,6 +335,8 @@ export default function OtherIncomePage() {
     setFormFirstDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setFormPeriod('monthly');
     setFormNotes('');
+    setSelectedStudent(null);
+    setStudentSearchQuery('');
   };
 
   const handleDelete = async (id: string) => {
@@ -390,6 +468,7 @@ export default function OtherIncomePage() {
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Tarih</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Öğrenci</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Başlık</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Kategori</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Tutar</th>
@@ -401,9 +480,21 @@ export default function OtherIncomePage() {
                     {paginatedData.map((row) => {
                       const catInfo = getCategoryInfo(row.category);
                       const IconComponent = ICON_MAP[catInfo.icon] || Package;
+                      const studentName = row.students ? `${row.students.first_name} ${row.students.last_name}` : '-';
                       return (
                         <tr key={row.id} className="hover:bg-emerald-50/30 transition">
                           <td className="py-4 px-4 text-sm font-medium text-gray-900">{formatDate(row.date)}</td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <User size={14} className="text-emerald-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 text-sm">{studentName}</p>
+                                {row.students?.class && <p className="text-xs text-gray-500">{row.students.class}</p>}
+                              </div>
+                            </div>
+                          </td>
                           <td className="py-4 px-4">
                             <p className="font-medium text-gray-900">{row.title}</p>
                             {row.notes && <p className="text-xs text-gray-500 truncate max-w-[200px]">{row.notes}</p>}
@@ -472,7 +563,7 @@ export default function OtherIncomePage() {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold">Diğer Gelir Taksitlendirme</h2>
-                    <p className="text-emerald-100 text-sm">Toplam tutarı taksitlere böl</p>
+                    <p className="text-emerald-100 text-sm">Öğrenci seç ve toplam tutarı taksitlere böl</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -489,14 +580,87 @@ export default function OtherIncomePage() {
 
             {/* Content - İki Sütun */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x divide-gray-200 max-h-[65vh] overflow-y-auto">
-              {/* SOL TARAF - MEVCUT ÖZET */}
+              {/* SOL TARAF - ÖĞRENCİ BİLGİSİ + ÖZET */}
               <div className="p-6 bg-gray-50">
-                <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">MEVCUT KATEGORİ ÖZETİ</h3>
-                  <p className="text-xs text-gray-500 mt-1">Kategorilere göre gelir dağılımı</p>
+                {/* ÖĞRENCİ SEÇİMİ */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">ÖĞRENCİ SEÇ</h3>
+                  
+                  {selectedStudent ? (
+                    <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <GraduationCap size={24} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                            <p className="text-sm text-gray-600">
+                              {selectedStudent.class && <span className="mr-2">{selectedStudent.class}</span>}
+                              {selectedStudent.student_no && <span className="text-gray-400">#{selectedStudent.student_no}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-red-100 rounded-lg text-red-500 transition">
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="relative">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={studentSearchQuery}
+                          onChange={(e) => setStudentSearchQuery(e.target.value)}
+                          placeholder="Öğrenci adı veya numarası ile ara..."
+                          className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                        />
+                        {loadingStudents && (
+                          <RefreshCw size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />
+                        )}
+                      </div>
+                      
+                      {/* Dropdown */}
+                      {showStudentDropdown && filteredStudents.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                          {filteredStudents.map(student => (
+                            <button
+                              key={student.id}
+                              onClick={() => handleSelectStudent(student)}
+                              className="w-full px-4 py-3 text-left hover:bg-emerald-50 flex items-center gap-3 transition border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <User size={18} className="text-emerald-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{student.first_name} {student.last_name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {student.class && <span>{student.class}</span>}
+                                  {student.student_no && <span className="ml-2">#{student.student_no}</span>}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {showStudentDropdown && studentSearchQuery.length >= 2 && filteredStudents.length === 0 && !loadingStudents && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-500">
+                          Öğrenci bulunamadı
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Kategori Tablosu */}
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">MEVCUT KATEGORİ ÖZETİ</h3>
+                  <p className="text-xs text-gray-500 mb-3">Kategorilere göre gelir dağılımı</p>
+                </div>
+
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
                   <table className="w-full">
                     <thead>
@@ -703,7 +867,7 @@ export default function OtherIncomePage() {
                 <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition">
                   Vazgeç
                 </button>
-                <button onClick={handleAddIncome} disabled={saving || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
+                <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
                   {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
                   {saving ? 'Kaydediliyor...' : 'Taksitlendirmeyi Onayla'}
                 </button>
