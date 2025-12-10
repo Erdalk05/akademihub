@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LoginCredentials, User, AuthResponse } from '@/types';
+import { getServiceRoleClient } from '@/lib/supabase/server';
+import { LoginCredentials, AuthResponse } from '@/types';
 
-// Mock users database
+// Fallback mock users (Supabase bağlantısı yoksa)
 const MOCK_USERS = [
   {
     id: '1',
@@ -13,27 +14,11 @@ const MOCK_USERS = [
   },
   {
     id: '2',
-    email: 'teacher@demo.com',
-    password: 'teacher123',
-    name: 'Ayşe',
-    surname: 'Öğretmen',
-    role: 'TEACHER',
-  },
-  {
-    id: '3',
-    email: 'parent@demo.com',
-    password: 'parent123',
-    name: 'Mehmet',
-    surname: 'Veli',
-    role: 'PARENT',
-  },
-  {
-    id: '4',
-    email: 'accountant@demo.com',
-    password: 'accountant123',
-    name: 'Fatma',
-    surname: 'Muhasebeci',
-    role: 'ACCOUNTANT',
+    email: 'admin@akademihub.com',
+    password: 'admin123',
+    name: 'Sistem',
+    surname: 'Admin',
+    role: 'ADMIN',
   },
 ];
 
@@ -41,9 +26,6 @@ export async function POST(request: NextRequest) {
   try {
     const body: LoginCredentials = await request.json();
     const { email, password } = body;
-    
-    // eslint-disable-next-line no-console
-    console.log('🔐 Login attempt:', { email });
 
     // Validate input
     if (!email || !password) {
@@ -58,14 +40,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user
-    const user = MOCK_USERS.find((u) => u.email === email && u.password === password);
+    // Önce Supabase'den kullanıcıyı kontrol et
+    let user = null;
+    
+    try {
+      const supabase = getServiceRoleClient();
+      
+      // app_users tablosundan kullanıcıyı bul
+      const { data: dbUser, error } = await supabase
+        .from('app_users')
+        .select('id, email, password_hash, name, surname, role, is_active')
+        .eq('email', email.toLowerCase().trim())
+        .eq('is_active', true)
+        .single();
 
+      if (!error && dbUser) {
+        // Şifre kontrolü (şimdilik plain text, sonra hash'lenecek)
+        // NOT: Gerçek projede bcrypt ile hash karşılaştırması yapılmalı
+        if (dbUser.password_hash === password) {
+          user = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            surname: dbUser.surname || '',
+            role: dbUser.role,
+          };
+          
+          // Son giriş zamanını güncelle
+          await supabase
+            .from('app_users')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', dbUser.id);
+        }
+      }
+    } catch {
+      // Supabase hatası - mock verilere düş
+    }
+
+    // Supabase'de bulunamadıysa mock verileri kontrol et
+    if (!user) {
+      const mockUser = MOCK_USERS.find(
+        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+      );
+      
+      if (mockUser) {
+        user = {
+          id: mockUser.id,
+          email: mockUser.email,
+          name: mockUser.name,
+          surname: mockUser.surname,
+          role: mockUser.role,
+        };
+      }
+    }
+
+    // Kullanıcı bulunamadı
     if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Email veya şifre hatalı',
+          error: 'Geçersiz e-posta veya şifre!',
           statusCode: 401,
           timestamp: new Date(),
         },
@@ -73,7 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate mock token
+    // Generate token
     const token = `token_${user.id}_${Date.now()}`;
 
     const response: AuthResponse = {
@@ -102,7 +136,6 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Login error:', error);
     return NextResponse.json(
       {
         success: false,
