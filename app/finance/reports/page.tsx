@@ -27,7 +27,7 @@ import {
 import toast from 'react-hot-toast';
 
 type Period = 'today' | 'week' | 'month' | 'year' | 'custom';
-type ReportTab = 'transactions' | 'class-report' | 'monthly-comparison';
+type ReportTab = 'transactions' | 'class-report' | 'monthly-comparison' | 'guardian-report';
 
 interface Transaction {
   id: string;
@@ -69,6 +69,18 @@ interface ChartSettings {
   colorScheme: 'default' | 'colorful' | 'monochrome';
 }
 
+interface GuardianReport {
+  guardianName: string;
+  guardianPhone: string;
+  studentCount: number;
+  students: string[];
+  totalAmount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  collectionRate: number;
+  lastPaymentDate?: string;
+}
+
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('month');
@@ -85,6 +97,10 @@ export default function ReportsPage() {
   // Aylık karşılaştırma için
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [compareMonths, setCompareMonths] = useState<number>(6);
+  
+  // Veli bazlı rapor için
+  const [guardianReports, setGuardianReports] = useState<GuardianReport[]>([]);
+  const [guardianSearch, setGuardianSearch] = useState('');
   
   // Grafik özelleştirme
   const [chartSettings, setChartSettings] = useState<ChartSettings>({
@@ -178,6 +194,9 @@ export default function ReportsPage() {
       
       // Aylık karşılaştırma hesapla
       calculateMonthlyComparison(allTransactions, expensesJson.data || []);
+      
+      // Veli bazlı rapor hesapla
+      calculateGuardianReports(installments, students);
       
     } catch (err) {
       toast.error('Veriler yüklenemedi');
@@ -307,6 +326,83 @@ export default function ReportsPage() {
     });
     
     setMonthlyData(months);
+  };
+  
+  // Veli bazlı rapor hesaplama
+  const calculateGuardianReports = (installments: any[], students: any[]) => {
+    const guardianMap = new Map<string, GuardianReport>();
+    
+    // Öğrenci -> Veli eşleştirmesi
+    students.forEach((student: any) => {
+      const guardianName = student.parent_name || 'Bilinmeyen Veli';
+      const guardianPhone = student.parent_phone || '';
+      const key = guardianPhone || guardianName;
+      
+      if (!guardianMap.has(key)) {
+        guardianMap.set(key, {
+          guardianName,
+          guardianPhone,
+          studentCount: 0,
+          students: [],
+          totalAmount: 0,
+          paidAmount: 0,
+          unpaidAmount: 0,
+          collectionRate: 0,
+        });
+      }
+      
+      const report = guardianMap.get(key)!;
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      if (studentName && !report.students.includes(studentName)) {
+        report.students.push(studentName);
+        report.studentCount += 1;
+      }
+    });
+    
+    // Öğrenci ID -> Veli key eşleştirmesi
+    const studentToGuardian = new Map<string, string>();
+    students.forEach((student: any) => {
+      const guardianPhone = student.parent_phone || '';
+      const guardianName = student.parent_name || 'Bilinmeyen Veli';
+      const key = guardianPhone || guardianName;
+      studentToGuardian.set(student.id, key);
+    });
+    
+    // Taksitleri velilere göre grupla
+    installments.forEach((inst: any) => {
+      const guardianKey = studentToGuardian.get(inst.student_id);
+      if (!guardianKey || !guardianMap.has(guardianKey)) return;
+      
+      const report = guardianMap.get(guardianKey)!;
+      const amount = inst.amount || 0;
+      const paidAmount = inst.paid_amount || 0;
+      
+      report.totalAmount += amount;
+      if (inst.is_paid) {
+        report.paidAmount += paidAmount || amount;
+        if (inst.paid_at) {
+          if (!report.lastPaymentDate || new Date(inst.paid_at) > new Date(report.lastPaymentDate)) {
+            report.lastPaymentDate = inst.paid_at;
+          }
+        }
+      } else {
+        report.unpaidAmount += amount;
+      }
+    });
+    
+    // Tahsilat oranı hesapla
+    guardianMap.forEach((report) => {
+      if (report.totalAmount > 0) {
+        report.collectionRate = Math.round((report.paidAmount / report.totalAmount) * 100);
+      }
+    });
+    
+    // Sırala (toplam tutara göre)
+    const sorted = Array.from(guardianMap.values())
+      .filter(r => r.totalAmount > 0)
+      .sort((a, b) => b.totalAmount - a.totalAmount);
+    
+    setGuardianReports(sorted);
   };
 
   // Tarih filtreleme
@@ -542,6 +638,17 @@ export default function ReportsPage() {
             >
               <BarChart3 size={18} />
               Aylık Karşılaştırma
+            </button>
+            <button
+              onClick={() => setActiveTab('guardian-report')}
+              className={`flex items-center gap-2 px-6 py-4 font-medium transition border-b-2 ${
+                activeTab === 'guardian-report'
+                  ? 'text-indigo-600 border-indigo-600'
+                  : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              <Users size={18} />
+              Veli Bazlı Rapor
             </button>
           </div>
         </div>
@@ -1315,6 +1422,160 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== VELİ BAZLI RAPOR ==================== */}
+        {activeTab === 'guardian-report' && (
+          <div className="space-y-6">
+            {/* Özet Kartlar */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-xl p-5 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-purple-100 text-xs font-medium">Toplam Veli</span>
+                  <Users className="w-5 h-5 text-purple-200" />
+                </div>
+                <p className="text-2xl font-bold">{guardianReports.length}</p>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-slate-500 text-xs font-medium">Toplam Öğrenci</span>
+                  <GraduationCap className="w-5 h-5 text-indigo-500" />
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{guardianReports.reduce((s, r) => s + r.studentCount, 0)}</p>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-slate-500 text-xs font-medium">Toplam Tahsilat</span>
+                  <Wallet className="w-5 h-5 text-emerald-500" />
+                </div>
+                <p className="text-2xl font-bold text-emerald-600">₺{guardianReports.reduce((s, r) => s + r.paidAmount, 0).toLocaleString('tr-TR')}</p>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-slate-500 text-xs font-medium">Bekleyen Tutar</span>
+                  <CreditCard className="w-5 h-5 text-amber-500" />
+                </div>
+                <p className="text-2xl font-bold text-amber-600">₺{guardianReports.reduce((s, r) => s + r.unpaidAmount, 0).toLocaleString('tr-TR')}</p>
+              </div>
+            </div>
+
+            {/* Arama */}
+            <div className="bg-white rounded-xl border border-slate-100 p-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={guardianSearch}
+                  onChange={(e) => setGuardianSearch(e.target.value)}
+                  placeholder="Veli ara..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Veli Tablosu */}
+            <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+              <div className="p-4 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <Users size={20} className="text-purple-600" />
+                  Veli Bazlı Ödeme Durumu
+                </h3>
+              </div>
+              
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                </div>
+              ) : guardianReports.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                  <Users size={48} className="mb-3" />
+                  <p>Veli verisi bulunamadı</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/50">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Veli</th>
+                        <th className="text-center px-4 py-3 font-semibold text-slate-600">Öğrenci</th>
+                        <th className="text-right px-4 py-3 font-semibold text-slate-600">Sözleşme</th>
+                        <th className="text-right px-4 py-3 font-semibold text-slate-600">Tahsilat</th>
+                        <th className="text-right px-4 py-3 font-semibold text-slate-600">Kalan</th>
+                        <th className="text-center px-4 py-3 font-semibold text-slate-600">Oran</th>
+                        <th className="text-center px-4 py-3 font-semibold text-slate-600">Son Ödeme</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {guardianReports
+                        .filter(r => 
+                          !guardianSearch || 
+                          r.guardianName.toLowerCase().includes(guardianSearch.toLowerCase()) ||
+                          r.students.some(s => s.toLowerCase().includes(guardianSearch.toLowerCase()))
+                        )
+                        .map((report, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="font-medium text-slate-900">{report.guardianName}</p>
+                                {report.guardianPhone && (
+                                  <p className="text-xs text-slate-500">{report.guardianPhone}</p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-slate-900">{report.studentCount}</span>
+                                <span className="text-xs text-slate-500 truncate max-w-[150px]">
+                                  {report.students.slice(0, 2).join(', ')}
+                                  {report.students.length > 2 && ` +${report.students.length - 2}`}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-slate-900">
+                              ₺{report.totalAmount.toLocaleString('tr-TR')}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                              ₺{report.paidAmount.toLocaleString('tr-TR')}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-amber-600">
+                              ₺{report.unpaidAmount.toLocaleString('tr-TR')}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full ${
+                                      report.collectionRate >= 80 ? 'bg-emerald-500' :
+                                      report.collectionRate >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                                    }`}
+                                    style={{ width: `${report.collectionRate}%` }}
+                                  />
+                                </div>
+                                <span className={`text-xs font-bold ${
+                                  report.collectionRate >= 80 ? 'text-emerald-600' :
+                                  report.collectionRate >= 50 ? 'text-amber-600' : 'text-red-600'
+                                }`}>
+                                  %{report.collectionRate}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {report.lastPaymentDate ? (
+                                <span className="text-xs text-slate-600">
+                                  {new Date(report.lastPaymentDate).toLocaleDateString('tr-TR')}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
