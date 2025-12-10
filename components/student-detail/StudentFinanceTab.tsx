@@ -197,91 +197,139 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
+      const today = new Date().toLocaleDateString('tr-TR');
       
-      // Logo ve Başlık
-      doc.setFontSize(20);
+      // === BAŞLIK ===
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('ÖĞRENCİ KAYIT VE ÖDEME SÖZLEŞMESİ', pageWidth / 2, 20, { align: 'center' });
+      doc.text('KAYIT SÖZLEŞMESİ', pageWidth / 2, 12, { align: 'center' });
       
-      // Öğrenci Bilgileri
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ÖĞRENCİ BİLGİLERİ', 15, 35);
-      
-      doc.setFontSize(10);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      let yPos = 45;
-      doc.text(`Ad Soyad: ${student.first_name} ${student.last_name}`, 15, yPos);
-      yPos += 7;
-      doc.text(`Öğrenci No: ${student.student_no}`, 15, yPos);
-      yPos += 7;
-      doc.text(`Sınıf: ${student.class || '-'}-${student.section || 'A'}`, 15, yPos);
-      yPos += 7;
-      doc.text(`Durum: ${student.status === 'active' ? 'Aktif Kayıt' : student.status}`, 15, yPos);
+      doc.text(`Tarih: ${today}  |  Öğrenci No: ${student.student_no}`, pageWidth / 2, 18, { align: 'center' });
       
-      // Finansal Bilgiler
-      yPos += 15;
-      doc.setFontSize(12);
+      // === ÖĞRENCİ BİLGİLERİ (Kompakt - Yan yana) ===
+      let y = 25;
+      
+      // Sol kolon: Öğrenci
+      doc.setFillColor(79, 70, 229);
+      doc.rect(10, y, 90, 5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('FİNANSAL ÖZET', 15, yPos);
+      doc.text('ÖĞRENCİ BİLGİLERİ', 12, y + 3.5);
       
-      yPos += 10;
-      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Toplam Sözleşme: ₺${totalAmount.toLocaleString('tr-TR')}`, 15, yPos);
-      yPos += 7;
-      doc.text(`Tahsil Edilen: ₺${paidAmount.toLocaleString('tr-TR')}`, 15, yPos);
-      yPos += 7;
-      doc.text(`Kalan Borç: ₺${balance.toLocaleString('tr-TR')}`, 15, yPos);
+      doc.setFontSize(7);
+      y += 8;
+      doc.text(`Ad Soyad: ${student.first_name} ${student.last_name}`, 12, y);
+      doc.text(`TC Kimlik No: ${student.tc_no || '-'}`, 12, y + 4);
+      doc.text(`Sınıf: ${student.class || '-'}-${student.section || 'A'}`, 12, y + 8);
+      doc.text(`Kayıt Tarihi: ${today}`, 12, y + 12);
       
-      // Taksit Tablosu
-      yPos += 15;
-      doc.setFontSize(12);
+      // Sağ kolon: Veli
+      doc.setFillColor(147, 51, 234);
+      doc.rect(105, y - 8, 95, 5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('TAKSİT ÖDEME PLANI', 15, yPos);
+      doc.text('VELİ BİLGİLERİ', 107, y - 4.5);
       
-      // Tablo oluştur
-      const tableData = installments.map((inst, index) => [
-        `${index + 1}. Taksit`,
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Veli Adı: ${student.parent_name || '-'}`, 107, y);
+      doc.text(`Telefon: ${student.parent_phone || '-'}`, 107, y + 4);
+      doc.text(`E-posta: ${student.parent_email || '-'}`, 107, y + 8);
+      
+      // === ÖDEME PLANI VE TAKSİT DURUMU (Kompakt Tablo) ===
+      y += 20;
+      doc.setFillColor(34, 197, 94);
+      doc.rect(10, y, pageWidth - 20, 5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ÖDEME PLANI VE TAKSİT DURUMU', 12, y + 3.5);
+      
+      // Taksit tablosu - Maksimum 12 satır göster
+      const maxRows = 12;
+      const displayInstallments = installments.slice(0, maxRows);
+      const tableData = displayInstallments.map((inst, index) => [
+        inst.installment_no === 0 ? 'P' : String(index + 1),
+        inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`,
         new Date(inst.due_date).toLocaleDateString('tr-TR'),
-        `₺${inst.amount.toLocaleString('tr-TR')}`,
-        `₺${inst.paid_amount.toLocaleString('tr-TR')}`,
-        `₺${(inst.amount - inst.paid_amount).toLocaleString('tr-TR')}`,
-        inst.status === 'paid' ? 'Ödendi' : inst.status === 'overdue' ? 'Gecikmiş' : 'Beklemede'
+        `${inst.amount.toLocaleString('tr-TR')} ₺`,
+        inst.status === 'paid' ? '✓ Ödendi' : inst.status === 'overdue' ? '⚠ Gecikmiş' : '○ Bekliyor'
+      ]);
+      
+      // Toplam satırı ekle
+      tableData.push([
+        '', 'TOPLAM', '', `${totalAmount.toLocaleString('tr-TR')} ₺`, `Ödenen: ${paidAmount.toLocaleString('tr-TR')} ₺`
       ]);
       
       (doc as any).autoTable({
-        startY: yPos + 5,
-        head: [['Taksit', 'Vade Tarihi', 'Tutar', 'Ödenen', 'Kalan', 'Durum']],
+        startY: y + 7,
+        head: [['No', 'Açıklama', 'Vade Tarihi', 'Tutar', 'Durum']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: 'bold', fontSize: 7, cellPadding: 1.5 },
+        styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'linebreak' },
         columnStyles: {
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-          5: { halign: 'center' }
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 28, halign: 'center' },
+          3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+          4: { cellWidth: 'auto', halign: 'center' }
+        },
+        margin: { left: 10, right: 10 },
+        didParseCell: function(data: any) {
+          // Toplam satırını kalın yap
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
         }
       });
       
-      // Footer
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(8);
+      // === YASAL BEYAN (Kompakt) ===
+      const tableEndY = (doc as any).lastAutoTable.finalY + 5;
+      doc.setFontSize(6);
       doc.setFont('helvetica', 'italic');
-      doc.text('MEB Özel Öğretim Kurumları Yönetmeliği hükümleri ve kurum iç yönetmeliğini okudum, ödeme planına uymayı taahhüt ediyorum.', 15, finalY);
+      doc.setTextColor(100, 100, 100);
+      const legalText = 'MEB Özel Öğretim Kurumları Yönetmeliği gereği hazırlanmıştır. Yukarıdaki bilgilerin doğruluğunu, ödeme planına uyacağımı, KVKK kapsamında kişisel verilerimin işlenmesini kabul ettiğimi beyan ederim.';
+      const splitText = doc.splitTextToSize(legalText, pageWidth - 20);
+      doc.text(splitText, 10, tableEndY);
       
-      // İmza Alanları
-      const signY = finalY + 15;
+      // === İMZA ALANLARI (Kompakt) ===
+      const signY = tableEndY + 12;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      
+      // Sol: Kurum
+      doc.text('KURUM YETKİLİSİ', 30, signY);
+      doc.line(10, signY + 10, 70, signY + 10);
       doc.setFont('helvetica', 'normal');
-      doc.text('_____________________', 15, signY);
-      doc.text('Kurum Yetkilisi', 15, signY + 5);
+      doc.setFontSize(6);
+      doc.text('İmza / Tarih / Kaşe', 25, signY + 14);
       
-      doc.text('_____________________', 130, signY);
-      doc.text('Veli / Mali Sorumlu', 130, signY + 5);
+      // Sağ: Veli
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text('VELİ / MALİ SORUMLU', pageWidth - 55, signY);
+      doc.line(pageWidth - 70, signY + 10, pageWidth - 10, signY + 10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.text('İmza / Tarih', pageWidth - 45, signY + 14);
+      
+      // === FOOTER ===
+      doc.setFontSize(6);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`AkademiHub © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}`, pageWidth / 2, 290, { align: 'center' });
       
       // PDF'i indir
-      const fileName = `Sozlesme_${student.first_name}_${student.last_name}_${new Date().toLocaleDateString('tr-TR')}.pdf`;
+      const fileName = `Sozlesme_${student.first_name}_${student.last_name}_${today.replace(/\./g, '-')}.pdf`;
       doc.save(fileName);
       
       toast.success(
