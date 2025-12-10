@@ -507,36 +507,46 @@ function StudentsContent() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <tr className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
+                    <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Kayıt No
+                    </th>
                     <th 
                       onClick={() => handleSort('name')}
-                      className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition select-none"
+                      className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 transition select-none"
                     >
                       <div className="flex items-center gap-1">
                         Öğrenci
                         {sortField === 'name' && <span className="text-indigo-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
                       </div>
                     </th>
+                    <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Sınıf
+                    </th>
                     <th 
                       onClick={() => handleSort('debt')}
-                      className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition select-none"
+                      className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 transition select-none"
                     >
                       <div className="flex items-center gap-1">
                         Borç
                         {sortField === 'debt' && <span className="text-indigo-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
                       </div>
                     </th>
-                    <th className="text-left px-4 py-3 font-semibold text-slate-600">Son Ödeme</th>
+                    <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Son Ödeme
+                    </th>
                     <th 
                       onClick={() => handleSort('risk')}
-                      className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition select-none"
+                      className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 transition select-none"
                     >
                       <div className="flex items-center gap-1">
                         Risk
                         {sortField === 'risk' && <span className="text-indigo-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
                       </div>
                     </th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-600">İşlemler</th>
+                    <th className="text-center px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      İşlemler
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -549,16 +559,23 @@ function StudentsContent() {
                     const classLabel = s.class && s.section ? `${s.class}-${s.section}` : s.class || '-';
                     
                     return (
-                      <tr key={s.id} className="hover:bg-slate-50/50 transition">
+                      <tr key={s.id} className="hover:bg-indigo-50/30 transition group">
+                        {/* Kayıt No */}
+                        <td className="px-4 py-3.5">
+                          <span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                            {s.student_no || '--'}
+                          </span>
+                        </td>
+                        
                         {/* Öğrenci */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             {s.photo_url ? (
-                              <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0">
+                              <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md flex-shrink-0 group-hover:scale-105 transition">
                                 <Image src={s.photo_url} alt={fullName} fill className="object-cover" />
                               </div>
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md group-hover:scale-105 transition">
                                 {initials}
                               </div>
                             )}
@@ -566,19 +583,21 @@ function StudentsContent() {
                               <Link href={`/students/${s.id}`} className="font-semibold text-slate-900 hover:text-indigo-600 transition">
                                 {fullName}
                               </Link>
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                <span className="font-mono">{s.student_no || '--'}</span>
-                                <span>•</span>
-                                <span>{classLabel}</span>
-                              </div>
                             </div>
                           </div>
                         </td>
                         
+                        {/* Sınıf */}
+                        <td className="px-4 py-3.5">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700">
+                            {classLabel}
+                          </span>
+                        </td>
+                        
                         {/* Borç */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           <div className="flex flex-col">
-                            <span className={`font-bold ${s.debt > 0 ? 'text-slate-900' : 'text-emerald-600'}`}>
+                            <span className={`font-bold text-base ${s.debt > 0 ? 'text-slate-900' : 'text-emerald-600'}`}>
                               ₺{s.debt.toLocaleString('tr-TR')}
                             </span>
                             {s.debt > 0 && s.avgDelay ? (
@@ -596,7 +615,7 @@ function StudentsContent() {
                         </td>
                         
                         {/* Son Ödeme */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           {s.lastPaymentDate ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-emerald-600">
@@ -610,49 +629,56 @@ function StudentsContent() {
                         </td>
                         
                         {/* Risk */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3.5">
                           {s.risk === 'Yüksek' && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
-                              🔴 Kritik
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-sm">
+                              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                              Kritik
                             </span>
                           )}
                           {s.risk === 'Orta' && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-                              🟡 Orta
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm">
+                              <span className="w-2 h-2 bg-white rounded-full"></span>
+                              Orta
                             </span>
                           )}
                           {s.risk === 'Düşük' && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                              🔵 Düşük
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-400 to-indigo-400 text-white shadow-sm">
+                              <span className="w-2 h-2 bg-white rounded-full"></span>
+                              Düşük
                             </span>
                           )}
                           {s.risk === 'Yok' && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                              ✅ OK
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-sm">
+                              <CheckCircle2 size={12} />
+                              Güncel
                             </span>
                           )}
                         </td>
                         
                         {/* İşlemler */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => window.open(`https://wa.me/?text=Merhaba`, '_blank')}
-                              className="p-2 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition"
+                              onClick={() => {
+                                const msg = encodeURIComponent(`Merhaba, ${fullName} hakkında bilgilendirme:`);
+                                window.open(`https://wa.me/?text=${msg}`, '_blank');
+                              }}
+                              className="p-2.5 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition shadow-sm"
                               title="WhatsApp"
                             >
                               <MessageCircle size={16} />
                             </button>
                             <button
                               onClick={() => router.push(`/students/${s.id}/payments`)}
-                              className="p-2 rounded-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
-                              title="Ödeme"
+                              className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition shadow-sm"
+                              title="Ödeme Al"
                             >
                               <CreditCard size={16} />
                             </button>
                             <button
                               onClick={() => { setSelectedStudent(s); setIsDrawerOpen(true); }}
-                              className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                              className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition shadow-sm"
                               title="Detaylar"
                             >
                               <MoreHorizontal size={16} />
