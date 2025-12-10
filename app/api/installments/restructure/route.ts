@@ -111,8 +111,6 @@ export async function POST(req: NextRequest) {
           is_paid: false,
           paid_amount: 0,
           status: 'pending',
-          is_new: true,  // Yeni taksit olarak işaretle
-          source: 'education',
         });
     }
 
