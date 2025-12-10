@@ -16,7 +16,11 @@ import {
   MoreHorizontal,
   RefreshCw,
   TrendingUp,
-  Wallet
+  Wallet,
+  X,
+  FileText,
+  Filter,
+  CalendarRange
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,6 +62,14 @@ export default function CollectionsPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
+
+  // Tarih Raporu Modal
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<'single' | 'range'>('single');
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportStartDate, setReportStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportData, setReportData] = useState<CollectionRow[]>([]);
 
   // Fetch Data
   useEffect(() => {
@@ -223,6 +235,15 @@ export default function CollectionsPage() {
               )}
             </div>
             
+            {/* Tarih Raporu */}
+            <button 
+              onClick={() => setShowReportModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+            >
+              <FileText size={16} />
+              Tarih Raporu
+            </button>
+
             {/* Excel Export */}
             <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition">
               <Download size={16} />
@@ -230,6 +251,217 @@ export default function CollectionsPage() {
             </button>
           </div>
         </div>
+
+        {/* Tarih Bazlı Rapor Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <Calendar size={20} className="text-purple-600" />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900">Tarih Bazlı Gelir/Gider Raporu</h2>
+                </div>
+                <button 
+                  onClick={() => setShowReportModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-5 space-y-5 overflow-y-auto max-h-[60vh]">
+                {/* Rapor Türü */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Rapor Türü</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setReportType('single')}
+                      className={`p-4 rounded-xl border-2 text-center transition ${
+                        reportType === 'single'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <CalendarRange size={24} className="mx-auto mb-2" />
+                      <p className="font-medium">Tek Gün</p>
+                      <p className="text-xs text-slate-500">Belirli bir günün raporu</p>
+                    </button>
+                    <button
+                      onClick={() => setReportType('range')}
+                      className={`p-4 rounded-xl border-2 text-center transition ${
+                        reportType === 'range'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <CalendarRange size={24} className="mx-auto mb-2" />
+                      <p className="font-medium">Tarih Aralığı</p>
+                      <p className="text-xs text-slate-500">İki tarih arası rapor</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tarih Seçimi */}
+                {reportType === 'single' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Tarih Seçin</label>
+                    <input
+                      type="date"
+                      value={reportDate}
+                      onChange={(e) => setReportDate(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Başlangıç</label>
+                      <input
+                        type="date"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Bitiş</label>
+                      <input
+                        type="date"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Verileri Getir Butonu */}
+                <button
+                  onClick={() => {
+                    let filtered: CollectionRow[] = [];
+                    if (reportType === 'single') {
+                      const targetDate = new Date(reportDate).toDateString();
+                      filtered = collections.filter(c => c.paidAt.toDateString() === targetDate);
+                    } else {
+                      const start = new Date(reportStartDate);
+                      const end = new Date(reportEndDate);
+                      end.setHours(23, 59, 59, 999);
+                      filtered = collections.filter(c => c.paidAt >= start && c.paidAt <= end);
+                    }
+                    setReportData(filtered);
+                    toast.success(`${filtered.length} tahsilat bulundu`);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition"
+                >
+                  <Filter size={18} />
+                  Verileri Getir
+                </button>
+
+                {/* Sonuçlar */}
+                {reportData.length > 0 ? (
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-medium text-slate-700">{reportData.length} Tahsilat</p>
+                      <p className="font-bold text-emerald-600">
+                        ₺{reportData.reduce((sum, r) => sum + r.amount, 0).toLocaleString('tr-TR')}
+                      </p>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {reportData.slice(0, 10).map((r, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
+                          <div>
+                            <p className="font-medium text-slate-900">{r.studentName}</p>
+                            <p className="text-xs text-slate-500">{r.paidAt.toLocaleDateString('tr-TR')}</p>
+                          </div>
+                          <p className="font-bold text-emerald-600">₺{r.amount.toLocaleString('tr-TR')}</p>
+                        </div>
+                      ))}
+                      {reportData.length > 10 && (
+                        <p className="text-center text-xs text-slate-400">+{reportData.length - 10} tahsilat daha...</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400">
+                    <FileText size={40} className="mx-auto mb-2 opacity-50" />
+                    <p>Yukarıdan tarih seçip &quot;Verileri Getir&quot; butonuna tıklayın.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between p-5 border-t border-slate-100 bg-slate-50">
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-900 transition"
+                >
+                  Kapat
+                </button>
+                <button
+                  onClick={async () => {
+                    if (reportData.length === 0) {
+                      toast.error('Önce verileri getirin');
+                      return;
+                    }
+                    const { jsPDF } = await import('jspdf');
+                    const doc = new jsPDF('p', 'mm', 'a4');
+                    
+                    // Başlık
+                    doc.setFontSize(16);
+                    doc.text('Tahsilat Raporu', 105, 20, { align: 'center' });
+                    doc.setFontSize(10);
+                    const dateText = reportType === 'single' 
+                      ? new Date(reportDate).toLocaleDateString('tr-TR')
+                      : `${new Date(reportStartDate).toLocaleDateString('tr-TR')} - ${new Date(reportEndDate).toLocaleDateString('tr-TR')}`;
+                    doc.text(dateText, 105, 28, { align: 'center' });
+                    
+                    // Toplam
+                    const total = reportData.reduce((sum, r) => sum + r.amount, 0);
+                    doc.setFontSize(12);
+                    doc.text(`Toplam: ${total.toLocaleString('tr-TR')} TL`, 105, 38, { align: 'center' });
+                    
+                    // Tablo başlıkları
+                    let y = 50;
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Tarih', 15, y);
+                    doc.text('Ogrenci', 40, y);
+                    doc.text('Sinif', 100, y);
+                    doc.text('Tutar', 120, y);
+                    doc.text('Taksit', 150, y);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    y += 8;
+                    
+                    reportData.forEach((r) => {
+                      if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                      }
+                      doc.text(r.paidAt.toLocaleDateString('tr-TR'), 15, y);
+                      doc.text(r.studentName.slice(0, 25), 40, y);
+                      doc.text(r.studentClass || '-', 100, y);
+                      doc.text(`${r.amount.toLocaleString('tr-TR')} TL`, 120, y);
+                      doc.text(`${r.installmentNo}. Taksit`, 150, y);
+                      y += 6;
+                    });
+                    
+                    doc.save(`tahsilat-raporu-${reportDate}.pdf`);
+                    toast.success('PDF indirildi');
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition"
+                >
+                  <Download size={18} />
+                  PDF İndir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards - Öğrenci listesi ile aynı stil */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
