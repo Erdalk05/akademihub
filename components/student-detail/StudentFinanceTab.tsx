@@ -265,9 +265,10 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
               <thead>
                 <tr style="background: #f1f5f9;">
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0; width: 40px;">No</th>
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0; width: 35px;">No</th>
                   <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">Açıklama</th>
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Vade Tarihi</th>
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Vade</th>
+                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Ödeme Tarihi</th>
                   <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">Tutar</th>
                   <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Durum</th>
                 </tr>
@@ -275,9 +276,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <tbody>
                 ${installments.slice(0, 12).map((inst, index) => `
                   <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 6px 8px; text-align: center;">${inst.installment_no === 0 ? 'P' : index + 1}</td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : index + 1}</td>
                     <td style="padding: 6px 8px;">${inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}</td>
                     <td style="padding: 6px 8px; text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; text-align: center; color: ${inst.status === 'paid' ? '#059669' : '#9ca3af'};">
+                      ${inst.status === 'paid' ? new Date().toLocaleDateString('tr-TR') : '-'}
+                    </td>
                     <td style="padding: 6px 8px; text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
                     <td style="padding: 6px 8px; text-align: center;">
                       <span style="padding: 2px 8px; border-radius: 12px; font-size: 8px; font-weight: bold; 

@@ -277,23 +277,27 @@ export default function ContractsPage() {
       <table>
         <thead>
           <tr>
-            <th style="width: 10%;">No</th>
-            <th style="width: 25%;">Açıklama</th>
-            <th style="width: 20%;">Vade Tarihi</th>
-            <th style="width: 20%; text-align: right;">Tutar</th>
-            <th style="width: 25%; text-align: center;">Durum</th>
+            <th style="width: 8%;">No</th>
+            <th style="width: 20%;">Açıklama</th>
+            <th style="width: 18%;">Vade Tarihi</th>
+            <th style="width: 18%;">Ödeme Tarihi</th>
+            <th style="width: 18%; text-align: right;">Tutar</th>
+            <th style="width: 18%; text-align: center;">Durum</th>
           </tr>
         </thead>
         <tbody>
           ${info.installments.map(inst => `
             <tr>
-              <td>${inst.installment_no === 0 ? 'P' : inst.installment_no}</td>
+              <td style="text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : inst.installment_no}</td>
               <td>${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
-              <td>${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-              <td style="text-align: right;">${inst.amount.toLocaleString('tr-TR')} ₺</td>
+              <td style="text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+              <td style="text-align: center; ${inst.is_paid ? 'color: #059669; font-weight: 500;' : 'color: #9ca3af;'}">
+                ${inst.is_paid && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}
+              </td>
+              <td style="text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} ₺</td>
               <td style="text-align: center;" class="${inst.is_paid ? 'paid' : new Date(inst.due_date) < new Date() ? 'overdue' : 'pending'}">
                 ${inst.is_paid 
-                  ? `✓ Ödendi${inst.paid_at ? ' (' + new Date(inst.paid_at).toLocaleDateString('tr-TR') + ')' : ''}`
+                  ? '✓ Ödendi'
                   : new Date(inst.due_date) < new Date() 
                     ? '⚠ Gecikmiş'
                     : '○ Bekliyor'
@@ -302,9 +306,9 @@ export default function ContractsPage() {
             </tr>
           `).join('')}
           <tr class="total-row">
-            <td colspan="3">TOPLAM</td>
-            <td style="text-align: right;">${info.total.toLocaleString('tr-TR')} ₺</td>
-            <td style="text-align: center;">Ödenen: ${info.paid.toLocaleString('tr-TR')} ₺</td>
+            <td colspan="4" style="text-align: left; font-weight: bold;">TOPLAM</td>
+            <td style="text-align: right; font-weight: bold;">${info.total.toLocaleString('tr-TR')} ₺</td>
+            <td style="text-align: center; font-weight: bold;">Ödenen: ${info.paid.toLocaleString('tr-TR')} ₺</td>
           </tr>
         </tbody>
       </table>
