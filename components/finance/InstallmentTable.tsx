@@ -368,17 +368,25 @@ export default function InstallmentTable({
                               </button>
                             )}
                             
-                            {/* Send Reminder */}
+                            {/* WhatsApp Hatırlatma */}
                             {!isFullyPaid && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  alert('Hatırlatma SMS\'i gönderildi');
+                                  if (onWhatsApp) {
+                                    onWhatsApp(inst);
+                                  } else {
+                                    // Fallback: Direkt WhatsApp aç
+                                    const msg = encodeURIComponent(
+                                      `Sayın Veli,\n\n${inst.installment_no}. taksit ödemesini hatırlatmak isteriz.\n\nVade: ${inst.due_date ? new Date(inst.due_date).toLocaleDateString('tr-TR') : '-'}\nTutar: ₺${((inst.amount || 0) - (inst.paid_amount || 0)).toLocaleString('tr-TR')}\n\nSaygılarımızla,\nAkademiHub`
+                                    );
+                                    window.open(`https://wa.me/?text=${msg}`, '_blank');
+                                  }
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full px-4 py-2.5 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-50 flex items-center gap-3 transition-colors"
+                                className="w-full px-4 py-2.5 text-left text-sm font-medium text-green-700 hover:bg-green-50 flex items-center gap-3 transition-colors"
                               >
-                                <MessageSquare size={16} />
+                                <MessageCircle size={16} />
                                 Hatırlatma Gönder
                               </button>
                             )}
