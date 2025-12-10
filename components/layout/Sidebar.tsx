@@ -187,9 +187,9 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-[#075E54] via-[#128C7E] to-[#075E54]">
-      {/* Logo - WhatsApp Style */}
+      {/* Logo - WhatsApp Style - Dashboard'a yönlendir */}
       <div className="p-6 border-b border-white/10">
-        <Link href="/" className="flex items-center gap-3" onClick={handleNavClick}>
+        <Link href="/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
           <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
             AH
           </div>
