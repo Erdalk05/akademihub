@@ -50,17 +50,34 @@ export async function createEnrollment(data: EnrollmentData) {
     const studentData = {
       student_no: studentNumber,
       tc_id: tcIdValue,
-      // Kişisel bilgiler
+      // Kişisel bilgiler - AD SOYAD ZORUNLU
+      first_name: data.student.firstName || 'İsimsiz',
+      last_name: data.student.lastName || 'Öğrenci',
+      full_name: `${data.student.firstName || ''} ${data.student.lastName || ''}`.trim() || 'İsimsiz Öğrenci',
       birth_date: data.student.birthDate || null,
+      birth_place: data.student.birthPlace || null,
+      nationality: data.student.nationality || 'TC',
       gender: data.student.gender,
       blood_type: data.student.bloodGroup || null,
-      // Adres (tek alan olarak birleştir)
-      address: [data.student.city, data.student.district, data.student.address].filter(Boolean).join(', ') || null,
+      // İletişim
+      phone: data.student.phone || null,
+      phone2: data.student.phone2 || null,
+      email: data.student.email || null,
+      // Adres
+      city: data.student.city || null,
+      district: data.student.district || null,
+      address: data.student.address || null,
       // Eğitim
+      enrolled_class: data.education.gradeName || data.student.enrolledClass || null,
       class: data.education.gradeId || data.student.enrolledClass || '1',
       section: data.education.branchId || 'A',
-      // Veli bilgileri - öğrenci adını da buraya ekle
-      parent_name: `${data.student.firstName || ''} ${data.student.lastName || ''} - Veli: ${primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}`.trim() : 'Belirtilmedi'}`,
+      program_id: data.education.programId || null,
+      program_name: data.education.programName || null,
+      academic_year: data.education.academicYear || '2024-2025',
+      previous_school: data.student.previousSchool || null,
+      health_notes: data.student.healthNotes || null,
+      // Veli bilgileri
+      parent_name: primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}`.trim() : null,
       parent_phone: primaryGuardian?.phone || null,
       // Durum
       status: 'active',
