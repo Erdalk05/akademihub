@@ -753,7 +753,7 @@ export default function OtherIncomePage() {
                       <label className="block text-xs font-medium text-gray-700 mb-1">Peşinat Tutarı (₺)</label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-sm">₺</span>
-                        <input type="number" value={formDownPayment} onChange={(e) => setFormDownPayment(e.target.value)} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-amber-50" />
+                        <input type="text" inputMode="decimal" value={formDownPayment} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setFormDownPayment(v); }} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-amber-50" />
                       </div>
                     </div>
                     <div>
@@ -858,19 +858,39 @@ export default function OtherIncomePage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-5 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <AlertTriangle size={14} className="text-amber-500" />
-                Bu işlem geri alınamaz. Taksitler sisteme eklenecektir.
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition">
-                  Vazgeç
-                </button>
-                <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
-                  {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
-                  {saving ? 'Kaydediliyor...' : 'Taksitlendirmeyi Onayla'}
-                </button>
+            <div className="flex flex-col gap-3 p-5 border-t border-gray-200 bg-gray-50">
+              {/* Eksik alan uyarıları */}
+              {(!selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0) && (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {!selectedStudent && (
+                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Öğrenci seçilmedi</span>
+                  )}
+                  {!formTitle.trim() && (
+                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Başlık girilmedi</span>
+                  )}
+                  {!formTotalAmount && (
+                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Tutar girilmedi</span>
+                  )}
+                  {formTotalAmount && installmentPreview.length === 0 && (
+                    <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full font-medium">⚠ Vade tarihi seçilmedi</span>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <AlertTriangle size={14} className="text-amber-500" />
+                  Bu işlem geri alınamaz. Taksitler sisteme eklenecektir.
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition">
+                    Vazgeç
+                  </button>
+                  <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
+                    {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
+                    {saving ? 'Kaydediliyor...' : 'Taksitlendirmeyi Onayla'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
