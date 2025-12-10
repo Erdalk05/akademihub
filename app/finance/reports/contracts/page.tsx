@@ -199,25 +199,31 @@ export default function ContractsPage() {
   <title>Sözleşme - ${name}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; padding: 15mm; }
-    .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-    .header h1 { font-size: 24pt; }
-    .header-right { text-align: right; }
-    .section { margin-bottom: 20px; }
-    .section-title { background: #f0f0f0; border: 1px solid #000; padding: 8px 12px; font-weight: bold; font-size: 12pt; }
-    .section-content { border: 1px solid #000; border-top: none; padding: 15px; }
+    body { font-family: Arial, sans-serif; font-size: 8pt; line-height: 1.2; padding: 8mm; }
+    .header { border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 14pt; }
+    .header-right { text-align: right; font-size: 7pt; }
+    .header-right h2 { font-size: 10pt; padding: 4px 8px; }
+    .section { margin-bottom: 6px; }
+    .section-title { background: #f0f0f0; border: 1px solid #000; padding: 3px 8px; font-weight: bold; font-size: 8pt; }
+    .section-content { border: 1px solid #000; border-top: none; padding: 6px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    th, td { padding: 3px 4px; text-align: left; border-bottom: 1px solid #ddd; font-size: 7pt; }
     th { background: #f5f5f5; font-weight: bold; }
     .paid { color: #16a34a; font-weight: bold; }
     .pending { color: #ea580c; }
     .overdue { color: #dc2626; font-weight: bold; }
-    .total-row { border-top: 2px solid #000; font-weight: bold; font-size: 12pt; }
-    .signature { margin-top: 40px; display: flex; justify-content: space-between; }
-    .signature-box { border: 2px solid #000; padding: 15px; width: 45%; text-align: center; }
-    .signature-box p { margin-bottom: 60px; font-weight: bold; }
-    .footer { margin-top: 30px; text-align: center; font-size: 9pt; color: #666; border-top: 1px solid #000; padding-top: 10px; }
-    @media print { body { padding: 10mm; } }
+    .total-row { border-top: 1px solid #000; font-weight: bold; font-size: 8pt; }
+    .signature { margin-top: 10px; display: flex; justify-content: space-between; }
+    .signature-box { border: 1px solid #000; padding: 6px; width: 45%; text-align: center; }
+    .signature-box p { margin-bottom: 25px; font-weight: bold; font-size: 7pt; }
+    .footer { margin-top: 8px; text-align: center; font-size: 6pt; color: #666; border-top: 1px solid #ccc; padding-top: 4px; }
+    .terms { font-size: 6pt; line-height: 1.3; }
+    .terms p { margin-bottom: 1px; }
+    @media print { 
+      body { padding: 5mm; } 
+      @page { size: A4; margin: 5mm; }
+    }
   </style>
 </head>
 <body>
@@ -322,32 +328,25 @@ export default function ContractsPage() {
 
   <div class="section">
     <div class="section-title">SÖZLEŞME ŞARTLARI</div>
-    <div class="section-content" style="font-size: 10pt;">
-      <p>1. Veli, belirlenen ödeme planına uymayı taahhüt eder.</p>
-      <p>2. Taksitlerin zamanında ödenmemesi halinde kurum yasal işlem başlatma hakkını saklı tutar.</p>
-      <p>3. Kurum, eğitim hizmetini müfredata uygun şekilde sunmayı taahhüt eder.</p>
-      <p>4. Taraflar, KVKK kapsamında bilgilendirilmiştir.</p>
+    <div class="section-content terms">
+      <p>1. Veli, belirlenen ödeme planına uymayı taahhüt eder. 2. Taksitlerin zamanında ödenmemesi halinde kurum yasal işlem başlatma hakkını saklı tutar.</p>
+      <p>3. Kurum, eğitim hizmetini müfredata uygun şekilde sunmayı taahhüt eder. 4. Taraflar, KVKK kapsamında bilgilendirilmiştir.</p>
     </div>
   </div>
 
   <div class="signature">
     <div class="signature-box">
       <p>VELİ İMZASI</p>
-      <div style="border-top: 1px solid #000; padding-top: 8px;">
-        <small>${student.parent_name ? student.parent_name.split(' - Veli: ')[1] || student.parent_name : '________________________'}</small>
-      </div>
+      <small>${student.parent_name ? student.parent_name.split(' - Veli: ')[1] || student.parent_name : '________________________'}</small>
     </div>
     <div class="signature-box">
       <p>KURUM YETKİLİSİ</p>
-      <div style="border-top: 1px solid #000; padding-top: 8px;">
-        <small>________________________</small>
-      </div>
+      <small>________________________</small>
     </div>
   </div>
 
   <div class="footer">
-    <p>Bu belge ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })} tarihinde oluşturulmuştur.</p>
-    <p>AkademiHub K12 Eğitim Kurumları</p>
+    Bu belge ${new Date().toLocaleDateString('tr-TR')} tarihinde oluşturulmuştur. | AkademiHub K12 Eğitim Kurumları
   </div>
 </body>
 </html>
