@@ -340,9 +340,10 @@ export default function CollectionsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tarih</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sınıf</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Taksit</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">İşlemler</th>
                   </tr>
@@ -354,30 +355,41 @@ export default function CollectionsPage() {
                       className="hover:bg-slate-50/50 transition cursor-pointer"
                       onClick={() => router.push(`/students/${row.studentId}`)}
                     >
+                      {/* 1. Tarih */}
+                      <td className="px-4 py-3">
+                        <p className="text-slate-900 font-medium">{row.paidAt.toLocaleDateString('tr-TR')}</p>
+                        <p className="text-xs text-slate-400">{row.paidAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </td>
+                      {/* 2. Öğrenci */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-medium text-sm">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-medium text-xs">
                             {getInitials(row.studentName)}
                           </div>
                           <div>
                             <p className="font-medium text-slate-900">{row.studentName}</p>
-                            <p className="text-xs text-slate-500">{row.studentNo} • {row.studentClass}</p>
+                            <p className="text-xs text-slate-500">{row.studentNo}</p>
                           </div>
                         </div>
                       </td>
+                      {/* 3. Sınıf */}
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">
+                          {row.studentClass || '-'}
+                        </span>
+                      </td>
+                      {/* 4. Tutar */}
                       <td className="px-4 py-3">
                         <p className="font-bold text-emerald-600">₺{row.amount.toLocaleString('tr-TR')}</p>
                         <p className="text-xs text-slate-400">{row.paymentMethod}</p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-slate-900">{row.paidAt.toLocaleDateString('tr-TR')}</p>
-                        <p className="text-xs text-slate-400">{row.paidAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
-                      </td>
+                      {/* 5. Taksit */}
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                           {row.installmentNo === 0 ? 'Peşinat' : `${row.installmentNo}. Taksit`}
                         </span>
                       </td>
+                      {/* 6. İşlemler */}
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <Link
