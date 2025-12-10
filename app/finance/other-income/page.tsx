@@ -12,7 +12,6 @@ import {
   Package,
   Trash2,
   Calendar,
-  TrendingUp,
   ChevronLeft,
   ChevronRight,
   X,
@@ -22,7 +21,7 @@ import {
   FileText,
   DollarSign,
   AlertTriangle,
-  CreditCard
+  Minus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -38,13 +37,6 @@ const DEFAULT_CATEGORIES = [
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Book, Shirt, UtensilsCrossed, Pencil, Package
 };
-
-const PAYMENT_TYPES = [
-  { id: 'cash', label: 'Nakit', icon: '💵' },
-  { id: 'card', label: 'Kredi Kartı', icon: '💳' },
-  { id: 'bank', label: 'Havale/EFT', icon: '🏦' },
-  { id: 'other', label: 'Diğer', icon: '📋' },
-];
 
 type OtherIncomeRecord = {
   id: string;
@@ -65,6 +57,13 @@ type Category = {
   color: string;
 };
 
+type InstallmentPreview = {
+  no: number;
+  dueDate: string;
+  amount: number;
+  remaining: number;
+};
+
 export default function OtherIncomePage() {
   // State
   const [data, setData] = useState<OtherIncomeRecord[]>([]);
@@ -78,18 +77,62 @@ export default function OtherIncomePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  // Form states
+  // Form states - Temel
   const [formCategory, setFormCategory] = useState('book');
   const [formTitle, setFormTitle] = useState('');
-  const [formAmount, setFormAmount] = useState('');
-  const [formPaymentType, setFormPaymentType] = useState('cash');
-  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
   const [formNotes, setFormNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Form states - Taksitlendirme
+  const [formTotalAmount, setFormTotalAmount] = useState('');
+  const [formDownPayment, setFormDownPayment] = useState('0');
+  const [formDownPaymentDate, setFormDownPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formInstallmentCount, setFormInstallmentCount] = useState(1);
+  const [formFirstDueDate, setFormFirstDueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  const [formPeriod, setFormPeriod] = useState<'monthly' | 'bimonthly' | 'weekly' | 'custom'>('monthly');
 
   // New category form
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('bg-teal-500');
+
+  // Installment preview calculation
+  const installmentPreview = useMemo((): InstallmentPreview[] => {
+    const total = Number(formTotalAmount) || 0;
+    const downPayment = Number(formDownPayment) || 0;
+    const remaining = total - downPayment;
+    const count = formInstallmentCount;
+    
+    if (remaining <= 0 || count <= 0) return [];
+    
+    const installmentAmount = remaining / count;
+    const previews: InstallmentPreview[] = [];
+    let cumulativeRemaining = remaining;
+    
+    for (let i = 0; i < count; i++) {
+      const dueDate = new Date(formFirstDueDate);
+      
+      if (formPeriod === 'monthly') {
+        dueDate.setMonth(dueDate.getMonth() + i);
+      } else if (formPeriod === 'bimonthly') {
+        dueDate.setMonth(dueDate.getMonth() + (i * 2));
+      } else if (formPeriod === 'weekly') {
+        dueDate.setDate(dueDate.getDate() + (i * 7));
+      } else {
+        dueDate.setMonth(dueDate.getMonth() + i);
+      }
+      
+      cumulativeRemaining -= installmentAmount;
+      
+      previews.push({
+        no: i + 1,
+        dueDate: dueDate.toISOString().split('T')[0],
+        amount: Number(installmentAmount.toFixed(2)),
+        remaining: Math.max(0, Number(cumulativeRemaining.toFixed(2)))
+      });
+    }
+    
+    return previews;
+  }, [formTotalAmount, formDownPayment, formInstallmentCount, formFirstDueDate, formPeriod]);
 
   // Fetch data
   const fetchData = async () => {
@@ -139,62 +182,66 @@ export default function OtherIncomePage() {
     return stats;
   }, [data, categories]);
 
-  // Total stats
-  const totalStats = useMemo(() => {
-    return {
-      total: data.reduce((sum, d) => sum + Number(d.amount), 0),
-      count: data.length,
-    };
-  }, [data]);
+  const totalStats = useMemo(() => ({
+    total: data.reduce((sum, d) => sum + Number(d.amount), 0),
+    count: data.length,
+  }), [data]);
 
-  // Filtered & paginated
   const filteredData = data;
   const totalPages = Math.ceil(filteredData.length / pageSize);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const paginatedData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Get category info
-  const getCategoryInfo = (categoryId: string) => {
-    return categories.find(c => c.id === categoryId) || categories[4];
-  };
+  const getCategoryInfo = (categoryId: string) => categories.find(c => c.id === categoryId) || categories[4];
 
-  // Handle add income
+  // Handle add income with installments
   const handleAddIncome = async () => {
     if (!formTitle.trim()) {
       toast.error('Başlık zorunludur');
       return;
     }
-    if (!formAmount || Number(formAmount) <= 0) {
+    if (!formTotalAmount || Number(formTotalAmount) <= 0) {
       toast.error('Geçerli bir tutar giriniz');
       return;
     }
 
     setSaving(true);
     try {
-      const res = await fetch('/api/finance/other-income', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formTitle.trim(),
-          category: formCategory,
-          amount: Number(formAmount),
-          payment_type: formPaymentType,
-          date: new Date(formDate).toISOString(),
-          notes: formNotes.trim() || null
-        })
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        toast.success('Gelir kaydı oluşturuldu');
-        setShowAddModal(false);
-        resetForm();
-        fetchData();
-      } else {
-        toast.error(json.error || 'Kayıt oluşturulamadı');
+      // Peşinat varsa kaydet
+      if (Number(formDownPayment) > 0) {
+        await fetch('/api/finance/other-income', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `${formTitle} - Peşinat`,
+            category: formCategory,
+            amount: Number(formDownPayment),
+            payment_type: 'cash',
+            date: new Date(formDownPaymentDate).toISOString(),
+            notes: formNotes.trim() || null
+          })
+        });
       }
+
+      // Taksitleri kaydet
+      for (const inst of installmentPreview) {
+        await fetch('/api/finance/other-income', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `${formTitle} - ${inst.no}. Taksit`,
+            category: formCategory,
+            amount: inst.amount,
+            payment_type: 'cash',
+            date: new Date(inst.dueDate).toISOString(),
+            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
+          })
+        });
+      }
+
+      toast.success(`${installmentPreview.length} taksit oluşturuldu`);
+      setShowAddModal(false);
+      resetForm();
+      fetchData();
     } catch {
       toast.error('Bir hata oluştu');
     } finally {
@@ -205,19 +252,20 @@ export default function OtherIncomePage() {
   const resetForm = () => {
     setFormCategory('book');
     setFormTitle('');
-    setFormAmount('');
-    setFormPaymentType('cash');
-    setFormDate(new Date().toISOString().split('T')[0]);
+    setFormTotalAmount('');
+    setFormDownPayment('0');
+    setFormDownPaymentDate(new Date().toISOString().split('T')[0]);
+    setFormInstallmentCount(1);
+    setFormFirstDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setFormPeriod('monthly');
     setFormNotes('');
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
-    
     try {
       const res = await fetch(`/api/finance/other-income?id=${id}`, { method: 'DELETE' });
       const json = await res.json();
-      
       if (json.success) {
         toast.success('Kayıt silindi');
         fetchData();
@@ -232,15 +280,8 @@ export default function OtherIncomePage() {
       toast.error('Kategori adı zorunludur');
       return;
     }
-
     const newId = newCategoryLabel.toLowerCase().replace(/\s+/g, '_');
-    const newCategory: Category = {
-      id: newId,
-      label: newCategoryLabel.trim(),
-      icon: 'Package',
-      color: newCategoryColor
-    };
-
+    const newCategory: Category = { id: newId, label: newCategoryLabel.trim(), icon: 'Package', color: newCategoryColor };
     const customCategories = categories.filter(c => !DEFAULT_CATEGORIES.find(d => d.id === c.id));
     const updated = [...customCategories, newCategory];
     localStorage.setItem('other_income_categories', JSON.stringify(updated));
@@ -251,6 +292,7 @@ export default function OtherIncomePage() {
   };
 
   const formatMoney = (val: number) => `₺${val.toLocaleString('tr-TR', { minimumFractionDigits: 0 })}`;
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('tr-TR');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 md:p-6">
@@ -305,28 +347,17 @@ export default function OtherIncomePage() {
           </div>
         </div>
 
-        {/* Category Filter */}
+        {/* Category Filter & Table */}
         <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm mb-6">
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              <button
-                onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${
-                  selectedCategory === 'all' ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
+              <button onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${selectedCategory === 'all' ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                 Tümü
               </button>
               {categories.map(cat => {
                 const IconComponent = ICON_MAP[cat.icon] || Package;
                 return (
-                  <button
-                    key={cat.id}
-                    onClick={() => { setSelectedCategory(cat.id); setCurrentPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${
-                      selectedCategory === cat.id ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
+                  <button key={cat.id} onClick={() => { setSelectedCategory(cat.id); setCurrentPage(1); }} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${selectedCategory === cat.id ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                     <IconComponent size={16} />
                     {cat.label}
                   </button>
@@ -335,7 +366,6 @@ export default function OtherIncomePage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -373,9 +403,7 @@ export default function OtherIncomePage() {
                       const IconComponent = ICON_MAP[catInfo.icon] || Package;
                       return (
                         <tr key={row.id} className="hover:bg-emerald-50/30 transition">
-                          <td className="py-4 px-4 text-sm font-medium text-gray-900">
-                            {new Date(row.date).toLocaleDateString('tr-TR')}
-                          </td>
+                          <td className="py-4 px-4 text-sm font-medium text-gray-900">{formatDate(row.date)}</td>
                           <td className="py-4 px-4">
                             <p className="font-medium text-gray-900">{row.title}</p>
                             {row.notes && <p className="text-xs text-gray-500 truncate max-w-[200px]">{row.notes}</p>}
@@ -431,11 +459,11 @@ export default function OtherIncomePage() {
         </div>
       </div>
 
-      {/* YENİ GELİR EKLE MODAL - YENİDEN TAKSİTLENDİR STİLİNDE */}
+      {/* YENİ GELİR EKLE MODAL - TAKSİTLENDİRME STİLİNDE */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-            {/* Header - Yeşil Gradient (Mor yerine) */}
+            {/* Header */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -443,14 +471,14 @@ export default function OtherIncomePage() {
                     <Receipt size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">Yeni Gelir Kaydı</h2>
-                    <p className="text-emerald-100 text-sm">Kitap, kırtasiye, yemek veya diğer gelir ekle</p>
+                    <h2 className="text-lg font-bold">Diğer Gelir Taksitlendirme</h2>
+                    <p className="text-emerald-100 text-sm">Toplam tutarı taksitlere böl</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-400/50 rounded-lg text-amber-100 text-xs">
                     <AlertTriangle size={14} />
-                    Bu işlem kayıtları kalıcı olarak değiştirir.
+                    Bu işlem finansal kayıtları kalıcı olarak değiştirir.
                   </div>
                   <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-lg transition">
                     <X size={20} />
@@ -459,13 +487,13 @@ export default function OtherIncomePage() {
               </div>
             </div>
 
-            {/* Content - İki Sütunlu Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x divide-gray-200">
-              {/* SOL TARAF - MEVCUT DURUM ÖZETİ */}
+            {/* Content - İki Sütun */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x divide-gray-200 max-h-[65vh] overflow-y-auto">
+              {/* SOL TARAF - MEVCUT ÖZET */}
               <div className="p-6 bg-gray-50">
                 <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">KATEGORİ BAZLI ÖZET</h3>
-                  <p className="text-xs text-gray-500 mt-1">Mevcut gelir kayıtlarınızın özeti</p>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">MEVCUT KATEGORİ ÖZETİ</h3>
+                  <p className="text-xs text-gray-500 mt-1">Kategorilere göre gelir dağılımı</p>
                 </div>
 
                 {/* Kategori Tablosu */}
@@ -486,18 +514,14 @@ export default function OtherIncomePage() {
                           <tr key={cat.id} className="hover:bg-gray-50">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center`}>
-                                  <IconComponent size={16} className="text-white" />
+                                <div className={`w-7 h-7 ${cat.color} rounded-lg flex items-center justify-center`}>
+                                  <IconComponent size={14} className="text-white" />
                                 </div>
                                 <span className="font-medium text-gray-900 text-sm">{cat.label}</span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="text-gray-600 text-sm">{stat.count}</span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="font-semibold text-gray-900">{formatMoney(stat.total)}</span>
-                            </td>
+                            <td className="py-3 px-4 text-right text-sm text-gray-600">{stat.count}</td>
+                            <td className="py-3 px-4 text-right font-semibold text-gray-900">{formatMoney(stat.total)}</td>
                           </tr>
                         );
                       })}
@@ -505,132 +529,166 @@ export default function OtherIncomePage() {
                   </table>
                 </div>
 
-                {/* Toplam Özet */}
+                {/* Özet */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white rounded-xl p-4 border border-gray-200">
                     <p className="text-xs font-medium text-gray-500 uppercase">Toplam Kayıt</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">{totalStats.count}</p>
+                    <p className="text-xl font-bold text-gray-900 mt-1">{totalStats.count}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
                     <p className="text-xs font-medium text-emerald-600 uppercase">Toplam Gelir</p>
-                    <p className="text-2xl font-bold text-emerald-600 mt-1">{formatMoney(totalStats.total)}</p>
+                    <p className="text-xl font-bold text-emerald-600 mt-1">{formatMoney(totalStats.total)}</p>
                   </div>
                 </div>
               </div>
 
-              {/* SAĞ TARAF - YENİ GELİR FORMU */}
+              {/* SAĞ TARAF - TAKSİTLENDİRME FORMU */}
               <div className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">YENİ GELİR BİLGİLERİ</h3>
-                  <p className="text-xs text-gray-500 mt-1">Kategori, tutar ve ödeme bilgilerini girin</p>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">YENİ GELİR TAKSİTLENDİRME</h3>
+                  <p className="text-xs text-gray-500 mt-1">Toplam tutarı, taksit sayısını ve vade tarihini belirleyin</p>
                 </div>
 
-                <div className="space-y-5">
-                  {/* Kategori Seçimi */}
+                <div className="space-y-4">
+                  {/* Kategori + Başlık */}
+                  <div className="grid grid-cols-5 gap-2 mb-2">
+                    {categories.slice(0, 5).map(cat => {
+                      const IconComponent = ICON_MAP[cat.icon] || Package;
+                      return (
+                        <button key={cat.id} type="button" onClick={() => setFormCategory(cat.id)} className={`p-2 rounded-xl border-2 text-center transition ${formCategory === cat.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <div className={`w-6 h-6 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                            <IconComponent size={12} className="text-white" />
+                          </div>
+                          <p className="text-[9px] font-medium text-gray-700">{cat.label}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Başlık / Açıklama *" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
+
+                  {/* Toplam Tutar */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Seçin *</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {categories.slice(0, 5).map(cat => {
-                        const IconComponent = ICON_MAP[cat.icon] || Package;
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setFormCategory(cat.id)}
-                            className={`p-3 rounded-xl border-2 text-center transition ${
-                              formCategory === cat.id
-                                ? 'border-emerald-500 bg-emerald-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                              <IconComponent size={16} className="text-white" />
-                            </div>
-                            <p className="text-[10px] font-medium text-gray-700">{cat.label}</p>
-                          </button>
-                        );
-                      })}
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Toplam Tutar (₺) *</label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">₺</span>
+                        <input type="number" value={formTotalAmount} onChange={(e) => setFormTotalAmount(e.target.value)} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg font-bold" />
+                      </div>
+                      {formTotalAmount && (
+                        <div className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-medium whitespace-nowrap">
+                          Girilen: {formatMoney(Number(formTotalAmount))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Başlık */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Başlık / Açıklama *</label>
-                    <input
-                      type="text"
-                      value={formTitle}
-                      onChange={(e) => setFormTitle(e.target.value)}
-                      placeholder="Örn: Matematik Kitabı, Yemek Kartı..."
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                    />
-                  </div>
-
-                  {/* Tutar */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tutar (₺) *</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">₺</span>
-                      <input
-                        type="number"
-                        value={formAmount}
-                        onChange={(e) => setFormAmount(e.target.value)}
-                        placeholder="0"
-                        min="0"
-                        step="0.01"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-xl font-bold text-emerald-600"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tarih ve Ödeme Türü - Yan Yana */}
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Peşinat + Peşinat Tarihi */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Calendar size={14} className="inline mr-1" />
-                        Tarih
-                      </label>
-                      <input
-                        type="date"
-                        value={formDate}
-                        onChange={(e) => setFormDate(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <CreditCard size={14} className="inline mr-1" />
-                        Ödeme Türü
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {PAYMENT_TYPES.slice(0, 4).map(pt => (
-                          <button
-                            key={pt.id}
-                            type="button"
-                            onClick={() => setFormPaymentType(pt.id)}
-                            className={`px-3 py-2 rounded-lg text-xs font-medium transition ${
-                              formPaymentType === pt.id
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {pt.icon} {pt.label}
-                          </button>
-                        ))}
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Peşinat Tutarı (₺)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-sm">₺</span>
+                        <input type="number" value={formDownPayment} onChange={(e) => setFormDownPayment(e.target.value)} placeholder="0" className="w-full pl-8 pr-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-amber-50" />
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
+                        <Calendar size={12} />
+                        Peşinat Tarihi
+                      </label>
+                      <input type="date" value={formDownPaymentDate} onChange={(e) => setFormDownPaymentDate(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
+                    </div>
                   </div>
 
-                  {/* Notlar */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notlar (Opsiyonel)</label>
-                    <textarea
-                      value={formNotes}
-                      onChange={(e) => setFormNotes(e.target.value)}
-                      placeholder="Ek açıklama..."
-                      rows={2}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none resize-none"
-                    />
+                  {/* Taksit Sayısı + İlk Vade */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Yeni Taksit Sayısı</label>
+                      <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                        <button type="button" onClick={() => setFormInstallmentCount(Math.max(1, formInstallmentCount - 1))} className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition">
+                          <Minus size={16} />
+                        </button>
+                        <span className="flex-1 text-center text-xl font-bold py-2">{formInstallmentCount}</span>
+                        <button type="button" onClick={() => setFormInstallmentCount(Math.min(24, formInstallmentCount + 1))} className="px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition">
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
+                        <Calendar size={12} />
+                        İlk Vade Tarihi *
+                      </label>
+                      <input type="date" value={formFirstDueDate} onChange={(e) => setFormFirstDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-sm" />
+                    </div>
                   </div>
+
+                  {/* Periyot */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Periyot</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: 'monthly', label: 'Aylık' },
+                        { id: 'bimonthly', label: 'İki Aylık' },
+                        { id: 'weekly', label: 'Haftalık' },
+                        { id: 'custom', label: 'Özel' },
+                      ].map(p => (
+                        <button key={p.id} type="button" onClick={() => setFormPeriod(p.id as typeof formPeriod)} className={`px-3 py-2 rounded-xl text-xs font-medium transition ${formPeriod === p.id ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Önizleme Tablosu */}
+                  {installmentPreview.length > 0 && (
+                    <div className="bg-emerald-50 rounded-xl border border-emerald-200 overflow-hidden">
+                      <div className="px-4 py-2 bg-emerald-100 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1">
+                          <Check size={14} />
+                          Oluşturulacak Ödeme Planı
+                        </span>
+                        <span className="text-xs font-bold text-emerald-600">{formInstallmentCount} Taksit</span>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-emerald-200">
+                              <th className="text-left py-2 px-3 font-semibold text-emerald-700">NO</th>
+                              <th className="text-left py-2 px-3 font-semibold text-emerald-700">VADE</th>
+                              <th className="text-right py-2 px-3 font-semibold text-emerald-700">TUTAR</th>
+                              <th className="text-right py-2 px-3 font-semibold text-emerald-700">KALAN</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-emerald-100">
+                            {installmentPreview.slice(0, 6).map(inst => (
+                              <tr key={inst.no}>
+                                <td className="py-2 px-3">{inst.no}. Taksit</td>
+                                <td className="py-2 px-3">{formatDate(inst.dueDate)}</td>
+                                <td className="py-2 px-3 text-right font-semibold text-emerald-700">{formatMoney(inst.amount)}</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{formatMoney(inst.remaining)}</td>
+                              </tr>
+                            ))}
+                            {installmentPreview.length > 6 && (
+                              <tr>
+                                <td colSpan={4} className="py-2 px-3 text-center text-gray-500">+{installmentPreview.length - 6} taksit daha...</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {!formFirstDueDate && formTotalAmount && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-amber-700 flex items-center justify-center gap-1">
+                        <AlertTriangle size={14} />
+                        Taksitleri görmek için <strong>İlk Vade Tarihi</strong>&apos;ni seçin
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -639,22 +697,15 @@ export default function OtherIncomePage() {
             <div className="flex items-center justify-between p-5 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <AlertTriangle size={14} className="text-amber-500" />
-                Bu işlem geri alınamaz. Gelir kaydı sisteme eklenecektir.
+                Bu işlem geri alınamaz. Taksitler sisteme eklenecektir.
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { setShowAddModal(false); resetForm(); }}
-                  className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition"
-                >
+                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition">
                   Vazgeç
                 </button>
-                <button
-                  onClick={handleAddIncome}
-                  disabled={saving || !formTitle.trim() || !formAmount}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200"
-                >
+                <button onClick={handleAddIncome} disabled={saving || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition disabled:opacity-50 shadow-lg shadow-emerald-200">
                   {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
-                  {saving ? 'Kaydediliyor...' : 'Geliri Kaydet'}
+                  {saving ? 'Kaydediliyor...' : 'Taksitlendirmeyi Onayla'}
                 </button>
               </div>
             </div>
@@ -662,19 +713,16 @@ export default function OtherIncomePage() {
         </div>
       )}
 
-      {/* Kategori Yönetimi Modal */}
+      {/* Kategori Modal */}
       {showCategoryModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-5 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Kategori Yönetimi</h2>
-                <button onClick={() => setShowCategoryModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <X size={20} className="text-gray-400" />
-                </button>
-              </div>
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Kategori Yönetimi</h2>
+              <button onClick={() => setShowCategoryModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X size={20} className="text-gray-400" />
+              </button>
             </div>
-
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Mevcut Kategoriler</label>
@@ -690,36 +738,21 @@ export default function OtherIncomePage() {
                   })}
                 </div>
               </div>
-
               <div className="border-t border-gray-100 pt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Kategori Ekle</label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCategoryLabel}
-                    onChange={(e) => setNewCategoryLabel(e.target.value)}
-                    placeholder="Kategori adı"
-                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                  />
-                  <select
-                    value={newCategoryColor}
-                    onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="px-3 py-2.5 border border-gray-200 rounded-xl"
-                  >
+                  <input type="text" value={newCategoryLabel} onChange={(e) => setNewCategoryLabel(e.target.value)} placeholder="Kategori adı" className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl" />
+                  <select value={newCategoryColor} onChange={(e) => setNewCategoryColor(e.target.value)} className="px-3 py-2.5 border border-gray-200 rounded-xl">
                     <option value="bg-teal-500">Teal</option>
                     <option value="bg-cyan-500">Cyan</option>
                     <option value="bg-emerald-500">Emerald</option>
-                    <option value="bg-lime-500">Lime</option>
-                    <option value="bg-amber-500">Amber</option>
-                    <option value="bg-rose-500">Rose</option>
                   </select>
-                  <button onClick={handleAddCategory} className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition">
+                  <button onClick={handleAddCategory} className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl">
                     <Plus size={18} />
                   </button>
                 </div>
               </div>
             </div>
-
             <div className="p-5 border-t border-gray-100 bg-gray-50">
               <button onClick={() => setShowCategoryModal(false)} className="w-full px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">
                 Kapat
