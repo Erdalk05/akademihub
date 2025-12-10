@@ -35,7 +35,7 @@ interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'admin' | 'accountant' | 'registrar';
+  role: 'admin' | 'accountant' | 'registrar' | 'staff' | 'accounting';
   status: 'active' | 'inactive';
   created_at: string;
   last_login: string | null;
@@ -486,20 +486,28 @@ export default function SettingsPage() {
     }
   };
 
-  // localStorage tabanlı kullanıcı yönetimi (veritabanı olmadan çalışır)
-  const loadUsers = () => {
+  // Supabase tabanlı kullanıcı yönetimi
+  const loadUsers = async () => {
     try {
+      const res = await fetch('/api/settings/users');
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.data || []);
+      } else {
+        // Fallback: localStorage
+        const savedUsers = localStorage.getItem('akademihub_users');
+        if (savedUsers) {
+          setUsers(JSON.parse(savedUsers));
+        }
+      }
+    } catch (error) {
+      console.error('Users load error:', error);
+      // Fallback: localStorage
       const savedUsers = localStorage.getItem('akademihub_users');
       if (savedUsers) {
         setUsers(JSON.parse(savedUsers));
       }
-    } catch (error) {
-      console.error('Users load error:', error);
     }
-  };
-
-  const saveUsersToStorage = (usersData: User[]) => {
-    localStorage.setItem('akademihub_users', JSON.stringify(usersData));
   };
 
   const loadAcademicYears = async () => {
@@ -599,9 +607,14 @@ export default function SettingsPage() {
   };
 
   // Kullanıcı işlemleri
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUser?.name || !newUser?.email) {
       toast.error('Ad ve email zorunlu');
+      return;
+    }
+
+    if (!userPassword) {
+      toast.error('Şifre zorunlu');
       return;
     }
 
@@ -611,60 +624,103 @@ export default function SettingsPage() {
       return;
     }
 
-    const newUserData: User = {
-      id: Date.now().toString(),
-      name: newUser.name,
-      email: newUser.email,
-      phone: newUser.phone || '',
-      role: (newUser.role === 'staff' || newUser.role === 'accounting' || newUser.role === 'admin') 
-        ? newUser.role 
-        : 'staff',
-      status: 'active',
-      permissions: defaultPermissions[newUser.role || 'staff'],
-      last_login: null,
-      created_at: new Date().toISOString()
-    };
+    try {
+      const res = await fetch('/api/settings/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newUser.name,
+          email: newUser.email.toLowerCase().trim(),
+          phone: newUser.phone || '',
+          role: newUser.role || 'registrar',
+          password: userPassword, // Şifre eklendi
+        }),
+      });
 
-    const updatedUsers = [...users, newUserData];
-    setUsers(updatedUsers);
-    saveUsersToStorage(updatedUsers);
-    setNewUser(null);
-    toast.success('Kullanıcı eklendi');
+      const data = await res.json();
+      
+      if (!data.success) {
+        toast.error(data.error || 'Kullanıcı eklenemedi');
+        return;
+      }
+
+      // Listeyi yeniden yükle
+      await loadUsers();
+      setNewUser(null);
+      setUserPassword('');
+      toast.success('Kullanıcı eklendi - Artık giriş yapabilir!');
+    } catch (error) {
+      console.error('Add user error:', error);
+      toast.error('Kullanıcı eklenirken hata oluştu');
+    }
   };
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
 
-    const updatedUsers = users.map(u => 
-      u.id === editingUser.id 
-        ? { ...editingUser }
-        : u
-    );
-    setUsers(updatedUsers);
-    saveUsersToStorage(updatedUsers);
-    setEditingUser(null);
-    setSelectedUser(null);
-    setUserPassword('');
-    toast.success('Kullanıcı güncellendi');
+    try {
+      const updateData: Record<string, unknown> = {
+        id: editingUser.id,
+        name: editingUser.name,
+        email: editingUser.email,
+        phone: editingUser.phone,
+        role: editingUser.role,
+        status: editingUser.status,
+      };
+
+      // Şifre değiştirilmişse ekle
+      if (userPassword) {
+        updateData.password = userPassword;
+      }
+
+      const res = await fetch('/api/settings/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await res.json();
+      
+      if (!data.success) {
+        toast.error(data.error || 'Kullanıcı güncellenemedi');
+        return;
+      }
+
+      // Listeyi yeniden yükle
+      await loadUsers();
+      setEditingUser(null);
+      setSelectedUser(null);
+      setUserPassword('');
+      toast.success('Kullanıcı güncellendi');
+    } catch (error) {
+      console.error('Update user error:', error);
+      toast.error('Kullanıcı güncellenirken hata oluştu');
+    }
   };
 
-  const handleDeleteUser = (id: string) => {
+  const handleDeleteUser = async (id: string) => {
     if (!confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return;
 
-    // Admin sayısını kontrol et
-    const adminCount = users.filter(u => u.role === 'admin').length;
-    const userToDelete = users.find(u => u.id === id);
-    
-    if (userToDelete?.role === 'admin' && adminCount <= 1) {
-      toast.error('Son admin kullanıcı silinemez');
-      return;
-    }
+    try {
+      const res = await fetch(`/api/settings/users?id=${id}`, {
+        method: 'DELETE',
+      });
 
-    const updatedUsers = users.filter(u => u.id !== id);
-    setUsers(updatedUsers);
-    saveUsersToStorage(updatedUsers);
-    setSelectedUser(null);
-    toast.success('Kullanıcı silindi');
+      const data = await res.json();
+      
+      if (!data.success) {
+        toast.error(data.error || 'Kullanıcı silinemedi');
+        return;
+      }
+
+      // Listeyi yeniden yükle
+      await loadUsers();
+      setSelectedUser(null);
+      toast.success('Kullanıcı silindi');
+    } catch (error) {
+      console.error('Delete user error:', error);
+      toast.error('Kullanıcı silinirken hata oluştu');
+    }
   };
 
   // Akademik yıl işlemleri
