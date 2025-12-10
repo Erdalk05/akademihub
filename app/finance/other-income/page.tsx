@@ -580,81 +580,8 @@ export default function OtherIncomePage() {
 
             {/* Content - İki Sütun */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x divide-gray-200 max-h-[65vh] overflow-y-auto">
-              {/* SOL TARAF - ÖĞRENCİ BİLGİSİ + ÖZET */}
+              {/* SOL TARAF - KATEGORİ ÖZETİ */}
               <div className="p-6 bg-gray-50">
-                {/* ÖĞRENCİ SEÇİMİ */}
-                <div className="mb-6">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">ÖĞRENCİ SEÇ</h3>
-                  
-                  {selectedStudent ? (
-                    <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center">
-                            <GraduationCap size={24} className="text-white" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
-                            <p className="text-sm text-gray-600">
-                              {selectedStudent.class && <span className="mr-2">{selectedStudent.class}</span>}
-                              {selectedStudent.student_no && <span className="text-gray-400">#{selectedStudent.student_no}</span>}
-                            </p>
-                          </div>
-                        </div>
-                        <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-red-100 rounded-lg text-red-500 transition">
-                          <X size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={studentSearchQuery}
-                          onChange={(e) => setStudentSearchQuery(e.target.value)}
-                          placeholder="Öğrenci adı veya numarası ile ara..."
-                          className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                        />
-                        {loadingStudents && (
-                          <RefreshCw size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />
-                        )}
-                      </div>
-                      
-                      {/* Dropdown */}
-                      {showStudentDropdown && filteredStudents.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                          {filteredStudents.map(student => (
-                            <button
-                              key={student.id}
-                              onClick={() => handleSelectStudent(student)}
-                              className="w-full px-4 py-3 text-left hover:bg-emerald-50 flex items-center gap-3 transition border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                                <User size={18} className="text-emerald-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{student.first_name} {student.last_name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {student.class && <span>{student.class}</span>}
-                                  {student.student_no && <span className="ml-2">#{student.student_no}</span>}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {showStudentDropdown && studentSearchQuery.length >= 2 && filteredStudents.length === 0 && !loadingStudents && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-500">
-                          Öğrenci bulunamadı
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
                 {/* Kategori Tablosu */}
                 <div className="mb-4">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">MEVCUT KATEGORİ ÖZETİ</h3>
@@ -708,8 +635,81 @@ export default function OtherIncomePage() {
 
               {/* SAĞ TARAF - TAKSİTLENDİRME FORMU */}
               <div className="p-6">
+                {/* ÖĞRENCİ SEÇİMİ - EN ÜSTTE */}
+                <div className="mb-5">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">1. ÖĞRENCİ SEÇ *</h3>
+                  
+                  {selectedStudent ? (
+                    <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <GraduationCap size={20} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                            <p className="text-xs text-gray-600">
+                              {selectedStudent.class && <span className="mr-2">{selectedStudent.class}</span>}
+                              {selectedStudent.student_no && <span className="text-gray-400">#{selectedStudent.student_no}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <button onClick={() => setSelectedStudent(null)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-500 transition">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="relative">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={studentSearchQuery}
+                          onChange={(e) => setStudentSearchQuery(e.target.value)}
+                          placeholder="Öğrenci adı veya numarası ile ara..."
+                          className="w-full pl-10 pr-4 py-3 border-2 border-amber-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-amber-50"
+                        />
+                        {loadingStudents && (
+                          <RefreshCw size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />
+                        )}
+                      </div>
+                      
+                      {/* Dropdown */}
+                      {showStudentDropdown && filteredStudents.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                          {filteredStudents.map(student => (
+                            <button
+                              key={student.id}
+                              onClick={() => handleSelectStudent(student)}
+                              className="w-full px-4 py-2.5 text-left hover:bg-emerald-50 flex items-center gap-3 transition border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <User size={14} className="text-emerald-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 text-sm">{student.first_name} {student.last_name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {student.class && <span>{student.class}</span>}
+                                  {student.student_no && <span className="ml-2">#{student.student_no}</span>}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {showStudentDropdown && studentSearchQuery.length >= 2 && filteredStudents.length === 0 && !loadingStudents && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-center text-gray-500 text-sm">
+                          Öğrenci bulunamadı
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="mb-4">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">YENİ GELİR TAKSİTLENDİRME</h3>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">2. TAKSİTLENDİRME</h3>
                   <p className="text-xs text-gray-500 mt-1">Toplam tutarı, taksit sayısını ve vade tarihini belirleyin</p>
                 </div>
 
