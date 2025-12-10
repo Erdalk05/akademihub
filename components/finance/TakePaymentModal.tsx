@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { MessageCircle, Check } from 'lucide-react';
 
 type Props = {
   open: boolean;
@@ -14,9 +15,11 @@ type Props = {
   } | null;
   onSuccess?: () => void;
   studentId?: string;
+  studentName?: string;
+  parentPhone?: string;
 };
 
-export default function TakePaymentModal({ open, onClose, installment, onSuccess, studentId }: Props) {
+export default function TakePaymentModal({ open, onClose, installment, onSuccess, studentId, studentName, parentPhone }: Props) {
   const [method, setMethod] = useState<string>('cash'); // 'cash' | 'card' | 'bank'
   const [paymentDate, setPaymentDate] = useState<string>('');
   const [amountPaid, setAmountPaid] = useState<string>('');
@@ -24,7 +27,35 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
   const [submitting, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const { showToast, ToastContainer } = useToast();
+
+  // WhatsApp ile makbuz gönder
+  const handleSendWhatsApp = () => {
+    if (!parentPhone) {
+      showToast('error', 'Telefon numarası bulunamadı');
+      return;
+    }
+    
+    let phone = parentPhone.replace(/\D/g, '');
+    if (phone.startsWith('0')) {
+      phone = '90' + phone.slice(1);
+    } else if (!phone.startsWith('90') && phone.length === 10) {
+      phone = '90' + phone;
+    }
+    
+    const message = `🧾 *ÖDEME MAKBUZU*\n\n` +
+      `📌 Öğrenci: ${studentName || '-'}\n` +
+      `💰 Ödenen: ₺${Number(amountPaid).toLocaleString('tr-TR')}\n` +
+      `📅 Tarih: ${new Date(paymentDate).toLocaleDateString('tr-TR')}\n` +
+      `💳 Yöntem: ${method === 'cash' ? 'Nakit' : method === 'card' ? 'Kart' : 'Banka'}\n` +
+      `📝 Taksit No: ${installment?.installment_no || '-'}\n\n` +
+      `Ödemeniz için teşekkür ederiz. 🙏\n\n` +
+      `_AkademiHub Eğitim Yönetim Sistemi_`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');
+  };
 
   useEffect(() => {
     if (installment) {
@@ -76,9 +107,9 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
           return;
         }
         setOk('Ödeme başarıyla alındı ve kaydedildi.');
+        setPaymentSuccess(true);
         showToast('success', '✅ Ödeme alındı ve kaydedildi.');
         onSuccess?.();
-        onClose();
       } catch (e: any) {
         setError(e?.message || 'Ödeme alınamadı');
       }
@@ -143,17 +174,44 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
             />
           </div>
           {error && <div className="text-sm text-red-600">{error}</div>}
-          {ok && <div className="text-sm text-green-600">{ok}</div>}
-          <div className="pt-2 flex justify-end gap-2">
-            <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Vazgeç</button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-            >
-              {submitting ? 'Kaydediliyor...' : 'Ödemeyi Kaydet'}
-            </button>
-          </div>
+          {ok && <div className="text-sm text-green-600 flex items-center gap-2"><Check size={16} /> {ok}</div>}
+          
+          {/* Ödeme başarılı - WhatsApp gönder seçeneği */}
+          {paymentSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mt-4">
+              <p className="text-sm text-green-800 mb-3 font-medium">✅ Ödeme kaydedildi! Makbuzu WhatsApp ile göndermek ister misiniz?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSendWhatsApp}
+                  disabled={!parentPhone}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <MessageCircle size={18} />
+                  WhatsApp Gönder
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Kapat
+                </button>
+              </div>
+              {!parentPhone && <p className="text-xs text-red-500 mt-2">Veli telefonu bulunamadı</p>}
+            </div>
+          )}
+          
+          {!paymentSuccess && (
+            <div className="pt-2 flex justify-end gap-2">
+              <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Vazgeç</button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+              >
+                {submitting ? 'Kaydediliyor...' : 'Ödemeyi Kaydet'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </Modal>

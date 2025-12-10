@@ -111,8 +111,15 @@ export default function StudentDetailPage() {
 
   const handleWhatsApp = () => {
     if (student?.parent_phone) {
-      const phone = student.parent_phone.replace(/\D/g, '');
-      window.open(`https://wa.me/9${phone}`, '_blank');
+      let phone = student.parent_phone.replace(/\D/g, '');
+      // Türkiye için: başında 0 varsa kaldır, 90 ekle
+      if (phone.startsWith('0')) {
+        phone = '90' + phone.slice(1);
+      } else if (!phone.startsWith('90') && phone.length === 10) {
+        phone = '90' + phone;
+      }
+      const message = encodeURIComponent(`Merhaba, ${student.first_name} ${student.last_name} hakkında bilgilendirme:`);
+      window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
     } else {
       toast.error('WhatsApp için telefon numarası bulunamadı');
     }
