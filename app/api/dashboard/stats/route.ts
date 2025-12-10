@@ -43,12 +43,12 @@ export async function GET(req: NextRequest) {
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
 
     // PARALEL FETCH (Hız x5!)
-    // Öğrencileri kayıt tarihine göre filtrele
+    // Sadece aktif öğrencileri getir (deleted olanları hariç tut)
     const [
       studentsResult,
       installmentsResult
     ] = await Promise.all([
-      supabase.from('students').select('id, created_at'),
+      supabase.from('students').select('id, created_at, status').neq('status', 'deleted'),
       supabase.from('finance_installments').select('*')
     ]);
 
