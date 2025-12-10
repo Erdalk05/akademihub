@@ -60,6 +60,17 @@ interface FreeStudent {
   registrationDate: string;
 }
 
+interface DeletedStudent {
+  id: string;
+  name: string;
+  class: string;
+  totalAmount: number;
+  collectedAmount: number;
+  remainingAmount: number;
+  deletedDate: string;
+  registrationDate: string;
+}
+
 interface AIInsight {
   type: 'success' | 'warning' | 'info' | 'danger';
   title: string;
@@ -70,12 +81,13 @@ const COLORS = ['#25D366', '#128C7E', '#075E54', '#34D399', '#10B981', '#059669'
 
 export default function FounderReportPage() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'classes' | 'free' | 'trends' | 'risk' | 'metrics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'classes' | 'free' | 'deleted' | 'trends' | 'risk' | 'metrics'>('dashboard');
   
   const [classStats, setClassStats] = useState<ClassStats[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [riskStudents, setRiskStudents] = useState<RiskStudent[]>([]);
   const [freeStudents, setFreeStudents] = useState<FreeStudent[]>([]);
+  const [deletedStudents, setDeletedStudents] = useState<DeletedStudent[]>([]);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   
@@ -84,9 +96,10 @@ export default function FounderReportPage() {
   const [summaryModal, setSummaryModal] = useState<{ isOpen: boolean; type: 'total' | 'paid' | 'free' | 'deleted' }>({ isOpen: false, type: 'total' });
   
   const [totals, setTotals] = useState({
-    totalStudents: 0, paidStudents: 0, freeStudents: 0, totalRevenue: 0,
+    totalStudents: 0, paidStudents: 0, freeStudents: 0, deletedStudents: 0, totalRevenue: 0,
     collectedRevenue: 0, pendingRevenue: 0, overdueAmount: 0, collectionRate: 0,
     averageFeePerStudent: 0, totalClasses: 0, overdueStudents: 0, criticalRiskCount: 0,
+    deletedCollectedAmount: 0, deletedTotalAmount: 0,
   });
 
   useEffect(() => { fetchAllData(); }, []);
@@ -106,9 +119,36 @@ export default function FounderReportPage() {
       // Sınıf analizi
       const classMap = new Map<string, ClassStats>();
       const freeStudentsList: FreeStudent[] = [];
+      const deletedStudentsList: DeletedStudent[] = [];
       const allStudentsList: Student[] = [];
 
-      students.forEach((student: any) => {
+      // Aktif ve silinen öğrencileri ayır
+      const activeStudents = students.filter((s: any) => s.status !== 'deleted');
+      const deletedStudentsData = students.filter((s: any) => s.status === 'deleted');
+
+      // Silinen öğrencileri işle
+      deletedStudentsData.forEach((student: any) => {
+        const studentInstallments = installments.filter((i: any) => i.student_id === student.id);
+        const totalAmount = studentInstallments.reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0);
+        const paidAmount = studentInstallments.filter((i: any) => i.is_paid).reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0);
+        
+        deletedStudentsList.push({
+          id: student.id,
+          name: student.first_name && student.last_name 
+            ? `${student.first_name} ${student.last_name}` 
+            : student.parent_name?.split(' - ')[0] || 'İsimsiz',
+          class: student.class || 'Belirsiz',
+          totalAmount,
+          collectedAmount: paidAmount,
+          remainingAmount: totalAmount - paidAmount,
+          deletedDate: student.deleted_at ? new Date(student.deleted_at).toLocaleDateString('tr-TR') : '-',
+          registrationDate: student.created_at ? new Date(student.created_at).toLocaleDateString('tr-TR') : '-'
+        });
+      });
+      setDeletedStudents(deletedStudentsList);
+
+      // Aktif öğrencileri işle
+      activeStudents.forEach((student: any) => {
         const className = student.class || 'Belirsiz';
         const studentInstallments = installments.filter((i: any) => i.student_id === student.id);
         const totalAmount = studentInstallments.reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0);
@@ -117,7 +157,9 @@ export default function FounderReportPage() {
 
         const studentObj: Student = {
           id: student.id,
-          name: student.parent_name?.split(' - ')[0] || student.parent_name || 'İsimsiz',
+          name: student.first_name && student.last_name 
+            ? `${student.first_name} ${student.last_name}` 
+            : student.parent_name?.split(' - ')[0] || 'İsimsiz',
           class: className,
           status: student.status || 'active',
           totalAmount,
@@ -201,9 +243,12 @@ export default function FounderReportPage() {
       setRiskStudents(riskStudentsArray.sort((a, b) => b.totalDebt - a.totalDebt));
 
       // Toplamlar
-      const totalStudentsCount = students.length;
+      const totalStudentsCount = activeStudents.length;
       const paidStudentsCount = classStatsArray.reduce((sum, s) => sum + s.paidStudents, 0);
       const freeStudentsCount = classStatsArray.reduce((sum, s) => sum + s.freeStudents, 0);
+      const deletedStudentsCount = deletedStudentsList.length;
+      const deletedCollectedTotal = deletedStudentsList.reduce((sum, s) => sum + s.collectedAmount, 0);
+      const deletedTotalAmountSum = deletedStudentsList.reduce((sum, s) => sum + s.totalAmount, 0);
       const totalRevenue = classStatsArray.reduce((sum, s) => sum + s.totalAmount, 0);
       const collectedRevenue = classStatsArray.reduce((sum, s) => sum + s.collectedAmount, 0);
       const overdueAmount = riskStudentsArray.reduce((sum, s) => sum + s.totalDebt, 0);
@@ -211,10 +256,12 @@ export default function FounderReportPage() {
       
       setTotals({
         totalStudents: totalStudentsCount, paidStudents: paidStudentsCount, freeStudents: freeStudentsCount, 
+        deletedStudents: deletedStudentsCount,
         totalRevenue, collectedRevenue, pendingRevenue: totalRevenue - collectedRevenue, overdueAmount, collectionRate,
         averageFeePerStudent: paidStudentsCount > 0 ? totalRevenue / paidStudentsCount : 0,
         totalClasses: classStatsArray.length, overdueStudents: riskStudentsArray.length,
         criticalRiskCount: riskStudentsArray.filter(s => s.riskLevel === 'critical').length,
+        deletedCollectedAmount: deletedCollectedTotal, deletedTotalAmount: deletedTotalAmountSum,
       });
 
       // AI Insights
@@ -603,6 +650,7 @@ export default function FounderReportPage() {
             { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={16} /> },
             { id: 'classes', label: 'Sınıf Analizi', icon: <GraduationCap size={16} /> },
             { id: 'free', label: 'Ücretsiz Öğrenciler', icon: <Gift size={16} /> },
+            { id: 'deleted', label: 'Kaydı Silinen', icon: <X size={16} />, count: totals.deletedStudents },
             { id: 'trends', label: 'Trend & Grafik', icon: <TrendingUp size={16} /> },
             { id: 'risk', label: 'Risk Yönetimi', icon: <Shield size={16} /> },
             { id: 'metrics', label: 'Metrikler', icon: <Calculator size={16} /> },
@@ -819,6 +867,98 @@ export default function FounderReportPage() {
                         <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                           <Gift className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                           Ücretsiz öğrenci bulunmuyor
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deleted Students Tab */}
+        {activeTab === 'deleted' && (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white">
+                <X className="w-8 h-8 opacity-80 mb-2" />
+                <p className="text-3xl font-bold">{totals.deletedStudents}</p>
+                <p className="text-white/80 text-sm">Kaydı Silinen</p>
+              </div>
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white">
+                <CheckCircle className="w-8 h-8 opacity-80 mb-2" />
+                <p className="text-3xl font-bold">₺{formatCurrencyShort(totals.deletedCollectedAmount)}</p>
+                <p className="text-white/80 text-sm">Tahsil Edilen</p>
+              </div>
+              <div className="bg-gradient-to-br from-gray-500 to-slate-600 rounded-2xl p-5 text-white">
+                <DollarSign className="w-8 h-8 opacity-80 mb-2" />
+                <p className="text-3xl font-bold">₺{formatCurrencyShort(totals.deletedTotalAmount)}</p>
+                <p className="text-white/80 text-sm">Toplam Ücret</p>
+              </div>
+              <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white">
+                <AlertTriangle className="w-8 h-8 opacity-80 mb-2" />
+                <p className="text-3xl font-bold">₺{formatCurrencyShort(totals.deletedTotalAmount - totals.deletedCollectedAmount)}</p>
+                <p className="text-white/80 text-sm">İptal Edilen</p>
+              </div>
+            </div>
+            
+            {/* Deleted Students Table */}
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <X className="w-5 h-5" /> Kaydı Silinen Öğrenciler ({deletedStudents.length})
+                </h3>
+                <p className="text-white/80 text-sm mt-1">Tahsil edilen ödemeler korunmuştur</p>
+              </div>
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600">Öğrenci</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-gray-600">Sınıf</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600">Toplam Ücret</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600">Tahsil Edilen</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600">İptal Edilen</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-gray-600">Kayıt Tarihi</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-gray-600">Silinme Tarihi</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-gray-600">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {deletedStudents.map((student, idx) => (
+                      <tr key={student.id} className="hover:bg-red-50 transition">
+                        <td className="px-4 py-3 text-gray-400 text-sm">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-400 to-rose-500 flex items-center justify-center text-white text-xs font-bold">
+                              {student.name.charAt(0)}
+                            </div>
+                            <span className="font-medium text-sm">{student.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="px-2 py-1 bg-gray-100 rounded-lg text-sm font-medium">{student.class}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-gray-700">₺{formatCurrency(student.totalAmount)}</td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-green-600">₺{formatCurrency(student.collectedAmount)}</td>
+                        <td className="px-4 py-3 text-right text-sm font-medium text-red-600">₺{formatCurrency(student.remainingAmount)}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500">{student.registrationDate}</td>
+                        <td className="px-4 py-3 text-center text-sm text-red-500">{student.deletedDate}</td>
+                        <td className="px-4 py-3 text-center">
+                          <a href={`/students/${student.id}`} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200 transition">
+                            <Eye className="w-4 h-4 inline mr-1" /> Görüntüle
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                    {deletedStudents.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                          <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
+                          Kaydı silinen öğrenci bulunmuyor
                         </td>
                       </tr>
                     )}

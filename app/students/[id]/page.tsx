@@ -11,7 +11,9 @@ import {
   User,
   Wallet,
   AlertCircle,
-  Camera
+  Camera,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import toast from 'react-hot-toast';
@@ -125,38 +127,25 @@ export default function StudentDetailPage() {
     }
   };
 
-  // ⚠️ SADECE ADMIN ÖĞRENCİ SİLEBİLİR
-  const handleDeleteStudent = async () => {
-    // İlk önce yetki kontrolü
+  // ⚠️ KAYDI SİL (SOFT DELETE) - Veriler korunur
+  const handleSoftDelete = async () => {
     if (!canDeleteStudent || !isAdmin) {
       toast.error('Bu işlem için yetkiniz yok. Sadece admin kullanıcılar öğrenci silebilir.');
       return;
     }
 
-    // Üç aşamalı onay
-    const confirmStep1 = confirm(
-      `⚠️ DİKKAT: "${student?.first_name} ${student?.last_name}" öğrencisini silmek üzeresiniz.\n\n` +
-      'Bu işlem geri alınamaz ve öğrencinin TÜM verileri silinecektir:\n' +
-      '• Öğrenci bilgileri\n' +
-      '• Taksit kayıtları\n' +
-      '• Ödeme geçmişi\n' +
-      '• Kayıt bilgileri\n\n' +
+    const confirmStep = confirm(
+      `📋 "${student?.first_name} ${student?.last_name}" öğrencisinin kaydını silmek üzeresiniz.\n\n` +
+      '✅ Tahsil edilen ödemeler korunacak (ciro etkilenmez)\n' +
+      '❌ Bekleyen taksitler iptal edilecek (cirodan düşecek)\n' +
+      '📁 Öğrenci "Kaydı Silinen Öğrenciler" bölümüne taşınacak\n\n' +
       'Devam etmek istiyor musunuz?'
     );
 
-    if (!confirmStep1) return;
+    if (!confirmStep) return;
 
-    const confirmStep2 = confirm(
-      '⛔ SON UYARI!\n\n' +
-      'Bu işlem GERİ ALINAMAZ. Öğrenci ve tüm ilişkili veriler kalıcı olarak silinecektir.\n\n' +
-      'Silme işlemini ONAYLIYOR musunuz?'
-    );
-
-    if (!confirmStep2) return;
-
-    // Silme işlemini başlat
     setIsDeleting(true);
-    const toastId = toast.loading('Öğrenci siliniyor...');
+    const toastId = toast.loading('Öğrenci kaydı siliniyor...');
 
     try {
       const response = await fetch(`/api/students/${studentId}`, {
@@ -170,13 +159,104 @@ export default function StudentDetailPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        throw new Error(result.error || 'İşlem başarısız oldu.');
+      }
+
+      toast.success('Öğrenci kaydı silindi. Tahsil edilen ödemeler korundu.', { id: toastId });
+      router.push('/students');
+    } catch (error: any) {
+      toast.error(`Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // ⛔ KALICI SİL (HARD DELETE) - Tüm veriler silinir
+  const handlePermanentDelete = async () => {
+    if (!canDeleteStudent || !isAdmin) {
+      toast.error('Bu işlem için yetkiniz yok.');
+      return;
+    }
+
+    const confirmStep1 = confirm(
+      `⚠️ DİKKAT: "${student?.first_name} ${student?.last_name}" öğrencisini KALICI olarak silmek üzeresiniz!\n\n` +
+      '⛔ Bu işlem GERİ ALINAMAZ!\n' +
+      '🗑️ TÜM veriler silinecek:\n' +
+      '• Öğrenci bilgileri\n' +
+      '• Taksit kayıtları\n' +
+      '• Ödeme geçmişi\n' +
+      '• Ciro verileri\n\n' +
+      'KALICI SİLME işlemine devam etmek istiyor musunuz?'
+    );
+
+    if (!confirmStep1) return;
+
+    const confirmStep2 = confirm('⛔ SON UYARI!\n\nBu işlem GERİ ALINAMAZ. ONAYLIYOR musunuz?');
+    if (!confirmStep2) return;
+
+    setIsDeleting(true);
+    const toastId = toast.loading('Öğrenci kalıcı olarak siliniyor...');
+
+    try {
+      const response = await fetch(`/api/students/${studentId}?permanent=true`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': currentUser?.role || '',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
         throw new Error(result.error || 'Silme işlemi başarısız oldu.');
       }
 
-      toast.success('Öğrenci başarıyla silindi.', { id: toastId });
-      
-      // Öğrenci listesine yönlendir
+      toast.success('Öğrenci ve tüm verileri kalıcı olarak silindi.', { id: toastId });
       router.push('/students');
+    } catch (error: any) {
+      toast.error(`Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // 🔄 GERİ YÜKLE - Silinen öğrenciyi aktif yap
+  const handleRestore = async () => {
+    if (!isAdmin) {
+      toast.error('Bu işlem için yetkiniz yok.');
+      return;
+    }
+
+    const confirmStep = confirm(
+      `"${student?.first_name} ${student?.last_name}" öğrencisini geri yüklemek istiyor musunuz?\n\n` +
+      '✅ Öğrenci tekrar aktif olacak\n' +
+      '✅ İptal edilen taksitler tekrar aktif olacak'
+    );
+
+    if (!confirmStep) return;
+
+    setIsDeleting(true);
+    const toastId = toast.loading('Öğrenci geri yükleniyor...');
+
+    try {
+      const response = await fetch(`/api/students/${studentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': currentUser?.role || '',
+        },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Geri yükleme başarısız oldu.');
+      }
+
+      toast.success('Öğrenci başarıyla geri yüklendi!', { id: toastId });
+      window.location.reload();
     } catch (error: any) {
       toast.error(`Hata: ${error.message}`, { id: toastId });
     } finally {
@@ -192,11 +272,12 @@ export default function StudentDetailPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges = {
+    const badges: Record<string, { label: string; className: string }> = {
       active: { label: '✅ Aktif Kayıt', className: 'bg-green-100 text-green-700 border-green-300' },
       inactive: { label: '⏸️ Pasif', className: 'bg-gray-100 text-gray-700 border-gray-300' },
       graduated: { label: '🎓 Mezun', className: 'bg-blue-100 text-blue-700 border-blue-300' },
       suspended: { label: '⛔ Donduruldu', className: 'bg-red-100 text-red-700 border-red-300' },
+      deleted: { label: '🗑️ Kaydı Silinen', className: 'bg-red-100 text-red-700 border-red-300' },
     };
     return badges[status as keyof typeof badges] || badges.active;
   };
@@ -241,6 +322,22 @@ export default function StudentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 space-y-6">
+      {/* ⚠️ KAYDI SİLİNEN ÖĞRENCİ UYARISI */}
+      {student.status === 'deleted' && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-center gap-4">
+          <div className="p-3 bg-red-100 rounded-full">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-red-800">Kaydı Silinen Öğrenci</h3>
+            <p className="text-sm text-red-600">
+              Bu öğrencinin kaydı silinmiş. Tahsil edilen ödemeler korunmuştur. 
+              Geri yüklemek için &quot;Geri Yükle&quot; butonunu kullanabilirsiniz.
+            </p>
+          </div>
+        </div>
+      )}
+      
       {/* HEADER BÖLÜMÜ */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 gap-4">
         <div className="flex gap-4 items-start">
@@ -321,17 +418,57 @@ export default function StudentDetailPage() {
             <span className="hidden sm:inline">Arşivle</span>
                     </button>
           
-          {/* ⚠️ SİL BUTONU - SADECE ADMİN İÇİN GÖRÜNÜR */}
-          {canDeleteStudent && isAdmin && (
-            <button
-              onClick={handleDeleteStudent}
-              disabled={isDeleting}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Öğrenciyi kalıcı olarak sil (Sadece Admin)"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">{isDeleting ? 'Siliniyor...' : 'Sil'}</span>
-            </button>
+          {/* ⚠️ SİL BUTONLARI - SADECE ADMİN İÇİN GÖRÜNÜR */}
+          {canDeleteStudent && isAdmin && student?.status !== 'deleted' && (
+            <>
+              {/* Kaydı Sil (Soft Delete) */}
+              <button
+                onClick={handleSoftDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Kaydı sil (Veriler korunur)"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">{isDeleting ? 'İşleniyor...' : 'Kaydı Sil'}</span>
+              </button>
+              
+              {/* Kalıcı Sil (Hard Delete) */}
+              <button
+                onClick={handlePermanentDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Kalıcı olarak sil (Tüm veriler silinir)"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Kalıcı Sil</span>
+              </button>
+            </>
+          )}
+          
+          {/* 🔄 GERİ YÜKLE - Silinen öğrenci için */}
+          {canDeleteStudent && isAdmin && student?.status === 'deleted' && (
+            <>
+              <button
+                onClick={handleRestore}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Öğrenciyi geri yükle"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Geri Yükle</span>
+              </button>
+              
+              {/* Kalıcı Sil - Silinen öğrenci için de görünür */}
+              <button
+                onClick={handlePermanentDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Kalıcı olarak sil"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Kalıcı Sil</span>
+              </button>
+            </>
           )}
               </div>
             </div>

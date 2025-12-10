@@ -53,6 +53,7 @@ type StudentRow = {
   lastPaymentAmount?: number;
   photo_url?: string | null;
   avgDelay?: number;
+  status?: string | null;
 };
 
 export default function StudentsPage() {
@@ -66,7 +67,7 @@ export default function StudentsPage() {
   const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical' | 'deleted'>('all');
   const [classFilter, setClassFilter] = useState('');
   
   // UI
@@ -136,6 +137,7 @@ export default function StudentsPage() {
             lastPaymentAmount: lastPayment?.amount,
             photo_url: s.photo_url,
             avgDelay: debt > 0 ? Math.floor(Math.random() * 20) : 0,
+            status: s.status || 'active',
           };
         });
         
@@ -161,6 +163,15 @@ export default function StudentsPage() {
       const searchTerm = search.toLowerCase();
       
       if (searchTerm && !fullName.includes(searchTerm) && !studentNo.includes(searchTerm)) return false;
+      
+      // Status filtreleme - kaydı silinen öğrenciler sadece 'deleted' filtresi seçildiğinde görünsün
+      if (statusFilter === 'deleted') {
+        if (s.status !== 'deleted') return false;
+      } else {
+        // Diğer filtrelerde kaydı silinen öğrencileri gizle
+        if (s.status === 'deleted') return false;
+      }
+      
       if (statusFilter === 'debt' && s.debt <= 0) return false;
       if (statusFilter === 'paid' && s.debt > 0) return false;
       if (statusFilter === 'critical' && s.risk !== 'Yüksek') return false;
@@ -222,10 +233,11 @@ export default function StudentsPage() {
 
   // Stats
   const stats = useMemo(() => ({
-    total: students.length,
-    withDebt: students.filter(s => s.debt > 0).length,
-    critical: students.filter(s => s.risk === 'Yüksek').length,
-    totalDebt: students.reduce((sum, s) => sum + s.debt, 0),
+    total: students.filter(s => s.status !== 'deleted').length,
+    withDebt: students.filter(s => s.debt > 0 && s.status !== 'deleted').length,
+    critical: students.filter(s => s.risk === 'Yüksek' && s.status !== 'deleted').length,
+    totalDebt: students.filter(s => s.status !== 'deleted').reduce((sum, s) => sum + s.debt, 0),
+    deleted: students.filter(s => s.status === 'deleted').length,
   }), [students]);
 
   // Unique classes
@@ -416,13 +428,16 @@ export default function StudentsPage() {
                 { value: 'debt', label: 'Borçlu' },
                 { value: 'paid', label: 'Güncel' },
                 { value: 'critical', label: 'Kritik' },
+                { value: 'deleted', label: '🗑️ Kaydı Silinen', color: 'text-red-600' },
               ].map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setStatusFilter(opt.value as any)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
                     statusFilter === opt.value
-                      ? 'bg-white text-indigo-700 shadow-sm'
+                      ? opt.value === 'deleted' 
+                        ? 'bg-red-100 text-red-700 shadow-sm'
+                        : 'bg-white text-indigo-700 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
