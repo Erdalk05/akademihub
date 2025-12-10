@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // 1. Bu öğrencinin TÜM taksitlerini al
     const { data: allInstallments, error: fetchError } = await supabase
       .from('finance_installments')
-      .select('id, installment_no, amount, paid_amount, due_date, paid_at, is_paid, status, payment_method, description')
+      .select('id, installment_no, amount, paid_amount, due_date, paid_at, is_paid, status, payment_method')
       .eq('student_id', student_id)
       .order('installment_no', { ascending: true });
 
@@ -61,7 +61,6 @@ export async function POST(req: NextRequest) {
         is_paid: inst.is_paid || false,
         status: 'archived',
         payment_method: inst.payment_method,
-        description: inst.description,
         restructure_reason: reason || 'yeniden_taksitlendirme',
         previous_total: previousTotal,
         new_total: total_amount,
