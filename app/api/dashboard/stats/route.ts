@@ -45,10 +45,16 @@ export async function GET(req: NextRequest) {
     // Sadece aktif öğrencileri getir (deleted olanları hariç tut)
     const [
       studentsResult,
-      installmentsResult
+      deletedStudentsResult,
+      installmentsResult,
+      otherIncomeResult,
+      expensesResult
     ] = await Promise.all([
       supabase.from('students').select('id, created_at, status').neq('status', 'deleted'),
-      supabase.from('finance_installments').select('*')
+      supabase.from('students').select('id').eq('status', 'deleted'),
+      supabase.from('finance_installments').select('*'),
+      supabase.from('other_income').select('amount'),
+      supabase.from('expenses').select('amount')
     ]);
 
 // Helper: Mevcut akademik yılı hesapla
@@ -65,6 +71,15 @@ function getCurrentAcademicYear() {
     // TÜM AKTİF öğrenciler (deleted olmayanlar)
     const students = studentsResult.data || [];
     const allInstallments = installmentsResult.data || [];
+    
+    // Kaydı silinen öğrenciler
+    const deletedStudents = deletedStudentsResult.data?.length || 0;
+    
+    // Diğer gelirler toplamı
+    const otherIncomeTotal = (otherIncomeResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+    
+    // Toplam giderler
+    const totalExpenses = (expensesResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
     
     // Tüm öğrencilerin ID'lerini al
     const studentIds = new Set(students.map(s => s.id));
@@ -153,7 +168,12 @@ function getCurrentAcademicYear() {
           paymentRate: parseFloat(paymentRate),
           debtorStudents,
           totalDebt,
-          monthlyCollection
+          monthlyCollection,
+          deletedStudents,
+          overduePayments: overdueCount,
+          otherIncome: otherIncomeTotal,
+          totalExpenses,
+          cashBalance: totalRevenue + otherIncomeTotal - totalExpenses // Net kasa durumu
         },
         todayCollection: {
           totalCollected: todayCollected,
