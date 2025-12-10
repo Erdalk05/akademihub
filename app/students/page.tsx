@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -22,7 +22,8 @@ import {
   MoreHorizontal,
   X,
   RefreshCw,
-  ArrowUpDown
+  ArrowUpDown,
+  Loader2
 } from 'lucide-react';
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
 import FinanceQuickViewDrawer from '@/components/students/FinanceQuickViewDrawer';
@@ -56,7 +57,17 @@ type StudentRow = {
   status?: string | null;
 };
 
-export default function StudentsPage() {
+// Loading fallback
+function StudentsLoading() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+    </div>
+  );
+}
+
+// Ana içerik bileşeni
+function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -737,5 +748,14 @@ export default function StudentsPage() {
         student={selectedStudent}
       />
     </div>
+  );
+}
+
+// Suspense ile sarmalanmış sayfa
+export default function StudentsPage() {
+  return (
+    <Suspense fallback={<StudentsLoading />}>
+      <StudentsContent />
+    </Suspense>
   );
 }
