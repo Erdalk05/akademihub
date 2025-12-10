@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, DollarSign, Loader2, ChevronRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface PendingStats {
   overdueAmount: number;
@@ -22,7 +22,6 @@ interface Props {
 export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props) {
   const [stats, setStats] = useState<PendingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     fetchPendingStats();
@@ -115,9 +114,6 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
     return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
-  const goToFinance = () => {
-    router.push('/finance/payments');
-  };
 
   return (
     <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-6 shadow-md border-2 border-red-200 hover:shadow-lg transition-all">
@@ -184,14 +180,14 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
       </div>
 
       {/* Action Button - WhatsApp styled */}
-      <button 
-        onClick={goToFinance}
+      <Link 
+        href="/finance/payments"
         className="w-full bg-gradient-to-r from-[#075E54] to-[#128C7E] hover:from-[#128C7E] hover:to-[#25D366] text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
       >
         <DollarSign className="w-5 h-5" />
         Tahsilat Yap
         <ChevronRight className="w-5 h-5" />
-      </button>
+      </Link>
 
       {/* Alert if critical */}
       {stats && stats.overdueAmount > 10000 && (
