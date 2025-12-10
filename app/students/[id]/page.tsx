@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Camera,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import toast from 'react-hot-toast';
@@ -118,7 +119,13 @@ export default function StudentDetailPage() {
   };
 
   const handleEdit = () => {
-    router.push(`/students/${studentId}/edit`);
+    // Kayıt formu sayfasına öğrenci ID'si ile yönlendir
+    router.push(`/enrollment/new?edit=${studentId}`);
+  };
+
+  const handleViewHistory = () => {
+    // Öğrencinin düzenleme geçmişini göster
+    router.push(`/students/${studentId}/history`);
   };
 
   const handleArchive = () => {
@@ -409,6 +416,14 @@ export default function StudentDetailPage() {
                     >
             <Edit className="w-4 h-4" />
             <span className="hidden sm:inline">Düzenle</span>
+                    </button>
+                    <button
+            onClick={handleViewHistory}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition text-sm font-medium"
+            title="Öğrencinin düzenleme geçmişi"
+                    >
+            <Clock className="w-4 h-4" />
+            <span className="hidden sm:inline">Geçmiş</span>
                     </button>
                     <button
             onClick={handleArchive}

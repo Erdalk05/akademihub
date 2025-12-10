@@ -26,7 +26,8 @@ function getAcademicYearDates(academicYear: string) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const studentId = searchParams.get('studentId');
+    // student_id veya studentId parametresini kabul et (geriye uyumluluk)
+    const studentId = searchParams.get('student_id') || searchParams.get('studentId');
     const academicYear = searchParams.get('academicYear');
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Verileri birleştir
+    const today = new Date();
     const list = (installments || []).map((r: any) => {
       const student = studentsMap[r.student_id];
       const studentName = student 
@@ -71,6 +73,16 @@ export async function GET(req: NextRequest) {
         : null;
       const studentNo = student?.student_no || null;
       const studentClass = student?.class ? `${student.class}-${student.section || 'A'}` : null;
+
+      // Status hesapla: paid, pending, overdue
+      let calculatedStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+      if (r.is_paid) {
+        calculatedStatus = 'paid';
+      } else if (r.status === 'cancelled') {
+        calculatedStatus = 'pending'; // İptal edilen beklemede gösterilsin
+      } else if (r.due_date && new Date(r.due_date) < today) {
+        calculatedStatus = 'overdue';
+      }
 
       return {
         id: r.id,
@@ -83,16 +95,16 @@ export async function GET(req: NextRequest) {
         sale_id: r.sale_id || null,
         source: r.source || 'education',
         amount: Number(r.amount),
-        paid_amount:
-          r.paid_amount !== null && r.paid_amount !== undefined
+        paid_amount: r.paid_amount !== null && r.paid_amount !== undefined
             ? Number(r.paid_amount)
-            : undefined,
+            : 0,
         due_date: r.due_date,
         is_paid: r.is_paid,
         paid_at: r.paid_at || null,
         payment_method: r.payment_method || null,
         payment_id: r.payment_id || null,
-        status: r.status || 'active',
+        status: calculatedStatus,
+        db_status: r.status || 'active', // Veritabanındaki orijinal status
         note: r.note || null,
         collected_by: r.collected_by || null,
         is_old: typeof r.is_old === 'boolean' ? r.is_old : undefined,

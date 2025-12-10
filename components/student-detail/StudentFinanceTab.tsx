@@ -27,6 +27,17 @@ interface Props {
   onRefresh?: () => void;
 }
 
+// Türkçe karakterleri PDF için dönüştür
+const turkishToAscii = (text: string): string => {
+  if (!text) return '';
+  const map: Record<string, string> = {
+    'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+    'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U',
+    '₺': 'TL'
+  };
+  return text.split('').map(char => map[char] || char).join('');
+};
+
 export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,7 +137,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       // Başlık
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('ÖDEME MAKBUZU', 40, 15, { align: 'center' });
+      doc.text(turkishToAscii('ODEME MAKBUZU'), 40, 15, { align: 'center' });
       
       // Çizgi
       doc.setLineWidth(0.5);
@@ -137,8 +148,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       doc.setFont('helvetica', 'normal');
       let y = 30;
       
-      doc.text(`Öğrenci:`, 10, y);
-      doc.text(`${student.first_name} ${student.last_name}`, 10, y + 5);
+      doc.text(turkishToAscii('Ogrenci:'), 10, y);
+      doc.text(turkishToAscii(`${student.first_name} ${student.last_name}`), 10, y + 5);
       y += 15;
       
       doc.text(`Taksit No: ${installment.installment_no}`, 10, y);
@@ -149,12 +160,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      doc.text(`Tutar: ₺${installment.amount.toLocaleString('tr-TR')}`, 10, y);
+      doc.text(`Tutar: TL ${installment.amount.toLocaleString('tr-TR')}`, 10, y);
       y += 10;
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Ödenen: ₺${installment.paid_amount.toLocaleString('tr-TR')}`, 10, y);
+      doc.text(turkishToAscii(`Odenen: TL ${installment.paid_amount.toLocaleString('tr-TR')}`), 10, y);
       y += 10;
       
       // Alt bilgi
@@ -188,14 +199,17 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const pageWidth = doc.internal.pageSize.getWidth();
       const today = new Date().toLocaleDateString('tr-TR');
       
+      // Yardımcı fonksiyon: Türkçe karakterleri dönüştür
+      const t = turkishToAscii;
+      
       // === BAŞLIK ===
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('KAYIT SÖZLEŞMESİ', pageWidth / 2, 12, { align: 'center' });
+      doc.text(t('KAYIT SOZLESMESI'), pageWidth / 2, 12, { align: 'center' });
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Tarih: ${today}  |  Öğrenci No: ${student.student_no}`, pageWidth / 2, 18, { align: 'center' });
+      doc.text(t(`Tarih: ${today}  |  Ogrenci No: ${student.student_no}`), pageWidth / 2, 18, { align: 'center' });
       
       // === ÖĞRENCİ BİLGİLERİ (Kompakt - Yan yana) ===
       let y = 25;
@@ -206,16 +220,16 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('ÖĞRENCİ BİLGİLERİ', 12, y + 3.5);
+      doc.text(t('OGRENCI BILGILERI'), 12, y + 3.5);
       
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       y += 8;
-      doc.text(`Ad Soyad: ${student.first_name} ${student.last_name}`, 12, y);
-      doc.text(`TC Kimlik No: ${student.tc_no || '-'}`, 12, y + 4);
-      doc.text(`Sınıf: ${student.class || '-'}-${student.section || 'A'}`, 12, y + 8);
-      doc.text(`Kayıt Tarihi: ${today}`, 12, y + 12);
+      doc.text(t(`Ad Soyad: ${student.first_name} ${student.last_name}`), 12, y);
+      doc.text(t(`TC Kimlik No: ${student.tc_no || '-'}`), 12, y + 4);
+      doc.text(t(`Sinif: ${student.class || '-'}-${student.section || 'A'}`), 12, y + 8);
+      doc.text(t(`Kayit Tarihi: ${today}`), 12, y + 12);
       
       // Sağ kolon: Veli
       doc.setFillColor(147, 51, 234);
@@ -223,12 +237,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('VELİ BİLGİLERİ', 107, y - 4.5);
+      doc.text(t('VELI BILGILERI'), 107, y - 4.5);
       
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.text(`Veli Adı: ${student.parent_name || '-'}`, 107, y);
+      doc.text(t(`Veli Adi: ${student.parent_name || '-'}`), 107, y);
       doc.text(`Telefon: ${student.parent_phone || '-'}`, 107, y + 4);
       doc.text(`E-posta: ${student.parent_email || '-'}`, 107, y + 8);
       
@@ -239,27 +253,27 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('ÖDEME PLANI VE TAKSİT DURUMU', 12, y + 3.5);
+      doc.text(t('ODEME PLANI VE TAKSIT DURUMU'), 12, y + 3.5);
       
       // Taksit tablosu - Maksimum 12 satır göster
       const maxRows = 12;
       const displayInstallments = installments.slice(0, maxRows);
       const tableData = displayInstallments.map((inst, index) => [
         inst.installment_no === 0 ? 'P' : String(index + 1),
-        inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`,
+        inst.installment_no === 0 ? t('Pesinat') : `${inst.installment_no}. Taksit`,
         new Date(inst.due_date).toLocaleDateString('tr-TR'),
-        `${inst.amount.toLocaleString('tr-TR')} ₺`,
-        inst.status === 'paid' ? '✓ Ödendi' : inst.status === 'overdue' ? '⚠ Gecikmiş' : '○ Bekliyor'
+        `${inst.amount.toLocaleString('tr-TR')} TL`,
+        inst.status === 'paid' ? t('Odendi') : inst.status === 'overdue' ? t('Gecikmis') : t('Bekliyor')
       ]);
       
       // Toplam satırı ekle
       tableData.push([
-        '', 'TOPLAM', '', `${totalAmount.toLocaleString('tr-TR')} ₺`, `Ödenen: ${paidAmount.toLocaleString('tr-TR')} ₺`
+        '', 'TOPLAM', '', `${totalAmount.toLocaleString('tr-TR')} TL`, `${t('Odenen')}: ${paidAmount.toLocaleString('tr-TR')} TL`
       ]);
       
       (doc as any).autoTable({
         startY: y + 7,
-        head: [['No', 'Açıklama', 'Vade Tarihi', 'Tutar', 'Durum']],
+        head: [['No', t('Aciklama'), 'Vade Tarihi', 'Tutar', 'Durum']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: 'bold', fontSize: 7, cellPadding: 1.5 },
