@@ -1,4 +1,5 @@
 'use server';
+/* eslint-disable no-console */
 
 import { getServiceRoleClient } from '@/lib/supabase/server';
 import { EnrollmentData } from './types';

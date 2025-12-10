@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
-  AlertTriangle, 
-  CheckCircle2,
+  AlertTriangle,
   Download,
   CreditCard,
   FileText,
@@ -35,41 +34,33 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [selectedInstallment, setSelectedInstallment] = useState<Installment | null>(null);
   const [showRestructureModal, setShowRestructureModal] = useState(false);
 
-  useEffect(() => {
-    fetchInstallments();
-  }, [student.id]);
-
-  const fetchInstallments = async () => {
+  const fetchInstallments = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/installments?student_id=${student.id}`);
       const data = await response.json();
       
       if (data.success && data.data) {
-        // ⚠️ ÖNEMLI: Eğer 20'den fazla taksit varsa, kullanıcıyı uyar
         const allInstallments = data.data;
         
         if (allInstallments.length > 20) {
           toast.error(`⚠️ DİKKAT: Bu öğrenci için ${allInstallments.length} taksit bulundu!\n\nBu normalin üzerinde. Veritabanında hata olabilir.\n\nSadece ilk 20 taksit gösteriliyor.`, {
             duration: 8000,
           });
-          console.warn('ANORMAL TAKSİT SAYISI:', {
-            student_id: student.id,
-            total_installments: allInstallments.length,
-            expected: '10-12',
-            action: 'Veritabanı temizlenmeli',
-          });
         }
         
-        // Sadece ilk 20 taksiti göster
         setInstallments(allInstallments.slice(0, 20));
       }
-    } catch (error) {
-      console.error('Error fetching installments:', error);
+    } catch {
+      // Error handled silently
     } finally {
       setLoading(false);
     }
-  };
+  }, [student.id]);
+
+  useEffect(() => {
+    fetchInstallments();
+  }, [fetchInstallments]);
 
   const handlePayment = (installment: Installment) => {
     setSelectedInstallment(installment);
@@ -121,7 +112,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         onRefresh?.();
       }, 500);
     } catch (error: any) {
-      console.error('Ödeme hatası:', error);
       toast.error(`❌ Ödeme hatası: ${error.message}`, { id: toastId });
     }
   };
@@ -182,7 +172,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         { id: toastId, duration: 4000, icon: '🧾' }
       );
     } catch (error: any) {
-      console.error('Makbuz oluşturma hatası:', error);
       toast.error(`❌ Makbuz oluşturulamadı: ${error.message}`, { id: toastId });
     }
   };
@@ -337,7 +326,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         { id: toastId, duration: 4000, icon: '📄' }
       );
     } catch (error: any) {
-      console.error('PDF oluşturma hatası:', error);
       toast.error(`❌ PDF oluşturulamadı: ${error.message}`, { id: toastId });
     }
   };
@@ -359,9 +347,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const totalAmount = installments.reduce((sum, i) => sum + i.amount, 0);
   const paidAmount = installments.reduce((sum, i) => sum + i.paid_amount, 0);
   const balance = totalAmount - paidAmount;
-  const overdueAmount = installments
-    .filter(i => i.status === 'overdue' || i.status === 'pending')
-    .reduce((sum, i) => sum + (i.amount - i.paid_amount), 0);
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -562,6 +547,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           is_paid: i.status === 'paid',
           paid_amount: i.paid_amount,
           paid_at: null,
+          created_at: new Date().toISOString(),
         })),
       }}
       onSuccess={() => {
