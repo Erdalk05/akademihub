@@ -49,28 +49,25 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen print:bg-white">
+    <div style={{ backgroundColor: '#f3f4f6', minHeight: '100vh' }}>
       {/* Toolbar - Sadece ekranda görünür */}
-      <div className="print:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
-        <div className="max-w-[210mm] mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
+      <div className="print:hidden" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, backgroundColor: '#ffffff', borderBottom: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: '210mm', margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={onClose} style={{ padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }}><X size={20} /></button>
             <div>
-              <p className="font-bold">{student.firstName} {student.lastName}</p>
-              <p className="text-xs text-gray-500">Kayıt Belgesi (Siyah-Beyaz Baskı İçin)</p>
+              <p style={{ fontWeight: 'bold', color: '#000000', margin: 0 }}>{student.firstName} {student.lastName}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Kayıt Belgesi - Tam 2 Sayfa</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setIsEditing(!isEditing)} 
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${isEditing ? 'bg-amber-100 text-amber-700' : 'bg-gray-100'}`}>
+              style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isEditing ? '#fef3c7' : '#f3f4f6', color: isEditing ? '#92400e' : '#374151' }}>
               <Edit3 size={16} /> {isEditing ? 'Bitir' : 'Sözleşmeyi Düzenle'}
-        </button>
+            </button>
             <button 
-              onClick={() => {
-                // Doğrudan yazdırma komutu
-                window.print();
-              }} 
-              className="px-5 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-lg flex items-center gap-2 font-medium transition-colors shadow-lg"
+              onClick={() => window.print()} 
+              style={{ padding: '8px 20px', backgroundColor: '#10b981', color: '#ffffff', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}
             >
               <Printer size={16} /> Yazdır
             </button>
@@ -82,30 +79,25 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
         @media print {
           @page { 
             size: A4; 
-            margin: 12mm 15mm; 
+            margin: 6mm 8mm; 
           }
           html, body { 
-            font-size: 11pt !important; 
+            font-size: 8pt !important; 
             background: white !important;
-            color: black !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-          }
-          * {
-            color: black !important;
-            background: white !important;
-            border-color: #000 !important;
           }
           .no-print { display: none !important; }
           .print-page { 
             box-shadow: none !important; 
             margin: 0 !important; 
-            padding: 0 !important;
+            padding: 5mm !important;
             page-break-inside: avoid;
+            background: white !important;
           }
           .page-break { page-break-before: always; }
-          table { border-collapse: collapse; }
-          th, td { padding: 6px 8px !important; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { padding: 2px 4px !important; }
         }
         @media screen { 
           .print-page { 
@@ -116,136 +108,112 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
         }
       `}</style>
 
-      <div className="pt-20 print:pt-0 pb-8 px-4">
+      <div style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }} className="print:pt-0">
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
-        <div className="print-page max-w-[210mm] mx-auto bg-white p-8 print:p-0">
+        <div className="print-page" style={{ maxWidth: '210mm', margin: '0 auto', backgroundColor: '#ffffff', padding: '20px' }}>
           
           {/* Başlık */}
-          <div className="border-b-2 border-black pb-4 mb-6">
-          <div className="flex justify-between items-start">
-            <div>
-                <h1 className="text-3xl font-black tracking-tight">AKADEMİHUB</h1>
-                <p className="text-sm text-gray-600 mt-1">K12 Eğitim Kurumları</p>
-            </div>
-            <div className="text-right">
-                <div className="border-2 border-black px-4 py-2 inline-block">
-                  <h2 className="text-xl font-bold">KAYIT FORMU</h2>
-                </div>
-                <p className="text-sm mt-2">Tarih: {today}</p>
-                <p className="text-sm font-mono">No: {student.studentNo || '______'}</p>
+          <div style={{ borderBottom: '2px solid #000000', paddingBottom: '10px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h1 style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '-0.5px', color: '#000000', margin: 0 }}>AKADEMİHUB</h1>
+                <p style={{ fontSize: '10px', color: '#4b5563', marginTop: '2px' }}>K12 Eğitim Kurumları</p>
               </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ border: '2px solid #000000', padding: '4px 10px', display: 'inline-block' }}>
+                  <h2 style={{ fontSize: '12px', fontWeight: 'bold', color: '#000000', margin: 0 }}>KAYIT FORMU</h2>
+                </div>
+                <p style={{ fontSize: '9px', marginTop: '4px', color: '#000000' }}>Tarih: {today}</p>
+                <p style={{ fontSize: '9px', fontFamily: 'monospace', color: '#000000' }}>No: {student.studentNo || '______'}</p>
+              </div>
+            </div>
           </div>
-        </div>
 
           {/* ÖĞRENCİ BİLGİLERİ */}
-          <div className="mb-5">
-            <div className="bg-gray-200 border border-black px-4 py-2">
-              <h3 className="font-bold text-sm">ÖĞRENCİ BİLGİLERİ</h3>
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ backgroundColor: '#d1d5db', border: '1px solid #000000', padding: '3px 8px' }}>
+              <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0, color: '#000000' }}>ÖĞRENCİ BİLGİLERİ</h3>
             </div>
-            <table className="w-full border border-t-0 border-black text-sm">
+            <table style={{ width: '100%', border: '1px solid #000000', borderTop: 'none', fontSize: '8px', borderCollapse: 'collapse' }}>
               <tbody>
-                <tr className="border-b border-gray-400">
-                  <td className="py-2 px-3 w-1/4 font-semibold bg-gray-50">Ad Soyad</td>
-                  <td className="py-2 px-3 w-1/4 font-bold text-base">{student.firstName} {student.lastName}</td>
-                  <td className="py-2 px-3 w-1/4 font-semibold bg-gray-50">TC Kimlik No</td>
-                  <td className="py-2 px-3 w-1/4 font-mono">{student.tcNo || '___________________'}</td>
+                <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                  <td style={{ padding: '3px 5px', width: '25%', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Ad Soyad</td>
+                  <td style={{ padding: '3px 5px', width: '25%', fontWeight: 'bold', fontSize: '10px', color: '#000000' }}>{student.firstName} {student.lastName}</td>
+                  <td style={{ padding: '3px 5px', width: '25%', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>TC Kimlik No</td>
+                  <td style={{ padding: '3px 5px', width: '25%', fontFamily: 'monospace', color: '#000000' }}>{student.tcNo || '___________________'}</td>
                 </tr>
-                <tr className="border-b border-gray-400">
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Doğum Tarihi</td>
-                  <td className="py-2 px-3">{student.birthDate || '___________________'}</td>
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Cinsiyet</td>
-                  <td className="py-2 px-3">{student.gender === 'male' ? 'Erkek' : student.gender === 'female' ? 'Kız' : '___________________'}</td>
+                <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                  <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Doğum Tarihi</td>
+                  <td style={{ padding: '3px 5px', color: '#000000' }}>{student.birthDate || '___________________'}</td>
+                  <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Cinsiyet</td>
+                  <td style={{ padding: '3px 5px', color: '#000000' }}>{student.gender === 'male' ? 'Erkek' : student.gender === 'female' ? 'Kız' : '___________________'}</td>
                 </tr>
-                <tr className="border-b border-gray-400">
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Kan Grubu</td>
-                  <td className="py-2 px-3">{student.bloodGroup || '___________________'}</td>
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Telefon</td>
-                  <td className="py-2 px-3">{student.phone ? `+90 ${student.phone}` : '___________________'}</td>
-                </tr>
-                <tr className="border-b border-gray-400">
-                  <td className="py-2 px-3 font-semibold bg-gray-50">E-posta</td>
-                  <td className="py-2 px-3">{student.email || '___________________'}</td>
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Önceki Okul</td>
-                  <td className="py-2 px-3">{student.previousSchool || '___________________'}</td>
+                <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                  <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Kan Grubu</td>
+                  <td style={{ padding: '3px 5px', color: '#000000' }}>{student.bloodGroup || '____'}</td>
+                  <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Telefon</td>
+                  <td style={{ padding: '3px 5px', color: '#000000' }}>{student.phone ? `+90 ${student.phone}` : '___________________'}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-semibold bg-gray-50">Adres</td>
-                  <td className="py-2 px-3" colSpan={3}>{[student.city, student.district, student.address].filter(Boolean).join(', ') || '________________________________________________________________________'}</td>
+                  <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Adres</td>
+                  <td style={{ padding: '3px 5px', color: '#000000' }} colSpan={3}>{[student.city, student.district, student.address].filter(Boolean).join(', ') || '________________________________________________________________________'}</td>
                 </tr>
-                {student.healthNotes && (
-                  <tr className="border-t border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Sağlık Notları</td>
-                    <td className="py-2 px-3 font-bold text-red-800" colSpan={3}>{student.healthNotes}</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
 
           {/* VELİ BİLGİLERİ */}
-          <div className="mb-5">
-            <div className="bg-gray-200 border border-black px-4 py-2">
-              <h3 className="font-bold text-sm">VELİ BİLGİLERİ</h3>
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ backgroundColor: '#d1d5db', border: '1px solid #000000', padding: '3px 8px' }}>
+              <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0, color: '#000000' }}>VELİ BİLGİLERİ</h3>
             </div>
-            {guardians.filter(g => g.firstName).map((g, i) => (
-              <table key={g.id} className={`w-full border border-t-0 border-black text-sm ${i > 0 ? 'mt-2' : ''}`}>
+            {guardians.filter(g => g.firstName).slice(0, 2).map((g, i) => (
+              <table key={g.id} style={{ width: '100%', border: '1px solid #000000', borderTop: i === 0 ? 'none' : '1px solid #000000', fontSize: '8px', borderCollapse: 'collapse', marginTop: i > 0 ? '3px' : '0' }}>
                 <tbody>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 w-1/4 font-semibold bg-gray-50">Yakınlık</td>
-                    <td className="py-2 px-3 w-1/4 font-bold">{getGuardianType(g.type)} {g.isEmergency ? '⚠️' : ''}</td>
-                    <td className="py-2 px-3 w-1/4 font-semibold bg-gray-50">Ad Soyad</td>
-                    <td className="py-2 px-3 w-1/4 font-bold">{g.firstName} {g.lastName}</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                    <td style={{ padding: '3px 5px', width: '25%', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Yakınlık</td>
+                    <td style={{ padding: '3px 5px', width: '25%', fontWeight: 'bold', color: '#000000' }}>{getGuardianType(g.type)}</td>
+                    <td style={{ padding: '3px 5px', width: '25%', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Ad Soyad</td>
+                    <td style={{ padding: '3px 5px', width: '25%', fontWeight: 'bold', color: '#000000' }}>{g.firstName} {g.lastName}</td>
                   </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">TC Kimlik No</td>
-                    <td className="py-2 px-3 font-mono">{g.tcNo || '___________________'}</td>
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Telefon</td>
-                    <td className="py-2 px-3 font-bold">{g.phone ? `+90 ${g.phone}` : '___________________'}</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>TC Kimlik No</td>
+                    <td style={{ padding: '3px 5px', fontFamily: 'monospace', color: '#000000' }}>{g.tcNo || '___________________'}</td>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Telefon</td>
+                    <td style={{ padding: '3px 5px', fontWeight: 'bold', color: '#000000' }}>{g.phone ? `+90 ${g.phone}` : '___________________'}</td>
                   </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">E-posta</td>
-                    <td className="py-2 px-3">{g.email || '___________________'}</td>
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Meslek</td>
-                    <td className="py-2 px-3">{g.job || '___________________'}</td>
+                  <tr>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>E-posta</td>
+                    <td style={{ padding: '3px 5px', color: '#000000' }}>{g.email || '___________________'}</td>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Meslek</td>
+                    <td style={{ padding: '3px 5px', color: '#000000' }}>{g.job || '___________________'}</td>
                   </tr>
-                  {(g.workplace || g.workPhone) && (
-                    <tr className="border-b border-gray-400">
-                      <td className="py-2 px-3 font-semibold bg-gray-50">İş Yeri</td>
-                      <td className="py-2 px-3">{g.workplace || '___________________'}</td>
-                      <td className="py-2 px-3 font-semibold bg-gray-50">İş Telefonu</td>
-                      <td className="py-2 px-3">{g.workPhone || '___________________'}</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             ))}
           </div>
 
           {/* EĞİTİM ve ÖDEME BİLGİLERİ */}
-          <div className="grid grid-cols-2 gap-4 mb-5">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             {/* Eğitim */}
             <div>
-              <div className="bg-gray-200 border border-black px-4 py-2">
-                <h3 className="font-bold text-sm">EĞİTİM BİLGİLERİ</h3>
-            </div>
-              <table className="w-full border border-t-0 border-black text-sm">
+              <div style={{ backgroundColor: '#d1d5db', border: '1px solid #000000', padding: '3px 8px' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0, color: '#000000' }}>EĞİTİM BİLGİLERİ</h3>
+              </div>
+              <table style={{ width: '100%', border: '1px solid #000000', borderTop: 'none', fontSize: '8px', borderCollapse: 'collapse' }}>
                 <tbody>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50 w-1/2">Program</td>
-                    <td className="py-2 px-3 font-bold">{programName}</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', width: '50%', color: '#000000' }}>Program</td>
+                    <td style={{ padding: '3px 5px', fontWeight: 'bold', color: '#000000' }}>{programName}</td>
                   </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Sınıf / Şube</td>
-                    <td className="py-2 px-3">{education.gradeName || `${education.gradeId}. Sınıf`} {education.branchName ? `/ ${education.branchName}` : ''}</td>
-                  </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Öğretim Yılı</td>
-                    <td className="py-2 px-3 font-bold">{education.academicYear}</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Sınıf / Şube</td>
+                    <td style={{ padding: '3px 5px', color: '#000000' }}>{education.gradeName || `${education.gradeId}. Sınıf`} {education.branchName ? `/ ${education.branchName}` : ''}</td>
                   </tr>
                   <tr>
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Kayıt Türü</td>
-                    <td className="py-2 px-3">{education.studentType === 'new' ? 'Yeni Kayıt' : education.studentType === 'transfer' ? 'Nakil' : education.studentType === 'scholarship' ? 'Burslu' : 'Yenileme'}</td>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Öğretim Yılı</td>
+                    <td style={{ padding: '3px 5px', fontWeight: 'bold', color: '#000000' }}>{education.academicYear}</td>
                   </tr>
                 </tbody>
               </table>
@@ -253,120 +221,116 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
 
             {/* Ödeme */}
             <div>
-              <div className="bg-gray-200 border border-black px-4 py-2">
-                <h3 className="font-bold text-sm">ÖDEME BİLGİLERİ</h3>
-            </div>
-              <table className="w-full border border-t-0 border-black text-sm">
+              <div style={{ backgroundColor: '#d1d5db', border: '1px solid #000000', padding: '3px 8px' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0, color: '#000000' }}>ÖDEME BİLGİLERİ</h3>
+              </div>
+              <table style={{ width: '100%', border: '1px solid #000000', borderTop: 'none', fontSize: '8px', borderCollapse: 'collapse' }}>
                 <tbody>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50 w-1/2">Toplam Ücret</td>
-                    <td className="py-2 px-3 text-right">{payment.totalFee.toLocaleString('tr-TR')} TL</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', width: '50%', color: '#000000' }}>Toplam Ücret</td>
+                    <td style={{ padding: '3px 5px', textAlign: 'right', color: '#000000' }}>{payment.totalFee.toLocaleString('tr-TR')} TL</td>
                   </tr>
                   {payment.discount > 0 && (
-                    <tr className="border-b border-gray-400">
-                      <td className="py-2 px-3 font-semibold bg-gray-50">İndirim</td>
-                      <td className="py-2 px-3 text-right">-{payment.discount.toLocaleString('tr-TR')} TL</td>
+                    <tr style={{ borderBottom: '1px solid #9ca3af' }}>
+                      <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>İndirim</td>
+                      <td style={{ padding: '3px 5px', textAlign: 'right', color: '#000000' }}>-{payment.discount.toLocaleString('tr-TR')} TL</td>
                     </tr>
                   )}
-                  <tr className="border-b border-gray-400 bg-gray-100">
-                    <td className="py-2 px-3 font-bold">NET TUTAR</td>
-                    <td className="py-2 px-3 text-right font-bold text-lg">{payment.netFee.toLocaleString('tr-TR')} TL</td>
-                  </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Peşinat</td>
-                    <td className="py-2 px-3 text-right">{payment.downPayment > 0 ? `${payment.downPayment.toLocaleString('tr-TR')} TL` : '—'}</td>
+                  <tr style={{ borderBottom: '1px solid #9ca3af', backgroundColor: '#e5e7eb' }}>
+                    <td style={{ padding: '3px 5px', fontWeight: 'bold', color: '#000000' }}>NET TUTAR</td>
+                    <td style={{ padding: '3px 5px', textAlign: 'right', fontWeight: 'bold', fontSize: '10px', color: '#000000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
                   </tr>
                   <tr>
-                    <td className="py-2 px-3 font-semibold bg-gray-50">Taksit</td>
-                    <td className="py-2 px-3 text-right font-semibold">{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</td>
+                    <td style={{ padding: '3px 5px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#000000' }}>Taksit</td>
+                    <td style={{ padding: '3px 5px', textAlign: 'right', fontWeight: '600', color: '#000000' }}>{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</td>
                   </tr>
                 </tbody>
               </table>
+            </div>
           </div>
-        </div>
 
-          {/* TAKSİT PLANI */}
+          {/* TAKSİT PLANI - Kompakt */}
           {payment.installments && payment.installments.length > 0 && (
-            <div className="mb-5">
-              <div className="bg-gray-200 border border-black px-4 py-2">
-                <h3 className="font-bold text-sm">TAKSİT PLANI</h3>
-          </div>
-              <table className="w-full border border-t-0 border-black text-sm">
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ backgroundColor: '#d1d5db', border: '1px solid #000000', padding: '3px 8px' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0, color: '#000000' }}>TAKSİT PLANI</h3>
+              </div>
+              <table style={{ width: '100%', border: '1px solid #000000', borderTop: 'none', fontSize: '7px', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr className="bg-gray-100 border-b border-black">
-                    <th className="py-2 px-3 text-left w-16">No</th>
-                    <th className="py-2 px-3 text-left">Açıklama</th>
-                    <th className="py-2 px-3 text-left w-32">Vade Tarihi</th>
-                    <th className="py-2 px-3 text-right w-32">Tutar</th>
-                    <th className="py-2 px-3 text-center w-24">İmza</th>
-              </tr>
-            </thead>
-            <tbody>
+                  <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '1px solid #000000' }}>
+                    <th style={{ padding: '2px 4px', textAlign: 'left', width: '30px', color: '#000000' }}>No</th>
+                    <th style={{ padding: '2px 4px', textAlign: 'left', color: '#000000' }}>Açıklama</th>
+                    <th style={{ padding: '2px 4px', textAlign: 'left', width: '65px', color: '#000000' }}>Vade</th>
+                    <th style={{ padding: '2px 4px', textAlign: 'right', width: '65px', color: '#000000' }}>Tutar</th>
+                    <th style={{ padding: '2px 4px', textAlign: 'center', width: '40px', color: '#000000' }}>İmza</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {payment.installments.map((inst, i) => (
-                    <tr key={i} className="border-b border-gray-300">
-                      <td className="py-2 px-3 font-mono font-bold">{inst.no === 0 ? 'P' : inst.no}</td>
-                      <td className="py-2 px-3">{inst.no === 0 ? 'Peşinat' : `${inst.no}. Taksit`}</td>
-                      <td className="py-2 px-3">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__ / __ / ____'}</td>
-                      <td className="py-2 px-3 text-right font-bold">{inst.amount.toLocaleString('tr-TR')} TL</td>
-                      <td className="py-2 px-3 text-center border-l border-gray-300">______</td>
+                    <tr key={i} style={{ borderBottom: '1px solid #d1d5db' }}>
+                      <td style={{ padding: '2px 4px', fontFamily: 'monospace', fontWeight: 'bold', color: '#000000' }}>{inst.no === 0 ? 'P' : inst.no}</td>
+                      <td style={{ padding: '2px 4px', color: '#000000' }}>{inst.no === 0 ? 'Peşinat' : `${inst.no}. Taksit`}</td>
+                      <td style={{ padding: '2px 4px', color: '#000000' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__ / __ / ____'}</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', fontWeight: 'bold', color: '#000000' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'center', borderLeft: '1px solid #d1d5db', color: '#000000' }}>___</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-100 border-t-2 border-black font-bold">
-                    <td className="py-3 px-3" colSpan={3}>TOPLAM</td>
-                    <td className="py-3 px-3 text-right text-lg">{payment.netFee.toLocaleString('tr-TR')} TL</td>
+                  <tr style={{ backgroundColor: '#e5e7eb', borderTop: '2px solid #000000', fontWeight: 'bold' }}>
+                    <td style={{ padding: '3px 4px', color: '#000000' }} colSpan={3}>TOPLAM</td>
+                    <td style={{ padding: '3px 4px', textAlign: 'right', fontSize: '9px', color: '#000000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
                     <td></td>
                   </tr>
                 </tfoot>
-          </table>
-        </div>
+              </table>
+            </div>
           )}
 
           {/* İMZA ALANI */}
-          <div className="grid grid-cols-2 gap-6 mt-8">
-            <div className="border-2 border-black p-4">
-              <p className="font-bold text-center mb-16">VELİ İMZASI</p>
-              <div className="border-t-2 border-black pt-3 text-center">
-                <p className="text-sm">{primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
-                <p className="text-xs text-gray-600">Tarih: {today}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
+            <div style={{ border: '2px solid #000000', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '30px', fontSize: '9px', color: '#000000' }}>VELİ İMZASI</p>
+              <div style={{ borderTop: '2px solid #000000', paddingTop: '6px', textAlign: 'center' }}>
+                <p style={{ fontSize: '8px', color: '#000000' }}>{primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
+                <p style={{ fontSize: '7px', color: '#4b5563' }}>Tarih: {today}</p>
               </div>
             </div>
-            <div className="border-2 border-black p-4">
-              <p className="font-bold text-center mb-16">KURUM YETKİLİSİ</p>
-              <div className="border-t-2 border-black pt-3 text-center">
-                <p className="text-sm">{contract.institutionOfficer || '________________________'}</p>
-                <p className="text-xs text-gray-600">Tarih: {today}</p>
-          </div>
+            <div style={{ border: '2px solid #000000', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '30px', fontSize: '9px', color: '#000000' }}>KURUM YETKİLİSİ</p>
+              <div style={{ borderTop: '2px solid #000000', paddingTop: '6px', textAlign: 'center' }}>
+                <p style={{ fontSize: '8px', color: '#000000' }}>{contract.institutionOfficer || '________________________'}</p>
+                <p style={{ fontSize: '7px', color: '#4b5563' }}>Tarih: {today}</p>
+              </div>
             </div>
           </div>
 
-          <p className="text-center text-xs text-gray-500 mt-6 border-t pt-4">Sayfa 1/2 - Kayıt Formu</p>
+          <p style={{ textAlign: 'center', fontSize: '7px', color: '#6b7280', marginTop: '10px', borderTop: '1px solid #000000', paddingTop: '6px' }}>Sayfa 1/2 - Kayıt Formu</p>
         </div>
 
         {/* =============== SAYFA 2 - SÖZLEŞME =============== */}
-        <div className="page-break print-page max-w-[210mm] mx-auto bg-white p-8 print:p-0">
+        <div className="page-break print-page" style={{ maxWidth: '210mm', margin: '0 auto', backgroundColor: '#ffffff', padding: '20px' }}>
 
           {/* Başlık */}
-          <div className="border-b-2 border-black pb-4 mb-6">
-            <div className="flex justify-between items-start">
-          <div>
-                <h1 className="text-2xl font-black">EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
-                <p className="text-sm mt-1">{student.firstName} {student.lastName} - {education.academicYear} Öğretim Yılı</p>
+          <div style={{ borderBottom: '2px solid #000000', paddingBottom: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h1 style={{ fontSize: '14px', fontWeight: '900', color: '#000000', margin: 0 }}>EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
+                <p style={{ fontSize: '9px', marginTop: '3px', color: '#000000' }}>{student.firstName} {student.lastName} - {education.academicYear} Öğretim Yılı</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontWeight: 'bold', fontSize: '12px', color: '#000000', margin: 0 }}>AKADEMİHUB</p>
+                <p style={{ fontSize: '8px', color: '#000000' }}>{today}</p>
+              </div>
+            </div>
           </div>
-              <div className="text-right">
-                <p className="font-bold text-lg">AKADEMİHUB</p>
-                <p className="text-sm">{today}</p>
-        </div>
-            </div>
-            </div>
 
           {/* Düzenleme Araçları */}
           {isEditing && (
-            <div className="no-print mb-4 p-3 bg-amber-50 rounded-lg flex gap-3 items-center">
-              <button onClick={handleCopy} className="px-3 py-1.5 bg-white border rounded flex items-center gap-1 text-sm"><Copy size={14}/> Kopyala</button>
-              <button onClick={handlePaste} className="px-3 py-1.5 bg-white border rounded flex items-center gap-1 text-sm"><ClipboardPaste size={14}/> Yapıştır</button>
-              <span className="text-xs text-amber-700">Sözleşme metnini düzenleyebilir veya kendi metninizi yapıştırabilirsiniz.</span>
+            <div className="no-print" style={{ marginBottom: '10px', padding: '8px', backgroundColor: '#fef3c7', borderRadius: '6px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={handleCopy} style={{ padding: '4px 8px', backgroundColor: '#ffffff', border: '1px solid #ddd', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}><Copy size={12}/> Kopyala</button>
+              <button onClick={handlePaste} style={{ padding: '4px 8px', backgroundColor: '#ffffff', border: '1px solid #ddd', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}><ClipboardPaste size={12}/> Yapıştır</button>
+              <span style={{ fontSize: '10px', color: '#92400e' }}>Sözleşme metnini düzenleyebilirsiniz.</span>
             </div>
           )}
 
@@ -374,105 +338,104 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
             <textarea
               value={contractText}
               onChange={(e) => setContractText(e.target.value)}
-              className="no-print w-full h-[250px] p-4 border-2 border-amber-300 rounded-lg text-sm leading-relaxed resize-none focus:outline-none mb-4"
+              className="no-print"
+              style={{ width: '100%', height: '160px', padding: '10px', border: '2px solid #fcd34d', borderRadius: '6px', fontSize: '10px', lineHeight: '1.4', resize: 'none', marginBottom: '10px' }}
             />
           )}
 
           {/* Sözleşme Metni */}
-          <div className={`border border-black p-6 text-sm leading-relaxed whitespace-pre-wrap ${isEditing ? 'hidden print:block' : 'block'}`}>
+          <div style={{ border: '1px solid #000000', padding: '10px', fontSize: '8px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: '#000000', display: isEditing ? 'none' : 'block' }}>
             {contractText}
-        </div>
+          </div>
 
           {/* Taraf Bilgileri */}
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="border border-black">
-              <div className="bg-gray-200 px-4 py-2 border-b border-black">
-                <h4 className="font-bold text-sm">VELİ BİLGİLERİ</h4>
-                </div>
-              <div className="p-4 text-sm space-y-1">
-                <p><span className="font-semibold">Ad Soyad:</span> {primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
-                <p><span className="font-semibold">TC Kimlik:</span> {primaryGuardian?.tcNo || '________________________'}</p>
-                <p><span className="font-semibold">Telefon:</span> {primaryGuardian?.phone ? `+90 ${primaryGuardian.phone}` : '________________________'}</p>
-                <p><span className="font-semibold">Adres:</span> {[primaryGuardian?.homeCity, primaryGuardian?.homeDistrict, primaryGuardian?.homeAddress].filter(Boolean).join(', ') || '________________________'}</p>
-                </div>
-                </div>
-            <div className="border border-black">
-              <div className="bg-gray-200 px-4 py-2 border-b border-black">
-                <h4 className="font-bold text-sm">ÖĞRENCİ BİLGİLERİ</h4>
-                </div>
-              <div className="p-4 text-sm space-y-1">
-                <p><span className="font-semibold">Ad Soyad:</span> {student.firstName} {student.lastName}</p>
-                <p><span className="font-semibold">TC Kimlik:</span> {student.tcNo || '________________________'}</p>
-                <p><span className="font-semibold">Program:</span> {programName}</p>
-                <p><span className="font-semibold">Sınıf:</span> {education.gradeName || `${education.gradeId}. Sınıf`}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
+            <div style={{ border: '1px solid #000000' }}>
+              <div style={{ backgroundColor: '#d1d5db', padding: '3px 8px', borderBottom: '1px solid #000000' }}>
+                <h4 style={{ fontWeight: 'bold', fontSize: '8px', margin: 0, color: '#000000' }}>VELİ BİLGİLERİ</h4>
+              </div>
+              <div style={{ padding: '6px', fontSize: '7px' }}>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>Ad Soyad:</span> {primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>TC Kimlik:</span> {primaryGuardian?.tcNo || '________________________'}</p>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>Telefon:</span> {primaryGuardian?.phone ? `+90 ${primaryGuardian.phone}` : '________________________'}</p>
+              </div>
+            </div>
+            <div style={{ border: '1px solid #000000' }}>
+              <div style={{ backgroundColor: '#d1d5db', padding: '3px 8px', borderBottom: '1px solid #000000' }}>
+                <h4 style={{ fontWeight: 'bold', fontSize: '8px', margin: 0, color: '#000000' }}>ÖĞRENCİ BİLGİLERİ</h4>
+              </div>
+              <div style={{ padding: '6px', fontSize: '7px' }}>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>Ad Soyad:</span> {student.firstName} {student.lastName}</p>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>TC Kimlik:</span> {student.tcNo || '________________________'}</p>
+                <p style={{ marginBottom: '2px', color: '#000000' }}><span style={{ fontWeight: '600' }}>Program:</span> {programName}</p>
               </div>
             </div>
           </div>
 
           {/* Ödeme Özeti */}
-          <div className="border border-black mt-4">
-            <div className="bg-gray-200 px-4 py-2 border-b border-black">
-              <h4 className="font-bold text-sm">ÖDEME PLANI ÖZETİ</h4>
+          <div style={{ border: '1px solid #000000', marginTop: '8px' }}>
+            <div style={{ backgroundColor: '#d1d5db', padding: '3px 8px', borderBottom: '1px solid #000000' }}>
+              <h4 style={{ fontWeight: 'bold', fontSize: '8px', margin: 0, color: '#000000' }}>ÖDEME PLANI ÖZETİ</h4>
             </div>
-            <div className="grid grid-cols-4 gap-4 p-4 text-sm">
-              <div><span className="font-semibold block">Toplam Ücret</span>{payment.totalFee.toLocaleString('tr-TR')} TL</div>
-              <div><span className="font-semibold block">İndirim</span>{payment.discount > 0 ? `-${payment.discount.toLocaleString('tr-TR')} TL` : '—'}</div>
-              <div><span className="font-semibold block">Net Tutar</span><span className="font-bold text-lg">{payment.netFee.toLocaleString('tr-TR')} TL</span></div>
-              <div><span className="font-semibold block">Taksit</span>{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</div>
-        </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', padding: '8px', fontSize: '7px' }}>
+              <div><span style={{ fontWeight: '600', display: 'block', color: '#000000' }}>Toplam Ücret</span><span style={{ color: '#000000' }}>{payment.totalFee.toLocaleString('tr-TR')} TL</span></div>
+              <div><span style={{ fontWeight: '600', display: 'block', color: '#000000' }}>İndirim</span><span style={{ color: '#000000' }}>{payment.discount > 0 ? `-${payment.discount.toLocaleString('tr-TR')} TL` : '—'}</span></div>
+              <div><span style={{ fontWeight: '600', display: 'block', color: '#000000' }}>Net Tutar</span><span style={{ fontWeight: 'bold', fontSize: '10px', color: '#000000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</span></div>
+              <div><span style={{ fontWeight: '600', display: 'block', color: '#000000' }}>Taksit</span><span style={{ color: '#000000' }}>{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</span></div>
+            </div>
           </div>
 
           {/* Onaylar */}
-          <div className="border border-black mt-4">
-            <div className="bg-gray-200 px-4 py-2 border-b border-black">
-              <h4 className="font-bold text-sm">ONAYLAR</h4>
+          <div style={{ border: '1px solid #000000', marginTop: '8px' }}>
+            <div style={{ backgroundColor: '#d1d5db', padding: '3px 8px', borderBottom: '1px solid #000000' }}>
+              <h4 style={{ fontWeight: 'bold', fontSize: '8px', margin: 0, color: '#000000' }}>ONAYLAR</h4>
             </div>
-            <div className="grid grid-cols-3 gap-4 p-4 text-sm">
-              <label className="flex items-start gap-2">
-                <span className="w-5 h-5 border-2 border-black flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '8px', fontSize: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                <span style={{ width: '12px', height: '12px', border: '2px solid #000000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0, color: '#000000' }}>
                   {contract.kvkkApproved ? 'X' : ''}
                 </span>
-                <span>KVKK Aydınlatma Metni okundu ve kabul edildi.</span>
-              </label>
-              <label className="flex items-start gap-2">
-                <span className="w-5 h-5 border-2 border-black flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                <span style={{ color: '#000000' }}>KVKK Aydınlatma Metni okundu ve kabul edildi.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                <span style={{ width: '12px', height: '12px', border: '2px solid #000000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0, color: '#000000' }}>
                   {contract.termsApproved ? 'X' : ''}
                 </span>
-                <span>Okul kuralları ve yönetmelikleri kabul edildi.</span>
-              </label>
-              <label className="flex items-start gap-2">
-                <span className="w-5 h-5 border-2 border-black flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                <span style={{ color: '#000000' }}>Okul kuralları ve yönetmelikleri kabul edildi.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                <span style={{ width: '12px', height: '12px', border: '2px solid #000000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0, color: '#000000' }}>
                   {contract.paymentApproved ? 'X' : ''}
                 </span>
-                <span>Ödeme planı ve koşulları kabul edildi.</span>
-              </label>
-            </div>
-        </div>
-
-          {/* İMZA ALANI */}
-          <div className="grid grid-cols-2 gap-6 mt-8">
-            <div className="border-2 border-black p-4">
-              <p className="font-bold text-center mb-20">VELİ İMZASI</p>
-              <div className="border-t-2 border-black pt-3 text-center">
-                <p className="text-sm">{contract.guardianSignature || `${primaryGuardian?.firstName} ${primaryGuardian?.lastName}`}</p>
-                <p className="text-xs text-gray-600">Tarih: {today}</p>
+                <span style={{ color: '#000000' }}>Ödeme planı ve koşulları kabul edildi.</span>
               </div>
             </div>
-            <div className="border-2 border-black p-4">
-              <p className="font-bold text-center mb-20">KURUM YETKİLİSİ</p>
-              <div className="border-t-2 border-black pt-3 text-center">
-                <p className="text-sm">{contract.institutionOfficer || '________________________'}</p>
-                <p className="text-xs text-gray-600">Tarih: {today}</p>
+          </div>
+
+          {/* İMZA ALANI */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            <div style={{ border: '2px solid #000000', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '35px', fontSize: '9px', color: '#000000' }}>VELİ İMZASI</p>
+              <div style={{ borderTop: '2px solid #000000', paddingTop: '6px', textAlign: 'center' }}>
+                <p style={{ fontSize: '8px', color: '#000000' }}>{contract.guardianSignature || `${primaryGuardian?.firstName} ${primaryGuardian?.lastName}`}</p>
+                <p style={{ fontSize: '7px', color: '#4b5563' }}>Tarih: {today}</p>
+              </div>
+            </div>
+            <div style={{ border: '2px solid #000000', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '35px', fontSize: '9px', color: '#000000' }}>KURUM YETKİLİSİ</p>
+              <div style={{ borderTop: '2px solid #000000', paddingTop: '6px', textAlign: 'center' }}>
+                <p style={{ fontSize: '8px', color: '#000000' }}>{contract.institutionOfficer || '________________________'}</p>
+                <p style={{ fontSize: '7px', color: '#4b5563' }}>Tarih: {today}</p>
               </div>
             </div>
           </div>
 
           {/* Alt Bilgi */}
-          <div className="mt-6 pt-4 border-t-2 border-black text-center text-xs">
-            <p className="font-medium">Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
-            <p className="text-gray-600 mt-1">Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.</p>
-            <p className="text-gray-600">AkademiHub K12 Eğitim Kurumları - {today}</p>
-        </div>
+          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '2px solid #000000', textAlign: 'center', fontSize: '7px' }}>
+            <p style={{ fontWeight: '500', color: '#000000' }}>Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
+            <p style={{ color: '#4b5563', marginTop: '2px' }}>Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.</p>
+            <p style={{ color: '#4b5563' }}>AkademiHub K12 Eğitim Kurumları - {today}</p>
+          </div>
         </div>
       </div>
     </div>
