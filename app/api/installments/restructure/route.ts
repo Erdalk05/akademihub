@@ -9,6 +9,7 @@ const BodySchema = z.object({
   total_amount: z.number().positive(),
   installment_count: z.number().int().min(1).max(60),
   first_due_date: z.string(),
+  reason: z.string().optional(), // Yeniden yapılandırma sebebi
 });
 
 const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
@@ -27,47 +28,78 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 400 });
     }
-    const { student_id, total_amount, installment_count, first_due_date } = parsed.data;
+    const { student_id, total_amount, installment_count, first_due_date, reason } = parsed.data;
 
     const accessToken = getAccessTokenFromRequest(req);
-    // Oturum varsa RLS client, yoksa service role client kullan
     const supabase = accessToken ? createRlsServerClient(accessToken) : getServiceRoleClient();
 
     // 1. Bu öğrencinin TÜM taksitlerini al
     const { data: allInstallments, error: fetchError } = await supabase
       .from('finance_installments')
-      .select('id, installment_no, amount, paid_amount, is_paid')
-      .eq('student_id', student_id);
+      .select('id, installment_no, amount, paid_amount, due_date, paid_at, is_paid, status, payment_method, description')
+      .eq('student_id', student_id)
+      .order('installment_no', { ascending: true });
 
     if (fetchError) {
       return NextResponse.json({ success: false, error: fetchError.message }, { status: 500 });
     }
 
-    // 2. Taksitleri kategorilere ayır
-    const toDeleteIds: string[] = [];      // Silinecekler (ödenmemiş veya ₺0 tutarlı)
-    const toKeepIds: string[] = [];        // Korunacaklar (gerçekten ödenmiş)
-    let totalPaidAmount = 0;               // Toplam ödenen miktar
+    // 2. Mevcut toplam ve taksit sayısını hesapla
+    const previousTotal = (allInstallments || []).reduce((sum, inst) => sum + (Number(inst.amount) || 0), 0);
+    const previousInstallmentCount = (allInstallments || []).length;
+
+    // 3. ✅ ESKİ TAKSİTLERİ GEÇMİŞ TABLOSUNA KAYDET
+    if (allInstallments && allInstallments.length > 0) {
+      const historyRecords = allInstallments.map(inst => ({
+        student_id,
+        original_installment_id: inst.id,
+        installment_no: inst.installment_no,
+        amount: Number(inst.amount) || 0,
+        paid_amount: Number(inst.paid_amount) || 0,
+        due_date: inst.due_date,
+        paid_at: inst.paid_at,
+        is_paid: inst.is_paid || false,
+        status: 'archived',
+        payment_method: inst.payment_method,
+        description: inst.description,
+        restructure_reason: reason || 'yeniden_taksitlendirme',
+        previous_total: previousTotal,
+        new_total: total_amount,
+        previous_installment_count: previousInstallmentCount,
+        new_installment_count: installment_count,
+      }));
+
+      const { error: historyError } = await supabase
+        .from('installment_history')
+        .insert(historyRecords);
+
+      if (historyError) {
+        console.error('Geçmiş kaydı hatası:', historyError);
+        // Geçmiş kaydedilemese bile devam et (kritik değil)
+      } else {
+        console.log(`✅ ${historyRecords.length} taksit geçmişe kaydedildi`);
+      }
+    }
+
+    // 4. Taksitleri kategorilere ayır
+    const toDeleteIds: string[] = [];
+    const toKeepIds: string[] = [];
+    let totalPaidAmount = 0;
 
     for (const inst of allInstallments || []) {
       const paidAmount = Number(inst.paid_amount) || 0;
-      const amount = Number(inst.amount) || 0;
       
-      // Gerçekten ödeme yapılmış mı? (paid_amount > 0)
       if (paidAmount > 0) {
-        // Gerçekten ödenmiş taksit - koru
         toKeepIds.push(inst.id);
         totalPaidAmount += paidAmount;
       } else {
-        // Hiç ödeme yapılmamış veya ₺0 tutarlı - sil
         toDeleteIds.push(inst.id);
       }
     }
 
-    // Kullanıcının gönderdiği total_amount'u kullan
-    // (Modal'dan gelen effectiveTotal değeri)
     const effectiveTotal = Math.round(total_amount * 100) / 100;
 
-    // 3. Gereksiz taksitleri sil (ödenmemişler ve ₺0 tutarlılar)
+    // 5. Ödenmemiş taksitleri sil
     if (toDeleteIds.length > 0) {
       const { error: delError } = await supabase
         .from('finance_installments')
@@ -80,25 +112,18 @@ export async function POST(req: NextRequest) {
       console.log(`✅ ${toDeleteIds.length} eski taksit silindi`);
     }
 
-    // 4. Yeni taksitler 1'den başlasın (temiz başlangıç)
-    // Eski ödenmiş taksitler "E1, E2..." olarak kalabilir ama yeni taksitler "Y1, Y2..." olacak
-    const baseInstallmentNo = 0;
-
-    // 5. Yeni Taksitleri Oluştur
-    // Taksit tutarını hesapla (Kuruş tabanlı)
+    // 6. Yeni Taksitleri Oluştur
     const totalCents = Math.round(effectiveTotal * 100);
     const baseAmountCents = Math.floor(totalCents / installment_count);
     const remainderCents = totalCents - (baseAmountCents * installment_count);
 
     const newInstallments = [];
-    // first_due_date, BodySchema içinde string (YYYY-MM-DD) olarak geliyor
     const startDate = new Date(first_due_date);
 
     for (let i = 0; i < installment_count; i++) {
         const dueDate = new Date(startDate);
         dueDate.setMonth(dueDate.getMonth() + i);
 
-        // Son takside kalan kuruşları ekle
         const amountCents =
           i === installment_count - 1 ? baseAmountCents + remainderCents : baseAmountCents;
         const amount = amountCents / 100;
@@ -107,7 +132,7 @@ export async function POST(req: NextRequest) {
           student_id,
           installment_no: i + 1,
           amount: Number(amount.toFixed(2)),
-          due_date: dueDate.toISOString().split('T')[0], // YYYY-MM-DD
+          due_date: dueDate.toISOString().split('T')[0],
           is_paid: false,
           paid_amount: 0,
           status: 'pending',
@@ -122,10 +147,12 @@ export async function POST(req: NextRequest) {
         throw new Error('Yeni taksitler oluşturulamadı: ' + insertError.message);
     }
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({ 
+      success: true,
+      message: `${previousInstallmentCount} taksit geçmişe kaydedildi, ${installment_count} yeni taksit oluşturuldu.`
+    }, { status: 200 });
 
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }
-
