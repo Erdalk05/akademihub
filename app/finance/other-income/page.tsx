@@ -1,18 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Search,
   Download,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Calendar,
   Users,
   CheckCircle2,
-  MoreHorizontal,
   RefreshCw,
   TrendingUp,
   Wallet,
@@ -28,12 +25,10 @@ import {
   Package,
   Trash2,
   Check,
-  Settings,
   Receipt,
   GraduationCap,
   User,
-  Minus,
-  AlertTriangle
+  Minus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -69,8 +64,6 @@ type Student = {
 };
 
 export default function OtherIncomePage() {
-  const router = useRouter();
-  
   // Data
   const [incomes, setIncomes] = useState<OtherIncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -371,6 +364,99 @@ export default function OtherIncomePage() {
     }
   };
 
+  // Excel Export
+  const handleExportExcel = () => {
+    if (filteredIncomes.length === 0) {
+      toast.error('Dışa aktarılacak veri yok');
+      return;
+    }
+
+    const headers = ['Tarih', 'Öğrenci', 'Başlık', 'Kategori', 'Tutar', 'Ödeme Tipi', 'Notlar'];
+    const rows = filteredIncomes.map(r => [
+      r.date.toLocaleDateString('tr-TR'),
+      r.studentName,
+      r.title,
+      getCategoryInfo(r.category).label,
+      r.amount.toLocaleString('tr-TR'),
+      r.paymentType === 'cash' ? 'Nakit' : r.paymentType,
+      r.notes || ''
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Diger_Gelirler_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Excel indirildi');
+  };
+
+  // PDF Rapor
+  const handleDownloadReportPDF = () => {
+    if (reportData.length === 0) {
+      toast.error('Rapor verisi yok');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Diğer Gelirler Raporu</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+          h1 { color: #0d9488; margin-bottom: 5px; }
+          .meta { color: #64748b; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th { background: #0d9488; color: white; padding: 10px; text-align: left; }
+          td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+          .total { font-weight: bold; font-size: 14px; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>Diğer Gelirler Raporu</h1>
+        <p class="meta">Tarih: ${reportType === 'single' ? reportDate : `${reportStartDate} - ${reportEndDate}`} | Kayıt: ${reportData.length}</p>
+        <table>
+          <thead>
+            <tr><th>Tarih</th><th>Öğrenci</th><th>Başlık</th><th>Kategori</th><th>Tutar</th></tr>
+          </thead>
+          <tbody>
+            ${reportData.map(r => `
+              <tr>
+                <td>${r.date.toLocaleDateString('tr-TR')}</td>
+                <td>${r.studentName}</td>
+                <td>${r.title}</td>
+                <td>${getCategoryInfo(r.category).label}</td>
+                <td>₺${r.amount.toLocaleString('tr-TR')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <p class="total">Toplam: ₺${reportData.reduce((s, r) => s + r.amount, 0).toLocaleString('tr-TR')}</p>
+        <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
+      </body>
+      </html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:absolute;width:0;height:0;border:none;left:-9999px';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    }
+    setTimeout(() => document.body.removeChild(iframe), 10000);
+    setShowReportModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -398,7 +484,10 @@ export default function OtherIncomePage() {
               Tarih Raporu
             </button>
 
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition">
+            <button 
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
+            >
               <Download size={16} />
               Excel
             </button>
@@ -602,9 +691,6 @@ export default function OtherIncomePage() {
                               title="Sil"
                             >
                               <Trash2 size={16} />
-                            </button>
-                            <button className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500">
-                              <MoreHorizontal size={16} />
                             </button>
                           </div>
                         </td>
@@ -928,8 +1014,12 @@ export default function OtherIncomePage() {
             </div>
 
             <div className="flex items-center justify-between p-5 border-t border-slate-100 bg-slate-50">
-              <button onClick={() => setShowReportModal(false)} className="text-slate-600">Kapat</button>
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium">
+              <button onClick={() => setShowReportModal(false)} className="text-slate-600 hover:text-slate-900">Kapat</button>
+              <button 
+                onClick={handleDownloadReportPDF}
+                disabled={reportData.length === 0}
+                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download size={18} />
                 PDF İndir
               </button>
