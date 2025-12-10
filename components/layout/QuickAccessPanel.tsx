@@ -11,7 +11,6 @@ import {
   FileSignature,
   UserX,
 } from 'lucide-react';
-import { usePermission } from '@/lib/hooks/usePermission';
 
 interface QuickAction {
   label: string;
@@ -19,24 +18,11 @@ interface QuickAction {
   icon: React.ReactNode;
   gradient: string;
   description: string;
-  adminOnly?: boolean;
-  accountingOrAdmin?: boolean;
 }
 
 const QuickAccessPanel: React.FC = () => {
-  const { isAdmin, isAccounting, isLoading } = usePermission();
-
-  // Loading durumunda boş dön
-  if (isLoading) {
-    return <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 animate-pulse">
-      {[...Array(7)].map((_, i) => (
-        <div key={i} className="bg-gray-200 rounded-xl h-28" />
-      ))}
-    </div>;
-  }
-
-  // WhatsApp temalı hızlı erişim butonları
-  const allQuickActions: QuickAction[] = [
+  // 7 hızlı erişim kartı - filtreleme yok, herkes görebilir
+  const quickActions: QuickAction[] = [
     {
       label: 'Yeni Öğrenci',
       href: '/enrollment/new',
@@ -50,7 +36,6 @@ const QuickAccessPanel: React.FC = () => {
       icon: <CreditCard size={20} />,
       gradient: 'from-[#25D366] to-[#128C7E]',
       description: 'Öğrenci seçerek ödeme al',
-      accountingOrAdmin: true,
     },
     {
       label: 'Öğrenci Listesi',
@@ -65,7 +50,6 @@ const QuickAccessPanel: React.FC = () => {
       icon: <BarChart3 size={20} />,
       gradient: 'from-[#075E54] to-[#25D366]',
       description: 'Mali özet',
-      accountingOrAdmin: true,
     },
     {
       label: 'Rapor Oluştur',
@@ -73,7 +57,6 @@ const QuickAccessPanel: React.FC = () => {
       icon: <FileText size={20} />,
       gradient: 'from-[#128C7E] to-[#25D366]',
       description: 'Detaylı raporlar',
-      accountingOrAdmin: true,
     },
     {
       label: 'Sözleşmeler',
@@ -90,14 +73,6 @@ const QuickAccessPanel: React.FC = () => {
       description: 'Silinen öğrenciler',
     },
   ];
-
-  // Rol bazlı filtreleme - useMemo kaldırıldı
-  const quickActions = allQuickActions.filter(action => {
-    if (isAdmin) return true;
-    if (action.adminOnly) return false;
-    if (action.accountingOrAdmin && !isAccounting) return false;
-    return true;
-  });
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
