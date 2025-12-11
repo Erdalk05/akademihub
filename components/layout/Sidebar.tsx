@@ -33,6 +33,7 @@ interface NavItem {
   icon: React.ReactNode;
   submenu?: NavItem[];
   badge?: number;
+  superAdminOnly?: boolean; // Sadece Franchise Sahibi görebilir
   adminOnly?: boolean; // Sadece admin görebilir
   accountingOrAdmin?: boolean; // Admin veya muhasebe görebilir
 }
@@ -43,7 +44,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
 }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAdmin, isAccounting, isLoading } = usePermission();
+  const { isSuperAdmin, isAdmin, isAccounting, isLoading } = usePermission();
   const { currentUser, setCurrentUser } = useRole();
   const { logout } = useAuthStore();
   const { currentOrganization, _hasHydrated } = useOrganizationStore();
@@ -55,6 +56,13 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   
   // Tüm navigasyon öğeleri
   const allNavigationItems: NavItem[] = [
+    // Franchise Yönetimi (Sadece Super Admin)
+    {
+      label: 'Franchise Paneli',
+      href: '/franchise',
+      icon: <Building2 size={20} />,
+      superAdminOnly: true,
+    },
     {
       label: 'Dashboard',
       href: '/dashboard',
@@ -105,6 +113,10 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   // Rol bazlı filtreleme - useMemo kaldırıldı
   const navigationItems = allNavigationItems
     .filter(item => {
+      // Super Admin her şeyi görebilir
+      if (isSuperAdmin) return true;
+      // Super Admin only öğeler sadece super admin için
+      if (item.superAdminOnly) return false;
       if (isAdmin) return true;
       if (item.adminOnly) return false;
       if (item.accountingOrAdmin && !isAccounting) return false;

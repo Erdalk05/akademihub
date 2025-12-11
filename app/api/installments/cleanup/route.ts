@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+Simport { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';

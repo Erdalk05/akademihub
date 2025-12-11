@@ -169,6 +169,9 @@ export default function OrganizationLoginPage() {
         const authData = data.data;
         
         const roleMap: Record<string, UserRole> = {
+          'super_admin': UserRole.SUPER_ADMIN,
+          'SUPER_ADMIN': UserRole.SUPER_ADMIN,
+          'franchise': UserRole.SUPER_ADMIN,
           'admin': UserRole.ADMIN,
           'ADMIN': UserRole.ADMIN,
           'accounting': UserRole.ACCOUNTING,

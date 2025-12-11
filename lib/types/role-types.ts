@@ -4,7 +4,8 @@
  */
 
 export enum UserRole {
-  ADMIN = 'admin',
+  SUPER_ADMIN = 'super_admin', // Franchise Sahibi - Tüm kurumlara erişim
+  ADMIN = 'admin',             // Kurum Yöneticisi - Tek kuruma erişim
   ACCOUNTING = 'accounting',
   STAFF = 'staff',
   TEACHER = 'teacher',
@@ -51,6 +52,12 @@ export enum Permission {
   SETTINGS_USERS = 'settings.users',
   SETTINGS_ACADEMIC_YEAR = 'settings.academic_year',
   SETTINGS_TEMPLATES = 'settings.templates',
+
+  // ===== FRANCHISE / SUPER ADMIN =====
+  FRANCHISE_VIEW_ALL = 'franchise.view_all',           // Tüm kurumları görme
+  FRANCHISE_MANAGE_ORGS = 'franchise.manage_orgs',     // Kurum ekleme/silme
+  FRANCHISE_CONSOLIDATED = 'franchise.consolidated',   // Konsolide raporlar
+  FRANCHISE_SWITCH_ORG = 'franchise.switch_org',       // Kurumlar arası geçiş
 
   // ===== ESKİ UYUMLULUK (Legacy) =====
   FINANCE_CREATE = 'finance.create',
@@ -217,7 +224,8 @@ const ALL_PERMISSIONS = Object.values(Permission);
 
 // Role-Permission Mapping (statik başlangıç değerleri)
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.ADMIN]: ALL_PERMISSIONS,
+  [UserRole.SUPER_ADMIN]: ALL_PERMISSIONS, // Franchise Sahibi - TÜM yetkiler
+  [UserRole.ADMIN]: ALL_PERMISSIONS.filter(p => !p.startsWith('franchise.')), // Kurum Admin - franchise hariç
 
   [UserRole.ACCOUNTING]: convertToPermissionArray(DEFAULT_ROLE_PERMISSIONS.accounting),
 
@@ -258,7 +266,8 @@ export interface User {
 
 // Rol etiketleri
 export const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.ADMIN]: 'Admin',
+  [UserRole.SUPER_ADMIN]: 'Franchise Yöneticisi',
+  [UserRole.ADMIN]: 'Kurum Yöneticisi',
   [UserRole.ACCOUNTING]: 'Muhasebe',
   [UserRole.STAFF]: 'Personel',
   [UserRole.TEACHER]: 'Öğretmen',
@@ -267,6 +276,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 // Aktif roller (UI'da gösterilecek)
 export const ACTIVE_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
   UserRole.ADMIN,
   UserRole.ACCOUNTING,
   UserRole.STAFF,

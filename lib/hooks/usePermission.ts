@@ -46,11 +46,17 @@ export interface MenuVisibility {
 export interface UsePermissionReturn {
   isLoading: boolean;
   role: UserRole;
-  isAdmin: boolean;
+  isSuperAdmin: boolean;  // Franchise Sahibi
+  isAdmin: boolean;       // Kurum Yöneticisi
   isAccounting: boolean;
   isStaff: boolean;
   hasPermission: (permission: Permission) => boolean;
   hasAnyPermission: (permissions: Permission[]) => boolean;
+  // Franchise yetkileri
+  canViewAllOrganizations: boolean;
+  canManageOrganizations: boolean;
+  canViewConsolidatedReports: boolean;
+  canSwitchOrganization: boolean;
   canViewStudents: boolean;
   canCreateStudent: boolean;
   canEditStudent: boolean;
@@ -90,16 +96,24 @@ export function usePermission(): UsePermissionReturn {
   // Basit değerler - hook yok
   const role = currentUser?.role || UserRole.STAFF;
   const isLoading = !isHydrated;
-  const isAdmin = role === UserRole.ADMIN;
+  const isSuperAdmin = role === UserRole.SUPER_ADMIN;
+  const isAdmin = role === UserRole.ADMIN || isSuperAdmin; // Super Admin de admin yetkilerine sahip
   const isAccounting = role === UserRole.ACCOUNTING;
   const isStaff = role === UserRole.STAFF;
 
   // Yetki kontrolü fonksiyonu
   const hasPermission = (permission: Permission): boolean => {
+    if (isSuperAdmin) return true; // Super Admin her şeye erişebilir
     if (isAdmin) return true;
     const permissions = ROLE_PERMISSIONS[role];
     return permissions?.includes(permission) ?? false;
   };
+  
+  // Franchise yetkileri (hasPermission tanımlandıktan sonra)
+  const canViewAllOrganizations = isSuperAdmin || hasPermission(Permission.FRANCHISE_VIEW_ALL);
+  const canManageOrganizations = isSuperAdmin || hasPermission(Permission.FRANCHISE_MANAGE_ORGS);
+  const canViewConsolidatedReports = isSuperAdmin || hasPermission(Permission.FRANCHISE_CONSOLIDATED);
+  const canSwitchOrganization = isSuperAdmin || hasPermission(Permission.FRANCHISE_SWITCH_ORG);
 
   const hasAnyPermission = (permissions: Permission[]): boolean => {
     return permissions.some(p => hasPermission(p));
@@ -184,11 +198,16 @@ export function usePermission(): UsePermissionReturn {
   return {
     isLoading,
     role,
+    isSuperAdmin,
     isAdmin,
     isAccounting,
     isStaff,
     hasPermission,
     hasAnyPermission,
+    canViewAllOrganizations,
+    canManageOrganizations,
+    canViewConsolidatedReports,
+    canSwitchOrganization,
     canViewStudents,
     canCreateStudent,
     canEditStudent,
