@@ -752,16 +752,18 @@ export default function SettingsPage() {
 
   const handleSetActiveYear = async (id: string) => {
     try {
-      const res = await fetch('/api/academic-years', {
-        method: 'PUT',
+      const res = await fetch(`/api/academic-years?id=${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'active' })
+        body: JSON.stringify({ is_active: true, status: 'active' })
       });
 
       const data = await res.json();
       if (data.success) {
         await loadAcademicYears();
         toast.success('Aktif dönem değiştirildi');
+      } else {
+        toast.error(data.error || 'Güncelleme hatası');
       }
     } catch (error) {
       toast.error('Güncelleme hatası');
