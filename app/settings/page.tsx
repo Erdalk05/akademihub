@@ -1597,8 +1597,8 @@ export default function SettingsPage() {
                               const result = await response.json();
                               if (result.success) {
                                 toast.success(`${selectedUserForPermissions.name} için yetkiler kaydedildi!`);
-                                // Kullanıcı listesini güncelle
-                                fetchUsers();
+                                // Sayfayı yenile
+                                window.location.reload();
                               } else {
                                 toast.error(result.error || 'Kayıt başarısız');
                               }
@@ -1656,9 +1656,21 @@ export default function SettingsPage() {
                                         setSelectedUserForPermissions(user);
                                         // Kullanıcının Supabase'deki yetkilerini yükle
                                         if (user.permissions && typeof user.permissions === 'object') {
+                                          // Nested permissions objesini flat hale getir
+                                          const flatPerms: Record<string, boolean> = {};
+                                          const perms = user.permissions as Record<string, unknown>;
+                                          Object.entries(perms).forEach(([category, catPerms]) => {
+                                            if (typeof catPerms === 'object' && catPerms !== null) {
+                                              Object.entries(catPerms as Record<string, boolean>).forEach(([key, val]) => {
+                                                flatPerms[`${category}.${key}`] = Boolean(val);
+                                              });
+                                            } else if (typeof catPerms === 'boolean') {
+                                              flatPerms[category] = catPerms;
+                                            }
+                                          });
                                           setUserSpecificPermissions(prev => ({
                                             ...prev,
-                                            [user.id]: user.permissions as Record<string, boolean>
+                                            [user.id]: flatPerms
                                           }));
                                         } else if (!userSpecificPermissions[user.id]) {
                                           // Varsayılan yetkiler
