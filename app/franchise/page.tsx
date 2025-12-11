@@ -67,14 +67,17 @@ export default function FranchiseDashboardPage() {
       setIsLoading(true);
       
       // Kurumları yükle
+      let orgs = organizations;
       if (organizations.length === 0) {
         await fetchOrganizations();
+        // Store'dan güncel veriyi al
+        return; // fetchOrganizations sonrası useEffect tekrar çalışacak
       }
       
       // Her kurum için istatistikleri çek
       const stats: OrganizationStats[] = [];
       
-      for (const org of organizations) {
+      for (const org of orgs) {
         try {
           const [studentsRes, installmentsRes] = await Promise.all([
             fetch(`/api/students?organization_id=${org.id}`),
