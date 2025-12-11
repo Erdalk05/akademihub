@@ -32,11 +32,11 @@ const QuickAccessPanel: React.FC = () => {
       description: 'Kayıt formu',
     },
     {
-      label: 'Ödeme Al',
-      href: '/students',
+      label: 'Tahsilat',
+      href: '/finance/payments',
       icon: <CreditCard size={32} />,
       gradient: 'from-[#25D366] to-[#128C7E]',
-      description: 'Öğrenci seçerek ödeme al',
+      description: 'Ödeme işlemleri',
     },
     {
       label: 'Öğrenci Listesi',

@@ -5,7 +5,6 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
 import HeroBanner from '@/components/dashboard/HeroBanner';
 import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
-import Link from 'next/link';
 import { 
   Loader2, 
   AlertTriangle, 
@@ -14,16 +13,7 @@ import {
   RefreshCw, 
   Calendar, 
   ChevronDown,
-  CreditCard,
-  TrendingUp,
-  Wallet,
-  UserX,
-  Clock,
-  DollarSign,
-  FileText,
-  ArrowRight,
-  ShoppingCart,
-  Banknote
+  TrendingUp
 } from 'lucide-react';
 
 // Akademik Yıllar
@@ -249,99 +239,6 @@ export default function DashboardPage() {
                 <TrendingUp className="w-6 h-6 text-emerald-600" />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* 📊 Önemli Bilgiler */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center">
-              <FileText className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Önemli Bilgiler</h3>
-              <p className="text-xs text-gray-500">Hızlı erişim için kartlara tıklayın</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {/* Kaydı Silinen Öğrenciler */}
-            <Link href="/students?status=deleted" 
-              className="group bg-gradient-to-br from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 rounded-xl p-4 border border-red-100 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-red-100 group-hover:bg-red-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <UserX className="w-5 h-5 text-red-600" />
-                </div>
-                <p className="text-2xl font-bold text-red-600">{kpi.deletedStudents || 0}</p>
-                <p className="text-xs text-red-700 font-medium">Kaydı Silinen</p>
-                <ArrowRight className="w-4 h-4 text-red-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-
-            {/* Gecikmiş Ödemeler */}
-            <Link href="/finance/payments?filter=overdue" 
-              className="group bg-gradient-to-br from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 rounded-xl p-4 border border-amber-100 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-amber-100 group-hover:bg-amber-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <Clock className="w-5 h-5 text-amber-600" />
-                </div>
-                <p className="text-2xl font-bold text-amber-600">{kpi.overduePayments || 0}</p>
-                <p className="text-xs text-amber-700 font-medium">Gecikmiş Ödeme</p>
-                <ArrowRight className="w-4 h-4 text-amber-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-
-            {/* Diğer Gelirler */}
-            <Link href="/finance/other-income" 
-              className="group bg-gradient-to-br from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 rounded-xl p-4 border border-emerald-100 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-emerald-100 group-hover:bg-emerald-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
-                </div>
-                <p className="text-2xl font-bold text-emerald-600">₺{((kpi.otherIncome || 0) / 1000).toFixed(0)}K</p>
-                <p className="text-xs text-emerald-700 font-medium">Diğer Gelirler</p>
-                <ArrowRight className="w-4 h-4 text-emerald-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-
-            {/* Toplam Gider */}
-            <Link href="/finance/expenses" 
-              className="group bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 rounded-xl p-4 border border-purple-100 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-purple-100 group-hover:bg-purple-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <ShoppingCart className="w-5 h-5 text-purple-600" />
-                </div>
-                <p className="text-2xl font-bold text-purple-600">₺{((kpi.totalExpenses || 0) / 1000).toFixed(0)}K</p>
-                <p className="text-xs text-purple-700 font-medium">Toplam Gider</p>
-                <ArrowRight className="w-4 h-4 text-purple-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-
-            {/* Sözleşmeler */}
-            <Link href="/finance/reports/contracts" 
-              className="group bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 rounded-xl p-4 border border-blue-100 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-blue-100 group-hover:bg-blue-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                </div>
-                <p className="text-2xl font-bold text-blue-600">{kpi.activeStudents || 0}</p>
-                <p className="text-xs text-blue-700 font-medium">Sözleşmeler</p>
-                <ArrowRight className="w-4 h-4 text-blue-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-
-            {/* Kasa Durumu */}
-            <Link href="/finance/cash-bank" 
-              className="group bg-gradient-to-br from-slate-50 to-gray-50 hover:from-slate-100 hover:to-gray-100 rounded-xl p-4 border border-slate-200 transition-all hover:shadow-md cursor-pointer">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-slate-100 group-hover:bg-slate-200 rounded-lg flex items-center justify-center mb-2 transition-colors">
-                  <Banknote className="w-5 h-5 text-slate-600" />
-                </div>
-                <p className="text-2xl font-bold text-slate-700">₺{((kpi.cashBalance || 0) / 1000).toFixed(0)}K</p>
-                <p className="text-xs text-slate-600 font-medium">Kasa Durumu</p>
-                <ArrowRight className="w-4 h-4 text-slate-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
           </div>
         </div>
 
