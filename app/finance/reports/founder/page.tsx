@@ -556,9 +556,167 @@ export default function FounderReportPage() {
       </div>
     </div>
 
+    <!-- YIL KARŞILAŞTIRMASI -->
+    <div class="section" style="page-break-before: always;">
+      <div class="section-title">${currentYear}-${currentYear+1} SEZONU CİRO - TAHSİLAT - GECİKEN DURUMU</div>
+      <div class="row">
+        <div class="col">
+          <table>
+            <thead>
+              <tr><th colspan="5">Tahsilat</th><th colspan="2">Geciken</th></tr>
+              <tr><th>Ciro</th><th>Toplam İade</th><th>Alınan</th><th>Kalan</th><th>Beklenen Ödeme</th><th>Toplam</th><th>2 aydan fazla</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-right">${formatCurrency(totals.totalRevenue)}</td>
+                <td class="text-right">0,00</td>
+                <td class="text-right success">${formatCurrency(totals.collectedRevenue)}</td>
+                <td class="text-right">${formatCurrency(totals.pendingRevenue)}</td>
+                <td class="text-right">0,00</td>
+                <td class="text-right danger">${formatCurrency(totals.overdueAmount)}</td>
+                <td class="text-right danger">${formatCurrency(riskStudents.filter(s => s.overdueDays > 60).reduce((sum, s) => sum + s.totalDebt, 0))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEZON KAYIT DURUMU -->
+    <div class="section">
+      <div class="section-title">${currentYear-1}-${currentYear} SEZONU KAYIT - TAHSİLAT DURUMU (Önceki Dönem)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Toplam Kayıt</th>
+            <th>Yeni Kayıt</th>
+            <th>Silinen Kayıt</th>
+            <th>Normal Sürede Ayrılan</th>
+            <th>Toplam Ciro</th>
+            <th>Toplam Tahsilat</th>
+            <th>Geciken Toplam</th>
+            <th>İki Aydan Fazla Geciken</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${totals.totalStudents + totals.deletedStudents}</td>
+            <td>${totals.totalStudents}</td>
+            <td>${totals.deletedStudents}</td>
+            <td>-</td>
+            <td class="text-right">${formatCurrency(totals.totalRevenue + totals.deletedTotalAmount)}</td>
+            <td class="text-right success">${formatCurrency(totals.collectedRevenue + totals.deletedCollectedAmount)}</td>
+            <td class="text-right danger">${formatCurrency(totals.overdueAmount)}</td>
+            <td class="text-right danger">${formatCurrency(riskStudents.filter(s => s.overdueDays > 60).reduce((sum, s) => sum + s.totalDebt, 0))}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- KAYDI SİLİNEN ÖĞRENCİLER -->
+    ${deletedStudents.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Kaydı Silinen Öğrenciler (${deletedStudents.length} öğrenci)</div>
+      <table>
+        <thead>
+          <tr><th>Öğrenci</th><th>Sınıf</th><th>Toplam Tutar</th><th>Tahsil Edilen</th><th>Kalan Borç</th><th>Kayıt Tarihi</th><th>Silinme Tarihi</th></tr>
+        </thead>
+        <tbody>
+          ${deletedStudents.slice(0, 15).map(s => `
+          <tr>
+            <td class="text-left">${s.name}</td>
+            <td>${s.class}</td>
+            <td class="text-right">${formatCurrency(s.totalAmount)}</td>
+            <td class="text-right success">${formatCurrency(s.collectedAmount)}</td>
+            <td class="text-right ${s.remainingAmount > 0 ? 'danger' : ''}">${formatCurrency(s.remainingAmount)}</td>
+            <td>${s.registrationDate}</td>
+            <td>${s.deletedDate}</td>
+          </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td colspan="2"><strong>TOPLAM</strong></td>
+            <td class="text-right"><strong>${formatCurrency(totals.deletedTotalAmount)}</strong></td>
+            <td class="text-right"><strong>${formatCurrency(totals.deletedCollectedAmount)}</strong></td>
+            <td class="text-right"><strong>${formatCurrency(totals.deletedTotalAmount - totals.deletedCollectedAmount)}</strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <!-- AYLIK SEZON KARŞILAŞTIRMASI -->
+    <div class="section">
+      <div class="section-title">Bugünden Gelecek 12 Ayda Beklenen Ödemeler (Sezon Bazlı)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Sezon</th>
+            ${monthlyData.slice(0, 10).map(m => `<th>${m.shortMonth} ${currentYear + (monthlyData.indexOf(m) >= 4 ? 1 : 0)}</th>`).join('')}
+            <th><strong>Toplam</strong></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left">${currentYear-1}-${currentYear}</td>
+            ${monthlyData.slice(0, 10).map(() => `<td class="text-right">-</td>`).join('')}
+            <td class="text-right">-</td>
+          </tr>
+          <tr>
+            <td class="text-left"><strong>${currentYear}-${currentYear+1}</strong></td>
+            ${monthlyData.slice(0, 10).map(m => `<td class="text-right">${formatCurrencyShort(m.expected)}</td>`).join('')}
+            <td class="text-right total-row"><strong>${formatCurrencyShort(monthlyData.reduce((a, m) => a + m.expected, 0))}</strong></td>
+          </tr>
+          <tr class="total-row">
+            <td class="text-left"><strong>Toplam</strong></td>
+            ${monthlyData.slice(0, 10).map(m => `<td class="text-right"><strong>${formatCurrencyShort(m.expected)}</strong></td>`).join('')}
+            <td class="text-right"><strong>${formatCurrencyShort(monthlyData.reduce((a, m) => a + m.expected, 0))}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ÖNEMLİ METRİKLER -->
+    <div class="row">
+      <div class="col">
+        <div class="section">
+          <div class="section-title">Finansal Özet Metrikleri</div>
+          <table>
+            <tr><th>Metrik</th><th>Değer</th></tr>
+            <tr><td class="text-left">Ortalama Öğrenci Ücreti</td><td class="text-right">${formatCurrency(totals.averageFeePerStudent)} ₺</td></tr>
+            <tr><td class="text-left">Toplam Sınıf Sayısı</td><td class="text-right">${totals.totalClasses}</td></tr>
+            <tr><td class="text-left">Ücretli/Ücretsiz Oranı</td><td class="text-right">${totals.paidStudents}/${totals.freeStudents}</td></tr>
+            <tr><td class="text-left">Geciken Öğrenci Sayısı</td><td class="text-right danger">${totals.overdueStudents}</td></tr>
+            <tr><td class="text-left">Kritik Risk Öğrenci</td><td class="text-right danger">${totals.criticalRiskCount}</td></tr>
+            <tr><td class="text-left">Kaydı Silinen Öğrenci</td><td class="text-right">${totals.deletedStudents}</td></tr>
+            <tr><td class="text-left">Silinen Öğrencilerden Tahsilat</td><td class="text-right success">${formatCurrency(totals.deletedCollectedAmount)} ₺</td></tr>
+            <tr class="total-row"><td class="text-left"><strong>Net Tahsilat Oranı</strong></td><td class="text-right"><strong>%${totals.collectionRate.toFixed(1)}</strong></td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="col">
+        <div class="section">
+          <div class="section-title">AI Önerileri</div>
+          <table>
+            <tbody>
+              ${aiInsights.map(insight => `
+              <tr class="${insight.type === 'success' ? 'success' : insight.type === 'danger' ? 'danger' : insight.type === 'warning' ? 'highlight' : ''}">
+                <td class="text-left">
+                  <strong>${insight.title}</strong><br/>
+                  <span style="font-size: 7px;">${insight.description}</span>
+                </td>
+              </tr>
+              `).join('')}
+              ${aiInsights.length === 0 ? '<tr><td>Henüz öneri bulunmuyor</td></tr>' : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="footer">
       <p>Bu rapor AkademiHub Eğitim Yönetim Sistemi tarafından ${reportDate} ${reportTime} tarihinde otomatik olarak oluşturulmuştur.</p>
-      <p>© ${currentYear} AkademiHub - Tüm Hakları Saklıdır | Sayfa 1/1</p>
+      <p>© ${currentYear} AkademiHub - Tüm Hakları Saklıdır | Sayfa 1/2</p>
     </div>
   </div>
   <script>window.onload = function() { setTimeout(() => window.print(), 300); }</script>
