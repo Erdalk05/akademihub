@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { hashPassword, checkPasswordStrength, isValidEmail } from '@/lib/auth/security';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -27,9 +28,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, role, password } = body;
 
+    // Zorunlu alan kontrolü
     if (!name || !email) {
       return NextResponse.json({ success: false, error: 'Ad ve email zorunlu' }, { status: 400 });
     }
+
+    // Email format kontrolü
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ success: false, error: 'Geçerli bir email adresi girin' }, { status: 400 });
+    }
+
+    // Şifre kontrolü
+    if (!password) {
+      return NextResponse.json({ success: false, error: 'Şifre zorunlu' }, { status: 400 });
+    }
+
+    // Şifre gücü kontrolü
+    const passwordCheck = checkPasswordStrength(password);
+    if (!passwordCheck.valid) {
+      return NextResponse.json({ success: false, error: `Şifre çok zayıf. ${passwordCheck.message}` }, { status: 400 });
+    }
+
+    // Şifreyi hashle
+    const hashedPassword = await hashPassword(password);
 
     // Varsayılan yetkiler
     const defaultPermissions: Record<string, any> = {
@@ -54,12 +75,12 @@ export async function POST(request: NextRequest) {
       .from('app_users')
       .insert({
         name,
-        email,
+        email: email.toLowerCase().trim(),
         phone: phone || null,
         role: role || 'registrar',
         status: 'active',
         permissions: defaultPermissions[role || 'registrar'],
-        password_hash: password || null, // Şimdilik düz metin - sonra hash eklenecek
+        password_hash: hashedPassword, // Güvenli bcrypt hash
       })
       .select()
       .single();
@@ -71,7 +92,11 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ success: true, data });
+    // Şifreyi response'dan çıkar
+    const safeData = { ...data };
+    delete safeData.password_hash;
+
+    return NextResponse.json({ success: true, data: safeData });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -92,15 +117,19 @@ export async function PUT(request: NextRequest) {
     };
 
     if (name) updateData.name = name;
-    if (email) updateData.email = email;
+    if (email) updateData.email = email.toLowerCase().trim();
     if (phone !== undefined) updateData.phone = phone;
     if (role) updateData.role = role;
     if (status) updateData.status = status;
     if (permissions) updateData.permissions = permissions;
 
-    // Şifre güncelleme - şimdilik düz metin
+    // Şifre güncelleme - bcrypt ile hashle
     if (password) {
-      updateData.password_hash = password;
+      const passwordCheck = checkPasswordStrength(password);
+      if (!passwordCheck.valid) {
+        return NextResponse.json({ success: false, error: `Şifre çok zayıf. ${passwordCheck.message}` }, { status: 400 });
+      }
+      updateData.password_hash = await hashPassword(password);
     }
 
     const { data, error } = await supabase

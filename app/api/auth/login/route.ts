@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
-import { LoginCredentials, AuthResponse } from '@/types';
+import { LoginCredentials } from '@/types';
+import {
+  verifyPassword,
+  generateToken,
+  checkRateLimit,
+  recordFailedAttempt,
+  clearAttempts,
+  isValidEmail,
+} from '@/lib/auth/security';
 
 // Fallback mock users (Supabase bağlantısı yoksa)
 const MOCK_USERS = [
@@ -27,7 +35,25 @@ export async function POST(request: NextRequest) {
     const body: LoginCredentials = await request.json();
     const { email, password } = body;
 
-    // Validate input
+    // IP veya email bazlı rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const identifier = `${clientIP}_${email}`;
+
+    // Rate limit kontrolü
+    const rateCheck = checkRateLimit(identifier);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Çok fazla başarısız deneme. ${rateCheck.lockoutRemaining} dakika bekleyin.`,
+          statusCode: 429,
+          timestamp: new Date(),
+        },
+        { status: 429 }
+      );
+    }
+
+    // Input validasyonu
     if (!email || !password) {
       return NextResponse.json(
         {
@@ -40,41 +66,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Email format kontrolü
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Geçerli bir e-posta adresi girin',
+          statusCode: 400,
+          timestamp: new Date(),
+        },
+        { status: 400 }
+      );
+    }
+
     // Önce Supabase'den kullanıcıyı kontrol et
     let user = null;
-    
+
     try {
       const supabase = getServiceRoleClient();
-      
+
       // app_users tablosundan kullanıcıyı bul
       const { data: dbUser, error } = await supabase
         .from('app_users')
-        .select('id, email, password_hash, name, surname, role, is_active')
+        .select('id, email, password_hash, name, surname, role, status, permissions')
         .eq('email', email.toLowerCase().trim())
-        .eq('is_active', true)
         .single();
 
       if (!error && dbUser) {
-        // Şifre kontrolü (şimdilik plain text, sonra hash'lenecek)
-        // NOT: Gerçek projede bcrypt ile hash karşılaştırması yapılmalı
-        if (dbUser.password_hash === password) {
+        // Status kontrolü
+        if (dbUser.status === 'inactive') {
+          recordFailedAttempt(identifier);
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Bu hesap pasif durumda. Yönetici ile iletişime geçin.',
+              statusCode: 403,
+              timestamp: new Date(),
+            },
+            { status: 403 }
+          );
+        }
+
+        // Şifre kontrolü (bcrypt veya plain text)
+        const isValidPassword = await verifyPassword(password, dbUser.password_hash || '');
+
+        if (isValidPassword) {
           user = {
             id: dbUser.id,
             email: dbUser.email,
             name: dbUser.name,
             surname: dbUser.surname || '',
-            role: dbUser.role,
+            role: dbUser.role?.toUpperCase() || 'STAFF',
+            permissions: dbUser.permissions || {},
           };
-          
+
           // Son giriş zamanını güncelle
           await supabase
             .from('app_users')
             .update({ last_login: new Date().toISOString() })
             .eq('id', dbUser.id);
+
+          // Başarılı giriş - rate limit sıfırla
+          clearAttempts(identifier);
         }
       }
     } catch {
       // Supabase hatası - mock verilere düş
+      console.log('Supabase bağlantı hatası, mock veriler kullanılıyor');
     }
 
     // Supabase'de bulunamadıysa mock verileri kontrol et
@@ -82,7 +140,7 @@ export async function POST(request: NextRequest) {
       const mockUser = MOCK_USERS.find(
         (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
       );
-      
+
       if (mockUser) {
         user = {
           id: mockUser.id,
@@ -90,16 +148,21 @@ export async function POST(request: NextRequest) {
           name: mockUser.name,
           surname: mockUser.surname,
           role: mockUser.role,
+          permissions: {},
         };
+        clearAttempts(identifier);
       }
     }
 
     // Kullanıcı bulunamadı
     if (!user) {
+      recordFailedAttempt(identifier);
+      const remaining = checkRateLimit(identifier).remainingAttempts;
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Geçersiz e-posta veya şifre!',
+          error: `Geçersiz e-posta veya şifre! (${remaining} deneme kaldı)`,
           statusCode: 401,
           timestamp: new Date(),
         },
@@ -107,35 +170,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate token
-    const token = `token_${user.id}_${Date.now()}`;
-
-    const response: AuthResponse = {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        surname: user.surname,
-        role: user.role as any,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      token,
-      expiresIn: 86400, // 24 hours
-    };
+    // JWT Token oluştur
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        data: response,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            surname: user.surname,
+            role: user.role,
+            permissions: user.permissions,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          token,
+          expiresIn: 86400, // 24 saat
+        },
         message: 'Başarıyla giriş yapıldı',
         statusCode: 200,
         timestamp: new Date(),
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          // Güvenlik headers
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block',
+        },
+      }
     );
   } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json(
       {
         success: false,
