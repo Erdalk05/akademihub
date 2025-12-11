@@ -103,82 +103,160 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     
-    // Simüle edilmiş gecikme
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Kullanıcı listesi - state boşsa DEFAULT_USERS kullan
-    const userList = users.length > 0 ? users : DEFAULT_USERS;
-    
-    // Kullanıcıyı bul
-    const foundUser = userList.find(
-      u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-    );
-    
-    if (!foundUser) {
-      setError('Geçersiz e-posta veya şifre!');
+    try {
+      // 1. Önce API'yi dene (Supabase bağlantısı)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // API başarılı - Supabase'den kullanıcı geldi
+        const authData = data.data;
+        
+        // Rol dönüşümü
+        const roleMap: Record<string, UserRole> = {
+          'admin': UserRole.ADMIN,
+          'ADMIN': UserRole.ADMIN,
+          'accounting': UserRole.ACCOUNTING,
+          'ACCOUNTING': UserRole.ACCOUNTING,
+          'accountant': UserRole.ACCOUNTING,
+          'staff': UserRole.STAFF,
+          'STAFF': UserRole.STAFF,
+          'registrar': UserRole.STAFF,
+        };
+        
+        // RoleContext için kullanıcı
+        const roleUser: User = {
+          id: authData.user.id,
+          name: authData.user.name,
+          email: authData.user.email,
+          role: roleMap[authData.user.role] || UserRole.STAFF,
+        };
+        
+        // Her iki store'u da güncelle
+        setCurrentUser(roleUser);
+        setUser(authData.user);
+        
+        // localStorage'a da kaydet (uyumluluk için)
+        localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+        
+        toast.success(`Hoş geldiniz, ${authData.user.name}!`);
+        router.push('/dashboard');
+        return;
+      }
+      
+      // 2. API başarısız - Fallback olarak localStorage'ı dene
+      const userList = users.length > 0 ? users : DEFAULT_USERS;
+      const foundUser = userList.find(
+        u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
+      );
+      
+      if (!foundUser) {
+        setError(data.error || 'Geçersiz e-posta veya şifre!');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Status kontrolü
+      if (foundUser.status && foundUser.status !== 'active') {
+        setError('Bu hesap pasif durumda. Yönetici ile iletişime geçin.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Rol dönüşümü
+      const roleMap: Record<string, UserRole> = {
+        'admin': UserRole.ADMIN,
+        'accounting': UserRole.ACCOUNTING,
+        'staff': UserRole.STAFF,
+      };
+      
+      // RoleContext için kullanıcı
+      const roleUser: User = {
+        id: foundUser.id,
+        name: foundUser.name,
+        email: foundUser.email,
+        role: roleMap[foundUser.role] || UserRole.STAFF,
+      };
+      
+      // AuthStore için kullanıcı
+      const authUser = {
+        id: foundUser.id,
+        email: foundUser.email,
+        name: foundUser.name,
+        surname: '',
+        role: foundUser.role.toUpperCase() as any,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // Her iki store'u da güncelle
+      setCurrentUser(roleUser);
+      setUser(authUser);
+      
+      // localStorage'a da kaydet
+      localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+      localStorage.setItem('auth-storage', JSON.stringify({
+        state: {
+          user: authUser,
+          token: 'secure_token_' + Date.now(),
+          isAuthenticated: true,
+        },
+        version: 0,
+      }));
+      
+      toast.success(`Hoş geldiniz, ${foundUser.name}!`);
+      router.push('/dashboard');
+      
+    } catch (error) {
+      // Ağ hatası - Fallback olarak localStorage'ı dene
+      const userList = users.length > 0 ? users : DEFAULT_USERS;
+      const foundUser = userList.find(
+        u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
+      );
+      
+      if (foundUser && (!foundUser.status || foundUser.status === 'active')) {
+        const roleMap: Record<string, UserRole> = {
+          'admin': UserRole.ADMIN,
+          'accounting': UserRole.ACCOUNTING,
+          'staff': UserRole.STAFF,
+        };
+        
+        const roleUser: User = {
+          id: foundUser.id,
+          name: foundUser.name,
+          email: foundUser.email,
+          role: roleMap[foundUser.role] || UserRole.STAFF,
+        };
+        
+        const authUser = {
+          id: foundUser.id,
+          email: foundUser.email,
+          name: foundUser.name,
+          surname: '',
+          role: foundUser.role.toUpperCase() as any,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        
+        setCurrentUser(roleUser);
+        setUser(authUser);
+        localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+        
+        toast.success(`Hoş geldiniz, ${foundUser.name}! (Offline mod)`);
+        router.push('/dashboard');
+      } else {
+        setError('Geçersiz e-posta veya şifre!');
+      }
+    } finally {
       setIsLoading(false);
-      return;
     }
-    
-    // Status kontrolü - status yoksa veya 'active' ise devam et
-    if (foundUser.status && foundUser.status !== 'active') {
-      setError('Bu hesap pasif durumda. Yönetici ile iletişime geçin.');
-      setIsLoading(false);
-      return;
-    }
-    
-    // Rol dönüşümü
-    const roleMap: Record<string, UserRole> = {
-      'admin': UserRole.ADMIN,
-      'accounting': UserRole.ACCOUNTING,
-      'staff': UserRole.STAFF,
-    };
-    
-    // RoleContext için kullanıcı
-    const roleUser: User = {
-      id: foundUser.id,
-      name: foundUser.name,
-      email: foundUser.email,
-      role: roleMap[foundUser.role] || UserRole.STAFF,
-    };
-    
-    // AuthStore için kullanıcı
-    const authUser = {
-      id: foundUser.id,
-      email: foundUser.email,
-      name: foundUser.name,
-      surname: '',
-      role: foundUser.role.toUpperCase() as any,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    // Her iki store'u da güncelle
-    setCurrentUser(roleUser);
-    setUser(authUser);
-    
-    // localStorage'a da kaydet
-    localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
-    localStorage.setItem('auth-storage', JSON.stringify({
-      state: {
-        user: authUser,
-        token: 'secure_token_' + Date.now(),
-        isAuthenticated: true,
-      },
-      version: 0,
-    }));
-    
-    // Son giriş tarihini güncelle
-    const updatedUsers = users.map(u => 
-      u.id === foundUser.id 
-        ? { ...u, last_login: new Date().toISOString() }
-        : u
-    );
-    localStorage.setItem('akademi_users', JSON.stringify(updatedUsers));
-    
-    toast.success(`Hoş geldiniz, ${foundUser.name}!`);
-    router.push('/dashboard');
   };
 
   return (
