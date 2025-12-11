@@ -28,11 +28,13 @@ function getAcademicYearDates(academicYear: string) {
  * 
  * Query Params:
  * - academicYear: "2024-2025" formatında akademik yıl
+ * - organization_id: Kurum ID (çoklu kurum desteği)
  */
 export async function GET(req: NextRequest) {
   try {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(req.url);
+    const organizationId = searchParams.get('organization_id');
     
     // Akademik yıl parametresi (şu an sadece referans için, tüm aktif öğrenciler gösteriliyor)
     // const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
@@ -40,6 +42,36 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+
+    // Organization filtreli sorgular oluştur
+    const buildStudentsQuery = (status: 'active' | 'deleted') => {
+      let query = supabase.from('students').select('id, created_at, status');
+      if (status === 'deleted') {
+        query = query.eq('status', 'deleted');
+      } else {
+        query = query.neq('status', 'deleted');
+      }
+      if (organizationId) query = query.eq('organization_id', organizationId);
+      return query;
+    };
+
+    const buildInstallmentsQuery = () => {
+      let query = supabase.from('finance_installments').select('*');
+      if (organizationId) query = query.eq('organization_id', organizationId);
+      return query;
+    };
+
+    const buildOtherIncomeQuery = () => {
+      let query = supabase.from('other_income').select('amount');
+      if (organizationId) query = query.eq('organization_id', organizationId);
+      return query;
+    };
+
+    const buildExpensesQuery = () => {
+      let query = supabase.from('expenses').select('amount');
+      if (organizationId) query = query.eq('organization_id', organizationId);
+      return query;
+    };
 
     // PARALEL FETCH (Hız x5!)
     // Sadece aktif öğrencileri getir (deleted olanları hariç tut)
@@ -50,11 +82,11 @@ export async function GET(req: NextRequest) {
       otherIncomeResult,
       expensesResult
     ] = await Promise.all([
-      supabase.from('students').select('id, created_at, status').neq('status', 'deleted'),
-      supabase.from('students').select('id').eq('status', 'deleted'),
-      supabase.from('finance_installments').select('*'),
-      supabase.from('other_income').select('amount'),
-      supabase.from('expenses').select('amount')
+      buildStudentsQuery('active'),
+      buildStudentsQuery('deleted'),
+      buildInstallmentsQuery(),
+      buildOtherIncomeQuery(),
+      buildExpensesQuery()
     ]);
 
 // Helper: Mevcut akademik yılı hesapla

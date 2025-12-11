@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import HeroBanner from '@/components/dashboard/HeroBanner';
 import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
 import { 
@@ -53,6 +54,7 @@ const WidgetSkeleton = () => (
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, _hasHydrated } = useAuthStore();
+  const { currentOrganization } = useOrganizationStore();
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,12 +72,14 @@ export default function DashboardPage() {
       return;
     }
     fetchDashboardData(selectedYear);
-  }, [_hasHydrated, token, router, selectedYear]);
+  }, [_hasHydrated, token, router, selectedYear, currentOrganization]);
 
   const fetchDashboardData = async (academicYear: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/dashboard/stats?academicYear=${academicYear}`);
+      // Çoklu kurum desteği: organization_id filtresi
+      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      const response = await fetch(`/api/dashboard/stats?academicYear=${academicYear}${orgParam}`);
       const result = await response.json();
       if (result.success) {
         setDashboardData(result.data);

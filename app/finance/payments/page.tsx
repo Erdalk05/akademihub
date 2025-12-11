@@ -22,6 +22,7 @@ import {
   Filter,
   CalendarRange
 } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 // Akademik Yıllar
@@ -48,6 +49,7 @@ type CollectionRow = {
 
 export default function CollectionsPage() {
   const router = useRouter();
+  const { currentOrganization } = useOrganizationStore();
   
   // Data
   const [collections, setCollections] = useState<CollectionRow[]>([]);
@@ -76,8 +78,10 @@ export default function CollectionsPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Çoklu kurum desteği
+        const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
         const [installmentsRes, studentsRes] = await Promise.all([
-          fetch('/api/installments'),
+          fetch(`/api/installments${orgParam ? `?${orgParam}` : ''}`),
           fetch('/api/students')
         ]);
         

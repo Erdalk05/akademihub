@@ -14,6 +14,7 @@ import { PaymentSection } from '@/components/enrollment/sections/PaymentSection'
 import { ContractSection } from '@/components/enrollment/sections/ContractSection';
 import { PrintLayout } from '@/components/enrollment/PrintLayout';
 import { createEnrollment } from '@/components/enrollment/actions';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 const STEPS = [
@@ -25,6 +26,7 @@ const STEPS = [
 
 export default function NewEnrollmentPage() {
   const store = useEnrollmentStore();
+  const { currentOrganization } = useOrganizationStore();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -71,7 +73,8 @@ export default function NewEnrollmentPage() {
         status: 'approved' as const
       };
       
-      const result = await createEnrollment(enrollmentData);
+      // Çoklu kurum desteği: Aktif kurum ID'sini gönder
+      const result = await createEnrollment(enrollmentData, currentOrganization?.id);
       
       // Null check - result undefined olabilir
       if (!result) {

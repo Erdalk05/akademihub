@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -19,10 +19,12 @@ import {
   FileSignature,
   Shield,
   Package,
+  Building2,
 } from 'lucide-react';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useRole } from '@/lib/contexts/RoleContext';
 import { useAuthStore } from '@/lib/store';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 interface NavItem {
@@ -44,6 +46,12 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   const { isAdmin, isAccounting, isLoading } = usePermission();
   const { currentUser, setCurrentUser } = useRole();
   const { logout } = useAuthStore();
+  const { currentOrganization, _hasHydrated } = useOrganizationStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Tüm navigasyon öğeleri
   const allNavigationItems: NavItem[] = [
@@ -195,6 +203,16 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
           </div>
           {!collapsed && <span className="font-bold text-lg text-white">AkademiHub</span>}
         </Link>
+        
+        {/* Aktif Kurum Bilgisi */}
+        {mounted && _hasHydrated && currentOrganization && !collapsed && (
+          <div className="mt-3 px-2 py-2 bg-white/10 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Building2 size={14} className="text-[#25D366]" />
+              <span className="text-xs text-white/80 truncate">{currentOrganization.name}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Kullanıcı Bilgisi & Rol Göstergesi */}

@@ -20,7 +20,8 @@ async function generateStudentNumber(): Promise<string> {
 }
 
 // Kayıt oluştur - Students + Enrollments + Finance_Installments
-export async function createEnrollment(data: EnrollmentData) {
+// organization_id parametresi: Çoklu kurum desteği için (opsiyonel)
+export async function createEnrollment(data: EnrollmentData, organizationId?: string) {
   const supabase = getSupabase();
   
   try {
@@ -82,7 +83,9 @@ export async function createEnrollment(data: EnrollmentData) {
       parent_phone: primaryGuardian?.phone || null,
       // Durum
       status: 'active',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      // Çoklu kurum desteği
+      organization_id: organizationId || null
     };
 
     const { data: studentRecord, error: studentError } = await supabase
@@ -141,7 +144,8 @@ export async function createEnrollment(data: EnrollmentData) {
           amount: downPayment,
           due_date: downPaymentDate.toISOString().split('T')[0],
           is_paid: false,
-          status: 'active'
+          status: 'active',
+          organization_id: organizationId || null
         });
       }
       
@@ -167,7 +171,8 @@ export async function createEnrollment(data: EnrollmentData) {
           amount: amount > 0 ? amount : 0,
           due_date: dueDate.toISOString().split('T')[0],
           is_paid: false,
-          status: 'active'
+          status: 'active',
+          organization_id: organizationId || null
         });
       }
 

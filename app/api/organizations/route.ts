@@ -5,17 +5,28 @@ export const runtime = 'nodejs';
 
 /**
  * GET /api/organizations
- * Tüm kurumları listele (kullanıcının erişebildikleri)
+ * Tüm kurumları listele veya slug ile tek kurum getir
+ * Query params:
+ * - slug: Kurum slug'ı (opsiyonel) - tek kurum getirmek için
  */
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get('slug');
+    
     const supabase = getServiceRoleClient();
     
-    const { data, error } = await supabase
+    let query = supabase
       .from('organizations')
       .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
+      .eq('is_active', true);
+    
+    // Slug parametresi varsa, sadece o kurumu getir
+    if (slug) {
+      query = query.eq('slug', slug);
+    }
+    
+    const { data, error } = await query.order('name', { ascending: true });
 
     if (error) {
       console.error('Organizations fetch error:', error);

@@ -13,8 +13,12 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 // Not:
 // - Authorization header varsa RLS'li client kullanılır.
 // - Yoksa, eğer service role key tanımlıysa service client, değilse anon client kullanılır.
+// - organization_id query parametresi ile filtreleme yapılabilir
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const organizationId = searchParams.get('organization_id');
+    
     const accessToken = getAccessTokenFromRequest(req);
     const hasServiceRoleKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -24,11 +28,18 @@ export async function GET(req: NextRequest) {
         ? getServiceRoleClient()
         : createRlsServerClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('students')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(200);
+
+    // Organization filtresi (çoklu kurum desteği)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json(

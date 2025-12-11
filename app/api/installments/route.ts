@@ -22,13 +22,14 @@ function getAcademicYearDates(academicYear: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// GET /api/installments?studentId=UUID&academicYear=2024-2025
+// GET /api/installments?studentId=UUID&academicYear=2024-2025&organization_id=UUID
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     // student_id veya studentId parametresini kabul et (geriye uyumluluk)
     const studentId = searchParams.get('student_id') || searchParams.get('studentId');
     const academicYear = searchParams.get('academicYear');
+    const organizationId = searchParams.get('organization_id');
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
       ? createRlsServerClient(accessToken)
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
       .from('finance_installments')
       .select('*');
     if (studentId) q = q.eq('student_id', studentId);
+    if (organizationId) q = q.eq('organization_id', organizationId);
     
     // Akademik yıl filtresi
     if (academicYear) {

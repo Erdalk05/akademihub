@@ -11,6 +11,7 @@ import PaymentCalendar from '@/components/finance/PaymentCalendar';
 import CollectionReport from '@/components/finance/CollectionReport';
 import { exportDashboardSummaryPDF } from '@/lib/services/exportService';
 import { usePermission } from '@/lib/hooks/usePermission';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 type InstallmentSummary = {

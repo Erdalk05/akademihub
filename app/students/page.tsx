@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
 import FinanceQuickViewDrawer from '@/components/students/FinanceQuickViewDrawer';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 // Akademik Yıllar
@@ -69,6 +70,7 @@ function StudentsLoading() {
 function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentOrganization } = useOrganizationStore();
   
   // Data
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -101,9 +103,11 @@ function StudentsContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Çoklu kurum desteği: organization_id filtresi
+        const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
         const [studentsRes, installmentsRes] = await Promise.all([
-          fetch('/api/students'),
-          fetch(`/api/installments?academicYear=${selectedYear}`)
+          fetch(`/api/students${orgParam ? `?${orgParam}` : ''}`),
+          fetch(`/api/installments?academicYear=${selectedYear}${orgParam ? `&${orgParam}` : ''}`)
         ]);
         
         const studentsJson = await studentsRes.json();
