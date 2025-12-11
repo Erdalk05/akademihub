@@ -2,39 +2,201 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Loader, ArrowRight, MapPin, Phone, Mail } from 'lucide-react';
-import { useOrganizationStore, Organization } from '@/lib/store/organizationStore';
+import { Shield, Loader, ArrowRight, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuthStore } from '@/lib/store';
+import { useRole } from '@/lib/contexts/RoleContext';
+import { UserRole, User } from '@/lib/types/role-types';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import toast from 'react-hot-toast';
+
+// Varsayılan kullanıcılar (geliştirme için)
+const DEFAULT_USERS = [
+  {
+    id: 'admin_001',
+    name: 'Sistem Admin',
+    email: 'admin@akademihub.com',
+    password: 'admin123',
+    role: 'super_admin' as const,
+    organization_id: null, // Super Admin tüm kurumlara erişir
+    status: 'active' as const,
+  },
+  {
+    id: 'muhasebe_001',
+    name: 'Muhasebe Uzmanı',
+    email: 'muhasebe@akademihub.com',
+    password: 'muhasebe123',
+    role: 'accounting' as const,
+    organization_id: 'merkez', // Slug veya ID
+    status: 'active' as const,
+  },
+  {
+    id: 'personel_001',
+    name: 'Kayıt Personeli',
+    email: 'personel@akademihub.com',
+    password: 'personel123',
+    role: 'staff' as const,
+    organization_id: 'merkez',
+    status: 'active' as const,
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
-  const { organizations, fetchOrganizations, isLoading } = useOrganizationStore();
-  const [isReady, setIsReady] = useState(false);
+  const { setUser } = useAuthStore();
+  const { setCurrentUser } = useRole();
+  const { organizations, fetchOrganizations, setCurrentOrganization } = useOrganizationStore();
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Form state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  // Kurumları yükle
+  // Kurumları yükle (arka planda)
   useEffect(() => {
-    const loadOrgs = async () => {
-      await fetchOrganizations();
-      setIsReady(true);
-    };
-    loadOrgs();
+    fetchOrganizations();
   }, [fetchOrganizations]);
 
-  // Kurum seçildiğinde o kurumun login sayfasına yönlendir
-  const handleSelectOrganization = (org: Organization) => {
-    router.push(`/login/${org.slug}`);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      // 1. API ile giriş dene
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: email.trim().toLowerCase(), 
+          password 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        const authData = data.data;
+        
+        // Rol dönüşümü
+        const roleMap: Record<string, UserRole> = {
+          'super_admin': UserRole.SUPER_ADMIN,
+          'SUPER_ADMIN': UserRole.SUPER_ADMIN,
+          'franchise': UserRole.SUPER_ADMIN,
+          'admin': UserRole.ADMIN,
+          'ADMIN': UserRole.ADMIN,
+          'accounting': UserRole.ACCOUNTING,
+          'ACCOUNTING': UserRole.ACCOUNTING,
+          'staff': UserRole.STAFF,
+          'STAFF': UserRole.STAFF,
+        };
+        
+        const roleUser: User = {
+          id: authData.user.id,
+          name: authData.user.name,
+          email: authData.user.email,
+          role: roleMap[authData.user.role] || UserRole.STAFF,
+        };
+        
+        setCurrentUser(roleUser);
+        setUser(authData.user);
+        localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+        
+        // Kullanıcının kurumunu otomatik seç
+        if (authData.organization) {
+          setCurrentOrganization(authData.organization);
+          toast.success(`Hoş geldiniz, ${authData.user.name}! (${authData.organization.name})`);
+        } else if (authData.user.is_super_admin) {
+          // Super Admin - ilk kurumu seç veya tüm kurumlara erişim
+          toast.success(`Hoş geldiniz, ${authData.user.name}! (Franchise Yöneticisi)`);
+        } else {
+          toast.success(`Hoş geldiniz, ${authData.user.name}!`);
+        }
+        
+        router.push('/dashboard');
+        return;
+      }
+      
+      // 2. Fallback: Varsayılan kullanıcılar
+      const foundUser = DEFAULT_USERS.find(
+        u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
+      );
+      
+      if (!foundUser) {
+        setError(data.error || 'Geçersiz e-posta veya şifre!');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (foundUser.status !== 'active') {
+        setError('Bu hesap pasif durumda.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Rol dönüşümü
+      const roleMap: Record<string, UserRole> = {
+        'super_admin': UserRole.SUPER_ADMIN,
+        'admin': UserRole.ADMIN,
+        'accounting': UserRole.ACCOUNTING,
+        'staff': UserRole.STAFF,
+      };
+      
+      const roleUser: User = {
+        id: foundUser.id,
+        name: foundUser.name,
+        email: foundUser.email,
+        role: roleMap[foundUser.role] || UserRole.STAFF,
+      };
+      
+      const authUser = {
+        id: foundUser.id,
+        email: foundUser.email,
+        name: foundUser.name,
+        surname: '',
+        role: foundUser.role.toUpperCase() as any,
+        isActive: true,
+        is_super_admin: foundUser.role === 'super_admin',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      setCurrentUser(roleUser);
+      setUser(authUser);
+      localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+      
+      // Kullanıcının kurumunu bul ve seç
+      if (foundUser.organization_id && organizations.length > 0) {
+        const userOrg = organizations.find(
+          o => o.id === foundUser.organization_id || o.slug === foundUser.organization_id
+        );
+        if (userOrg) {
+          setCurrentOrganization(userOrg);
+          toast.success(`Hoş geldiniz, ${foundUser.name}! (${userOrg.name})`);
+        } else {
+          toast.success(`Hoş geldiniz, ${foundUser.name}!`);
+        }
+      } else if (foundUser.role === 'super_admin') {
+        // Super Admin - tüm kurumlara erişim
+        if (organizations.length > 0) {
+          setCurrentOrganization(organizations[0]);
+        }
+        toast.success(`Hoş geldiniz, ${foundUser.name}! (Franchise Yöneticisi)`);
+      } else {
+        toast.success(`Hoş geldiniz, ${foundUser.name}!`);
+      }
+      
+      router.push('/dashboard');
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Bağlantı hatası. Lütfen tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  // Yükleniyor
-  if (isLoading || !isReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#075E54] via-[#128C7E] to-[#25D366] flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
-          <p className="text-white/80">Kurumlar yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#075E54] via-[#128C7E] to-[#25D366] flex items-center justify-center p-4">
@@ -45,85 +207,119 @@ export default function LoginPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/3 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="w-full max-w-2xl relative z-10">
+      <div className="w-full max-w-md relative z-10">
         {/* Logo ve Başlık */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-sm mb-6 shadow-2xl border border-white/20">
             <span className="text-4xl">🎓</span>
           </div>
           <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">AkademiHub</h1>
-          <p className="text-[#DCF8C6] text-lg">Kurumunuzu Seçin</p>
+          <p className="text-[#DCF8C6] text-lg">Eğitim Yönetim Sistemi</p>
         </div>
 
-        {/* Kurum Kartları */}
-        <div className="grid gap-4">
-          {organizations.length === 0 ? (
-            <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 text-center">
-              <Building2 className="w-16 h-16 text-white/50 mx-auto mb-4" />
-              <p className="text-white/70 text-lg">Henüz kurum eklenmemiş.</p>
-              <p className="text-white/50 text-sm mt-2">
-                Sistem yöneticisiyle iletişime geçin.
-              </p>
+        {/* Giriş Kartı */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl">
+          <div className="flex items-center gap-3 justify-center mb-6">
+            <Shield className="w-6 h-6 text-[#25D366]" />
+            <h2 className="text-xl font-semibold text-white">Güvenli Giriş</h2>
+          </div>
+
+          {/* Bilgi Notu */}
+          <div className="mb-6 p-3 bg-white/5 rounded-xl border border-white/10">
+            <p className="text-sm text-white/70 text-center">
+              E-posta adresiniz ile giriş yapın.<br/>
+              Sistem kurumunuzu otomatik tespit edecek.
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-5" autoComplete="off">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                E-posta Adresi
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ornek@kurum.com"
+                  required
+                  autoComplete="off"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white/10 border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-[#25D366] transition"
+                />
+              </div>
             </div>
-          ) : (
-            organizations.map((org) => (
-              <button
-                key={org.id}
-                onClick={() => handleSelectOrganization(org)}
-                className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 hover:border-[#25D366]/50 transition-all text-left flex items-center gap-5"
-              >
-                {/* Kurum Logosu/İkonu */}
-                <div className="flex-shrink-0">
-                  {org.logo_url ? (
-                    <img 
-                      src={org.logo_url} 
-                      alt={org.name} 
-                      className="w-16 h-16 object-contain rounded-xl bg-white/10 p-2"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-xl flex items-center justify-center">
-                      <span className="text-white text-xl font-bold">
-                        {org.name.substring(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                </div>
 
-                {/* Kurum Bilgileri */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-semibold text-white mb-1 truncate">
-                    {org.name}
-                  </h3>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/60">
-                    {org.address && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span className="truncate max-w-[200px]">{org.address}</span>
-                      </span>
-                    )}
-                    {org.phone && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5" />
-                        {org.phone}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Şifre
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="new-password"
+                  className="w-full pl-12 pr-12 py-3.5 bg-white/10 border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-[#25D366] transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
 
-                {/* Ok İkonu */}
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-white/10 group-hover:bg-[#25D366] flex items-center justify-center transition-colors">
-                    <ArrowRight className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-400/30 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0" />
+                <p className="text-sm text-red-200">{error}</p>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  <span>Giriş Yapılıyor...</span>
+                </>
+              ) : (
+                <>
+                  <span>Giriş Yap</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Yardım */}
+          <div className="mt-6 text-center">
+            <p className="text-white/50 text-sm">
+              Giriş bilgilerinizi hatırlamıyorsanız
+              <br />
+              <span className="text-[#25D366]">kurum yöneticinize</span> başvurun.
+            </p>
+          </div>
         </div>
 
         {/* Alt Bilgi */}
-        <p className="text-center text-white/50 text-sm mt-10">
-          © 2025 AkademiHub. AI Destekli Eğitim Yönetim Sistemi.
+        <p className="text-center text-white/50 text-sm mt-8">
+          © 2025 AkademiHub. Tüm hakları saklıdır.
         </p>
       </div>
     </div>

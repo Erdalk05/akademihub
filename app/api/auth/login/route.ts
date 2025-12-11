@@ -18,7 +18,9 @@ const MOCK_USERS = [
     password: 'admin123',
     name: 'Admin',
     surname: 'Yönetici',
-    role: 'ADMIN',
+    role: 'SUPER_ADMIN',
+    is_super_admin: true,
+    organization_id: null,
   },
   {
     id: '2',
@@ -26,7 +28,9 @@ const MOCK_USERS = [
     password: 'admin123',
     name: 'Sistem',
     surname: 'Admin',
-    role: 'ADMIN',
+    role: 'SUPER_ADMIN',
+    is_super_admin: true,
+    organization_id: null,
   },
 ];
 
@@ -85,10 +89,10 @@ export async function POST(request: NextRequest) {
     try {
       const supabase = getServiceRoleClient();
 
-      // app_users tablosundan kullanıcıyı bul
+      // app_users tablosundan kullanıcıyı bul (organization bilgisi dahil)
       const { data: dbUser, error } = await supabase
         .from('app_users')
-        .select('id, email, password_hash, name, surname, role, status, permissions')
+        .select('id, email, password_hash, name, surname, role, status, permissions, organization_id, is_super_admin')
         .eq('email', email.toLowerCase().trim())
         .single();
 
@@ -111,13 +115,27 @@ export async function POST(request: NextRequest) {
         const isValidPassword = await verifyPassword(password, dbUser.password_hash || '');
 
         if (isValidPassword) {
+          // Kullanıcının organizasyonunu bul
+          let userOrganization = null;
+          if (dbUser.organization_id) {
+            const { data: orgData } = await supabase
+              .from('organizations')
+              .select('*')
+              .eq('id', dbUser.organization_id)
+              .single();
+            userOrganization = orgData;
+          }
+
           user = {
             id: dbUser.id,
             email: dbUser.email,
             name: dbUser.name,
             surname: dbUser.surname || '',
-            role: dbUser.role?.toUpperCase() || 'STAFF',
+            role: dbUser.is_super_admin ? 'SUPER_ADMIN' : (dbUser.role?.toUpperCase() || 'STAFF'),
             permissions: dbUser.permissions || {},
+            is_super_admin: dbUser.is_super_admin || false,
+            organization_id: dbUser.organization_id,
+            organization: userOrganization,
           };
 
           // Son giriş zamanını güncelle
@@ -188,10 +206,13 @@ export async function POST(request: NextRequest) {
             surname: user.surname,
             role: user.role,
             permissions: user.permissions,
+            is_super_admin: (user as any).is_super_admin || false,
+            organization_id: (user as any).organization_id || null,
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
           },
+          organization: (user as any).organization || null, // Kullanıcının bağlı olduğu kurum
           token,
           expiresIn: 86400, // 24 saat
         },
