@@ -52,3 +52,4 @@ COMMENT ON TABLE organizations IS 'Çoklu kurum/şube yönetimi - Her kurum kend
 
 
 
+

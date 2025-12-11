@@ -44,11 +44,45 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
 }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { isSuperAdmin, isAdmin, isAccounting, isLoading } = usePermission();
-  const { currentUser, setCurrentUser } = useRole();
-  const { logout } = useAuthStore();
-  const { currentOrganization, _hasHydrated } = useOrganizationStore();
   const [mounted, setMounted] = useState(false);
+  
+  // Hooks - güvenli erişim
+  let isSuperAdmin = false;
+  let isAdmin = false;
+  let isAccounting = false;
+  let isLoading = true;
+  let currentUser: any = null;
+  let setCurrentUser: any = () => {};
+  let currentOrganization: any = null;
+  let orgHasHydrated = false;
+  
+  try {
+    const permission = usePermission();
+    isSuperAdmin = permission.isSuperAdmin;
+    isAdmin = permission.isAdmin;
+    isAccounting = permission.isAccounting;
+    isLoading = permission.isLoading;
+  } catch (e) {
+    // Hydration hatası - varsayılan değerler kullan
+  }
+  
+  try {
+    const role = useRole();
+    currentUser = role.currentUser;
+    setCurrentUser = role.setCurrentUser;
+  } catch (e) {
+    // Hydration hatası
+  }
+  
+  const { logout } = useAuthStore();
+  
+  try {
+    const orgStore = useOrganizationStore();
+    currentOrganization = orgStore.currentOrganization;
+    orgHasHydrated = orgStore._hasHydrated;
+  } catch (e) {
+    // Hydration hatası
+  }
 
   useEffect(() => {
     setMounted(true);
@@ -217,7 +251,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         </Link>
         
         {/* Aktif Kurum Bilgisi */}
-        {mounted && _hasHydrated && currentOrganization && !collapsed && (
+        {mounted && orgHasHydrated && currentOrganization && !collapsed && (
           <div className="mt-3 px-2 py-2 bg-white/10 rounded-lg">
             <div className="flex items-center gap-2">
               <Building2 size={14} className="text-[#25D366]" />

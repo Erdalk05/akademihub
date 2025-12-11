@@ -19,15 +19,18 @@ const TopBar: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
-  const { isAdmin, isLoading } = usePermission();
+  const { isAdmin, isLoading: permissionLoading } = usePermission();
   
   const { 
-    organizations, 
+    organizations = [], 
     currentOrganization, 
     fetchOrganizations, 
     switchOrganization,
     _hasHydrated 
   } = useOrganizationStore();
+  
+  // Güvenli organizations array
+  const safeOrganizations = organizations || [];
 
   useEffect(() => {
     setMounted(true);
@@ -59,7 +62,7 @@ const TopBar: React.FC = () => {
     <nav className="hidden lg:flex fixed top-0 right-0 left-64 h-16 bg-white dark:bg-[#075E54] border-b border-[#25D366]/20 dark:border-[#25D366]/30 items-center justify-between px-4 md:px-8 z-30 shadow-sm">
       {/* Left Side - Organization Selector */}
       <div className="hidden md:flex flex-1 max-w-md">
-        {mounted && organizations.length > 1 && (
+        {mounted && safeOrganizations.length > 1 && (
           <div className="relative">
             <button
               onClick={() => setShowOrgDropdown(!showOrgDropdown)}
@@ -79,7 +82,7 @@ const TopBar: React.FC = () => {
                   <div className="px-3 py-2 border-b border-gray-100">
                     <p className="text-xs font-semibold text-gray-500 uppercase">Kurumlar</p>
                   </div>
-                  {organizations.map((org) => (
+                  {safeOrganizations.map((org) => (
                     <button
                       key={org.id}
                       onClick={() => {
@@ -112,7 +115,7 @@ const TopBar: React.FC = () => {
         )}
         
         {/* Tek kurum varsa sadece isim göster */}
-        {mounted && organizations.length === 1 && currentOrganization && (
+        {mounted && safeOrganizations.length === 1 && currentOrganization && (
           <div className="flex items-center gap-2 px-3 py-2 bg-[#DCF8C6] rounded-xl">
             <Building2 size={18} className="text-[#075E54]" />
             <span className="font-medium text-sm text-[#075E54]">{currentOrganization.name}</span>
