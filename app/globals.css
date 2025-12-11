@@ -47,3 +47,102 @@ html.dark body { background: linear-gradient(135deg, #0d1f12 0%, #1a3d27 50%, #0
 html.dark .bg-white { @apply bg-[#1a3d27] text-slate-100; }
 html.dark input, html.dark textarea, html.dark select { @apply bg-[#0d1f12] text-slate-100 border-[#25D366]/30; }
 html.dark ::-webkit-scrollbar-track { background: #0d1f12; }
+
+/* ===================== */
+/* 📱 Mobile Optimizations */
+/* ===================== */
+
+/* Safe Area for notched devices (iPhone X+) */
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Touch-friendly tap targets (min 44x44px) */
+@media (max-width: 768px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent double-tap zoom */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* Hide scrollbars on mobile but keep functionality */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  /* Larger font for readability */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Better spacing for cards */
+  .grid {
+    gap: 0.75rem;
+  }
+  
+  /* Full width buttons on mobile */
+  .mobile-full-btn {
+    width: 100%;
+  }
+}
+
+/* Smooth scrolling on iOS */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Prevent text selection on interactive elements */
+button, a, [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* PWA Standalone Mode Styles */
+@media (display-mode: standalone) {
+  /* Hide browser UI elements in standalone mode */
+  .hide-in-pwa {
+    display: none !important;
+  }
+  
+  /* Extra padding for status bar */
+  .pwa-safe-top {
+    padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+  }
+}
+
+/* Pull-to-refresh visual feedback */
+.ptr-loading {
+  animation: ptr-spin 1s linear infinite;
+}
+
+@keyframes ptr-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Bottom Navigation Safe Area */
+.bottom-nav-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-hide {
+    display: none;
+  }
+  
+  .landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+}

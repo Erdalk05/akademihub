@@ -117,11 +117,19 @@ export default function LayoutWrapper({
         </Suspense>
       </header>
 
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* Sidebar (fixed) */}
       <aside
         className={`fixed left-0 top-0 h-full bg-slate-100 border-r border-slate-200 transition-all duration-300 z-40 ${
           collapsed ? 'w-16' : 'w-64'
-        } ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        } ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 safe-area-inset`}
         onMouseEnter={() => {
           if (typeof window !== 'undefined' && window.innerWidth >= 1024) setCollapsed(false);
         }}
