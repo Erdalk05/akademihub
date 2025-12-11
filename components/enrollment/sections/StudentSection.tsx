@@ -310,16 +310,37 @@ export const StudentSection = () => {
               Sınıf <span className="text-[#25D366]">*</span>
             </label>
             <select
-              value={student.enrolledClass}
-              onChange={(e) => updateStudent({ enrolledClass: e.target.value })}
+              value={student.enrolledClass?.startsWith('custom:') ? 'other' : student.enrolledClass}
+              onChange={(e) => {
+                if (e.target.value === 'other') {
+                  updateStudent({ enrolledClass: 'custom:' });
+                } else {
+                  updateStudent({ enrolledClass: e.target.value });
+                }
+              }}
               className={student.enrolledClass ? `${selectStyle} border-[#25D366] bg-[#E7FFDB]` : selectStyle}
             >
               <option value="">Sınıf seçiniz</option>
               {GRADES.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
-              <option value="other">Diğer (Manuel)</option>
+              <option value="other">Diğer (Manuel Giriş)</option>
             </select>
+            
+            {/* Manuel Sınıf Girişi */}
+            {student.enrolledClass?.startsWith('custom:') && (
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={student.enrolledClass.replace('custom:', '')}
+                  onChange={(e) => updateStudent({ enrolledClass: `custom:${e.target.value}` })}
+                  placeholder="Sınıf/Grup adını yazın (örn: Anaokulu, Hazırlık, Özel Grup)"
+                  className="w-full h-12 px-4 border-2 border-[#25D366] rounded-xl text-sm outline-none bg-amber-50 focus:bg-white focus:ring-2 focus:ring-[#25D366]/30"
+                  autoFocus
+                />
+                <p className="text-xs text-amber-600 mt-1">💡 Özel sınıf/grup adını serbest olarak girebilirsiniz</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

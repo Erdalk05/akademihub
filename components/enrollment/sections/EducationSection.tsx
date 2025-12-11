@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GraduationCap, Plus, X } from 'lucide-react';
+import { GraduationCap, Plus, X, Edit3 } from 'lucide-react';
 import { useEnrollmentStore } from '../store';
 import { Section } from '../ui/Section';
 import { FormSelect } from '../ui/FormField';
@@ -12,6 +12,8 @@ export const EducationSection = () => {
   const [customYears, setCustomYears] = useState<string[]>([]);
   const [showAddYear, setShowAddYear] = useState(false);
   const [newYearStart, setNewYearStart] = useState('');
+  const [showCustomGrade, setShowCustomGrade] = useState(false);
+  const [customGrade, setCustomGrade] = useState('');
 
   const handleProgramChange = (programId: string) => {
     const program = PROGRAMS.find(p => p.id === programId);
@@ -24,11 +26,25 @@ export const EducationSection = () => {
   };
 
   const handleGradeChange = (gradeId: string) => {
+    if (gradeId === 'other') {
+      setShowCustomGrade(true);
+      return;
+    }
+    setShowCustomGrade(false);
     const grade = GRADES.find(g => g.id === gradeId);
     if (grade) {
       updateEducation({ 
         gradeId: grade.id,
         gradeName: grade.name 
+      });
+    }
+  };
+
+  const handleCustomGradeSubmit = () => {
+    if (customGrade.trim()) {
+      updateEducation({ 
+        gradeId: `custom:${customGrade.trim()}`,
+        gradeName: customGrade.trim()
       });
     }
   };
@@ -84,13 +100,52 @@ export const EducationSection = () => {
             required
           />
 
-          <FormSelect
-            label="Sınıf"
-            options={GRADES.map((g) => ({ value: g.id, label: g.name }))}
-            value={education.gradeId}
-            onChange={(e) => handleGradeChange(e.target.value)}
-            required
-          />
+          <div>
+            <FormSelect
+              label="Sınıf"
+              options={[
+                ...GRADES.map((g) => ({ value: g.id, label: g.name })),
+                { value: 'other', label: '📝 Diğer (Manuel Giriş)' }
+              ]}
+              value={education.gradeId?.startsWith('custom:') ? 'other' : education.gradeId}
+              onChange={(e) => handleGradeChange(e.target.value)}
+              required
+            />
+            
+            {/* Manuel Sınıf Girişi */}
+            {(showCustomGrade || education.gradeId?.startsWith('custom:')) && (
+              <div className="mt-2 flex gap-2">
+                <div className="relative flex-1">
+                  <Edit3 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600" />
+                  <input
+                    type="text"
+                    value={education.gradeId?.startsWith('custom:') ? education.gradeId.replace('custom:', '') : customGrade}
+                    onChange={(e) => {
+                      setCustomGrade(e.target.value);
+                      updateEducation({ 
+                        gradeId: `custom:${e.target.value}`,
+                        gradeName: e.target.value
+                      });
+                    }}
+                    placeholder="Sınıf adını yazın (örn: Anaokulu, Hazırlık)"
+                    className="w-full h-10 pl-10 pr-4 border-2 border-emerald-400 rounded-lg text-sm outline-none bg-emerald-50 focus:bg-white focus:ring-2 focus:ring-emerald-300"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomGrade(false);
+                    setCustomGrade('');
+                    updateEducation({ gradeId: '', gradeName: '' });
+                  }}
+                  className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+          </div>
 
           <FormSelect
             label="Alan / Branş"
