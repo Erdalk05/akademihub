@@ -14,9 +14,10 @@ import BackupRestore from '@/components/settings/BackupRestore';
 import APISettings from '@/components/settings/APISettings';
 import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
+import OrganizationSettings from '@/components/settings/OrganizationSettings';
 
 // Tab Types
-type SettingsTab = 'general' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts';
+type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts';
 
 // Interfaces
 interface SchoolInfo {
@@ -838,6 +839,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'general', label: 'Genel Ayarlar', icon: Building2, description: 'Okul bilgileri ve logo' },
+    { id: 'organizations', label: 'Kurum Yönetimi', icon: Globe, description: 'Çoklu kurum/şube' },
     { id: 'users', label: 'Kullanıcı Yönetimi', icon: Users, description: 'Kullanıcılar ve roller' },
     { id: 'permissions', label: 'Rol Yetkileri', icon: Shield, description: 'Rol bazlı erişim kontrolü' },
     { id: 'academic', label: 'Akademik Yıllar', icon: Calendar, description: 'Eğitim dönemleri' },
@@ -1050,6 +1052,11 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* KURUM YÖNETİMİ */}
+                {activeTab === 'organizations' && (
+                  <OrganizationSettings />
                 )}
 
                 {/* KULLANICI YÖNETİMİ */}

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Loader, ArrowRight, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Shield, Loader, ArrowRight, Mail, Lock, Eye, EyeOff, AlertCircle, Building2, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useRole } from '@/lib/contexts/RoleContext';
 import { UserRole, User } from '@/lib/types/role-types';
+import { useOrganizationStore, Organization } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 // Varsayılan kullanıcılar (eğer localStorage boşsa)
@@ -53,9 +54,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
   const { setCurrentUser } = useRole();
+  const { organizations, fetchOrganizations, setCurrentOrganization } = useOrganizationStore();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [showOrgSelector, setShowOrgSelector] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   
   // Form state
   const [email, setEmail] = useState('');
@@ -64,6 +68,16 @@ export default function LoginPage() {
   // Kullanıcı listesi
   const [users, setUsers] = useState<StoredUser[]>(DEFAULT_USERS);
   const [isReady, setIsReady] = useState(false);
+
+  // Kurumları yükle
+  useEffect(() => {
+    fetchOrganizations().then(() => {
+      // Varsayılan olarak ilk kurumu seç
+      if (organizations.length > 0 && !selectedOrg) {
+        setSelectedOrg(organizations[0]);
+      }
+    });
+  }, []);
   
   // Varsayılan kullanıcıları yükle
   useEffect(() => {
@@ -143,6 +157,11 @@ export default function LoginPage() {
         
         // localStorage'a da kaydet (uyumluluk için)
         localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
+        
+        // Seçilen kurumu kaydet
+        if (selectedOrg) {
+          setCurrentOrganization(selectedOrg);
+        }
         
         toast.success(`Hoş geldiniz, ${authData.user.name}!`);
         router.push('/dashboard');
@@ -287,6 +306,53 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-5" autoComplete="off">
+            
+            {/* Kurum Seçimi - Birden fazla kurum varsa göster */}
+            {organizations.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  Kurum Seçin
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+                  <button
+                    type="button"
+                    onClick={() => setShowOrgSelector(!showOrgSelector)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white text-left focus:border-[#25D366] focus:ring-2 focus:ring-[#25D366]/50 outline-none transition flex items-center justify-between"
+                  >
+                    <span>{selectedOrg?.name || 'Kurum Seçiniz'}</span>
+                    <ChevronDown className={`w-5 h-5 transition-transform ${showOrgSelector ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showOrgSelector && (
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                      {organizations.map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrg(org);
+                            setShowOrgSelector(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-[#DCF8C6] transition ${
+                            selectedOrg?.id === org.id ? 'bg-[#DCF8C6]' : ''
+                          }`}
+                        >
+                          <div className="w-10 h-10 bg-gradient-to-br from-[#075E54] to-[#25D366] rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                            {org.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{org.name}</p>
+                            <p className="text-xs text-gray-500">{org.slug}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-white/80 mb-2">
