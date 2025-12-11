@@ -1575,8 +1575,27 @@ export default function SettingsPage() {
                       <button
                         onClick={async () => {
                           if (selectedUserForPermissions && userSpecificPermissions[selectedUserForPermissions.id]) {
-                            localStorage.setItem(`user_permissions_${selectedUserForPermissions.id}`, JSON.stringify(userSpecificPermissions[selectedUserForPermissions.id]));
-                            toast.success(`${selectedUserForPermissions.name} için yetkiler kaydedildi!`);
+                            try {
+                              // Supabase'e kaydet
+                              const response = await fetch('/api/settings/users', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  id: selectedUserForPermissions.id,
+                                  permissions: userSpecificPermissions[selectedUserForPermissions.id]
+                                })
+                              });
+                              const result = await response.json();
+                              if (result.success) {
+                                toast.success(`${selectedUserForPermissions.name} için yetkiler kaydedildi!`);
+                                // Kullanıcı listesini güncelle
+                                fetchUsers();
+                              } else {
+                                toast.error(result.error || 'Kayıt başarısız');
+                              }
+                            } catch (error) {
+                              toast.error('Bir hata oluştu');
+                            }
                           } else {
                             toast.error('Lütfen bir kullanıcı seçin');
                           }
@@ -1626,12 +1645,11 @@ export default function SettingsPage() {
                                       key={user.id}
                                       onClick={() => {
                                         setSelectedUserForPermissions(user);
-                                        // Kullanıcının mevcut yetkilerini yükle
-                                        const savedPerms = localStorage.getItem(`user_permissions_${user.id}`);
-                                        if (savedPerms) {
+                                        // Kullanıcının Supabase'deki yetkilerini yükle
+                                        if (user.permissions && typeof user.permissions === 'object') {
                                           setUserSpecificPermissions(prev => ({
                                             ...prev,
-                                            [user.id]: JSON.parse(savedPerms)
+                                            [user.id]: user.permissions as Record<string, boolean>
                                           }));
                                         } else if (!userSpecificPermissions[user.id]) {
                                           // Varsayılan yetkiler
