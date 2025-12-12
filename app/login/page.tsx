@@ -42,7 +42,7 @@ const DEFAULT_USERS = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const authStore = useAuthStore();
   const { setCurrentUser } = useRole();
   const { organizations, fetchOrganizations, setCurrentOrganization } = useOrganizationStore();
   
@@ -101,7 +101,12 @@ export default function LoginPage() {
         };
         
         setCurrentUser(roleUser);
-        setUser(authData.user);
+        // Token ve user'ı kaydet
+        authStore.setUser(authData.user);
+        useAuthStore.setState({ 
+          token: authData.token, 
+          isAuthenticated: true 
+        });
         localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
         
         // Kullanıcının kurumunu otomatik seç
@@ -164,7 +169,12 @@ export default function LoginPage() {
       };
       
       setCurrentUser(roleUser);
-      setUser(authUser);
+      // Token ve user'ı kaydet (fallback için mock token)
+      authStore.setUser(authUser);
+      useAuthStore.setState({ 
+        token: 'fallback_token_' + Date.now(), 
+        isAuthenticated: true 
+      });
       localStorage.setItem('akademi_current_user', JSON.stringify(roleUser));
       
       // Kullanıcının kurumunu bul ve seç
