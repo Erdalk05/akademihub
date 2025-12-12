@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 const ACTIVE_ROLES = [UserRole.ADMIN, UserRole.ACCOUNTING, UserRole.STAFF];
 
 const ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.SUPER_ADMIN]: 'Franchise Yöneticisi',
   [UserRole.ADMIN]: 'Admin',
   [UserRole.ACCOUNTING]: 'Muhasebe',
   [UserRole.TEACHER]: 'Öğretmen',
@@ -29,6 +30,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  [UserRole.SUPER_ADMIN]: 'Tüm kurumları yönetir',
   [UserRole.ADMIN]: 'Tüm yetkilere sahip',
   [UserRole.ACCOUNTING]: 'Finansal işlemler',
   [UserRole.TEACHER]: 'Eğitim işlemleri',
@@ -37,6 +39,7 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 };
 
 const ROLE_ICONS: Record<UserRole, React.ReactNode> = {
+  [UserRole.SUPER_ADMIN]: <Shield className="w-4 h-4" />,
   [UserRole.ADMIN]: <Shield className="w-4 h-4" />,
   [UserRole.ACCOUNTING]: <DollarSign className="w-4 h-4" />,
   [UserRole.TEACHER]: <UserIcon className="w-4 h-4" />,
@@ -45,6 +48,12 @@ const ROLE_ICONS: Record<UserRole, React.ReactNode> = {
 };
 
 const ROLE_COLORS: Record<UserRole, { bg: string; text: string; border: string; icon: string }> = {
+  [UserRole.SUPER_ADMIN]: { 
+    bg: 'bg-amber-50', 
+    text: 'text-amber-700', 
+    border: 'border-amber-200',
+    icon: 'bg-amber-500'
+  },
   [UserRole.ADMIN]: { 
     bg: 'bg-purple-50', 
     text: 'text-purple-700', 
@@ -97,7 +106,8 @@ export default function RoleSwitcher() {
 
   if (!currentUser) return null;
 
-  const colors = ROLE_COLORS[currentUser.role];
+  // Güvenli colors erişimi - varsayılan değer
+  const colors = ROLE_COLORS[currentUser.role] || ROLE_COLORS[UserRole.STAFF];
 
   // Sadece admin rol değiştirebilir
   const handleRoleSwitch = (role: UserRole) => {
