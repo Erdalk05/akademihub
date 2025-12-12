@@ -19,7 +19,7 @@ const TopBar: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
-  const { isAdmin, isLoading: permissionLoading } = usePermission();
+  const { isAdmin, isSuperAdmin, isLoading: permissionLoading } = usePermission();
   
   const { 
     organizations = [], 
@@ -62,7 +62,8 @@ const TopBar: React.FC = () => {
     <nav className="hidden lg:flex fixed top-0 right-0 left-64 h-16 bg-white dark:bg-[#075E54] border-b border-[#25D366]/20 dark:border-[#25D366]/30 items-center justify-between px-4 md:px-8 z-30 shadow-sm">
       {/* Left Side - Organization Selector */}
       <div className="hidden md:flex flex-1 max-w-md">
-        {mounted && safeOrganizations.length > 1 && (
+        {/* Kurum seçici SADECE Franchise Yöneticisi için görünür */}
+        {mounted && isSuperAdmin && safeOrganizations.length > 1 && (
           <div className="relative">
             <button
               onClick={() => setShowOrgDropdown(!showOrgDropdown)}
@@ -114,8 +115,8 @@ const TopBar: React.FC = () => {
           </div>
         )}
         
-        {/* Tek kurum varsa sadece isim göster */}
-        {mounted && safeOrganizations.length === 1 && currentOrganization && (
+        {/* Kurum Admin'ler ve tek kurum durumunda sadece isim göster */}
+        {mounted && currentOrganization && (!isSuperAdmin || safeOrganizations.length === 1) && (
           <div className="flex items-center gap-2 px-3 py-2 bg-[#DCF8C6] rounded-xl">
             <Building2 size={18} className="text-[#075E54]" />
             <span className="font-medium text-sm text-[#075E54]">{currentOrganization.name}</span>

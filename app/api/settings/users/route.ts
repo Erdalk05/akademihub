@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Franchise Yöneticisi TÜM kullanıcıları görür
-    // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür
+    // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür (Franchise Yöneticisi hariç)
     if (!isSuperAdmin && organizationId) {
-      query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+      query = query.eq('organization_id', organizationId);
     }
 
     const { data, error } = await query;
