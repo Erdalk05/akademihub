@@ -4,6 +4,14 @@ import { getServiceRoleClient } from '@/lib/supabase/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Helper: Mevcut akademik yılı hesapla
+function getCurrentAcademicYear() {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+}
+
 /**
  * Akademik yılın başlangıç ve bitiş tarihlerini hesapla
  * Örn: "2024-2025" → { start: "2024-09-01", end: "2025-08-31" }
@@ -36,8 +44,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const organizationId = searchParams.get('organization_id');
     
-    // Akademik yıl parametresi (şu an sadece referans için, tüm aktif öğrenciler gösteriliyor)
-    // const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
+    // Akademik yıl parametresi
+    const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
     
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
@@ -88,14 +96,6 @@ export async function GET(req: NextRequest) {
       buildOtherIncomeQuery(),
       buildExpensesQuery()
     ]);
-
-// Helper: Mevcut akademik yılı hesapla
-function getCurrentAcademicYear() {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-}
 
     if (studentsResult.error) throw studentsResult.error;
     if (installmentsResult.error) throw installmentsResult.error;
