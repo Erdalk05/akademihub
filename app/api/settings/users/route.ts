@@ -6,13 +6,25 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// GET - Tüm kullanıcıları getir
-export async function GET() {
+// GET - Kullanıcıları getir (Rol bazlı filtreleme)
+export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get('organization_id');
+    const isSuperAdmin = searchParams.get('is_super_admin') === 'true';
+
+    let query = supabase
       .from('app_users')
-      .select('id, name, email, phone, role, status, permissions, last_login, created_at')
+      .select('id, name, email, phone, role, status, permissions, last_login, created_at, organization_id, is_super_admin')
       .order('created_at', { ascending: false });
+
+    // Franchise Yöneticisi TÜM kullanıcıları görür
+    // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür
+    if (!isSuperAdmin && organizationId) {
+      query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -26,7 +38,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, phone, role, password } = body;
+    const { name, email, phone, role, password, organization_id } = body;
 
     // Zorunlu alan kontrolü
     if (!name || !email) {
@@ -80,7 +92,9 @@ export async function POST(request: NextRequest) {
         role: role || 'registrar',
         status: 'active',
         permissions: defaultPermissions[role || 'registrar'],
-        password_hash: hashedPassword, // Güvenli bcrypt hash
+        password_hash: hashedPassword,
+        organization_id: organization_id || null, // Kurum ataması
+        is_super_admin: role === 'super_admin',
       })
       .select()
       .single();

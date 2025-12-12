@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/lib/hooks/usePermission';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import BackupRestore from '@/components/settings/BackupRestore';
 import APISettings from '@/components/settings/APISettings';
 import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
@@ -121,7 +122,8 @@ export default function SettingsPage() {
   const [isClient, setIsClient] = useState(false);
   
   // Admin kontrolü
-  const { isAdmin, role } = usePermission();
+  const { isAdmin, isSuperAdmin, role } = usePermission();
+  const { currentOrganization } = useOrganizationStore();
 
   // State for each section
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
@@ -487,10 +489,19 @@ export default function SettingsPage() {
     }
   };
 
-  // Supabase tabanlı kullanıcı yönetimi
+  // Supabase tabanlı kullanıcı yönetimi (Rol bazlı filtreleme)
   const loadUsers = async () => {
     try {
-      const res = await fetch('/api/settings/users');
+      // Franchise Yöneticisi TÜM kullanıcıları görür
+      // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür
+      const params = new URLSearchParams();
+      if (isSuperAdmin) {
+        params.append('is_super_admin', 'true');
+      } else if (currentOrganization?.id) {
+        params.append('organization_id', currentOrganization.id);
+      }
+      
+      const res = await fetch(`/api/settings/users?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setUsers(data.data || []);
@@ -634,7 +645,8 @@ export default function SettingsPage() {
           email: newUser.email.toLowerCase().trim(),
           phone: newUser.phone || '',
           role: newUser.role || 'registrar',
-          password: userPassword, // Şifre eklendi
+          password: userPassword,
+          organization_id: isSuperAdmin ? null : currentOrganization?.id, // Kurum ataması
         }),
       });
 
