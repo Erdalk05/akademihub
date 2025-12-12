@@ -209,14 +209,12 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
     router.push('/login');
   };
 
-  // Rol badge renkleri
-  const getRoleBadge = () => {
-    if (isAdmin) return { bg: 'bg-purple-500/20', text: 'text-purple-300', label: 'Admin' };
-    if (isAccounting) return { bg: 'bg-emerald-500/20', text: 'text-emerald-300', label: 'Muhasebe' };
-    return { bg: 'bg-sky-500/20', text: 'text-sky-300', label: 'Personel' };
+  // Rol badge renkleri - güvenli varsayılan
+  const roleBadge = {
+    bg: isAdmin ? 'bg-purple-500/20' : isAccounting ? 'bg-emerald-500/20' : 'bg-sky-500/20',
+    text: isAdmin ? 'text-purple-300' : isAccounting ? 'text-emerald-300' : 'text-sky-300',
+    label: isAdmin ? 'Admin' : isAccounting ? 'Muhasebe' : 'Personel'
   };
-
-  const roleBadge = getRoleBadge();
 
   // Loading durumunda basit sidebar göster
   if (isLoading) {
@@ -275,9 +273,9 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
               <p className="text-white/50 text-xs truncate">{currentUser.email}</p>
             </div>
           </div>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${roleBadge.bg} ${roleBadge.text}`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${roleBadge?.bg || 'bg-sky-500/20'} ${roleBadge?.text || 'text-sky-300'}`}>
             <Shield size={14} />
-            <span>{roleBadge.label}</span>
+            <span>{roleBadge?.label || 'Personel'}</span>
           </div>
         </div>
       )}
