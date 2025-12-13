@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     
     // Filtreler
+    const organizationId = searchParams.get('organization_id');
     const category = searchParams.get('category');
     const studentId = searchParams.get('student_id');
     const startDate = searchParams.get('start_date');
@@ -21,6 +22,11 @@ export async function GET(request: NextRequest) {
         creator:app_users(id, name)
       `)
       .order('created_at', { ascending: false });
+    
+    // Organization filtresi (çoklu kurum desteği)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
     
     // Kategori filtresi
     if (category && category !== 'all') {
@@ -68,7 +74,8 @@ export async function POST(request: NextRequest) {
       payment_type,
       date,
       notes,
-      created_by
+      created_by,
+      organization_id
     } = body;
     
     // Validasyon
@@ -97,7 +104,8 @@ export async function POST(request: NextRequest) {
         payment_type: finalPaymentType,
         date: date || new Date().toISOString(),
         notes: notes || null,
-        created_by: created_by || null
+        created_by: created_by || null,
+        organization_id: organization_id || null
       })
       .select()
       .single();

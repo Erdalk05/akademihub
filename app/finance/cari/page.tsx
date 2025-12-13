@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Users } from 'lucide-react';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 type StudentRow = {
   id: string;
@@ -17,6 +18,7 @@ type StudentRow = {
 };
 
 export default function CariListPage() {
+  const { canViewFinancialReports, isAdmin, isAccounting } = usePermission();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');

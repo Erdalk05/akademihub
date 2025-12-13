@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, CheckCircle, BarChart3 } from 'lucide-react';
 import { ExpenseStatusEnum, ExpenseTypeEnum } from '@/types/finance.types';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 type ExpenseRow = {
   id: string;
@@ -17,6 +19,8 @@ type ExpenseRow = {
 
 export default function ExpenseManagementPage() {
   const router = useRouter();
+  const { currentOrganization } = useOrganizationStore();
+  const { canAddExpense, canEditExpense, canDeleteExpense, isAdmin } = usePermission();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | ExpenseTypeEnum>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ExpenseStatusEnum>('all');
@@ -51,13 +55,15 @@ export default function ExpenseManagementPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/finance/expenses`, { cache: 'no-store' });
+      // Çoklu kurum desteği: organization_id filtresi
+      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+      const res = await fetch(`/api/finance/expenses${orgParam ? `?${orgParam}` : ''}`, { cache: 'no-store' });
       const js = await res.json();
-      setExpenses(js.data);
+      setExpenses(js.data || []);
     }
 
     load();
-  }, []);
+  }, [currentOrganization?.id]);
 
   const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -76,6 +82,7 @@ export default function ExpenseManagementPage() {
           amount: Number(createAmount || 0),
           date: createDate,
           description: createDescription || null,
+          organization_id: currentOrganization?.id || null,
         }),
         });
 
@@ -488,14 +495,16 @@ export default function ExpenseManagementPage() {
           >
             PDF Oluştur
           </button>
-        <button
-          type="button"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
-            onClick={() => setIsCreateOpen(true)}
-        >
-          <Plus size={20} />
-          Yeni Gider
-        </button>
+        {canAddExpense && (
+          <button
+            type="button"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+              onClick={() => setIsCreateOpen(true)}
+          >
+            <Plus size={20} />
+            Yeni Gider
+          </button>
+        )}
       </div>
       </div>
 
@@ -1030,7 +1039,7 @@ export default function ExpenseManagementPage() {
                       })}
                     </p>
                     <div className="flex gap-2 justify-end">
-                    {expense.status === ExpenseStatusEnum.PENDING && (
+                    {expense.status === ExpenseStatusEnum.PENDING && isAdmin && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1042,26 +1051,30 @@ export default function ExpenseManagementPage() {
                           Onayla
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEdit(expense);
-                        }}
-                        className="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs transition"
-                      >
-                        Düzenle
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(expense.id);
-                        }}
-                        className="px-3 py-1 border border-rose-300 text-rose-700 rounded-lg hover:bg-rose-50 text-xs transition"
-                      >
-                        Sil
+                      {canEditExpense && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(expense);
+                          }}
+                          className="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs transition"
+                        >
+                          Düzenle
                         </button>
+                      )}
+                      {canDeleteExpense && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(expense.id);
+                          }}
+                          className="px-3 py-1 border border-rose-300 text-rose-700 rounded-lg hover:bg-rose-50 text-xs transition"
+                        >
+                          Sil
+                        </button>
+                      )}
                       </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Plus, Search, ShoppingCart, Eye } from 'lucide-react';
 import { SaleStatusEnum } from '@/types/finance.types';
 import SalesFinanceCards from '@/components/finance/SalesFinanceCards';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 type UISale = {
   id: string;
@@ -22,6 +23,7 @@ type UISale = {
 };
 
 export default function SalesManagementPage() {
+  const { canCreateSale, canEditSale, canDeleteSale, isAdmin } = usePermission();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SaleStatusEnum>('all');
   const [sales, setSales] = useState<UISale[]>([]);

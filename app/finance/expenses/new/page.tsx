@@ -4,9 +4,11 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, FileText, Loader2 } from 'lucide-react';
 import { ExpenseStatusEnum, ExpenseTypeEnum } from '@/types/finance.types';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 export default function NewExpensePage() {
   const router = useRouter();
+  const { currentOrganization } = useOrganizationStore();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ExpenseTypeEnum>(ExpenseTypeEnum.PAYROLL);
   const [status, setStatus] = useState<ExpenseStatusEnum>(ExpenseStatusEnum.PAID);
@@ -45,6 +47,7 @@ export default function NewExpensePage() {
             status,
             date,
             description: description.trim() || null,
+            organization_id: currentOrganization?.id || null,
           }),
         });
         const js = await res.json().catch(() => null);

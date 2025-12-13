@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Save, Loader2, User, Users, GraduationCap, Phone, Mail, MapPin, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Save, Loader2, User, Users, GraduationCap, Phone, Mail, MapPin, AlertCircle, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { ModernDatePicker } from '@/components/ui/ModernDatePicker';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 interface StudentData {
   id: string;
@@ -38,6 +39,7 @@ export default function StudentEditPage() {
   const params = useParams();
   const router = useRouter();
   const studentId = params?.id as string;
+  const { canEditStudent, isLoading: permLoading } = usePermission();
 
   const [student, setStudent] = useState<StudentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,10 +106,29 @@ export default function StudentEditPage() {
     setStudent({ ...student, [field]: value });
   };
 
-  if (loading) {
+  if (loading || permLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  // Yetki kontrolü - düzenleme yetkisi yoksa uyarı göster
+  if (!canEditStudent) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="p-4 bg-red-50 rounded-full">
+          <ShieldAlert className="h-16 w-16 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Erişim Reddedildi</h2>
+        <p className="text-gray-600">Öğrenci düzenleme yetkiniz bulunmamaktadır.</p>
+        <Link 
+          href={`/students/${studentId}`}
+          className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+        >
+          Öğrenci Detayına Dön
+        </Link>
       </div>
     );
   }

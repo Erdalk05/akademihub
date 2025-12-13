@@ -23,6 +23,7 @@ import {
   CalendarRange
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
 
 // Akademik Yıllar
@@ -50,6 +51,7 @@ type CollectionRow = {
 export default function CollectionsPage() {
   const router = useRouter();
   const { currentOrganization } = useOrganizationStore();
+  const { canExportExcel, canCollectPayment } = usePermission();
   
   // Data
   const [collections, setCollections] = useState<CollectionRow[]>([]);

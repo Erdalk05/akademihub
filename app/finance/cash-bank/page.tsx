@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 // Types
 type TransactionType = 'income' | 'expense' | 'transfer';
@@ -60,6 +61,7 @@ const defaultAccounts: Account[] = [
 ];
 
 export default function CashBankPage() {
+  const { canAddExpense, canExportExcel, isAdmin } = usePermission();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('month');

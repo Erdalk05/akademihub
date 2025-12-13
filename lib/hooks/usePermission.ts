@@ -74,6 +74,11 @@ export interface UsePermissionReturn {
   canDeleteExpense: boolean;
   canViewCashBank: boolean;
   canManageCashBank: boolean;
+  canCreateSale: boolean;
+  canEditSale: boolean;
+  canDeleteSale: boolean;
+  canAddOtherIncome: boolean;
+  canDeleteOtherIncome: boolean;
   canViewFinancialReports: boolean;
   canViewFounderReport: boolean;
   canUseReportBuilder: boolean;
@@ -139,6 +144,15 @@ export function usePermission(): UsePermissionReturn {
   const canDeleteExpense = isAdmin || hasPermission(Permission.FINANCE_EXPENSE_DELETE);
   const canViewCashBank = isAdmin || hasPermission(Permission.FINANCE_CASHBANK_VIEW);
   const canManageCashBank = isAdmin || hasPermission(Permission.FINANCE_CASHBANK_MANAGE);
+
+  // Satış yetkileri
+  const canCreateSale = isAdmin || hasPermission(Permission.FINANCE_CREATE);
+  const canEditSale = isAdmin || hasPermission(Permission.FINANCE_EDIT);
+  const canDeleteSale = isAdmin || hasPermission(Permission.FINANCE_DELETE);
+
+  // Diğer gelir yetkileri
+  const canAddOtherIncome = isAdmin || hasPermission(Permission.FINANCE_CREATE);
+  const canDeleteOtherIncome = isAdmin || hasPermission(Permission.FINANCE_DELETE);
 
   // Rapor yetkileri
   const canViewFinancialReports = isAdmin || hasPermission(Permission.REPORTS_FINANCIAL) || hasPermission(Permission.FINANCE_VIEW_REPORTS);
@@ -225,6 +239,11 @@ export function usePermission(): UsePermissionReturn {
     canDeleteExpense,
     canViewCashBank,
     canManageCashBank,
+    canCreateSale,
+    canEditSale,
+    canDeleteSale,
+    canAddOtherIncome,
+    canDeleteOtherIncome,
     canViewFinancialReports,
     canViewFounderReport,
     canUseReportBuilder,

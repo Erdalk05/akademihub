@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Printer, Save, CheckCircle, RotateCcw, ArrowLeft, ArrowRight,
-  AlertCircle, User, Users, GraduationCap, FileText, Sparkles
+  AlertCircle, User, Users, GraduationCap, FileText, Sparkles, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEnrollmentStore } from '@/components/enrollment/store';
@@ -15,6 +15,7 @@ import { ContractSection } from '@/components/enrollment/sections/ContractSectio
 import { PrintLayout } from '@/components/enrollment/PrintLayout';
 import { createEnrollment } from '@/components/enrollment/actions';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { StudentSearchModal } from '@/components/enrollment/ui/StudentSearchModal';
 import toast from 'react-hot-toast';
 
 const STEPS = [
@@ -23,6 +24,20 @@ const STEPS = [
   { id: 3, title: 'Egitim & Odeme', icon: GraduationCap },
   { id: 4, title: 'Sozlesme', icon: FileText },
 ];
+
+// Akademik yılları hesapla
+const getCurrentAcademicYear = () => {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
+const getNextAcademicYear = () => {
+  const current = getCurrentAcademicYear();
+  const [start] = current.split('-').map(Number);
+  return `${start + 1}-${start + 2}`;
+};
 
 export default function NewEnrollmentPage() {
   const store = useEnrollmentStore();
@@ -34,10 +49,24 @@ export default function NewEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPrint, setShowPrint] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  
+  // Kayıt Yenileme
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [isRenewalMode, setIsRenewalMode] = useState(false);
+  const [renewalStudentName, setRenewalStudentName] = useState<string | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // Kayıt yenileme - öğrenci seçildiğinde
+  const handleRenewalStudentSelect = (student: any) => {
+    const nextYear = getNextAcademicYear();
+    store.loadFromExistingStudent(student, nextYear);
+    setIsRenewalMode(true);
+    setRenewalStudentName(`${student.first_name} ${student.last_name}`);
+    toast.success(`${student.first_name} ${student.last_name} bilgileri yüklendi. Akademik yıl: ${nextYear}`);
+  };
 
   const handlePrint = () => setShowPrint(true);
 
@@ -48,6 +77,8 @@ export default function NewEnrollmentPage() {
       setIsSaved(false);
       setSavedStudentNo(null);
       setError(null);
+      setIsRenewalMode(false);
+      setRenewalStudentName(null);
     }
   };
 
@@ -146,6 +177,15 @@ export default function NewEnrollmentPage() {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Kayıt Yenileme Butonu */}
+              <button
+                onClick={() => setShowRenewalModal(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-all flex items-center gap-2 text-sm font-medium"
+              >
+                <RefreshCw size={16} />
+                <span className="hidden sm:inline">Kayıt Yenileme</span>
+              </button>
+              
               <button
                 onClick={handleReset}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all flex items-center gap-2 text-sm font-medium"
@@ -214,6 +254,32 @@ export default function NewEnrollmentPage() {
           </div>
         </div>
       </div>
+
+      {/* Kayıt Yenileme Bilgi Banner */}
+      {isRenewalMode && renewalStudentName && !isSaved && (
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <div className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-2xl shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <RefreshCw className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold text-amber-800">Kayıt Yenileme Modu</p>
+                <p className="text-amber-700">
+                  <strong>{renewalStudentName}</strong> için kayıt yenileniyor.
+                  Akademik Yıl: <strong>{store.education.academicYear}</strong>
+                </p>
+              </div>
+              <button 
+                onClick={handleReset}
+                className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-lg text-sm font-medium transition"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success Message */}
       {isSaved && savedStudentNo && (
@@ -372,6 +438,13 @@ export default function NewEnrollmentPage() {
           </div>
         </div>
       </main>
+      {/* Kayıt Yenileme Modal */}
+      <StudentSearchModal
+        isOpen={showRenewalModal}
+        onClose={() => setShowRenewalModal(false)}
+        onSelect={handleRenewalStudentSelect}
+        currentAcademicYear={getCurrentAcademicYear()}
+      />
     </div>
   );
 }

@@ -240,12 +240,6 @@ export const EducationSection = () => {
                     `}
                   >
                     <span className="block">{year.name}</span>
-                    <span className={`text-[10px] ${isSelected ? 'text-indigo-200' : 'opacity-60'}`}>
-                      {isPast && '(Geçmiş)'}
-                      {isCurrent && '(Mevcut)'}
-                      {year.status === 'future' && '(Gelecek)'}
-                      {isCustom && '(Manuel)'}
-                    </span>
                   </button>
                   
                   {/* Manuel eklenen yılları silme butonu */}

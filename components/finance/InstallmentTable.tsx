@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FinanceInstallment } from '@/lib/types/finance';
 import { CheckCircle2, Clock, AlertCircle, CreditCard, FileText, Edit, User, Calendar, MessageSquare, MoreVertical, Trash2, DollarSign, MessageCircle } from 'lucide-react';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 interface Props {
   installments: FinanceInstallment[];
@@ -44,6 +45,7 @@ export default function InstallmentTable({
   sourceContext,
 }: Props) {
   const router = useRouter();
+  const { canCollectPayment, canEditInstallment, canDeleteInstallment } = usePermission();
   
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -350,7 +352,7 @@ export default function InstallmentTable({
                           {/* Dropdown Menu */}
                           <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-20">
                             {/* Pay Single */}
-                            {!isFullyPaid && (
+                            {!isFullyPaid && canCollectPayment && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -422,7 +424,7 @@ export default function InstallmentTable({
                             )}
                             
                             {/* Edit Payment */}
-                            {(isFullyPaid || isPartial) && (
+                            {(isFullyPaid || isPartial) && canEditInstallment && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -437,12 +439,12 @@ export default function InstallmentTable({
                             )}
                             
                             {/* Divider */}
-                            {!isFullyPaid && (
+                            {!isFullyPaid && canDeleteInstallment && (
                               <div className="my-1 h-px bg-gray-100" />
                             )}
                             
                             {/* Delete (Optional - can be removed if not needed) */}
-                            {!isFullyPaid && (
+                            {!isFullyPaid && canDeleteInstallment && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

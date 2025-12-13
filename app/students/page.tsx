@@ -27,7 +27,9 @@ import {
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
 import FinanceQuickViewDrawer from '@/components/students/FinanceQuickViewDrawer';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
+import { Edit, Trash2 } from 'lucide-react';
 
 // Akademik Yıllar
 const ACADEMIC_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
@@ -71,6 +73,7 @@ function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentOrganization } = useOrganizationStore();
+  const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents } = usePermission();
   
   // Data
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -358,20 +361,26 @@ function StudentsContent() {
               )}
             </div>
             
-            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition font-medium">
-              <Download size={16} />
-              <span className="hidden sm:inline">Excel</span>
-            </button>
+            {canExportStudents && (
+              <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition font-medium">
+                <Download size={16} />
+                <span className="hidden sm:inline">Excel</span>
+              </button>
+            )}
             
-            <Link href="/students/import" className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 hover:bg-emerald-100 transition font-medium">
-              <Upload size={16} />
-              <span className="hidden sm:inline">Aktar</span>
-            </Link>
+            {canCreateStudent && (
+              <Link href="/students/import" className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 hover:bg-emerald-100 transition font-medium">
+                <Upload size={16} />
+                <span className="hidden sm:inline">Aktar</span>
+              </Link>
+            )}
             
-            <Link href="/enrollment/new" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
-              <Plus size={16} />
-              Yeni Kayıt
-            </Link>
+            {canCreateStudent && (
+              <Link href="/enrollment/new" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
+                <Plus size={16} />
+                Yeni Kayıt
+              </Link>
+            )}
           </div>
         </div>
 
@@ -673,13 +682,47 @@ function StudentsContent() {
                             >
                               <MessageCircle size={16} />
                             </button>
-                            <button
-                              onClick={() => router.push(`/students/${s.id}/payments`)}
-                              className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition shadow-sm"
-                              title="Ödeme Al"
-                            >
-                              <CreditCard size={16} />
-                            </button>
+                            {canCollectPayment && (
+                              <button
+                                onClick={() => router.push(`/students/${s.id}/payments`)}
+                                className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition shadow-sm"
+                                title="Ödeme Al"
+                              >
+                                <CreditCard size={16} />
+                              </button>
+                            )}
+                            {canEditStudent && (
+                              <button
+                                onClick={() => router.push(`/students/${s.id}/edit`)}
+                                className="p-2.5 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition shadow-sm"
+                                title="Düzenle"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            {canDeleteStudent && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`${fullName} öğrencisini silmek istediğinize emin misiniz?`)) return;
+                                  try {
+                                    const res = await fetch(`/api/students?id=${s.id}`, { method: 'DELETE' });
+                                    const json = await res.json();
+                                    if (json.success) {
+                                      toast.success('Öğrenci silindi');
+                                      window.location.reload();
+                                    } else {
+                                      toast.error(json.error || 'Silme işlemi başarısız');
+                                    }
+                                  } catch {
+                                    toast.error('Silme işlemi sırasında hata oluştu');
+                                  }
+                                }}
+                                className="p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition shadow-sm"
+                                title="Sil"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                             <button
                               onClick={() => { setSelectedStudent(s); setIsDrawerOpen(true); }}
                               className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition shadow-sm"

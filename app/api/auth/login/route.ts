@@ -195,7 +195,8 @@ export async function POST(request: NextRequest) {
       role: user.role,
     });
 
-    return NextResponse.json(
+    // Response oluştur
+    const response = NextResponse.json(
       {
         success: true,
         data: {
@@ -213,7 +214,7 @@ export async function POST(request: NextRequest) {
             updatedAt: new Date(),
           },
           organization: (user as any).organization || null, // Kullanıcının bağlı olduğu kurum
-          token,
+          token, // Client için de token dönüyoruz (localStorage uyumluluğu)
           expiresIn: 86400, // 24 saat
         },
         message: 'Başarıyla giriş yapıldı',
@@ -230,6 +231,17 @@ export async function POST(request: NextRequest) {
         },
       }
     );
+
+    // httpOnly Cookie ayarla - GÜVENLİ
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,           // JavaScript erişemez (XSS koruması)
+      secure: process.env.NODE_ENV === 'production', // HTTPS zorunlu (prod'da)
+      sameSite: 'lax',          // CSRF koruması
+      maxAge: 86400,            // 24 saat
+      path: '/',                // Tüm sayfalarda geçerli
+    });
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

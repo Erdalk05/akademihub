@@ -25,6 +25,7 @@ import {
   Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 type Period = 'today' | 'week' | 'month' | 'year' | 'custom';
 type ReportTab = 'transactions' | 'class-report' | 'monthly-comparison' | 'guardian-report';
@@ -82,6 +83,7 @@ interface GuardianReport {
 }
 
 export default function ReportsPage() {
+  const { canViewFinancialReports, canExportExcel, canExportPdf } = usePermission();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('month');
   const [transactions, setTransactions] = useState<Transaction[]>([]);

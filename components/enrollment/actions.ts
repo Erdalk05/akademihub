@@ -49,7 +49,7 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       : null;
     
     // Students tablosuna uygun veri - sadece mevcut sütunlar
-    const studentData = {
+    const studentData: Record<string, any> = {
       student_no: studentNumber,
       tc_id: tcIdValue,
       // Kişisel bilgiler - AD SOYAD ZORUNLU
@@ -83,10 +83,13 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       parent_phone: primaryGuardian?.phone || null,
       // Durum
       status: 'active',
-      created_at: new Date().toISOString(),
-      // Çoklu kurum desteği
-      organization_id: organizationId || null
+      created_at: new Date().toISOString()
     };
+    
+    // Çoklu kurum desteği - organization_id
+    if (organizationId) {
+      studentData.organization_id = organizationId;
+    }
 
     const { data: studentRecord, error: studentError } = await supabase
       .from('students')
@@ -137,16 +140,19 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       
       // Peşinat varsa ekle (kendi tarihi ile)
       if (downPayment > 0) {
-        installments.push({
+        const downPaymentRecord: Record<string, any> = {
           student_id: studentRecord.id,
           agreement_id: enrollmentId,
           installment_no: 0,
           amount: downPayment,
           due_date: downPaymentDate.toISOString().split('T')[0],
           is_paid: false,
-          status: 'active',
-          organization_id: organizationId || null
-        });
+          status: 'active'
+        };
+        if (organizationId) {
+          downPaymentRecord.organization_id = organizationId;
+        }
+        installments.push(downPaymentRecord);
       }
       
       // İlk taksit başlangıç tarihi
@@ -164,16 +170,19 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
           ? remaining - (monthlyAmount * (data.payment.installmentCount - 1))
           : monthlyAmount;
         
-        installments.push({
+        const installmentRecord: Record<string, any> = {
           student_id: studentRecord.id,
           agreement_id: enrollmentId,
           installment_no: i,
           amount: amount > 0 ? amount : 0,
           due_date: dueDate.toISOString().split('T')[0],
           is_paid: false,
-          status: 'active',
-          organization_id: organizationId || null
-        });
+          status: 'active'
+        };
+        if (organizationId) {
+          installmentRecord.organization_id = organizationId;
+        }
+        installments.push(installmentRecord);
       }
 
       if (installments.length > 0) {

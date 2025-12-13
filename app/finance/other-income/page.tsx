@@ -31,6 +31,8 @@ import {
   Minus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 // Kategoriler
 const CATEGORIES = [
@@ -64,6 +66,9 @@ type Student = {
 };
 
 export default function OtherIncomePage() {
+  const { currentOrganization } = useOrganizationStore();
+  const { canAddInstallment, canDeleteInstallment, canExportExcel, isAdmin } = usePermission();
+  
   // Data
   const [incomes, setIncomes] = useState<OtherIncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,12 +114,14 @@ export default function OtherIncomePage() {
   // Fetch Data
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentOrganization?.id]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/finance/other-income');
+      // Çoklu kurum desteği: organization_id filtresi
+      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+      const res = await fetch(`/api/finance/other-income${orgParam ? `?${orgParam}` : ''}`);
       const json = await res.json();
       
       if (json.success) {
@@ -318,7 +325,8 @@ export default function OtherIncomePage() {
             amount: Number(formDownPayment),
             payment_type: 'cash',
             date: new Date(formDownPaymentDate).toISOString(),
-            notes: null
+            notes: null,
+            organization_id: currentOrganization?.id || null
           })
         });
       }
@@ -334,7 +342,8 @@ export default function OtherIncomePage() {
             amount: inst.amount,
             payment_type: 'cash',
             date: new Date(inst.dueDate).toISOString(),
-            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`
+            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`,
+            organization_id: currentOrganization?.id || null
           })
         });
       }
@@ -484,21 +493,25 @@ export default function OtherIncomePage() {
               Tarih Raporu
             </button>
 
-            <button 
-              onClick={handleExportExcel}
-              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
-            >
-              <Download size={16} />
-              Excel
-            </button>
+            {canExportExcel && (
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
+              >
+                <Download size={16} />
+                Excel
+              </button>
+            )}
             
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition"
-            >
-              <Plus size={16} />
-              Yeni Gelir
-            </button>
+            {canAddInstallment && (
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition"
+              >
+                <Plus size={16} />
+                Yeni Gelir
+              </button>
+            )}
           </div>
         </div>
 
@@ -685,13 +698,15 @@ export default function OtherIncomePage() {
                                 <Users size={16} />
                               </Link>
                             )}
-                            <button 
-                              onClick={() => handleDelete(row.id)}
-                              className="p-2 hover:bg-red-50 rounded-lg transition text-red-500"
-                              title="Sil"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            {canDeleteInstallment && (
+                              <button 
+                                onClick={() => handleDelete(row.id)}
+                                className="p-2 hover:bg-red-50 rounded-lg transition text-red-500"
+                                title="Sil"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

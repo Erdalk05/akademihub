@@ -62,7 +62,8 @@ export interface Installment {
 
 export interface Payment {
   totalFee: number;
-  discount: number;
+  discountPercent: number; // Yüzdelik indirim oranı
+  discount: number; // Hesaplanmış indirim tutarı (₺)
   discountReason: string;
   netFee: number;
   downPayment: number;
@@ -235,6 +236,7 @@ export const defaultEducation: Education = {
 
 export const defaultPayment: Payment = {
   totalFee: 0,
+  discountPercent: 0,
   discount: 0,
   discountReason: '',
   netFee: 0,

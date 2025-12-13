@@ -59,14 +59,23 @@ export const PaymentSection = () => {
 
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
-              İndirim (₺)
+              İndirim (%)
             </label>
             <div className="relative">
               <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="number"
-                value={payment.discount || ''}
-                onChange={(e) => updatePayment({ discount: Number(e.target.value) })}
+                min="0"
+                max="100"
+                value={payment.discountPercent || ''}
+                onChange={(e) => {
+                  const percent = Math.min(100, Math.max(0, Number(e.target.value)));
+                  const discountAmount = Math.round((payment.totalFee * percent) / 100);
+                  updatePayment({ 
+                    discountPercent: percent,
+                    discount: discountAmount 
+                  });
+                }}
                 className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                 placeholder="0"
               />

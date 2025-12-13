@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const id = searchParams.get('id');
+    const organizationId = searchParams.get('organization_id');
     const category = searchParams.get('category');
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate') || searchParams.get('minDate');
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
 
     log('GET', 'Incoming request', {
       id,
+      organizationId,
       category,
       status,
       startDate,
@@ -87,6 +89,11 @@ export async function GET(req: NextRequest) {
 
     if (id) {
       query = query.eq('id', id);
+    }
+
+    // Organization filtresi (çoklu kurum desteği)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
     }
 
     // Apply filters
@@ -150,6 +157,7 @@ export async function POST(req: NextRequest) {
       status: body.status || 'paid',
       date: body.date,
       description: body.description || null,
+      organization_id: body.organization_id || null,
     };
 
     const { data, error } = await supabase

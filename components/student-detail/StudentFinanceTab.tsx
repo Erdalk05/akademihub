@@ -11,6 +11,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
+import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
 
 interface Installment {
@@ -63,6 +64,7 @@ const PDF_LABELS = {
 };
 
 export default function StudentFinanceTab({ student, onRefresh }: Props) {
+  const { canCollectPayment, canEditInstallment, canAddInstallment, canExportPdf } = usePermission();
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);

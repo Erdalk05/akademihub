@@ -196,7 +196,14 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   };
 
   // Çıkış işlemi
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // API ile cookie'yi sil
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // API hatası olsa bile devam et
+    }
+    
     // localStorage'ı temizle
     localStorage.removeItem('akademi_current_user');
     localStorage.removeItem('auth-storage');

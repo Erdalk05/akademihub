@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CreditCard, Calendar, TrendingUp, FileText, Copy, CheckCircle, MessageCircle, Plus, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 interface Installment {
   id: string;
@@ -20,6 +21,7 @@ interface Props {
 
 export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Props) {
   const router = useRouter();
+  const { canCollectPayment, canViewFinancialReports } = usePermission();
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [installments, setInstallments] = useState<Installment[]>([]);
