@@ -304,7 +304,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
       }),
     }),
     {
-      name: 'enrollment-store-v6',
+      name: 'enrollment-store-v7',
       partialize: (state) => ({
         student: state.student,
         guardians: state.guardians,
@@ -312,6 +312,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         payment: state.payment,
         contract: state.contract,
         status: state.status,
+        existingStudentId: state.existingStudentId,
       }),
       storage: createJSONStorage(() => {
         if (typeof window === 'undefined') {
