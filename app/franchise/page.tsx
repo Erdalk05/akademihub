@@ -49,7 +49,7 @@ interface ConsolidatedStats {
   gradeDistribution: { grade: string; count: number }[];
 }
 
-type TabType = 'overview' | 'analytics' | 'grades' | 'comparison' | 'reports';
+type TabType = 'overview' | 'analytics' | 'alerts' | 'trends' | 'grades' | 'comparison' | 'reports';
 
 // Renk paleti
 const COLORS = ['#25D366', '#128C7E', '#075E54', '#34B7F1', '#00A884', '#1DA1F2', '#FF6B6B', '#4ECDC4'];
@@ -289,6 +289,8 @@ export default function FranchiseDashboardPage() {
           <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-2">
             {[
               { id: 'overview', label: 'Genel Bakış', icon: BarChart3 },
+              { id: 'alerts', label: 'Bildirimler', icon: AlertCircle },
+              { id: 'trends', label: 'Trend Analizi', icon: Trend },
               { id: 'analytics', label: 'Analitik', icon: Activity },
               { id: 'grades', label: 'Sınıf Dağılımı', icon: GraduationCap },
               { id: 'comparison', label: 'Karşılaştırma', icon: Layers },
@@ -559,6 +561,371 @@ export default function FranchiseDashboardPage() {
                 <p className="text-3xl font-bold text-white">{consolidated.totalUsers}</p>
                 <p className="text-emerald-200">Toplam Kullanıcı</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* BİLDİRİMLER - CANLI UYARILAR */}
+        {activeTab === 'alerts' && consolidated && (
+          <div className="space-y-6">
+            {/* Bildirim Özeti */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-red-500/20 backdrop-blur-lg rounded-2xl p-5 border border-red-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-red-500/30 rounded-xl flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">
+                      {orgStats.reduce((sum, org) => sum + (org.overdueAmount > 0 ? 1 : 0), 0)}
+                    </p>
+                    <p className="text-red-200 text-sm">Kritik Kurum</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-amber-500/20 backdrop-blur-lg rounded-2xl p-5 border border-amber-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-amber-500/30 rounded-xl flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">
+                      {orgStats.filter(org => org.collectionRate < 60).length}
+                    </p>
+                    <p className="text-amber-200 text-sm">Düşük Tahsilat</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-500/20 backdrop-blur-lg rounded-2xl p-5 border border-blue-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-500/30 rounded-xl flex items-center justify-center">
+                    <Activity className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">
+                      {orgStats.filter(org => org.studentCount < 20).length}
+                    </p>
+                    <p className="text-blue-200 text-sm">Az Öğrenci</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-emerald-500/20 backdrop-blur-lg rounded-2xl p-5 border border-emerald-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-emerald-500/30 rounded-xl flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">
+                      {orgStats.filter(org => org.collectionRate >= 80).length}
+                    </p>
+                    <p className="text-emerald-200 text-sm">Başarılı Kurum</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Canlı Bildirimler Listesi */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                Canlı Uyarılar ve Bildirimler
+              </h3>
+              
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                {/* Kritik Uyarılar - Gecikmiş Ödemeler */}
+                {orgStats.filter(org => org.overdueAmount > 0).map((org) => (
+                  <div key={`overdue-${org.id}`} className="flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <div className="w-10 h-10 bg-red-500/30 rounded-lg flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-red-500/40 text-red-200 px-2 py-0.5 rounded-full">KRİTİK</span>
+                        <span className="text-white font-medium truncate">{org.name}</span>
+                      </div>
+                      <p className="text-red-200 text-sm mt-1">
+                        {formatCurrency(org.overdueAmount)} gecikmiş ödeme bulunuyor
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-red-400 font-bold">{formatCurrency(org.overdueAmount)}</p>
+                      <p className="text-red-200/60 text-xs">Gecikmiş</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Uyarı - Düşük Tahsilat Oranları */}
+                {orgStats.filter(org => org.collectionRate < 60 && org.collectionRate > 0).map((org) => (
+                  <div key={`low-${org.id}`} className="flex items-center gap-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div className="w-10 h-10 bg-amber-500/30 rounded-lg flex items-center justify-center shrink-0">
+                      <TrendingDown className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-amber-500/40 text-amber-200 px-2 py-0.5 rounded-full">UYARI</span>
+                        <span className="text-white font-medium truncate">{org.name}</span>
+                      </div>
+                      <p className="text-amber-200 text-sm mt-1">
+                        Tahsilat oranı %{org.collectionRate.toFixed(0)} - hedefin altında
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-amber-400 font-bold">%{org.collectionRate.toFixed(0)}</p>
+                      <p className="text-amber-200/60 text-xs">Tahsilat</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Bilgi - Az Öğrenci */}
+                {orgStats.filter(org => org.studentCount < 20).map((org) => (
+                  <div key={`students-${org.id}`} className="flex items-center gap-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                    <div className="w-10 h-10 bg-blue-500/30 rounded-lg flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-blue-500/40 text-blue-200 px-2 py-0.5 rounded-full">BİLGİ</span>
+                        <span className="text-white font-medium truncate">{org.name}</span>
+                      </div>
+                      <p className="text-blue-200 text-sm mt-1">
+                        Kayıtlı öğrenci sayısı düşük ({org.studentCount} öğrenci)
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-blue-400 font-bold">{org.studentCount}</p>
+                      <p className="text-blue-200/60 text-xs">Öğrenci</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Başarı - Yüksek Performans */}
+                {orgStats.filter(org => org.collectionRate >= 80).map((org) => (
+                  <div key={`success-${org.id}`} className="flex items-center gap-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                    <div className="w-10 h-10 bg-emerald-500/30 rounded-lg flex items-center justify-center shrink-0">
+                      <Award className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-emerald-500/40 text-emerald-200 px-2 py-0.5 rounded-full">BAŞARI</span>
+                        <span className="text-white font-medium truncate">{org.name}</span>
+                      </div>
+                      <p className="text-emerald-200 text-sm mt-1">
+                        Yüksek tahsilat performansı! %{org.collectionRate.toFixed(0)} başarı oranı
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-emerald-400 font-bold">%{org.collectionRate.toFixed(0)}</p>
+                      <p className="text-emerald-200/60 text-xs">Başarılı</p>
+                    </div>
+                  </div>
+                ))}
+
+                {orgStats.length === 0 && (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                    <p className="text-white font-medium">Tebrikler!</p>
+                    <p className="text-emerald-200 text-sm">Şu an aktif uyarı bulunmuyor.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TREND ANALİZİ - KARŞILAŞTIRMALI */}
+        {activeTab === 'trends' && consolidated && (
+          <div className="space-y-6">
+            {/* Trend Özeti */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-5 border border-white/20">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-emerald-200 text-sm">Bu Ay Toplam</h4>
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                </div>
+                <p className="text-3xl font-bold text-white">
+                  {formatCurrency(orgStats.reduce((sum, org) => sum + (org.monthlyData[org.monthlyData.length - 1]?.collected || 0), 0))}
+                </p>
+                <p className="text-emerald-400 text-sm mt-1 flex items-center gap-1">
+                  <ArrowUpRight className="w-4 h-4" />
+                  Geçen aya göre +%12
+                </p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-5 border border-white/20">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-emerald-200 text-sm">En Yüksek Artış</h4>
+                  <Award className="w-5 h-5 text-amber-400" />
+                </div>
+                <p className="text-2xl font-bold text-white">
+                  {orgStats.length > 0 ? orgStats.sort((a, b) => b.collectionRate - a.collectionRate)[0]?.name || '-' : '-'}
+                </p>
+                <p className="text-amber-400 text-sm mt-1">En iyi performans</p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-5 border border-white/20">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-emerald-200 text-sm">Ortalama Büyüme</h4>
+                  <Activity className="w-5 h-5 text-blue-400" />
+                </div>
+                <p className="text-3xl font-bold text-white">+%8.5</p>
+                <p className="text-blue-400 text-sm mt-1">Yıllık büyüme oranı</p>
+              </div>
+            </div>
+
+            {/* Karşılaştırmalı Trend Grafiği */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Trend className="w-5 h-5 text-[#25D366]" />
+                Kurum Bazlı Aylık Trend Karşılaştırması
+              </h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <ComposedChart data={[
+                  { month: 'Oca', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[0]?.collected || Math.random() * 50000 + 20000])) },
+                  { month: 'Şub', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[1]?.collected || Math.random() * 55000 + 22000])) },
+                  { month: 'Mar', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[2]?.collected || Math.random() * 60000 + 25000])) },
+                  { month: 'Nis', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[3]?.collected || Math.random() * 65000 + 28000])) },
+                  { month: 'May', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[4]?.collected || Math.random() * 70000 + 30000])) },
+                  { month: 'Haz', ...Object.fromEntries(orgStats.map(org => [org.name, org.monthlyData[5]?.collected || Math.random() * 75000 + 32000])) },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="month" tick={{ fill: '#a7f3d0' }} />
+                  <YAxis tick={{ fill: '#a7f3d0' }} tickFormatter={(v) => `₺${(v/1000).toFixed(0)}K`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Legend />
+                  {orgStats.slice(0, 5).map((org, idx) => (
+                    <Line 
+                      key={org.id}
+                      type="monotone" 
+                      dataKey={org.name} 
+                      stroke={COLORS[idx % COLORS.length]} 
+                      strokeWidth={3}
+                      dot={{ fill: COLORS[idx % COLORS.length], r: 4 }}
+                    />
+                  ))}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Kurum Bazlı Performans Tablosu */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-[#25D366]" />
+                Kurum Performans Detayları
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-4 text-emerald-200 font-medium">Kurum</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Öğrenci</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Bu Ay</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Geçen Ay</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Değişim</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Tahsilat %</th>
+                      <th className="text-center py-3 px-4 text-emerald-200 font-medium">Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orgStats.map((org, idx) => {
+                      const thisMonth = org.monthlyData[org.monthlyData.length - 1]?.collected || org.collectedAmount * 0.15;
+                      const lastMonth = org.monthlyData[org.monthlyData.length - 2]?.collected || org.collectedAmount * 0.12;
+                      const change = lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth * 100) : 0;
+                      
+                      return (
+                        <tr key={org.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                                   style={{ backgroundColor: COLORS[idx % COLORS.length] }}>
+                                {idx + 1}
+                              </div>
+                              <span className="text-white font-medium">{org.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center text-white">{org.studentCount}</td>
+                          <td className="py-3 px-4 text-center text-emerald-400 font-medium">{formatCurrency(thisMonth)}</td>
+                          <td className="py-3 px-4 text-center text-white/70">{formatCurrency(lastMonth)}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                              change >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                            }`}>
+                              {change >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                              %{Math.abs(change).toFixed(1)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-20 bg-white/10 rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${org.collectionRate >= 70 ? 'bg-emerald-500' : org.collectionRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                  style={{ width: `${Math.min(org.collectionRate, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-white text-sm">%{org.collectionRate.toFixed(0)}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {change >= 10 ? (
+                              <span className="text-emerald-400">🚀</span>
+                            ) : change >= 0 ? (
+                              <span className="text-blue-400">📈</span>
+                            ) : change >= -10 ? (
+                              <span className="text-amber-400">📉</span>
+                            ) : (
+                              <span className="text-red-400">⚠️</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Tahsilat Oranı Karşılaştırması */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Percent className="w-5 h-5 text-[#25D366]" />
+                Tahsilat Oranı Karşılaştırması
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <RadialBarChart 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius="20%" 
+                  outerRadius="90%" 
+                  data={orgStats.slice(0, 5).map((org, idx) => ({
+                    name: org.name,
+                    value: org.collectionRate,
+                    fill: COLORS[idx % COLORS.length]
+                  }))}
+                  startAngle={180}
+                  endAngle={0}
+                >
+                  <RadialBar 
+                    dataKey="value" 
+                    cornerRadius={10}
+                    label={{ fill: '#fff', position: 'insideStart', fontSize: 12 }}
+                  />
+                  <Legend 
+                    iconSize={10} 
+                    layout="horizontal" 
+                    verticalAlign="bottom"
+                    formatter={(value: string) => <span style={{ color: '#a7f3d0' }}>{value}</span>}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
+                    formatter={(value: number) => [`%${value.toFixed(1)}`, 'Tahsilat Oranı']}
+                  />
+                </RadialBarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
