@@ -253,42 +253,86 @@ export default function CashBankPage() {
     // Tablo
     const tableWidth = pageWidth - 30; // Sağ ve sol 15mm margin
     
+    // Kısaltma fonksiyonları
+    const shortenName = (name: string, maxLen: number = 18) => {
+      if (!name || name === '-') return '-';
+      if (name.length <= maxLen) return name;
+      const parts = name.split(' ');
+      if (parts.length >= 2) {
+        return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+      }
+      return name.substring(0, maxLen - 2) + '..';
+    };
+    
+    const shortenCategory = (cat: string) => {
+      if (!cat) return '-';
+      const shortcuts: Record<string, string> = {
+        'Eğitim Geliri': 'Egitim',
+        'Eğitim': 'Egitim',
+        'Kitap Satışı': 'Kitap',
+        'Kitap': 'Kitap',
+        'Kırtasiye': 'Kirtasiye',
+        'Servis Ücreti': 'Servis',
+        'Yemek Ücreti': 'Yemek',
+        'Diğer Gelir': 'Diger',
+        'Diğer': 'Diger',
+        'Personel Maaş': 'Maas',
+        'Kira': 'Kira',
+        'Fatura': 'Fatura',
+      };
+      return shortcuts[cat] || (cat.length > 10 ? cat.substring(0, 8) + '..' : cat);
+    };
+    
+    const shortenDesc = (desc: string, maxLen: number = 22) => {
+      if (!desc) return '-';
+      if (desc.length <= maxLen) return desc;
+      return desc.substring(0, maxLen - 2) + '..';
+    };
+    
+    const shortenClass = (cls: string) => {
+      if (!cls || cls === '-') return '-';
+      // "custom:-A" gibi uzun sınıfları kısalt
+      if (cls.includes('custom:')) return cls.replace('custom:', '');
+      return cls.length > 6 ? cls.substring(0, 5) : cls;
+    };
+
     autoTable(doc, {
       startY: 68,
       margin: { left: 15, right: 15 },
       tableWidth: tableWidth,
-      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Gelir Turu', 'Tip', 'Tutar']],
+      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Tur', 'Tip', 'Tutar']],
       body: filteredTransactions.map(t => [
         new Date(t.date).toLocaleDateString('tr-TR'),
-        t.studentName || '-',
-        t.studentClass || '-',
-        t.description,
-        t.category,
-        t.type === 'income' ? 'Gelir' : 'Gider',
-        `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL`
+        shortenName(t.studentName || '-'),
+        shortenClass(t.studentClass || '-'),
+        shortenDesc(t.description),
+        shortenCategory(t.category),
+        t.type === 'income' ? 'G' : 'C',
+        `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
       ]),
       styles: { 
-        fontSize: 10,
-        cellPadding: 6,
+        fontSize: 9,
+        cellPadding: 4,
         lineColor: [200, 200, 200],
         lineWidth: 0.1,
+        overflow: 'hidden',
       },
       headStyles: { 
         fillColor: [16, 185, 129],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center',
-        fontSize: 11,
-        cellPadding: 8,
+        fontSize: 10,
+        cellPadding: 5,
       },
       columnStyles: {
         0: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tarih
-        1: { cellWidth: tableWidth * 0.18 }, // Ad Soyad
-        2: { cellWidth: tableWidth * 0.08, halign: 'center' }, // Sınıf
-        3: { cellWidth: tableWidth * 0.24 }, // Açıklama
-        4: { cellWidth: tableWidth * 0.14 }, // Gelir Türü
-        5: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tip
-        6: { cellWidth: tableWidth * 0.16, halign: 'right', fontStyle: 'bold' }, // Tutar
+        1: { cellWidth: tableWidth * 0.20 }, // Ad Soyad
+        2: { cellWidth: tableWidth * 0.07, halign: 'center' }, // Sınıf
+        3: { cellWidth: tableWidth * 0.26 }, // Açıklama
+        4: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tür
+        5: { cellWidth: tableWidth * 0.07, halign: 'center' }, // Tip
+        6: { cellWidth: tableWidth * 0.20, halign: 'right', fontStyle: 'bold' }, // Tutar
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       didParseCell: (data) => {
