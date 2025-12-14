@@ -41,6 +41,7 @@ interface Transaction {
   category: string;
   date: string;
   studentName?: string;
+  studentClass?: string;
   paymentMethod?: string;
 }
 
@@ -110,7 +111,8 @@ export default function CashBankPage() {
               description: `${i.installment_no || 1}. Taksit Ödemesi`,
               category: 'Eğitim Geliri',
               date: i.paid_at,
-              studentName: i.studentName,
+              studentName: i.studentName || i.student?.first_name + ' ' + i.student?.last_name || '-',
+              studentClass: i.studentClass || i.student?.class || '-',
               paymentMethod: i.payment_method || 'cash',
             });
           });
@@ -198,27 +200,78 @@ export default function CashBankPage() {
 
   // PDF Oluştur
   const generatePDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape');
     
-    doc.setFontSize(16);
+    // Başlık
+    doc.setFontSize(18);
+    doc.setTextColor(16, 185, 129);
     doc.text('Kasa & Banka Raporu', 14, 20);
+    
     doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
     doc.text(`Olusturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 14, 28);
     doc.text(`Toplam Bakiye: ${summary.totalBalance.toLocaleString('tr-TR')} TL`, 14, 35);
+    doc.text(`Toplam Gelir: +${summary.periodIncome.toLocaleString('tr-TR')} TL | Toplam Gider: -${summary.periodExpense.toLocaleString('tr-TR')} TL`, 14, 42);
     
     autoTable(doc, {
-      startY: 45,
-      head: [['Tarih', 'Aciklama', 'Kategori', 'Tip', 'Tutar']],
+      startY: 50,
+      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Gelir Turu', 'Tip', 'Tutar']],
       body: filteredTransactions.map(t => [
         new Date(t.date).toLocaleDateString('tr-TR'),
+        t.studentName || '-',
+        t.studentClass || '-',
         t.description,
         t.category,
         t.type === 'income' ? 'Gelir' : 'Gider',
         `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
       ]),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [16, 185, 129] }
+      styles: { 
+        fontSize: 9,
+        cellPadding: 4,
+      },
+      headStyles: { 
+        fillColor: [16, 185, 129],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      columnStyles: {
+        0: { cellWidth: 22, halign: 'center' }, // Tarih
+        1: { cellWidth: 40 }, // Ad Soyad
+        2: { cellWidth: 20, halign: 'center' }, // Sınıf
+        3: { cellWidth: 50 }, // Açıklama
+        4: { cellWidth: 30 }, // Gelir Türü
+        5: { cellWidth: 18, halign: 'center' }, // Tip
+        6: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }, // Tutar
+      },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      // Gelir/Gider renklendirme
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const row = filteredTransactions[data.row.index];
+          if (data.column.index === 6) { // Tutar sütunu
+            data.cell.styles.textColor = row?.type === 'income' ? [16, 185, 129] : [239, 68, 68];
+          }
+          if (data.column.index === 5) { // Tip sütunu
+            data.cell.styles.textColor = row?.type === 'income' ? [16, 185, 129] : [239, 68, 68];
+          }
+        }
+      }
     });
+    
+    // Alt bilgi
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Sayfa ${i} / ${pageCount} - AkademiHub Egitim Kurumlari Yonetim Sistemi`,
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
     
     doc.save(`Kasa_Banka_Raporu_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`);
     toast.success('PDF raporu indirildi');
@@ -440,8 +493,8 @@ export default function CashBankPage() {
           </div>
         </div>
 
-        {/* İşlem Listesi */}
-        <div className="divide-y divide-slate-100">
+        {/* İşlem Tablosu */}
+        <div className="overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
@@ -453,45 +506,56 @@ export default function CashBankPage() {
               <p className="text-sm">Bu dönemde kayıtlı işlem yok</p>
             </div>
           ) : (
-            filteredTransactions.map((t) => (
-              <div key={t.id} className="flex items-center gap-4 p-4 hover:bg-slate-50/50 transition">
-                {/* Icon */}
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  t.type === 'income' ? 'bg-emerald-100' : 'bg-red-100'
-                }`}>
-                  {getTypeIcon(t.type)}
-                </div>
-                
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-800 truncate">{t.description}</p>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
-                      {t.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Tarih</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Ad Soyad</th>
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Sınıf</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Açıklama</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Gelir Türü</th>
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Tip</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wide">Tutar</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTransactions.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50/50 transition">
+                    <td className="py-3 px-4 text-sm text-slate-600 whitespace-nowrap">
                       {formatDate(t.date)}
-                    </span>
-                    {t.studentName && (
-                      <span className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {t.studentName}
+                    </td>
+                    <td className="py-3 px-4 text-sm font-medium text-slate-800">
+                      {t.studentName || '-'}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-slate-600 text-center">
+                      {t.studentClass || '-'}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-slate-700">
+                      {t.description}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-full">
+                        {t.category}
                       </span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Amount */}
-                <div className="text-right">
-                  <p className={`text-lg font-bold ${getTypeColor(t.type)}`}>
-                    {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
-                  </p>
-                </div>
-              </div>
-            ))
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        t.type === 'income' 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-red-100 text-red-600'
+                      }`}>
+                        {t.type === 'income' ? '↑ Gelir' : '↓ Gider'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className={`text-sm font-bold ${getTypeColor(t.type)}`}>
+                        {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
