@@ -19,28 +19,33 @@ async function generateStudentNumber(): Promise<string> {
   return `${year}-${month}${day}-${random}-${timestamp}`;
 }
 
-// Kayıt oluştur - Students + Enrollments + Finance_Installments
+// Kayıt oluştur veya güncelle - Students + Enrollments + Finance_Installments
 // organization_id parametresi: Çoklu kurum desteği için (opsiyonel)
-export async function createEnrollment(data: EnrollmentData, organizationId?: string) {
+// existingStudentId: Düzenleme modu için mevcut öğrenci ID'si (opsiyonel)
+export async function createEnrollment(data: EnrollmentData, organizationId?: string, existingStudentId?: string | null) {
   const supabase = getSupabase();
   
   try {
-    // 0. TC Kimlik No kontrolü - aynı TC ile kayıt var mı?
+    // 0. TC Kimlik No kontrolü - aynı TC ile kayıt var mı? (Düzenleme modunda mevcut öğrenciyi hariç tut)
     if (data.student.tcNo && data.student.tcNo.trim() !== '') {
-      const { data: existingStudent } = await supabase
+      let query = supabase
         .from('students')
         .select('id, student_no, parent_name')
-        .eq('tc_id', data.student.tcNo.trim())
-        .single();
+        .eq('tc_id', data.student.tcNo.trim());
+      
+      // Düzenleme modunda mevcut öğrenciyi hariç tut
+      if (existingStudentId) {
+        query = query.neq('id', existingStudentId);
+      }
+      
+      const { data: existingStudent } = await query.single();
       
       if (existingStudent) {
         throw new Error(`Bu TC Kimlik No (${data.student.tcNo}) ile zaten kayıtlı bir öğrenci bulunmaktadır. Öğrenci No: ${existingStudent.student_no}`);
       }
     }
     
-    // 1. Önce students tablosuna öğrenci kaydı oluştur
-    const studentNumber = await generateStudentNumber();
-    
+    // 1. Öğrenci kaydı oluştur veya güncelle
     const primaryGuardian = data.guardians.find(g => g.isEmergency) || data.guardians[0];
     
     // TC Kimlik No: Boşsa null, doluysa trim'li değer
@@ -50,7 +55,6 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
     
     // Students tablosuna uygun veri - sadece mevcut sütunlar
     const studentData: Record<string, any> = {
-      student_no: studentNumber,
       tc_id: tcIdValue,
       // Kişisel bilgiler - AD SOYAD ZORUNLU
       first_name: data.student.firstName || 'İsimsiz',
@@ -83,7 +87,7 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       parent_phone: primaryGuardian?.phone || null,
       // Durum
       status: 'active',
-      created_at: new Date().toISOString()
+      updated_at: new Date().toISOString()
     };
     
     // Çoklu kurum desteği - organization_id
@@ -91,15 +95,39 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       studentData.organization_id = organizationId;
     }
 
-    const { data: studentRecord, error: studentError } = await supabase
-      .from('students')
-      .insert(studentData)
-      .select()
-      .single();
+    let studentRecord;
+    
+    // Düzenleme modu - mevcut öğrenciyi güncelle
+    if (existingStudentId) {
+      const { data: updatedStudent, error: updateError } = await supabase
+        .from('students')
+        .update(studentData)
+        .eq('id', existingStudentId)
+        .select()
+        .single();
 
-    if (studentError) {
-      console.error('Student insert error:', studentError);
-      throw new Error(`Öğrenci kaydı oluşturulamadı: ${studentError.message}`);
+      if (updateError) {
+        console.error('Student update error:', updateError);
+        throw new Error(`Öğrenci güncellenemedi: ${updateError.message}`);
+      }
+      studentRecord = updatedStudent;
+    } else {
+      // Yeni kayıt - öğrenci numarası üret
+      const studentNumber = await generateStudentNumber();
+      studentData.student_no = studentNumber;
+      studentData.created_at = new Date().toISOString();
+      
+      const { data: newStudent, error: studentError } = await supabase
+        .from('students')
+        .insert(studentData)
+        .select()
+        .single();
+
+      if (studentError) {
+        console.error('Student insert error:', studentError);
+        throw new Error(`Öğrenci kaydı oluşturulamadı: ${studentError.message}`);
+      }
+      studentRecord = newStudent;
     }
 
     // 2. Enrollments tablosuna kayıt yap (opsiyonel - hata olsa bile devam et)
@@ -220,7 +248,7 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       data: { 
         enrollmentId, 
         student: studentRecord,
-        studentNumber 
+        studentNumber: studentRecord.student_no 
       } 
     };
   } catch (error: any) {

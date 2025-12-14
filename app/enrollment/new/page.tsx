@@ -105,7 +105,8 @@ export default function NewEnrollmentPage() {
       };
       
       // Çoklu kurum desteği: Aktif kurum ID'sini gönder
-      const result = await createEnrollment(enrollmentData, currentOrganization?.id);
+      // Düzenleme modu: Mevcut öğrenci ID'si varsa güncelleme yapar
+      const result = await createEnrollment(enrollmentData, currentOrganization?.id, store.existingStudentId);
       
       // Null check - result undefined olabilir
       if (!result) {

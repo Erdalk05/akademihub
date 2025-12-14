@@ -19,6 +19,9 @@ import {
 } from './types';
 
 interface EnrollmentStore extends EnrollmentData {
+  // Düzenleme modu için mevcut öğrenci ID'si
+  existingStudentId: string | null;
+  
   // Student Actions
   updateStudent: (data: Partial<Student>) => void;
   regenerateStudentNo: () => void;
@@ -46,12 +49,19 @@ interface EnrollmentStore extends EnrollmentData {
   
   // Kayıt Yenileme - Mevcut öğrenciyi yükle
   loadFromExistingStudent: (studentData: any, nextAcademicYear: string) => void;
+  
+  // Düzenleme modu için öğrenci ID'sini sakla
+  setExistingStudentId: (id: string | null) => void;
 }
 
 export const useEnrollmentStore = create<EnrollmentStore>()(
   persist(
     (set, get) => ({
       ...defaultEnrollment,
+      existingStudentId: null,
+
+      // Düzenleme modu için öğrenci ID'sini sakla
+      setExistingStudentId: (id) => set({ existingStudentId: id }),
 
       // Student Actions
       updateStudent: (data) => set((state) => ({
@@ -189,6 +199,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
 
       reset: () => set({
         ...defaultEnrollment,
+        existingStudentId: null, // Düzenleme modunu sıfırla
         student: {
           ...defaultEnrollment.student,
           studentNo: generateStudentNo() // Her sıfırlamada yeni numara üret
@@ -288,6 +299,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
           payment,
           contract,
           status: 'draft' as const,
+          existingStudentId: studentData.id || null, // Düzenleme modu için mevcut öğrenci ID'si
         };
       }),
     }),
