@@ -21,6 +21,8 @@ interface Installment {
   amount: number;
   paid_amount: number;
   status: 'paid' | 'pending' | 'overdue';
+  paid_at?: string;
+  payment_method?: string;
 }
 
 interface Props {
@@ -157,55 +159,138 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Makbuz hazırlanıyor...');
     
     try {
-      const { jsPDF } = await import('jspdf');
-      const doc = new jsPDF('p', 'mm', [80, 120]); // Makbuz boyutu
+      const html2pdf = (await import('html2pdf.js')).default;
       
-      // Başlık
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ODEME MAKBUZU', 40, 15, { align: 'center' });
-      
-      // Çizgi
-      doc.setLineWidth(0.5);
-      doc.line(10, 20, 70, 20);
-      
-      // Bilgiler
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      let y = 30;
-      
-      doc.text('Ogrenci:', 10, y);
-      doc.text(`${turkishToAscii(student.first_name || '')} ${turkishToAscii(student.last_name || '')}`, 10, y + 5);
-      y += 15;
-      
-      doc.text(`Taksit No: ${installment.installment_no}`, 10, y);
-      y += 7;
-      
-      doc.text(`Vade: ${new Date(installment.due_date).toLocaleDateString('tr-TR')}`, 10, y);
-      y += 7;
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(`Tutar: TL ${installment.amount.toLocaleString('tr-TR')}`, 10, y);
-      y += 10;
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(turkishToAscii(`Odenen: TL ${installment.paid_amount.toLocaleString('tr-TR')}`), 10, y);
-      y += 10;
-      
-      // Alt bilgi
-      doc.setFontSize(8);
-      doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR')}`, 10, y);
-      y += 7;
-      doc.text(`Makbuz No: #${installment.id.substring(0, 8).toUpperCase()}`, 10, y);
-      
-      // İndir
-      const fileName = `Makbuz_${installment.installment_no}_${student.last_name}_${new Date().toLocaleDateString('tr-TR')}.pdf`;
-      doc.save(fileName);
+      const receiptNo = `MKB-${new Date().getFullYear()}-${installment.id.slice(0, 8).toUpperCase()}`;
+      const formattedDate = installment.paid_at 
+        ? new Date(installment.paid_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
+        : new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const currentDateTime = new Date().toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Öğrenci';
+      const parentName = student.parent_name || 'Sayın Veli';
+      const paymentMethod = installment.payment_method === 'cash' ? 'Nakit' :
+                            installment.payment_method === 'card' ? 'Kredi Kartı' :
+                            installment.payment_method === 'bank' ? 'Havale/EFT' : 'Belirtilmedi';
+      const installmentLabel = installment.installment_no > 0 ? `${installment.installment_no}. Taksit` : 'Peşin Ödeme';
+      const paidAmount = installment.paid_amount || installment.amount;
+      const organizationName = 'AkademiHub'; // TODO: Dynamic organization name
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: white; }
+            .receipt { width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #059669; border-radius: 12px; }
+            .header-top { display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px; }
+            .brand { text-align: center; margin-bottom: 15px; }
+            .brand h1 { font-size: 20px; color: #059669; font-weight: 700; }
+            .title { text-align: center; font-size: 14px; font-weight: 600; color: #333; padding: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px; }
+            .doc-no { text-align: center; font-size: 10px; color: #666; margin-bottom: 15px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+            .info-item { }
+            .info-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+            .info-value { font-size: 11px; color: #333; font-weight: 500; margin-top: 2px; }
+            .text-right { text-align: right; }
+            .amount-box { background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+            .amount-label { font-size: 10px; opacity: 0.9; }
+            .amount-value { font-size: 24px; font-weight: 700; margin-top: 5px; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; }
+            .sig-item { text-align: center; width: 45%; }
+            .sig-label { font-size: 9px; color: #888; }
+            .sig-name { font-size: 10px; color: #333; margin-top: 3px; font-weight: 500; }
+            .sig-line { border-top: 1px solid #333; margin-top: 30px; }
+            .footer { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
+            .footer p { font-size: 8px; color: #888; line-height: 1.5; }
+            .footer .system { color: #059669; font-weight: 500; margin-top: 5px; }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header-top">
+              <span>${currentDateTime}</span>
+              <span>Tahsilat Makbuzu</span>
+            </div>
+            <div class="brand">
+              <h1>${organizationName}</h1>
+            </div>
+            <div class="title">TAHSİLAT MAKBUZU</div>
+            <div class="doc-no">Belge No: ${receiptNo}</div>
+            
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-label">Öğrenci Adı Soyadı</div>
+                <div class="info-value">${studentName}</div>
+              </div>
+              <div class="info-item text-right">
+                <div class="info-label">Tarih</div>
+                <div class="info-value">${formattedDate}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Ödeme Yapan</div>
+                <div class="info-value">${parentName}</div>
+              </div>
+              <div class="info-item text-right">
+                <div class="info-label">Ödeme Yöntemi</div>
+                <div class="info-value">${paymentMethod}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Öğrenci No</div>
+                <div class="info-value">${student.student_no || '-'}</div>
+              </div>
+              <div class="info-item text-right">
+                <div class="info-label">Taksit No</div>
+                <div class="info-value">${installmentLabel}</div>
+              </div>
+            </div>
+            
+            <div class="amount-box">
+              <div class="amount-label">Tahsil Edilen Tutar</div>
+              <div class="amount-value">₺${paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+            
+            <div class="signatures">
+              <div class="sig-item">
+                <div class="sig-label">Teslim Alan</div>
+                <div class="sig-name">Muhasebe Birimi</div>
+                <div class="sig-line"></div>
+              </div>
+              <div class="sig-item">
+                <div class="sig-label">Teslim Eden</div>
+                <div class="sig-name">${studentName} / Veli</div>
+                <div class="sig-line"></div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
+              <p class="system">${organizationName} Eğitim Yönetim Sistemi</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
+
+      const opt = {
+        margin: 5,
+        filename: `Makbuz_${installment.installment_no}_${student.last_name}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: [100, 160] as [number, number], orientation: 'portrait' as const }
+      };
+
+      const receiptElement = container.firstChild as HTMLElement;
+      await html2pdf().set(opt).from(receiptElement).save();
+      document.body.removeChild(container);
       
       toast.success(
-        `✅ Makbuz İndirildi!\n\n${installment.installment_no}. Taksit - ₺${installment.amount.toLocaleString('tr-TR')}`,
+        `✅ Makbuz İndirildi!\n\n${installmentLabel} - ₺${paidAmount.toLocaleString('tr-TR')}`,
         { id: toastId, duration: 4000, icon: '🧾' }
       );
     } catch (error: any) {
