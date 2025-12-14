@@ -50,7 +50,7 @@ export interface Education {
   branchId: string;
   branchName: string;
   academicYear: string;
-  studentType: 'new' | 'transfer' | 'scholarship' | 'renewal';
+  studentType: 'new' | 'transfer' | 'scholarship' | 'renewal' | 'edit';
 }
 
 export interface Installment {

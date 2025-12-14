@@ -50,6 +50,9 @@ interface EnrollmentStore extends EnrollmentData {
   // Kayıt Yenileme - Mevcut öğrenciyi yükle
   loadFromExistingStudent: (studentData: any, nextAcademicYear: string) => void;
   
+  // Düzenleme modu - Mevcut öğrenciyi düzenleme için yükle (öğrenci no değişmez)
+  loadForEditing: (studentData: any) => void;
+  
   // Düzenleme modu için öğrenci ID'sini sakla
   setExistingStudentId: (id: string | null) => void;
 }
@@ -290,6 +293,83 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         };
 
         // Sözleşme sıfırdan başla
+        const contract = { ...defaultContract };
+
+        return {
+          student,
+          guardians,
+          education,
+          payment,
+          contract,
+          status: 'draft' as const,
+          existingStudentId: studentData.id || null, // Düzenleme modu için mevcut öğrenci ID'si
+        };
+      }),
+
+      // Düzenleme modu - Mevcut öğrenciyi düzenleme için yükle (öğrenci no değişmez)
+      loadForEditing: (studentData: any) => set((state) => {
+        // Öğrenci bilgilerini aktar - öğrenci numarası AYNI KALIR
+        const student: Student = {
+          firstName: studentData.first_name || '',
+          lastName: studentData.last_name || '',
+          tcNo: studentData.tc_id || '',
+          studentNo: studentData.student_no || '', // MEVCUT ÖĞRENCİ NUMARASI KORUNUR
+          birthDate: studentData.birth_date || '',
+          birthPlace: studentData.birth_place || '',
+          nationality: studentData.nationality || 'TC',
+          gender: studentData.gender || 'male',
+          bloodGroup: studentData.blood_type || '',
+          enrolledClass: studentData.class || '',
+          phone: studentData.phone || '',
+          phone2: studentData.phone2 || '',
+          email: studentData.email || '',
+          city: studentData.city || '',
+          district: studentData.district || '',
+          address: studentData.address || '',
+          previousSchool: studentData.previous_school || '',
+          healthNotes: studentData.health_notes || '',
+          photoUrl: studentData.photo_url || '',
+        };
+
+        // Veli bilgilerini aktar
+        const guardians: Guardian[] = [];
+        if (studentData.parent_name) {
+          guardians.push({
+            ...defaultGuardian,
+            id: 'g1',
+            type: 'mother',
+            firstName: studentData.parent_name.split(' ')[0] || '',
+            lastName: studentData.parent_name.split(' ').slice(1).join(' ') || '',
+            phone: studentData.parent_phone || '',
+            email: studentData.parent_email || '',
+            isEmergency: true,
+          });
+        } else {
+          guardians.push({ ...defaultGuardian, id: 'g1', type: 'mother', isEmergency: true });
+        }
+        guardians.push({ ...defaultGuardian, id: 'g2', type: 'father' });
+
+        // Eğitim bilgilerini aktar - MEVCUT AKADEMİK YIL İLE
+        const education: Education = {
+          programId: studentData.program_id || '',
+          programName: studentData.program_name || '',
+          gradeId: studentData.class || '1',
+          gradeName: studentData.enrolled_class || `${studentData.class}. Sınıf`,
+          branchId: studentData.section || '',
+          branchName: studentData.section || '',
+          academicYear: studentData.academic_year || '2024-2025',
+          studentType: 'edit', // Düzenleme modu
+        };
+
+        // Ödeme bilgileri - mevcut bilgiler korunur veya sıfırdan başlar
+        const payment = {
+          ...defaultPayment,
+          totalFee: studentData.total_amount || 0,
+          netFee: studentData.total_amount || 0,
+          downPaymentDate: new Date().toISOString().split('T')[0],
+        };
+
+        // Sözleşme bilgileri
         const contract = { ...defaultContract };
 
         return {

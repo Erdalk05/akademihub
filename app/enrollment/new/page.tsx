@@ -169,11 +169,13 @@ export default function NewEnrollmentPage() {
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-[#25D366]" />
-                  {store.existingStudentId ? 'Kayıt Formu Yeniden Düzenleme' : 'Yeni Ogrenci Kaydi'}
+                  {store.existingStudentId 
+                    ? (store.education.studentType === 'renewal' ? 'Kayıt Yenileme' : 'Kayıt Düzenle')
+                    : 'Yeni Ogrenci Kaydi'}
                 </h1>
                 <p className="text-sm text-white/70">
                   {store.existingStudentId 
-                    ? `${store.student.firstName} ${store.student.lastName} - Düzenleme Modu`
+                    ? `${store.student.firstName} ${store.student.lastName} • ${store.student.studentNo}`
                     : new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
@@ -276,6 +278,32 @@ export default function NewEnrollmentPage() {
               <button 
                 onClick={handleReset}
                 className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-lg text-sm font-medium transition"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kayıt Düzenleme Bilgi Banner */}
+      {store.existingStudentId && store.education.studentType === 'edit' && !isSaved && (
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-2xl shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold text-blue-800">Kayıt Düzenleme Modu</p>
+                <p className="text-blue-700">
+                  <strong>{store.student.firstName} {store.student.lastName}</strong> - #{store.student.studentNo}
+                </p>
+                <p className="text-blue-600 text-sm">Tüm bilgileri düzenleyebilir ve güncelleyebilirsiniz.</p>
+              </div>
+              <button 
+                onClick={handleReset}
+                className="px-3 py-1.5 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-lg text-sm font-medium transition"
               >
                 İptal
               </button>
