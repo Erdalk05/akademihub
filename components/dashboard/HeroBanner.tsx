@@ -8,7 +8,8 @@ interface HeroBannerProps {
   userName?: string;
   onAIReport?: () => void;
   stats?: {
-    revenue: number;
+    revenue: number; // Toplam tahsilat
+    totalContract: number; // Toplam sözleşme
     activeStudents: number;
     paymentRate: number;
   };
@@ -87,7 +88,7 @@ export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerPr
                 </div>
                 <span className="text-white/80 text-xs">Toplam Sözleşme</span>
               </div>
-              <p className="text-xl font-bold text-white">{formatCurrency(stats.revenue)}</p>
+              <p className="text-xl font-bold text-white">{formatCurrency(stats.totalContract || 0)}</p>
               <p className="text-white/50 text-[10px]">Canlı veri</p>
             </div>
 

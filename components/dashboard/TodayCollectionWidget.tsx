@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, DollarSign, CreditCard, Users, Loader2 } from 'lucide-react';
+import { TrendingUp, DollarSign, CreditCard, Users, Loader2, RefreshCw } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface TodayStats {
   totalCollected: number;
@@ -20,12 +21,15 @@ interface Props {
 export default function TodayCollectionWidget({ onRefresh, academicYear }: Props) {
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { currentOrganization } = useOrganizationStore();
 
   useEffect(() => {
     fetchTodayStats();
-  }, [academicYear]);
+  }, [academicYear, currentOrganization]);
 
   const fetchTodayStats = async () => {
+    setIsRefreshing(true);
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -35,9 +39,9 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
       tomorrow.setDate(tomorrow.getDate() + 1);
       const todayEnd = tomorrow.toISOString();
 
-      const url = academicYear 
-        ? `/api/installments?academicYear=${academicYear}` 
-        : '/api/installments';
+      // Organization filtresi ekle
+      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      const url = `/api/installments?academicYear=${academicYear || ''}${orgParam}`;
       const response = await fetch(url);
       const result = await response.json();
 
@@ -84,6 +88,7 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -112,8 +117,10 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
         </h3>
         <button 
           onClick={fetchTodayStats}
-          className="text-[#128C7E] hover:text-[#075E54] text-sm font-semibold bg-white px-3 py-1 rounded-lg shadow-sm"
+          disabled={isRefreshing}
+          className="flex items-center gap-1 text-[#128C7E] hover:text-[#075E54] text-sm font-semibold bg-white px-3 py-1 rounded-lg shadow-sm"
         >
+          {isRefreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
           Yenile
         </button>
       </div>

@@ -115,9 +115,10 @@ export default function DashboardPage() {
           userName={user.name} 
           onAIReport={() => router.push('/reports')}
           stats={dashboardData?.kpi ? {
-            revenue: dashboardData.kpi.totalRevenue,
-            activeStudents: dashboardData.kpi.activeStudents,
-            paymentRate: dashboardData.kpi.paymentRate,
+            revenue: dashboardData.kpi.totalRevenue || 0,
+            totalContract: dashboardData.kpi.totalContract || 0,
+            activeStudents: dashboardData.kpi.activeStudents || 0,
+            paymentRate: dashboardData.kpi.paymentRate || 0,
           } : undefined}
         />
 

@@ -212,7 +212,8 @@ export async function GET(req: NextRequest) {
         academicYear, // Hangi yılın verisi olduğunu belirt
         kpi: {
           activeStudents,
-          totalRevenue,
+          totalRevenue, // Ödenen tutar
+          totalContract, // Toplam sözleşme tutarı
           paymentRate: parseFloat(paymentRate),
           debtorStudents,
           totalDebt,

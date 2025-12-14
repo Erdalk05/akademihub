@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, DollarSign, Loader2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface PendingStats {
   overdueAmount: number;
@@ -22,16 +23,19 @@ interface Props {
 export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props) {
   const [stats, setStats] = useState<PendingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { currentOrganization } = useOrganizationStore();
 
   useEffect(() => {
     fetchPendingStats();
-  }, [academicYear]);
+  }, [academicYear, currentOrganization]);
 
   const fetchPendingStats = async () => {
+    setIsRefreshing(true);
     try {
-      const url = academicYear 
-        ? `/api/installments?academicYear=${academicYear}` 
-        : '/api/installments';
+      // Organization filtresi ekle
+      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      const url = `/api/installments?academicYear=${academicYear || ''}${orgParam}`;
       const response = await fetch(url);
       const result = await response.json();
 
@@ -97,6 +101,7 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -126,8 +131,10 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
         </h3>
         <button 
           onClick={fetchPendingStats}
-          className="text-red-600 hover:text-red-700 text-sm font-semibold bg-white px-3 py-1 rounded-lg shadow-sm"
+          disabled={isRefreshing}
+          className="flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-semibold bg-white px-3 py-1 rounded-lg shadow-sm"
         >
+          {isRefreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
           Yenile
         </button>
       </div>
