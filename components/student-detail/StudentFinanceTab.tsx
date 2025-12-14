@@ -175,107 +175,79 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const paidAmount = installment.paid_amount || installment.amount;
       const organizationName = 'AkademiHub'; // TODO: Dynamic organization name
 
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: white; }
-            .receipt { width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #059669; border-radius: 12px; }
-            .header-top { display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px; }
-            .brand { text-align: center; margin-bottom: 15px; }
-            .brand h1 { font-size: 20px; color: #059669; font-weight: 700; }
-            .title { text-align: center; font-size: 14px; font-weight: 600; color: #333; padding: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px; }
-            .doc-no { text-align: center; font-size: 10px; color: #666; margin-bottom: 15px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-            .info-item { }
-            .info-label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-            .info-value { font-size: 11px; color: #333; font-weight: 500; margin-top: 2px; }
-            .text-right { text-align: right; }
-            .amount-box { background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
-            .amount-label { font-size: 10px; opacity: 0.9; }
-            .amount-value { font-size: 24px; font-weight: 700; margin-top: 5px; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; }
-            .sig-item { text-align: center; width: 45%; }
-            .sig-label { font-size: 9px; color: #888; }
-            .sig-name { font-size: 10px; color: #333; margin-top: 3px; font-weight: 500; }
-            .sig-line { border-top: 1px solid #333; margin-top: 30px; }
-            .footer { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
-            .footer p { font-size: 8px; color: #888; line-height: 1.5; }
-            .footer .system { color: #059669; font-weight: 500; margin-top: 5px; }
-          </style>
-        </head>
-        <body>
-          <div class="receipt">
-            <div class="header-top">
-              <span>${currentDateTime}</span>
-              <span>Tahsilat Makbuzu</span>
+      // HTML'i DOM'a ekle
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      document.body.appendChild(container);
+      
+      // Sadece receipt div'ini al (HTML wrapper olmadan)
+      const receiptDiv = document.createElement('div');
+      receiptDiv.innerHTML = `
+        <div style="width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #059669; border-radius: 12px; font-family: Arial, sans-serif; background: white;">
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px;">
+            <span>${currentDateTime}</span>
+            <span>Tahsilat Makbuzu</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h1 style="font-size: 20px; color: #059669; font-weight: 700; margin: 0;">${organizationName}</h1>
+          </div>
+          <div style="text-align: center; font-size: 14px; font-weight: 600; color: #333; padding: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px;">TAHSİLAT MAKBUZU</div>
+          <div style="text-align: center; font-size: 10px; color: #666; margin-bottom: 15px;">Belge No: ${receiptNo}</div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <div>
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Öğrenci Adı Soyadı</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${studentName}</div>
             </div>
-            <div class="brand">
-              <h1>${organizationName}</h1>
+            <div style="text-align: right;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Tarih</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${formattedDate}</div>
             </div>
-            <div class="title">TAHSİLAT MAKBUZU</div>
-            <div class="doc-no">Belge No: ${receiptNo}</div>
-            
-            <div class="info-grid">
-              <div class="info-item">
-                <div class="info-label">Öğrenci Adı Soyadı</div>
-                <div class="info-value">${studentName}</div>
-              </div>
-              <div class="info-item text-right">
-                <div class="info-label">Tarih</div>
-                <div class="info-value">${formattedDate}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">Ödeme Yapan</div>
-                <div class="info-value">${parentName}</div>
-              </div>
-              <div class="info-item text-right">
-                <div class="info-label">Ödeme Yöntemi</div>
-                <div class="info-value">${paymentMethod}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">Öğrenci No</div>
-                <div class="info-value">${student.student_no || '-'}</div>
-              </div>
-              <div class="info-item text-right">
-                <div class="info-label">Taksit No</div>
-                <div class="info-value">${installmentLabel}</div>
-              </div>
+            <div>
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Ödeme Yapan</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${parentName}</div>
             </div>
-            
-            <div class="amount-box">
-              <div class="amount-label">Tahsil Edilen Tutar</div>
-              <div class="amount-value">₺${paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div style="text-align: right;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Ödeme Yöntemi</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${paymentMethod}</div>
             </div>
-            
-            <div class="signatures">
-              <div class="sig-item">
-                <div class="sig-label">Teslim Alan</div>
-                <div class="sig-name">Muhasebe Birimi</div>
-                <div class="sig-line"></div>
-              </div>
-              <div class="sig-item">
-                <div class="sig-label">Teslim Eden</div>
-                <div class="sig-name">${studentName} / Veli</div>
-                <div class="sig-line"></div>
-              </div>
+            <div>
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Öğrenci No</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${student.student_no || '-'}</div>
             </div>
-            
-            <div class="footer">
-              <p>Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
-              <p class="system">${organizationName} Eğitim Yönetim Sistemi</p>
+            <div style="text-align: right;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Taksit No</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${installmentLabel}</div>
             </div>
           </div>
-        </body>
-        </html>
+          
+          <div style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 10px; opacity: 0.9;">Tahsil Edilen Tutar</div>
+            <div style="font-size: 24px; font-weight: 700; margin-top: 5px;">₺${paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc;">
+            <div style="text-align: center; width: 45%;">
+              <div style="font-size: 9px; color: #888;">Teslim Alan</div>
+              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">Muhasebe Birimi</div>
+              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+            </div>
+            <div style="text-align: center; width: 45%;">
+              <div style="font-size: 9px; color: #888;">Teslim Eden</div>
+              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">${studentName} / Veli</div>
+              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+            <p style="font-size: 8px; color: #888; line-height: 1.5; margin: 0;">Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
+            <p style="font-size: 8px; color: #059669; font-weight: 500; margin-top: 5px;">${organizationName} Eğitim Yönetim Sistemi</p>
+          </div>
+        </div>
       `;
-
-      const container = document.createElement('div');
-      container.innerHTML = htmlContent;
-      document.body.appendChild(container);
+      container.appendChild(receiptDiv);
 
       const opt = {
         margin: 5,
@@ -285,8 +257,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         jsPDF: { unit: 'mm', format: [100, 160] as [number, number], orientation: 'portrait' as const }
       };
 
-      const receiptElement = container.firstChild as HTMLElement;
-      await html2pdf().set(opt).from(receiptElement).save();
+      await html2pdf().set(opt).from(receiptDiv).save();
       document.body.removeChild(container);
       
       toast.success(
