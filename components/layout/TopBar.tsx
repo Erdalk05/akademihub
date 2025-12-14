@@ -29,7 +29,7 @@ const TopBar: React.FC = () => {
     switchOrganization,
     selectAllOrganizations,
     _hasHydrated,
-    hydrate
+    setHasHydrated
   } = useOrganizationStore();
   
   // Güvenli değerler
@@ -38,10 +38,12 @@ const TopBar: React.FC = () => {
 
   useEffect(() => {
     setMounted(true);
-    hydrate(); // Manuel hydration
+    // skipHydration: true kullanıldığında manuel rehydrate gerekli
+    useOrganizationStore.persist.rehydrate();
+    setHasHydrated(true);
     const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
     setIsDark(stored === 'dark');
-  }, [hydrate]);
+  }, [setHasHydrated]);
 
   useEffect(() => {
     if (_hasHydrated) {
