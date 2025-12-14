@@ -253,17 +253,7 @@ export default function CashBankPage() {
     // Tablo
     const tableWidth = pageWidth - 30; // Sağ ve sol 15mm margin
     
-    // Kısaltma fonksiyonları
-    const shortenName = (name: string, maxLen: number = 18) => {
-      if (!name || name === '-') return '-';
-      if (name.length <= maxLen) return name;
-      const parts = name.split(' ');
-      if (parts.length >= 2) {
-        return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
-      }
-      return name.substring(0, maxLen - 2) + '..';
-    };
-    
+    // Ödeme yöntemi etiketi
     const getPaymentMethodLabel = (method: string) => {
       if (!method) return '-';
       const labels: Record<string, string> = {
@@ -273,48 +263,52 @@ export default function CashBankPage() {
         'banka': 'Banka',
         'eft': 'EFT',
         'havale': 'Havale',
-        'card': 'K.Karti',
-        'kredi_karti': 'K.Karti',
-        'kredi kartı': 'K.Karti',
-        'cek': 'Cek',
+        'card': 'K.Kartı',
+        'kredi_karti': 'K.Kartı',
+        'kredi kartı': 'K.Kartı',
+        'cek': 'Çek',
         'senet': 'Senet',
       };
       return labels[method.toLowerCase()] || method;
     };
     
-    const shortenDesc = (desc: string, maxLen: number = 22) => {
-      if (!desc) return '-';
-      if (desc.length <= maxLen) return desc;
-      return desc.substring(0, maxLen - 2) + '..';
-    };
-    
-    const shortenClass = (cls: string) => {
+    // Sınıf temizleme
+    const cleanClass = (cls: string) => {
       if (!cls || cls === '-') return '-';
-      // "custom:-A" gibi uzun sınıfları kısalt
       if (cls.includes('custom:')) return cls.replace('custom:', '');
-      return cls.length > 6 ? cls.substring(0, 5) : cls;
+      return cls;
     };
+
+    // Tablo verileri
+    const tableBody: (string | { content: string; styles?: object })[][] = filteredTransactions.map(t => [
+      new Date(t.date).toLocaleDateString('tr-TR'),
+      t.studentName || '-',
+      cleanClass(t.studentClass || '-'),
+      t.description || '-',
+      getPaymentMethodLabel(t.paymentMethod || 'cash'),
+      t.type === 'income' ? 'Gelir' : 'Gider',
+      `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
+    ]);
+    
+    // Toplam satırı ekle
+    tableBody.push([
+      '', '', '', '', '',
+      { content: 'TOPLAM:', styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: `${summary.totalBalance.toLocaleString('tr-TR')} TL`, styles: { fontStyle: 'bold', fillColor: [16, 185, 129], textColor: [255, 255, 255] } }
+    ]);
 
     autoTable(doc, {
       startY: 68,
       margin: { left: 15, right: 15 },
       tableWidth: tableWidth,
-      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Odeme', 'Tip', 'Tutar']],
-      body: filteredTransactions.map(t => [
-        new Date(t.date).toLocaleDateString('tr-TR'),
-        shortenName(t.studentName || '-'),
-        shortenClass(t.studentClass || '-'),
-        shortenDesc(t.description),
-        getPaymentMethodLabel(t.paymentMethod || 'cash'),
-        t.type === 'income' ? 'G' : 'C',
-        `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
-      ]),
+      head: [['Tarih', 'Ad Soyad', 'Sınıf', 'Açıklama', 'Ödeme', 'Tip', 'Tutar']],
+      body: tableBody,
       styles: { 
         fontSize: 9,
         cellPadding: 4,
         lineColor: [200, 200, 200],
         lineWidth: 0.1,
-        overflow: 'hidden',
+        font: 'helvetica',
       },
       headStyles: { 
         fillColor: [16, 185, 129],
@@ -326,16 +320,16 @@ export default function CashBankPage() {
       },
       columnStyles: {
         0: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tarih
-        1: { cellWidth: tableWidth * 0.20 }, // Ad Soyad
-        2: { cellWidth: tableWidth * 0.07, halign: 'center' }, // Sınıf
-        3: { cellWidth: tableWidth * 0.26 }, // Açıklama
-        4: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tür
-        5: { cellWidth: tableWidth * 0.07, halign: 'center' }, // Tip
-        6: { cellWidth: tableWidth * 0.20, halign: 'right', fontStyle: 'bold' }, // Tutar
+        1: { cellWidth: tableWidth * 0.18 }, // Ad Soyad - Tam isim
+        2: { cellWidth: tableWidth * 0.08, halign: 'center' }, // Sınıf
+        3: { cellWidth: tableWidth * 0.24 }, // Açıklama
+        4: { cellWidth: tableWidth * 0.12, halign: 'center' }, // Ödeme
+        5: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tip
+        6: { cellWidth: tableWidth * 0.18, halign: 'right', fontStyle: 'bold' }, // Tutar
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       didParseCell: (data) => {
-        if (data.section === 'body') {
+        if (data.section === 'body' && data.row.index < filteredTransactions.length) {
           const row = filteredTransactions[data.row.index];
           if (data.column.index === 6) {
             data.cell.styles.textColor = row?.type === 'income' ? [16, 185, 129] : [239, 68, 68];
