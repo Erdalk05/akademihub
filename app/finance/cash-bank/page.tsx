@@ -217,6 +217,18 @@ export default function CashBankPage() {
     doc.setFontSize(11);
     doc.text(`Olusturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 15, 28);
     
+    // Türkçe karakter düzeltme fonksiyonu - erken tanım
+    const fixTurkishText = (text: string): string => {
+      if (!text) return text;
+      return text
+        .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+        .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+        .replace(/ş/g, 's').replace(/Ş/g, 'S')
+        .replace(/ı/g, 'i').replace(/İ/g, 'I')
+        .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+        .replace(/ç/g, 'c').replace(/Ç/g, 'C');
+    };
+    
     // Özet Kartlar
     const cardY = 42;
     const cardHeight = 18;
@@ -281,13 +293,13 @@ export default function CashBankPage() {
       return cls;
     };
 
-    // Tablo verileri
+    // Tablo verileri - Türkçe karakterler düzeltilmiş
     const tableBody: (string | { content: string; styles?: object })[][] = filteredTransactions.map(t => [
       new Date(t.date).toLocaleDateString('tr-TR'),
-      t.studentName || '-',
-      cleanClass(t.studentClass || '-'),
-      t.description || '-',
-      getPaymentMethodLabel(t.paymentMethod || 'cash'),
+      fixTurkishText(t.studentName || '-'),
+      fixTurkishText(cleanClass(t.studentClass || '-')),
+      fixTurkishText(t.description || '-'),
+      fixTurkishText(getPaymentMethodLabel(t.paymentMethod || 'cash')),
       t.type === 'income' ? 'Gelir' : 'Gider',
       `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
     ]);
@@ -303,14 +315,15 @@ export default function CashBankPage() {
       startY: 68,
       margin: { left: 15, right: 15 },
       tableWidth: tableWidth,
-      head: [['Tarih', 'Ad Soyad', 'Sınıf', 'Açıklama', 'Ödeme', 'Tip', 'Tutar']],
+      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Odeme', 'Tip', 'Tutar']],
       body: tableBody,
       styles: { 
         fontSize: 9,
-        cellPadding: 4,
+        cellPadding: 3,
         lineColor: [200, 200, 200],
         lineWidth: 0.1,
         font: 'helvetica',
+        overflow: 'linebreak',
       },
       headStyles: { 
         fillColor: [16, 185, 129],
@@ -322,12 +335,12 @@ export default function CashBankPage() {
       },
       columnStyles: {
         0: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tarih
-        1: { cellWidth: tableWidth * 0.18 }, // Ad Soyad - Tam isim
+        1: { cellWidth: tableWidth * 0.22 }, // Ad Soyad - GENİŞLETİLDİ
         2: { cellWidth: tableWidth * 0.08, halign: 'center' }, // Sınıf
-        3: { cellWidth: tableWidth * 0.24 }, // Açıklama
-        4: { cellWidth: tableWidth * 0.12, halign: 'center' }, // Ödeme
-        5: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tip
-        6: { cellWidth: tableWidth * 0.18, halign: 'right', fontStyle: 'bold' }, // Tutar
+        3: { cellWidth: tableWidth * 0.18 }, // Açıklama - DARALTILDI
+        4: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Ödeme - DARALTILDI
+        5: { cellWidth: tableWidth * 0.08, halign: 'center' }, // Tip - DARALTILDI
+        6: { cellWidth: tableWidth * 0.14, halign: 'right', fontStyle: 'bold' }, // Tutar
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       didParseCell: (data) => {
@@ -358,7 +371,7 @@ export default function CashBankPage() {
         'AkademiHub Egitim Kurumlari Yonetim Sistemi',
         pageWidth - 15,
         pageHeight - 10,
-        { align: 'right' }
+        { align: 'right' as const }
       );
     }
     
