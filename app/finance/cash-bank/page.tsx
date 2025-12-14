@@ -264,23 +264,22 @@ export default function CashBankPage() {
       return name.substring(0, maxLen - 2) + '..';
     };
     
-    const shortenCategory = (cat: string) => {
-      if (!cat) return '-';
-      const shortcuts: Record<string, string> = {
-        'Eğitim Geliri': 'Egitim',
-        'Eğitim': 'Egitim',
-        'Kitap Satışı': 'Kitap',
-        'Kitap': 'Kitap',
-        'Kırtasiye': 'Kirtasiye',
-        'Servis Ücreti': 'Servis',
-        'Yemek Ücreti': 'Yemek',
-        'Diğer Gelir': 'Diger',
-        'Diğer': 'Diger',
-        'Personel Maaş': 'Maas',
-        'Kira': 'Kira',
-        'Fatura': 'Fatura',
+    const getPaymentMethodLabel = (method: string) => {
+      if (!method) return '-';
+      const labels: Record<string, string> = {
+        'cash': 'Nakit',
+        'nakit': 'Nakit',
+        'bank': 'Banka',
+        'banka': 'Banka',
+        'eft': 'EFT',
+        'havale': 'Havale',
+        'card': 'K.Karti',
+        'kredi_karti': 'K.Karti',
+        'kredi kartı': 'K.Karti',
+        'cek': 'Cek',
+        'senet': 'Senet',
       };
-      return shortcuts[cat] || (cat.length > 10 ? cat.substring(0, 8) + '..' : cat);
+      return labels[method.toLowerCase()] || method;
     };
     
     const shortenDesc = (desc: string, maxLen: number = 22) => {
@@ -300,13 +299,13 @@ export default function CashBankPage() {
       startY: 68,
       margin: { left: 15, right: 15 },
       tableWidth: tableWidth,
-      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Tur', 'Tip', 'Tutar']],
+      head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Odeme', 'Tip', 'Tutar']],
       body: filteredTransactions.map(t => [
         new Date(t.date).toLocaleDateString('tr-TR'),
         shortenName(t.studentName || '-'),
         shortenClass(t.studentClass || '-'),
         shortenDesc(t.description),
-        shortenCategory(t.category),
+        getPaymentMethodLabel(t.paymentMethod || 'cash'),
         t.type === 'income' ? 'G' : 'C',
         `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
       ]),
