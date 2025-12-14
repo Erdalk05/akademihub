@@ -54,7 +54,7 @@ const WidgetSkeleton = () => (
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, _hasHydrated } = useAuthStore();
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,13 +72,13 @@ export default function DashboardPage() {
       return;
     }
     fetchDashboardData(selectedYear);
-  }, [_hasHydrated, token, router, selectedYear, currentOrganization]);
+  }, [_hasHydrated, token, router, selectedYear, currentOrganization, isAllOrganizations]);
 
   const fetchDashboardData = async (academicYear: string) => {
     setIsLoading(true);
     try {
-      // Çoklu kurum desteği: organization_id filtresi
-      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      // Çoklu kurum desteği: organization_id filtresi (Tüm Kurumlar modunda boş)
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
       const response = await fetch(`/api/dashboard/stats?academicYear=${academicYear}${orgParam}`);
       const result = await response.json();
       if (result.success) {
@@ -114,6 +114,7 @@ export default function DashboardPage() {
         <HeroBanner 
           userName={user.name} 
           onAIReport={() => router.push('/reports')}
+          isAllOrganizations={isAllOrganizations}
           stats={dashboardData?.kpi ? {
             revenue: dashboardData.kpi.totalRevenue || 0,
             totalContract: dashboardData.kpi.totalContract || 0,

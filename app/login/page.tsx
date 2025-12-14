@@ -277,7 +277,8 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="new-password"
-                  className="w-full pl-12 pr-12 py-3.5 bg-white/10 border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-[#25D366] transition"
+                  data-password="true"
+                  className="w-full pl-12 pr-12 py-3.5 bg-white/10 border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-[#25D366] transition no-uppercase"
                 />
                 <button
                   type="button"

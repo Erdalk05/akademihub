@@ -13,9 +13,10 @@ interface HeroBannerProps {
     activeStudents: number;
     paymentRate: number;
   };
+  isAllOrganizations?: boolean;
 }
 
-export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerProps) {
+export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizations }: HeroBannerProps) {
   const [isHovering, setIsHovering] = useState(false);
   const { currentUser, isAdmin, isAccounting } = useRole();
   
@@ -89,7 +90,7 @@ export default function HeroBanner({ userName, onAIReport, stats }: HeroBannerPr
                 <span className="text-white/80 text-xs">Toplam Sözleşme</span>
               </div>
               <p className="text-xl font-bold text-white">{formatCurrency(stats.totalContract || 0)}</p>
-              <p className="text-white/50 text-[10px]">Canlı veri</p>
+              <p className="text-white/50 text-[10px]">{isAllOrganizations ? '🌐 Tüm Kurumlar' : 'Canlı veri'}</p>
             </div>
 
             <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">

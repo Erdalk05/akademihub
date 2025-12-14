@@ -22,11 +22,11 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
 
   useEffect(() => {
     fetchTodayStats();
-  }, [academicYear, currentOrganization]);
+  }, [academicYear, currentOrganization, isAllOrganizations]);
 
   const fetchTodayStats = async () => {
     setIsRefreshing(true);
@@ -39,8 +39,8 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
       tomorrow.setDate(tomorrow.getDate() + 1);
       const todayEnd = tomorrow.toISOString();
 
-      // Organization filtresi ekle
-      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      // Organization filtresi ekle (Tüm Kurumlar modunda boş)
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
       const url = `/api/installments?academicYear=${academicYear || ''}${orgParam}`;
       const response = await fetch(url);
       const result = await response.json();

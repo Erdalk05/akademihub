@@ -24,8 +24,10 @@ const TopBar: React.FC = () => {
   const { 
     organizations = [], 
     currentOrganization, 
+    isAllOrganizations,
     fetchOrganizations, 
     switchOrganization,
+    selectAllOrganizations,
     _hasHydrated 
   } = useOrganizationStore();
   
@@ -71,7 +73,7 @@ const TopBar: React.FC = () => {
             >
               <Building2 size={18} />
               <span className="font-medium text-sm max-w-[200px] truncate">
-                {currentOrganization?.name || 'Kurum Seçin'}
+                {isAllOrganizations ? '🌐 Tüm Kurumlar' : (currentOrganization?.name || 'Kurum Seçin')}
               </span>
               <ChevronDown size={16} className={`transition-transform ${showOrgDropdown ? 'rotate-180' : ''}`} />
             </button>
@@ -83,6 +85,32 @@ const TopBar: React.FC = () => {
                   <div className="px-3 py-2 border-b border-gray-100">
                     <p className="text-xs font-semibold text-gray-500 uppercase">Kurumlar</p>
                   </div>
+                  
+                  {/* Tüm Kurumlar Seçeneği */}
+                  <button
+                    onClick={() => {
+                      selectAllOrganizations();
+                      setShowOrgDropdown(false);
+                      window.location.reload();
+                    }}
+                    className={`w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#DCF8C6] transition border-b border-gray-100 ${
+                      isAllOrganizations ? 'bg-[#DCF8C6]' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
+                        🌐
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800">Tüm Kurumlar</p>
+                        <p className="text-xs text-gray-500">Tüm verileri görüntüle</p>
+                      </div>
+                    </div>
+                    {isAllOrganizations && (
+                      <Check size={18} className="text-[#25D366]" />
+                    )}
+                  </button>
+                  
                   {safeOrganizations.map((org) => (
                     <button
                       key={org.id}
@@ -92,7 +120,7 @@ const TopBar: React.FC = () => {
                         window.location.reload(); // Sayfayı yenile
                       }}
                       className={`w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#DCF8C6] transition ${
-                        currentOrganization?.id === org.id ? 'bg-[#DCF8C6]' : ''
+                        currentOrganization?.id === org.id && !isAllOrganizations ? 'bg-[#DCF8C6]' : ''
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -104,7 +132,7 @@ const TopBar: React.FC = () => {
                           <p className="text-xs text-gray-500">{org.slug}</p>
                         </div>
                       </div>
-                      {currentOrganization?.id === org.id && (
+                      {currentOrganization?.id === org.id && !isAllOrganizations && (
                         <Check size={18} className="text-[#25D366]" />
                       )}
                     </button>

@@ -24,17 +24,17 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
   const [stats, setStats] = useState<PendingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
 
   useEffect(() => {
     fetchPendingStats();
-  }, [academicYear, currentOrganization]);
+  }, [academicYear, currentOrganization, isAllOrganizations]);
 
   const fetchPendingStats = async () => {
     setIsRefreshing(true);
     try {
-      // Organization filtresi ekle
-      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      // Organization filtresi ekle (Tüm Kurumlar modunda boş)
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
       const url = `/api/installments?academicYear=${academicYear || ''}${orgParam}`;
       const response = await fetch(url);
       const result = await response.json();

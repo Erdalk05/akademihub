@@ -18,10 +18,22 @@ body {
   min-height: 100vh;
 }
 
-/* Uppercase Inputs */
-input:not([type="checkbox"]):not([type="radio"]):not([type="password"]):not([type="email"]):not([type="date"]):not([type="number"]),
-textarea, select, option {
+/* Uppercase Inputs - Sadece belirli alanlarda */
+input[type="text"]:not(.no-uppercase):not([data-password]),
+textarea:not(.no-uppercase), 
+select, 
+option {
   text-transform: uppercase !important;
+}
+
+/* Şifre alanları ve özel alanlar için uppercase kapatma */
+input[type="password"],
+input[type="email"],
+input[type="date"],
+input[type="number"],
+input.no-uppercase,
+input[data-password="true"] {
+  text-transform: none !important;
 }
 
 input::placeholder, textarea::placeholder {

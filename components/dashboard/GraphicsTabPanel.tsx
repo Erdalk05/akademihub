@@ -27,7 +27,7 @@ export default function GraphicsTabPanel({ academicYear }: GraphicsTabPanelProps
   const [studentTrendData, setStudentTrendData] = useState<StudentTrendData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
 
   // Son 6 ay için veri hesapla
   const calculateMonthlyStats = () => {
@@ -49,12 +49,13 @@ export default function GraphicsTabPanel({ academicYear }: GraphicsTabPanelProps
 
   useEffect(() => {
     fetchData();
-  }, [academicYear, currentOrganization]);
+  }, [academicYear, currentOrganization, isAllOrganizations]);
 
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      // Tüm Kurumlar modunda organization filtresi boş
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       
       // Taksitler ve öğrenci verileri çek
       const [installmentsRes, studentsRes] = await Promise.all([

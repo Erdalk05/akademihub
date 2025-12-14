@@ -72,7 +72,7 @@ function StudentsLoading() {
 function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
   const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents } = usePermission();
   
   // Data
@@ -106,8 +106,8 @@ function StudentsContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Çoklu kurum desteği: organization_id filtresi
-        const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+        // Çoklu kurum desteği: organization_id filtresi (Tüm Kurumlar modunda boş)
+        const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
         const [studentsRes, installmentsRes] = await Promise.all([
           fetch(`/api/students${orgParam ? `?${orgParam}` : ''}`),
           fetch(`/api/installments?academicYear=${selectedYear}${orgParam ? `&${orgParam}` : ''}`)
@@ -173,7 +173,7 @@ function StudentsContent() {
     };
     
     fetchData();
-  }, [selectedYear]);
+  }, [selectedYear, currentOrganization?.id, isAllOrganizations]);
 
   // Filtered & Sorted
   const filteredStudents = useMemo(() => {

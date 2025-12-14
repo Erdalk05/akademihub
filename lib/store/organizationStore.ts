@@ -31,6 +31,7 @@ interface OrganizationStore {
   // State
   organizations: Organization[];
   currentOrganization: Organization | null;
+  isAllOrganizations: boolean; // Tüm kurumlar modu
   isLoading: boolean;
   error: string | null;
   _hasHydrated: boolean;
@@ -41,6 +42,7 @@ interface OrganizationStore {
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
   switchOrganization: (orgId: string) => void;
+  selectAllOrganizations: () => void; // Tüm kurumları seç
   clearOrganization: () => void;
 }
 
@@ -49,6 +51,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
     (set, get) => ({
       organizations: [],
       currentOrganization: null,
+      isAllOrganizations: false,
       isLoading: false,
       error: null,
       _hasHydrated: false,
@@ -59,7 +62,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
       setOrganizations: (orgs) => set({ organizations: orgs }),
 
-      setCurrentOrganization: (org) => set({ currentOrganization: org }),
+      setCurrentOrganization: (org) => set({ currentOrganization: org, isAllOrganizations: false }),
 
       fetchOrganizations: async () => {
         set({ isLoading: true, error: null });
@@ -70,9 +73,10 @@ export const useOrganizationStore = create<OrganizationStore>()(
           if (data.success) {
             set({ organizations: data.data || [], isLoading: false });
             
-            // Eğer current organization yoksa ve veri varsa, ilkini seç
+            // Eğer current organization yoksa ve veri varsa ve tüm kurumlar modu değilse, ilkini seç
             const current = get().currentOrganization;
-            if (!current && data.data?.length > 0) {
+            const isAll = get().isAllOrganizations;
+            if (!current && !isAll && data.data?.length > 0) {
               set({ currentOrganization: data.data[0] });
             }
           } else {
@@ -86,12 +90,16 @@ export const useOrganizationStore = create<OrganizationStore>()(
       switchOrganization: (orgId) => {
         const org = get().organizations.find((o) => o.id === orgId);
         if (org) {
-          set({ currentOrganization: org });
+          set({ currentOrganization: org, isAllOrganizations: false });
         }
       },
 
+      selectAllOrganizations: () => {
+        set({ currentOrganization: null, isAllOrganizations: true });
+      },
+
       clearOrganization: () => {
-        set({ currentOrganization: null, organizations: [] });
+        set({ currentOrganization: null, organizations: [], isAllOrganizations: false });
       },
     }),
     {
@@ -108,6 +116,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
       }),
       partialize: (state) => ({
         currentOrganization: state.currentOrganization,
+        isAllOrganizations: state.isAllOrganizations,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
