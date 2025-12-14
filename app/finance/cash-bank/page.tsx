@@ -200,21 +200,63 @@ export default function CashBankPage() {
 
   // PDF Oluştur
   const generatePDF = () => {
-    const doc = new jsPDF('landscape');
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Başlık
-    doc.setFontSize(18);
-    doc.setTextColor(16, 185, 129);
-    doc.text('Kasa & Banka Raporu', 14, 20);
+    // Başlık Alanı
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, pageWidth, 35, 'F');
     
-    doc.setFontSize(10);
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Kasa & Banka Raporu', 15, 18);
+    
+    doc.setFontSize(11);
+    doc.text(`Olusturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 15, 28);
+    
+    // Özet Kartlar
+    const cardY = 42;
+    const cardHeight = 18;
+    const cardWidth = (pageWidth - 45) / 3;
+    
+    // Toplam Bakiye
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(15, cardY, cardWidth, cardHeight, 3, 3, 'F');
+    doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Olusturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 14, 28);
-    doc.text(`Toplam Bakiye: ${summary.totalBalance.toLocaleString('tr-TR')} TL`, 14, 35);
-    doc.text(`Toplam Gelir: +${summary.periodIncome.toLocaleString('tr-TR')} TL | Toplam Gider: -${summary.periodExpense.toLocaleString('tr-TR')} TL`, 14, 42);
+    doc.text('Toplam Bakiye', 20, cardY + 6);
+    doc.setFontSize(14);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`${summary.totalBalance.toLocaleString('tr-TR')} TL`, 20, cardY + 14);
+    
+    // Toplam Gelir
+    doc.setFillColor(236, 253, 245);
+    doc.roundedRect(20 + cardWidth, cardY, cardWidth, cardHeight, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Toplam Gelir', 25 + cardWidth, cardY + 6);
+    doc.setFontSize(14);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`+${summary.periodIncome.toLocaleString('tr-TR')} TL`, 25 + cardWidth, cardY + 14);
+    
+    // Toplam Gider
+    doc.setFillColor(254, 242, 242);
+    doc.roundedRect(25 + cardWidth * 2, cardY, cardWidth, cardHeight, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Toplam Gider', 30 + cardWidth * 2, cardY + 6);
+    doc.setFontSize(14);
+    doc.setTextColor(239, 68, 68);
+    doc.text(`-${summary.periodExpense.toLocaleString('tr-TR')} TL`, 30 + cardWidth * 2, cardY + 14);
+    
+    // Tablo
+    const tableWidth = pageWidth - 30; // Sağ ve sol 15mm margin
     
     autoTable(doc, {
-      startY: 50,
+      startY: 68,
+      margin: { left: 15, right: 15 },
+      tableWidth: tableWidth,
       head: [['Tarih', 'Ad Soyad', 'Sinif', 'Aciklama', 'Gelir Turu', 'Tip', 'Tutar']],
       body: filteredTransactions.map(t => [
         new Date(t.date).toLocaleDateString('tr-TR'),
@@ -223,53 +265,61 @@ export default function CashBankPage() {
         t.description,
         t.category,
         t.type === 'income' ? 'Gelir' : 'Gider',
-        `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR')} TL`
+        `${t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL`
       ]),
       styles: { 
-        fontSize: 9,
-        cellPadding: 4,
+        fontSize: 10,
+        cellPadding: 6,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1,
       },
       headStyles: { 
         fillColor: [16, 185, 129],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        halign: 'center'
+        halign: 'center',
+        fontSize: 11,
+        cellPadding: 8,
       },
       columnStyles: {
-        0: { cellWidth: 22, halign: 'center' }, // Tarih
-        1: { cellWidth: 40 }, // Ad Soyad
-        2: { cellWidth: 20, halign: 'center' }, // Sınıf
-        3: { cellWidth: 50 }, // Açıklama
-        4: { cellWidth: 30 }, // Gelir Türü
-        5: { cellWidth: 18, halign: 'center' }, // Tip
-        6: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }, // Tutar
+        0: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tarih
+        1: { cellWidth: tableWidth * 0.18 }, // Ad Soyad
+        2: { cellWidth: tableWidth * 0.08, halign: 'center' }, // Sınıf
+        3: { cellWidth: tableWidth * 0.24 }, // Açıklama
+        4: { cellWidth: tableWidth * 0.14 }, // Gelir Türü
+        5: { cellWidth: tableWidth * 0.10, halign: 'center' }, // Tip
+        6: { cellWidth: tableWidth * 0.16, halign: 'right', fontStyle: 'bold' }, // Tutar
       },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      // Gelir/Gider renklendirme
+      alternateRowStyles: { fillColor: [250, 250, 250] },
       didParseCell: (data) => {
         if (data.section === 'body') {
           const row = filteredTransactions[data.row.index];
-          if (data.column.index === 6) { // Tutar sütunu
+          if (data.column.index === 6) {
             data.cell.styles.textColor = row?.type === 'income' ? [16, 185, 129] : [239, 68, 68];
           }
-          if (data.column.index === 5) { // Tip sütunu
+          if (data.column.index === 5) {
             data.cell.styles.textColor = row?.type === 'income' ? [16, 185, 129] : [239, 68, 68];
           }
         }
       }
     });
     
-    // Alt bilgi
+    // Alt bilgi - her sayfada
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(150);
       doc.text(
-        `Sayfa ${i} / ${pageCount} - AkademiHub Egitim Kurumlari Yonetim Sistemi`,
-        doc.internal.pageSize.getWidth() / 2,
-        doc.internal.pageSize.getHeight() - 10,
-        { align: 'center' }
+        `Sayfa ${i} / ${pageCount}`,
+        15,
+        pageHeight - 10
+      );
+      doc.text(
+        'AkademiHub Egitim Kurumlari Yonetim Sistemi',
+        pageWidth - 15,
+        pageHeight - 10,
+        { align: 'right' }
       );
     }
     
