@@ -25,14 +25,15 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 // ⚠️ SADECE ADMIN ROLÜ GÜNCELLEYEBİLİR!
 export async function PATCH(req: NextRequest) {
   try {
-    // ========= ADMIN YETKİ KONTROLÜ =========
-    const userRole = req.headers.get('X-User-Role');
+    // ========= ADMIN/ACCOUNTING YETKİ KONTROLÜ =========
+    const userRole = req.headers.get('X-User-Role') || '';
+    const allowedRoles = ['admin', 'super_admin', 'accounting', 'accountant'];
     
-    if (!userRole || userRole.toLowerCase() !== 'admin') {
+    if (!allowedRoles.includes(userRole.toLowerCase())) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Bu işlem için yetkiniz yok. Sadece admin kullanıcılar ödeme bilgilerini güncelleyebilir.' 
+          error: 'Bu işlem için yetkiniz yok. Sadece admin ve muhasebe kullanıcıları ödeme bilgilerini güncelleyebilir.' 
         },
         { status: 403 }
       );

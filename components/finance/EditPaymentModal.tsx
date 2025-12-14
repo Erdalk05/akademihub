@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { X, CheckCircle2, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
+import { useRole } from '@/lib/contexts/RoleContext';
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export default function EditPaymentModal({ isOpen, onClose, installment, student
   
   const [isSubmitting, startTransition] = useTransition();
   const { showToast, ToastContainer } = useToast();
+  const { currentUser } = useRole();
 
   useEffect(() => {
     if (installment) {
@@ -46,7 +48,10 @@ export default function EditPaymentModal({ isOpen, onClose, installment, student
         // Let's use a dedicated update endpoint to be safe.
         const res = await fetch('/api/installments/update', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-User-Role': currentUser?.role || ''
+          },
           body: JSON.stringify({
             installment_id: installment.id,
             paid_amount: newAmount,
@@ -80,7 +85,10 @@ export default function EditPaymentModal({ isOpen, onClose, installment, student
         try {
           const res = await fetch('/api/installments/update', {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-User-Role': currentUser?.role || ''
+            },
             body: JSON.stringify({
               installment_id: installment.id,
               paid_amount: 0,
