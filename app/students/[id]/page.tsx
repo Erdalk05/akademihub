@@ -501,7 +501,7 @@ export default function StudentDetailPage() {
           <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-lg p-1">
             <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-white">
               <User className="w-4 h-4" />
-              <span>Genel Bakış</span>
+              <span>Öğrenci Kartı</span>
             </TabsTrigger>
             <TabsTrigger value="finance" className="flex items-center gap-2 data-[state=active]:bg-white">
               <Wallet className="w-4 h-4" />
