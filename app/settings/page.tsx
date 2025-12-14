@@ -598,6 +598,62 @@ function SettingsPageContent() {
     }
   };
 
+  // Kullanıcı yetki değişikliği handler
+  const handleUserPermissionChange = (
+    module: 'finance' | 'students' | 'reports',
+    permission: 'view' | 'edit' | 'delete',
+    value: boolean
+  ) => {
+    if (!selectedUser) return;
+    
+    const updatedPermissions = {
+      ...selectedUser.permissions,
+      [module]: {
+        ...selectedUser.permissions?.[module],
+        [permission]: value
+      }
+    };
+    
+    // selectedUser'ı güncelle
+    setSelectedUser({
+      ...selectedUser,
+      permissions: updatedPermissions
+    });
+    
+    // users listesini de güncelle
+    setUsers(users.map(u => 
+      u.id === selectedUser.id 
+        ? { ...u, permissions: updatedPermissions }
+        : u
+    ));
+  };
+
+  // Kullanıcı yetkilerini kaydet
+  const handleSaveUserPermissions = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      const res = await fetch('/api/settings/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedUser.id,
+          permissions: selectedUser.permissions
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success(`${selectedUser.name} yetkileri güncellendi!`);
+      } else {
+        toast.error(data.error || 'Yetki kaydetme hatası');
+      }
+    } catch (error) {
+      toast.error('Yetki kaydetme hatası');
+    }
+  };
+
   // Genel ayarları kaydet
   const handleSave = async () => {
     setIsSaving(true);
@@ -627,6 +683,11 @@ function SettingsPageContent() {
         } catch (e) {
           console.log('Role permissions updated in localStorage only');
         }
+      }
+      
+      // 4. Seçili kullanıcının yetkilerini kaydet
+      if (selectedUser) {
+        await handleSaveUserPermissions();
       }
       
       if (data.success) {
@@ -1570,41 +1631,97 @@ function SettingsPageContent() {
                                       <tr>
                                         <td className="py-2.5 px-3 font-medium text-slate-700">💰 Finans</td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.finance?.view} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.finance?.view || false} 
+                                            onChange={(e) => handleUserPermissionChange('finance', 'view', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.finance?.edit} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.finance?.edit || false} 
+                                            onChange={(e) => handleUserPermissionChange('finance', 'edit', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.finance?.delete} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.finance?.delete || false} 
+                                            onChange={(e) => handleUserPermissionChange('finance', 'delete', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                       </tr>
                                       <tr>
                                         <td className="py-2.5 px-3 font-medium text-slate-700">👥 Öğrenciler</td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.students?.view} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.students?.view || false} 
+                                            onChange={(e) => handleUserPermissionChange('students', 'view', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.students?.edit} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.students?.edit || false} 
+                                            onChange={(e) => handleUserPermissionChange('students', 'edit', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.students?.delete} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.students?.delete || false} 
+                                            onChange={(e) => handleUserPermissionChange('students', 'delete', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                       </tr>
                                       <tr>
                                         <td className="py-2.5 px-3 font-medium text-slate-700">📊 Raporlar</td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.reports?.view} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.reports?.view || false} 
+                                            onChange={(e) => handleUserPermissionChange('reports', 'view', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.reports?.edit} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.reports?.edit || false} 
+                                            onChange={(e) => handleUserPermissionChange('reports', 'edit', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                         <td className="py-2.5 px-2 text-center">
-                                          <input type="checkbox" checked={selectedUser.permissions?.reports?.delete} readOnly className="w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedUser.permissions?.reports?.delete || false} 
+                                            onChange={(e) => handleUserPermissionChange('reports', 'delete', e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer focus:ring-indigo-500" 
+                                          />
                                         </td>
                                       </tr>
                                     </tbody>
                                   </table>
+                                </div>
+                                
+                                {/* Yetkileri Kaydet Butonu */}
+                                <div className="mt-4 flex justify-end">
+                                  <button
+                                    onClick={handleSaveUserPermissions}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors text-sm"
+                                  >
+                                    <Save size={16} />
+                                    Yetkileri Kaydet
+                                  </button>
                                 </div>
                               </div>
                             </>
