@@ -36,6 +36,7 @@ interface NavItem {
   superAdminOnly?: boolean; // Sadece Franchise Sahibi görebilir
   adminOnly?: boolean; // Sadece admin görebilir
   accountingOrAdmin?: boolean; // Admin veya muhasebe görebilir
+  hideForSuperAdmin?: boolean; // Franchise Sahibi görmez (kurum işlemleri)
 }
 
 const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
@@ -80,11 +81,13 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       label: 'Dashboard',
       href: '/dashboard',
       icon: <LayoutDashboard size={20} />,
+      hideForSuperAdmin: true, // Franchise yöneticisi görmez
     },
     {
       label: 'Ogrenciler',
       href: '/students',
       icon: <Users size={20} />,
+      hideForSuperAdmin: true, // Franchise yöneticisi görmez
       submenu: [
         { label: 'Tum Ogrenciler', href: '/students', icon: <Users size={16} /> },
         { label: 'Yeni Kayit', href: '/enrollment', icon: <UserPlus size={16} /> },
@@ -94,7 +97,8 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       label: 'Finans',
       href: '/finance',
       icon: <Wallet size={20} />,
-      accountingOrAdmin: true, // Admin veya muhasebe görebilir
+      accountingOrAdmin: true,
+      hideForSuperAdmin: true, // Franchise yöneticisi görmez
       submenu: [
         { label: 'Genel Bakis', href: '/finance', icon: <TrendingUp size={16} /> },
         { label: 'Tahsilatlar', href: '/finance/payments', icon: <CreditCard size={16} /> },
@@ -107,7 +111,8 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       label: 'Raporlar',
       href: '/finance/reports',
       icon: <PieChart size={20} />,
-      accountingOrAdmin: true, // Admin veya muhasebe görebilir
+      accountingOrAdmin: true,
+      hideForSuperAdmin: true, // Franchise yöneticisi görmez
       submenu: [
         { label: 'Kurucu Raporu', href: '/finance/reports/founder', icon: <BarChart3 size={16} />, adminOnly: true },
         { label: 'Finansal Raporlar', href: '/finance/reports', icon: <TrendingUp size={16} /> },
@@ -119,15 +124,19 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       label: 'Ayarlar',
       href: '/settings',
       icon: <Settings size={20} />,
-      adminOnly: true, // Sadece admin görebilir
+      adminOnly: true, // Sadece admin görebilir (Super Admin dahil)
     },
   ];
 
-  // Rol bazlı filtreleme - useMemo kaldırıldı
+  // Rol bazlı filtreleme
   const navigationItems = allNavigationItems
     .filter(item => {
-      // Super Admin her şeyi görebilir
-      if (isSuperAdmin) return true;
+      // Super Admin için özel filtreleme
+      if (isSuperAdmin) {
+        // Super Admin sadece Franchise Paneli ve Ayarlar görmeli
+        if (item.hideForSuperAdmin) return false;
+        return true;
+      }
       // Super Admin only öğeler sadece super admin için
       if (item.superAdminOnly) return false;
       if (isAdmin) return true;

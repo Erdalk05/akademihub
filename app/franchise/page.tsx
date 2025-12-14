@@ -208,10 +208,10 @@ export default function FranchiseDashboardPage() {
   // Yükleniyor
   if (permissionLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#075E54] via-[#128C7E] to-[#075E54] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-16 h-16 animate-spin text-purple-400 mx-auto mb-4" />
-          <p className="text-purple-200 text-lg">Franchise verileri yükleniyor...</p>
+          <Loader2 className="w-16 h-16 animate-spin text-[#25D366] mx-auto mb-4" />
+          <p className="text-emerald-200 text-lg">Franchise verileri yükleniyor...</p>
         </div>
       </div>
     );
@@ -246,15 +246,15 @@ export default function FranchiseDashboardPage() {
           {/* Toplam Kurum */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-14 h-14 bg-purple-500/30 rounded-xl flex items-center justify-center">
-                <Building2 className="w-7 h-7 text-purple-300" />
+              <div className="w-14 h-14 bg-emerald-500/30 rounded-xl flex items-center justify-center">
+                <Building2 className="w-7 h-7 text-emerald-200" />
               </div>
-              <span className="text-xs font-medium text-purple-300 bg-purple-500/20 px-3 py-1 rounded-full">
+              <span className="text-xs font-medium text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">
                 Aktif
               </span>
             </div>
             <p className="text-4xl font-bold text-white">{consolidated.totalOrganizations}</p>
-            <p className="text-purple-200 mt-1">Toplam Kurum</p>
+            <p className="text-emerald-100 mt-1">Toplam Kurum</p>
           </div>
 
           {/* Toplam Öğrenci */}
@@ -316,24 +316,24 @@ export default function FranchiseDashboardPage() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-xl flex items-center justify-center text-white font-bold text-lg">
                     {org.name.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <h3 className="font-semibold text-white">{org.name}</h3>
-                    <p className="text-xs text-purple-300">{org.activeStudents} öğrenci</p>
+                    <p className="text-xs text-emerald-200">{org.activeStudents} öğrenci</p>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-purple-300 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-5 h-5 text-emerald-200 group-hover:translate-x-1 transition-transform" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/5 rounded-lg p-3">
-                  <p className="text-xs text-purple-300">Tahsilat</p>
+                  <p className="text-xs text-emerald-200">Tahsilat</p>
                   <p className="text-sm font-semibold text-emerald-400">{formatCurrency(org.collectedAmount)}</p>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3">
-                  <p className="text-xs text-purple-300">Oran</p>
+                  <p className="text-xs text-emerald-200">Oran</p>
                   <p className={`text-sm font-semibold ${org.collectionRate >= 70 ? 'text-emerald-400' : org.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                     %{org.collectionRate.toFixed(1)}
                   </p>
@@ -372,7 +372,7 @@ export default function FranchiseDashboardPage() {
         <h2 className="text-xl font-bold text-white">Tüm Kurumlar</h2>
         <button 
           onClick={() => router.push('/settings?tab=organizations')}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#128C7E] text-white rounded-xl hover:bg-purple-700 transition"
         >
           <Plus className="w-4 h-4" />
           Yeni Kurum Ekle
@@ -383,12 +383,12 @@ export default function FranchiseDashboardPage() {
         <table className="w-full">
           <thead className="bg-white/5">
             <tr>
-              <th className="text-left p-4 text-purple-300 font-medium">Kurum</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Öğrenci</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Tahsilat</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Oran</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Kullanıcı</th>
-              <th className="text-left p-4 text-purple-300 font-medium">İşlemler</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Kurum</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Öğrenci</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Tahsilat</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Oran</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Kullanıcı</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">İşlemler</th>
             </tr>
           </thead>
           <tbody>
@@ -396,12 +396,12 @@ export default function FranchiseDashboardPage() {
               <tr key={org.id} className={`border-t border-white/10 hover:bg-white/5 ${idx % 2 === 0 ? 'bg-white/[0.02]' : ''}`}>
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-lg flex items-center justify-center text-white font-bold text-sm">
                       {org.name.substring(0, 2).toUpperCase()}
                     </div>
               <div>
                       <p className="text-white font-medium">{org.name}</p>
-                      <p className="text-purple-300 text-xs">/login/{org.slug}</p>
+                      <p className="text-emerald-200 text-xs">/login/{org.slug}</p>
                     </div>
                   </div>
                 </td>
@@ -421,14 +421,14 @@ export default function FranchiseDashboardPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleGoToOrganization(org)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition text-purple-300 hover:text-white"
+                      className="p-2 hover:bg-white/10 rounded-lg transition text-emerald-200 hover:text-white"
                       title="Kuruma Git"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => router.push(`/settings?tab=users&org=${org.id}`)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition text-purple-300 hover:text-white"
+                      className="p-2 hover:bg-white/10 rounded-lg transition text-emerald-200 hover:text-white"
                       title="Kullanıcıları Yönet"
                     >
                       <Users className="w-4 h-4" />
@@ -438,7 +438,7 @@ export default function FranchiseDashboardPage() {
                         setSelectedOrg(org);
                         setShowOrgModal(true);
                       }}
-                      className="p-2 hover:bg-white/10 rounded-lg transition text-purple-300 hover:text-white"
+                      className="p-2 hover:bg-white/10 rounded-lg transition text-emerald-200 hover:text-white"
                       title="Detay"
                     >
                       <MoreVertical className="w-4 h-4" />
@@ -471,7 +471,7 @@ export default function FranchiseDashboardPage() {
                 idx === 0 ? 'bg-amber-500 text-white' :
                 idx === 1 ? 'bg-slate-400 text-white' :
                 idx === 2 ? 'bg-amber-700 text-white' :
-                'bg-white/10 text-purple-300'
+                'bg-white/10 text-emerald-200'
               }`}>
                 {idx + 1}
               </div>
@@ -507,39 +507,39 @@ export default function FranchiseDashboardPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/20">
-                <th className="text-left p-3 text-purple-300">Metrik</th>
+                <th className="text-left p-3 text-emerald-200">Metrik</th>
                 {orgStats.map(org => (
-                  <th key={org.id} className="text-center p-3 text-purple-300">{org.name}</th>
+                  <th key={org.id} className="text-center p-3 text-emerald-200">{org.name}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-white/10">
-                <td className="p-3 text-purple-200">Öğrenci Sayısı</td>
+                <td className="p-3 text-emerald-100">Öğrenci Sayısı</td>
                 {orgStats.map(org => (
                   <td key={org.id} className="text-center p-3 text-white font-medium">{org.activeStudents}</td>
                 ))}
               </tr>
               <tr className="border-b border-white/10">
-                <td className="p-3 text-purple-200">Toplam Gelir</td>
+                <td className="p-3 text-emerald-100">Toplam Gelir</td>
                 {orgStats.map(org => (
                   <td key={org.id} className="text-center p-3 text-white font-medium">{formatCurrency(org.totalRevenue)}</td>
                 ))}
               </tr>
               <tr className="border-b border-white/10">
-                <td className="p-3 text-purple-200">Tahsilat</td>
+                <td className="p-3 text-emerald-100">Tahsilat</td>
                 {orgStats.map(org => (
                   <td key={org.id} className="text-center p-3 text-emerald-400 font-medium">{formatCurrency(org.collectedAmount)}</td>
                 ))}
               </tr>
               <tr className="border-b border-white/10">
-                <td className="p-3 text-purple-200">Gecikmiş</td>
+                <td className="p-3 text-emerald-100">Gecikmiş</td>
                 {orgStats.map(org => (
                   <td key={org.id} className="text-center p-3 text-red-400 font-medium">{formatCurrency(org.overdueAmount)}</td>
                 ))}
               </tr>
               <tr>
-                <td className="p-3 text-purple-200">Tahsilat Oranı</td>
+                <td className="p-3 text-emerald-100">Tahsilat Oranı</td>
                 {orgStats.map(org => (
                   <td key={org.id} className={`text-center p-3 font-bold ${
                     org.collectionRate >= 70 ? 'text-emerald-400' : 
@@ -563,7 +563,7 @@ export default function FranchiseDashboardPage() {
         <h2 className="text-xl font-bold text-white">Tüm Kullanıcılar ({allUsers.length})</h2>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
             <input
               type="text"
               placeholder="Ara..."
@@ -589,11 +589,11 @@ export default function FranchiseDashboardPage() {
         <table className="w-full">
           <thead className="bg-white/5">
             <tr>
-              <th className="text-left p-4 text-purple-300 font-medium">Kullanıcı</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Kurum</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Rol</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Durum</th>
-              <th className="text-left p-4 text-purple-300 font-medium">Son Giriş</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Kullanıcı</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Kurum</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Rol</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Durum</th>
+              <th className="text-left p-4 text-emerald-200 font-medium">Son Giriş</th>
             </tr>
           </thead>
           <tbody>
@@ -601,19 +601,19 @@ export default function FranchiseDashboardPage() {
               <tr key={user.id} className={`border-t border-white/10 hover:bg-white/5`}>
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#128C7E] to-[#075E54] rounded-full flex items-center justify-center text-white font-bold text-sm">
                       {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
                       <p className="text-white font-medium">{user.name}</p>
-                      <p className="text-purple-300 text-xs">{user.email}</p>
+                      <p className="text-emerald-200 text-xs">{user.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="p-4 text-purple-200">{user.organization_name || '-'}</td>
+                <td className="p-4 text-emerald-100">{user.organization_name || '-'}</td>
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.role === 'admin' ? 'bg-purple-500/20 text-purple-300' :
+                    user.role === 'admin' ? 'bg-emerald-500/20 text-emerald-200' :
                     user.role === 'accounting' ? 'bg-emerald-500/20 text-emerald-300' :
                     'bg-blue-500/20 text-blue-300'
                   }`}>
@@ -627,7 +627,7 @@ export default function FranchiseDashboardPage() {
                     {user.status === 'active' ? 'Aktif' : 'Pasif'}
                   </span>
                 </td>
-                <td className="p-4 text-purple-300 text-sm">
+                <td className="p-4 text-emerald-200 text-sm">
                   {user.last_login ? formatDate(user.last_login) : 'Hiç giriş yapmadı'}
                 </td>
               </tr>
@@ -650,7 +650,7 @@ export default function FranchiseDashboardPage() {
             <FileText className="w-6 h-6 text-blue-300" />
           </div>
           <h3 className="text-white font-semibold mb-2">Finansal Özet Raporu</h3>
-          <p className="text-purple-300 text-sm mb-4">Tüm kurumların finansal durumu</p>
+          <p className="text-emerald-200 text-sm mb-4">Tüm kurumların finansal durumu</p>
           <button className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm">
             <Download className="w-4 h-4" />
             Excel İndir
@@ -662,7 +662,7 @@ export default function FranchiseDashboardPage() {
             <BarChart3 className="w-6 h-6 text-emerald-300" />
           </div>
           <h3 className="text-white font-semibold mb-2">Tahsilat Raporu</h3>
-          <p className="text-purple-300 text-sm mb-4">Kurum bazlı tahsilat analizi</p>
+          <p className="text-emerald-200 text-sm mb-4">Kurum bazlı tahsilat analizi</p>
           <button className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm">
             <Download className="w-4 h-4" />
             PDF İndir
@@ -674,7 +674,7 @@ export default function FranchiseDashboardPage() {
             <Users className="w-6 h-6 text-amber-300" />
           </div>
           <h3 className="text-white font-semibold mb-2">Öğrenci Raporu</h3>
-          <p className="text-purple-300 text-sm mb-4">Kayıt ve durum analizi</p>
+          <p className="text-emerald-200 text-sm mb-4">Kayıt ve durum analizi</p>
           <button className="flex items-center gap-2 text-amber-400 hover:text-amber-300 text-sm">
             <Download className="w-4 h-4" />
             Excel İndir
@@ -686,7 +686,7 @@ export default function FranchiseDashboardPage() {
             <AlertTriangle className="w-6 h-6 text-red-300" />
           </div>
           <h3 className="text-white font-semibold mb-2">Gecikmiş Ödemeler</h3>
-          <p className="text-purple-300 text-sm mb-4">Tüm gecikmiş ödemeler listesi</p>
+          <p className="text-emerald-200 text-sm mb-4">Tüm gecikmiş ödemeler listesi</p>
           <button className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm">
             <Download className="w-4 h-4" />
             Excel İndir
@@ -694,24 +694,24 @@ export default function FranchiseDashboardPage() {
         </div>
 
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition cursor-pointer">
-          <div className="w-12 h-12 bg-purple-500/30 rounded-xl flex items-center justify-center mb-4">
-            <Target className="w-6 h-6 text-purple-300" />
+          <div className="w-12 h-12 bg-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
+            <Target className="w-6 h-6 text-emerald-200" />
           </div>
           <h3 className="text-white font-semibold mb-2">Performans Raporu</h3>
-          <p className="text-purple-300 text-sm mb-4">Kurum karşılaştırma raporu</p>
-          <button className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm">
+          <p className="text-emerald-200 text-sm mb-4">Kurum karşılaştırma raporu</p>
+          <button className="flex items-center gap-2 text-emerald-400 hover:text-emerald-200 text-sm">
             <Download className="w-4 h-4" />
             PDF İndir
           </button>
         </div>
 
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition cursor-pointer">
-          <div className="w-12 h-12 bg-indigo-500/30 rounded-xl flex items-center justify-center mb-4">
-            <Calendar className="w-6 h-6 text-indigo-300" />
+          <div className="w-12 h-12 bg-teal-500/30 rounded-xl flex items-center justify-center mb-4">
+            <Calendar className="w-6 h-6 text-teal-300" />
           </div>
           <h3 className="text-white font-semibold mb-2">Aylık Rapor</h3>
-          <p className="text-purple-300 text-sm mb-4">Bu ay özet raporu</p>
-          <button className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm">
+          <p className="text-emerald-200 text-sm mb-4">Bu ay özet raporu</p>
+          <button className="flex items-center gap-2 text-teal-400 hover:text-teal-300 text-sm">
             <Download className="w-4 h-4" />
             PDF İndir
           </button>
@@ -725,19 +725,19 @@ export default function FranchiseDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-white/5 rounded-xl">
               <p className="text-3xl font-bold text-white">{consolidated.totalOrganizations}</p>
-              <p className="text-purple-300 text-sm">Kurum</p>
+              <p className="text-emerald-200 text-sm">Kurum</p>
             </div>
             <div className="text-center p-4 bg-white/5 rounded-xl">
               <p className="text-3xl font-bold text-white">{consolidated.totalStudents}</p>
-              <p className="text-purple-300 text-sm">Öğrenci</p>
+              <p className="text-emerald-200 text-sm">Öğrenci</p>
             </div>
             <div className="text-center p-4 bg-white/5 rounded-xl">
               <p className="text-3xl font-bold text-emerald-400">{formatCurrency(consolidated.totalCollected)}</p>
-              <p className="text-purple-300 text-sm">Tahsilat</p>
+              <p className="text-emerald-200 text-sm">Tahsilat</p>
             </div>
             <div className="text-center p-4 bg-white/5 rounded-xl">
               <p className="text-3xl font-bold text-amber-400">%{consolidated.avgCollectionRate.toFixed(1)}</p>
-              <p className="text-purple-300 text-sm">Ort. Tahsilat Oranı</p>
+              <p className="text-emerald-200 text-sm">Ort. Tahsilat Oranı</p>
             </div>
           </div>
         </div>
@@ -746,18 +746,18 @@ export default function FranchiseDashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-[#075E54] via-[#128C7E] to-[#075E54]">
       {/* Header */}
       <div className="bg-white/5 backdrop-blur-lg border-b border-white/10 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-xl flex items-center justify-center">
                 <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <div>
+              </div>
+              <div>
                 <h1 className="text-2xl font-bold text-white">Franchise Yönetim Paneli</h1>
-                <p className="text-purple-300 text-sm">Tüm kurumlarınızı tek noktadan yönetin</p>
+                <p className="text-emerald-200 text-sm">Tüm kurumlarınızı tek noktadan yönetin</p>
               </div>
             </div>
             <button
@@ -786,8 +786,8 @@ export default function FranchiseDashboardPage() {
                 onClick={() => setActiveTab(tab.id as TabType)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl transition whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white/5 text-purple-300 hover:bg-white/10 hover:text-white'
+                    ? 'bg-[#25D366] text-white'
+                    : 'bg-white/5 text-emerald-200 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -809,19 +809,19 @@ export default function FranchiseDashboardPage() {
           <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20">
             <div className="p-6 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-xl flex items-center justify-center text-white font-bold">
                   {selectedOrg.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">{selectedOrg.name}</h2>
-                  <p className="text-purple-300 text-sm">/login/{selectedOrg.slug}</p>
+                  <p className="text-emerald-200 text-sm">/login/{selectedOrg.slug}</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowOrgModal(false)}
                 className="p-2 hover:bg-white/10 rounded-lg transition"
               >
-                <X className="w-5 h-5 text-purple-300" />
+                <X className="w-5 h-5 text-emerald-200" />
               </button>
             </div>
 
@@ -829,19 +829,19 @@ export default function FranchiseDashboardPage() {
               {/* İstatistikler */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 rounded-xl p-4">
-                  <p className="text-purple-300 text-sm">Öğrenci Sayısı</p>
+                  <p className="text-emerald-200 text-sm">Öğrenci Sayısı</p>
                   <p className="text-2xl font-bold text-white">{selectedOrg.activeStudents}</p>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4">
-                  <p className="text-purple-300 text-sm">Kullanıcı Sayısı</p>
+                  <p className="text-emerald-200 text-sm">Kullanıcı Sayısı</p>
                   <p className="text-2xl font-bold text-white">{selectedOrg.userCount}</p>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4">
-                  <p className="text-purple-300 text-sm">Toplam Tahsilat</p>
+                  <p className="text-emerald-200 text-sm">Toplam Tahsilat</p>
                   <p className="text-2xl font-bold text-emerald-400">{formatCurrency(selectedOrg.collectedAmount)}</p>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4">
-                  <p className="text-purple-300 text-sm">Tahsilat Oranı</p>
+                  <p className="text-emerald-200 text-sm">Tahsilat Oranı</p>
                   <p className={`text-2xl font-bold ${
                     selectedOrg.collectionRate >= 70 ? 'text-emerald-400' : 
                     selectedOrg.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'
@@ -856,19 +856,19 @@ export default function FranchiseDashboardPage() {
                 <h3 className="text-white font-semibold mb-3">Finansal Detaylar</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-purple-300">Toplam Gelir</span>
+                    <span className="text-emerald-200">Toplam Gelir</span>
                     <span className="text-white font-medium">{formatCurrency(selectedOrg.totalRevenue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-purple-300">Tahsil Edilen</span>
+                    <span className="text-emerald-200">Tahsil Edilen</span>
                     <span className="text-emerald-400 font-medium">{formatCurrency(selectedOrg.collectedAmount)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-purple-300">Bekleyen</span>
+                    <span className="text-emerald-200">Bekleyen</span>
                     <span className="text-amber-400 font-medium">{formatCurrency(selectedOrg.pendingAmount)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-purple-300">Gecikmiş</span>
+                    <span className="text-emerald-200">Gecikmiş</span>
                     <span className="text-red-400 font-medium">{formatCurrency(selectedOrg.overdueAmount)}</span>
                   </div>
                 </div>
@@ -878,7 +878,7 @@ export default function FranchiseDashboardPage() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => handleGoToOrganization(selectedOrg)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#128C7E] text-white rounded-xl hover:bg-purple-700 transition"
                 >
                   <Eye className="w-4 h-4" />
                   Kuruma Git
