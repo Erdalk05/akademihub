@@ -5,7 +5,7 @@ import { X, CreditCard, Banknote, Building, Printer, MessageSquare, Calculator, 
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
 
-// Makbuz yazdırma fonksiyonu
+// Makbuz yazdırma fonksiyonu - Profesyonel Format
 function printReceiptDocument(payment: {
   id: string;
   studentName: string;
@@ -14,36 +14,26 @@ function printReceiptDocument(payment: {
   paymentMethod: string;
   installmentNo?: number;
 }) {
-  const receiptNo = `MKB-${new Date().getFullYear()}-${payment.id.slice(0, 8).toUpperCase()}`;
+  const docNo = `#${payment.id.slice(0, 8).toUpperCase()}`;
+  const currentDateTime = new Date().toLocaleString('tr-TR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
   const formattedDate = payment.paymentDate.toLocaleDateString('tr-TR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
+    day: '2-digit', month: '2-digit', year: 'numeric',
   });
   
   const methodLabels: Record<string, string> = {
-    cash: 'Nakit',
-    card: 'Kredi Kartı',
-    bank: 'Havale/EFT',
-    bank_transfer: 'Banka Havalesi',
-    eft: 'EFT',
-    credit_card: 'Kredi Kartı',
-    check: 'Çek',
+    cash: 'Nakit', card: 'Kredi Kartı', bank: 'Havale/EFT',
+    bank_transfer: 'Banka Havalesi', eft: 'EFT', credit_card: 'Kredi Kartı', check: 'Çek',
   };
+  const installmentLabel = payment.installmentNo ? `#${payment.installmentNo}` : '-';
 
   const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = 'none';
-  iframe.style.left = '-9999px';
+  iframe.style.cssText = 'position:absolute;width:0;height:0;border:none;left:-9999px';
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document;
-  if (!doc) {
-    document.body.removeChild(iframe);
-    return;
-  }
+  if (!doc) { document.body.removeChild(iframe); return; }
 
   doc.open();
   doc.write(`
@@ -52,91 +42,68 @@ function printReceiptDocument(payment: {
     <head>
       <title>Tahsilat Makbuzu - ${payment.studentName}</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: white; color: black; }
-        .receipt { max-width: 400px; margin: 0 auto; border: 2px solid #333; padding: 24px; }
-        .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 16px; margin-bottom: 16px; }
-        .header h1 { font-size: 24px; color: #075E54; }
-        .header p { font-size: 12px; color: #666; margin-top: 4px; }
-        .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { color: #666; font-size: 13px; }
-        .info-value { font-weight: 600; font-size: 14px; }
-        .amount-section { background: #e8f5e9; padding: 16px; margin: 16px 0; border-radius: 8px; text-align: center; border: 1px solid #4caf50; }
-        .amount { font-size: 32px; font-weight: 700; color: #059669; }
-        .footer { text-align: center; font-size: 11px; color: #666; margin-top: 16px; padding-top: 16px; border-top: 2px dashed #333; }
-        @media print { 
-          @page { size: 80mm auto; margin: 5mm; }
-          body { padding: 0; } 
-          .receipt { border: none; max-width: 100%; } 
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',Arial,sans-serif;padding:40px;background:#fff;color:#1a1a1a;font-size:14px}
+        .receipt{max-width:600px;margin:0 auto}
+        .header-top{display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:30px}
+        .brand{text-align:center;margin-bottom:10px}
+        .brand h1{font-size:28px;color:#059669;font-weight:700}
+        .title{text-align:center;font-size:16px;font-weight:600;color:#374151;letter-spacing:2px;margin-bottom:8px}
+        .doc-no{text-align:center;font-size:13px;color:#6b7280;margin-bottom:25px}
+        hr{border:none;border-top:1px solid #e5e7eb;margin:20px 0}
+        .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
+        .info-label{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+        .info-value{font-size:15px;font-weight:600;color:#1f2937}
+        .amount-box{border:2px solid #059669;border-radius:8px;padding:25px;text-align:center;margin:30px 0}
+        .amount-label{font-size:12px;color:#059669;font-weight:500;letter-spacing:1px;margin-bottom:8px}
+        .amount-value{font-size:32px;font-weight:700;color:#059669}
+        .signatures{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin:40px 0 30px}
+        .sig-item{text-align:center}
+        .sig-label{font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px}
+        .sig-name{font-size:14px;font-weight:600;color:#374151;margin-bottom:25px}
+        .sig-line{border-bottom:1px solid #d1d5db;width:80%;margin:0 auto}
+        .footer{text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb}
+        .footer p{font-size:11px;color:#9ca3af;line-height:1.6}
+        .footer .green{font-weight:600;color:#059669}
+        @media print{@page{size:A5;margin:15mm}body{padding:0}}
       </style>
     </head>
     <body>
       <div class="receipt">
-        <div class="header">
-          <h1>AkademiHub</h1>
-          <p>Eğitim Yönetim Sistemi</p>
-          <p style="font-size: 14px; font-weight: 600; margin-top: 8px;">TAHSİLAT MAKBUZU</p>
+        <div class="header-top"><span>${currentDateTime}</span><span>Tahsilat Makbuzu - ${payment.studentName}</span></div>
+        <div class="brand"><h1>AkademiHub</h1></div>
+        <div class="title">TAHSİLAT MAKBUZU</div>
+        <div class="doc-no">Belge No: ${docNo}</div>
+        <hr>
+        <div class="info-grid">
+          <div><div class="info-label">Öğrenci Adı Soyadı</div><div class="info-value">${payment.studentName}</div></div>
+          <div style="text-align:right"><div class="info-label">Tarih</div><div class="info-value">${formattedDate}</div></div>
+          <div><div class="info-label">Ödeme Yapan</div><div class="info-value">Sayın Veli</div></div>
+          <div style="text-align:right"><div class="info-label">Ödeme Yöntemi</div><div class="info-value">${methodLabels[payment.paymentMethod] || payment.paymentMethod || 'Belirtilmedi'}</div></div>
+          <div></div>
+          <div style="text-align:right"><div class="info-label">Taksit No</div><div class="info-value">${installmentLabel}</div></div>
         </div>
-        <div>
-          <div class="info-row">
-            <span class="info-label">Makbuz No</span>
-            <span class="info-value">${receiptNo}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Tarih</span>
-            <span class="info-value">${formattedDate}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Öğrenci</span>
-            <span class="info-value">${payment.studentName}</span>
-          </div>
-          ${payment.installmentNo ? `
-          <div class="info-row">
-            <span class="info-label">Taksit No</span>
-            <span class="info-value">${payment.installmentNo}. Taksit</span>
-          </div>
-          ` : ''}
-          <div class="info-row">
-            <span class="info-label">Ödeme Yöntemi</span>
-            <span class="info-value">${methodLabels[payment.paymentMethod] || payment.paymentMethod}</span>
-          </div>
+        <div class="amount-box">
+          <div class="amount-label">Tahsil Edilen Tutar</div>
+          <div class="amount-value">₺${payment.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
-        <div class="amount-section">
-          <p style="font-size: 12px; color: #059669; font-weight: 500; margin-bottom: 4px;">TAHSİL EDİLEN TUTAR</p>
-          <p class="amount">₺${payment.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
+        <div class="signatures">
+          <div class="sig-item"><div class="sig-label">Teslim Alan</div><div class="sig-name">Muhasebe Birimi</div><div class="sig-line"></div></div>
+          <div class="sig-item"><div class="sig-label">Teslim Eden</div><div class="sig-name">${payment.studentName} / Veli</div><div class="sig-line"></div></div>
         </div>
         <div class="footer">
-          <p>Bu belge AkademiHub Eğitim Yönetim Sistemi tarafından oluşturulmuştur.</p>
-          <p style="margin-top: 4px;">${new Date().toLocaleString('tr-TR')}</p>
+          <p>Bu belge elektronik ortamda üretilmiştir. Geçerli bir tahsilat belgesi yerine geçer.</p>
+          <p><span class="green">AkademiHub</span> Eğitim Kurumları Yönetim Sistemi</p>
         </div>
       </div>
-      <script>
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-          }, 100);
-        };
-      </script>
+      <script>window.onload=function(){setTimeout(function(){window.print()},100)};</script>
     </body>
     </html>
   `);
   doc.close();
 
-  // Yazdırma tamamlandığında iframe'i temizle
-  iframe.contentWindow?.addEventListener('afterprint', () => {
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 100);
-  });
-
-  // Fallback: 5 saniye sonra temizle
-  setTimeout(() => {
-    if (document.body.contains(iframe)) {
-      document.body.removeChild(iframe);
-    }
-  }, 5000);
+  iframe.contentWindow?.addEventListener('afterprint', () => { setTimeout(() => { document.body.removeChild(iframe); }, 100); });
+  setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 5000);
 }
 
 interface Props {
