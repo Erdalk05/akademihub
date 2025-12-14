@@ -52,13 +52,17 @@ export async function GET(req: NextRequest) {
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
 
     // Organization filtreli sorgular oluştur
-    const buildStudentsQuery = (status: 'active' | 'deleted') => {
-      let query = supabase.from('students').select('id, created_at, status');
-      if (status === 'deleted') {
+    const buildStudentsQuery = (statusFilter: 'active' | 'deleted' | 'all') => {
+      let query = supabase.from('students').select('id, created_at, status, academic_year');
+      
+      if (statusFilter === 'deleted') {
         query = query.eq('status', 'deleted');
-      } else {
-        query = query.neq('status', 'deleted');
+      } else if (statusFilter === 'active') {
+        // Aktif öğrenciler: status 'active' veya null/boş olanlar (deleted ve inactive hariç)
+        query = query.or('status.eq.active,status.is.null');
       }
+      // 'all' durumunda filtre yok
+      
       if (organizationId) query = query.eq('organization_id', organizationId);
       return query;
     };
@@ -101,8 +105,20 @@ export async function GET(req: NextRequest) {
     if (installmentsResult.error) throw installmentsResult.error;
 
     // TÜM AKTİF öğrenciler (deleted olmayanlar)
-    const students = studentsResult.data || [];
+    const allStudents = studentsResult.data || [];
+    
+    // Akademik yıl filtresi: Seçili akademik yıldaki öğrenciler veya tüm öğrenciler
+    const students = allStudents.filter(s => {
+      // Eğer öğrencinin academic_year'ı varsa ve seçili akademik yılla eşleşiyorsa dahil et
+      // Eğer academic_year yoksa (null/boş) tüm öğrencileri dahil et (geriye uyumluluk)
+      if (!s.academic_year) return true;
+      return s.academic_year === academicYear;
+    });
+    
     const allInstallments = installmentsResult.data || [];
+    
+    // Debug log
+    console.log(`Dashboard Stats: academicYear=${academicYear}, totalStudents=${allStudents.length}, filteredStudents=${students.length}`);
     
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
