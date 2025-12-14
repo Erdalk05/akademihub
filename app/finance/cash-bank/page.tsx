@@ -647,122 +647,177 @@ export default function CashBankPage() {
         </div>
       </div>
 
-      {/* Gelir/Gider Ekle Modal */}
+      {/* Gelir/Gider Ekle Modal - Modern Tasarım */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            {/* Header */}
-            <div className={`p-5 border-b border-slate-100 ${addType === 'income' ? 'bg-emerald-50' : 'bg-red-50'} rounded-t-2xl`}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header - Gradient */}
+            <div className={`p-6 ${addType === 'income' 
+              ? 'bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600' 
+              : 'bg-gradient-to-r from-red-500 via-red-600 to-rose-600'
+            } text-white`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    addType === 'income' ? 'bg-emerald-100' : 'bg-red-100'
-                  }`}>
-                    {addType === 'income' ? <TrendingUp className="w-5 h-5 text-emerald-600" /> : <TrendingDown className="w-5 h-5 text-red-500" />}
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur">
+                    {addType === 'income' 
+                      ? <TrendingUp className="w-7 h-7" /> 
+                      : <TrendingDown className="w-7 h-7" />
+                    }
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-800">
-                      {addType === 'income' ? 'Gelir Ekle' : 'Gider Ekle'}
+                    <h2 className="text-xl font-bold">
+                      {addType === 'income' ? 'Yeni Gelir Kaydı' : 'Yeni Gider Kaydı'}
                     </h2>
-                    <p className="text-xs text-slate-500">Yeni işlem kaydı</p>
+                    <p className="text-white/80 text-sm">Manuel işlem girişi</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="p-2 hover:bg-white/50 rounded-lg transition"
+                  className="p-2 hover:bg-white/20 rounded-xl transition"
                 >
-                  <X className="w-5 h-5 text-slate-500" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
             </div>
             
-            {/* Form */}
-            <div className="p-5 space-y-4">
-              {/* Tutar */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tutar *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">₺</span>
-                  <input
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl text-lg font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                  />
-                </div>
+            {/* Tutar - Büyük Görünüm */}
+            <div className={`px-6 py-8 ${addType === 'income' ? 'bg-emerald-50' : 'bg-red-50'}`}>
+              <label className="block text-sm font-semibold text-slate-600 mb-2 text-center">TUTAR</label>
+              <div className="relative max-w-xs mx-auto">
+                <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold ${
+                  addType === 'income' ? 'text-emerald-600' : 'text-red-500'
+                }`}>₺</span>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  placeholder="0,00"
+                  className={`w-full pl-12 pr-4 py-4 text-center text-3xl font-bold rounded-2xl border-2 outline-none transition ${
+                    addType === 'income' 
+                      ? 'border-emerald-200 focus:border-emerald-500 text-emerald-700' 
+                      : 'border-red-200 focus:border-red-500 text-red-600'
+                  }`}
+                />
               </div>
-              
+            </div>
+            
+            {/* Form */}
+            <div className="p-6 space-y-5">
               {/* Açıklama */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Açıklama *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    📝 Açıklama
+                  </span>
+                </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="İşlem açıklaması"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                  placeholder="Örn: Elektrik faturası, Personel maaşı..."
+                  className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
                 />
               </div>
               
-              {/* Kategori */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                >
-                  <option value="">Seçin...</option>
-                  {addType === 'income' ? (
-                    <>
-                      <option value="Eğitim Geliri">Eğitim Geliri</option>
-                      <option value="Kayıt Ücreti">Kayıt Ücreti</option>
-                      <option value="Diğer Gelir">Diğer Gelir</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Personel">Personel</option>
-                      <option value="Kira">Kira</option>
-                      <option value="Fatura">Fatura</option>
-                      <option value="Malzeme">Malzeme</option>
-                      <option value="Bakım">Bakım</option>
-                      <option value="Diğer">Diğer</option>
-                    </>
-                  )}
-                </select>
+              {/* Kategori ve Ödeme Yöntemi - 2 Sütun */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Kategori */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      🏷️ Kategori
+                    </span>
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
+                  >
+                    <option value="">Seçin</option>
+                    {addType === 'income' ? (
+                      <>
+                        <option value="Eğitim Geliri">📚 Eğitim Geliri</option>
+                        <option value="Kayıt Ücreti">📋 Kayıt Ücreti</option>
+                        <option value="Kitap Satışı">📖 Kitap Satışı</option>
+                        <option value="Kırtasiye">✏️ Kırtasiye</option>
+                        <option value="Diğer Gelir">💰 Diğer Gelir</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Personel">👤 Personel Maaşı</option>
+                        <option value="Kira">🏢 Kira</option>
+                        <option value="Elektrik">💡 Elektrik</option>
+                        <option value="Su">💧 Su</option>
+                        <option value="Doğalgaz">🔥 Doğalgaz</option>
+                        <option value="İnternet">🌐 İnternet</option>
+                        <option value="Telefon">📞 Telefon</option>
+                        <option value="Malzeme">📦 Malzeme</option>
+                        <option value="Bakım">🔧 Bakım/Onarım</option>
+                        <option value="Temizlik">🧹 Temizlik</option>
+                        <option value="Vergi">📊 Vergi</option>
+                        <option value="Sigorta">🛡️ Sigorta</option>
+                        <option value="Diğer">📋 Diğer</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                
+                {/* Ödeme Yöntemi */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      💳 Ödeme Yöntemi
+                    </span>
+                  </label>
+                  <select
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
+                  >
+                    <option value="cash">💵 Nakit</option>
+                    <option value="bank">🏦 Banka</option>
+                    <option value="eft">📱 EFT</option>
+                    <option value="havale">📤 Havale</option>
+                    <option value="card">💳 Kredi Kartı</option>
+                    <option value="cek">📄 Çek</option>
+                  </select>
+                </div>
               </div>
               
               {/* Tarih */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    📅 Tarih
+                  </span>
+                </label>
                 <input
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                  className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
                 />
               </div>
             </div>
             
             {/* Footer */}
-            <div className="p-5 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition font-medium"
+                className="flex-1 px-5 py-3.5 border-2 border-slate-200 text-slate-600 rounded-xl hover:bg-white hover:border-slate-300 transition font-semibold"
               >
                 İptal
               </button>
               <button
                 onClick={handleAddTransaction}
-                className={`flex-1 px-4 py-3 text-white rounded-xl transition font-medium ${
+                className={`flex-1 px-5 py-3.5 text-white rounded-xl transition font-semibold shadow-lg flex items-center justify-center gap-2 ${
                   addType === 'income' 
-                    ? 'bg-emerald-600 hover:bg-emerald-700' 
-                    : 'bg-red-500 hover:bg-red-600'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-200' 
+                    : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-200'
                 }`}
               >
-                <Check className="w-4 h-4 inline mr-2" />
-                Kaydet
+                <Check className="w-5 h-5" />
+                {addType === 'income' ? 'Gelir Kaydet' : 'Gider Kaydet'}
               </button>
             </div>
           </div>
