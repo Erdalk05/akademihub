@@ -1,6 +1,5 @@
 {
   "crons": [
-    { "path": "/api/ping", "schedule": "0 0 * * *" },
     { "path": "/api/backup/schedule", "schedule": "0 3 * * *" },
     { "path": "/api/installments/calculate-penalty?apply=true", "schedule": "0 6 * * *" }
   ],
