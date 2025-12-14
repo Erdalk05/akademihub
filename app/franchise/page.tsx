@@ -332,14 +332,24 @@ export default function FranchiseDashboardPage() {
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
+            {/* Footer - İki Buton */}
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 space-y-2">
               <button
                 onClick={() => handleGoToOrganization(org)}
                 className="w-full py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 Bu Kuruma Git
                 <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  // Settings sayfasına git ve kullanıcı sekmesini aç
+                  router.push(`/settings?tab=users&org=${org.id}`);
+                }}
+                className="w-full py-2 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                Kullanıcıları Yönet
               </button>
             </div>
           </div>

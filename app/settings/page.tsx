@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Settings, Building2, Users, Calendar, Mail, FileText, 
   CreditCard, Save, Plus, Trash2, Edit, Check, X, 
@@ -113,17 +113,25 @@ interface RoleConfig {
   staff: RolePermissions;
 }
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
   
+  // URL parametrelerinden tab ve org al
+  const tabParam = searchParams.get('tab');
+  const orgParam = searchParams.get('org');
+  
   // Admin kontrolü
   const { isAdmin, isSuperAdmin, role } = usePermission();
-  const { currentOrganization } = useOrganizationStore();
+  const { currentOrganization, organizations, fetchOrganizations } = useOrganizationStore();
+  
+  // Super Admin için seçilen kurum
+  const [selectedOrgForUser, setSelectedOrgForUser] = useState<string>('');
 
   // State for each section
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
@@ -437,10 +445,25 @@ export default function SettingsPage() {
     },
   };
 
+  // URL parametrelerinden tab ve org ayarla
+  useEffect(() => {
+    if (tabParam && ['general', 'organizations', 'users', 'permissions', 'academic', 'communication', 'contracts', 'payments', 'backup', 'api', 'shortcuts'].includes(tabParam)) {
+      setActiveTab(tabParam as SettingsTab);
+    }
+    if (orgParam) {
+      setSelectedOrgForUser(orgParam);
+    }
+  }, [tabParam, orgParam]);
+
   // Verileri yükle
   useEffect(() => {
     setIsClient(true);
     loadAllData();
+    
+    // Super Admin için kurumları yükle
+    if (isSuperAdmin && organizations.length === 0) {
+      fetchOrganizations();
+    }
     
     // Kayıtlı rol yetkilerini yükle
     if (typeof window !== 'undefined') {
@@ -646,7 +669,7 @@ export default function SettingsPage() {
           phone: newUser.phone || '',
           role: newUser.role || 'registrar',
           password: userPassword,
-          organization_id: isSuperAdmin ? null : currentOrganization?.id, // Kurum ataması
+          organization_id: isSuperAdmin ? (selectedOrgForUser || null) : currentOrganization?.id, // Kurum ataması
         }),
       });
 
@@ -1132,6 +1155,25 @@ export default function SettingsPage() {
                               className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                             />
                           </div>
+                          
+                          {/* Super Admin için Kurum Seçimi */}
+                          {isSuperAdmin && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Kurum Ataması *</label>
+                              <select
+                                value={selectedOrgForUser}
+                                onChange={(e) => setSelectedOrgForUser(e.target.value)}
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                              >
+                                <option value="">-- Kurum Seçin --</option>
+                                {organizations.map(org => (
+                                  <option key={org.id} value={org.id}>{org.name}</option>
+                                ))}
+                              </select>
+                              <p className="text-xs text-slate-500 mt-1">Bu kullanıcı hangi kuruma ait olacak?</p>
+                            </div>
+                          )}
+                          
                           <div className="relative">
                             <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
                             <input
@@ -2440,5 +2482,21 @@ export default function SettingsPage() {
         shortcuts={shortcuts}
       />
     </div>
+  );
+}
+
+// Suspense ile sarmalanmış export
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <SettingsPageContent />
+    </Suspense>
   );
 }
