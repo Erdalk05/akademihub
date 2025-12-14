@@ -54,7 +54,7 @@ const WidgetSkeleton = () => (
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, _hasHydrated } = useAuthStore();
-  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);

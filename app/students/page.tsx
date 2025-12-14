@@ -72,7 +72,7 @@ function StudentsLoading() {
 function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
   const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents } = usePermission();
   
   // Data

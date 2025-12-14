@@ -116,10 +116,16 @@ export const useOrganizationStore = create<OrganizationStore>()(
       }),
       partialize: (state) => ({
         currentOrganization: state.currentOrganization,
-        isAllOrganizations: state.isAllOrganizations,
+        isAllOrganizations: state.isAllOrganizations ?? false,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        // Eski storage'dan gelen undefined değerleri varsayılan değerlerle değiştir
+        if (state) {
+          if (typeof state.isAllOrganizations !== 'boolean') {
+            state.isAllOrganizations = false;
+          }
+          state.setHasHydrated(true);
+        }
       },
     }
   )

@@ -24,7 +24,7 @@ export default function PendingPaymentsWidget({ onRefresh, academicYear }: Props
   const [stats, setStats] = useState<PendingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
 
   useEffect(() => {
     fetchPendingStats();

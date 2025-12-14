@@ -24,7 +24,7 @@ const TopBar: React.FC = () => {
   const { 
     organizations = [], 
     currentOrganization, 
-    isAllOrganizations,
+    isAllOrganizations = false,
     fetchOrganizations, 
     switchOrganization,
     selectAllOrganizations,

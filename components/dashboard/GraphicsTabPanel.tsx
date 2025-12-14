@@ -27,7 +27,7 @@ export default function GraphicsTabPanel({ academicYear }: GraphicsTabPanelProps
   const [studentTrendData, setStudentTrendData] = useState<StudentTrendData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
 
   // Son 6 ay için veri hesapla
   const calculateMonthlyStats = () => {

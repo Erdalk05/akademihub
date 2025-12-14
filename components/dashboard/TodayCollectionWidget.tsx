@@ -22,7 +22,7 @@ export default function TodayCollectionWidget({ onRefresh, academicYear }: Props
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { currentOrganization, isAllOrganizations } = useOrganizationStore();
+  const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
 
   useEffect(() => {
     fetchTodayStats();
