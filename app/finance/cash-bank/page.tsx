@@ -79,6 +79,8 @@ export default function CashBankPage() {
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'cash'
   });
+  const [customCategory, setCustomCategory] = useState('');
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
 
   // Verileri yükle
   useEffect(() => {
@@ -395,6 +397,8 @@ export default function CashBankPage() {
       
       setShowAddModal(false);
       setFormData({ amount: '', description: '', category: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'cash' });
+      setCustomCategory('');
+      setShowCustomCategory(false);
       fetchData();
     } catch (error) {
       toast.error('İşlem eklenemedi');
@@ -728,38 +732,78 @@ export default function CashBankPage() {
                       🏷️ Kategori
                     </span>
                   </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
-                  >
-                    <option value="">Seçin</option>
-                    {addType === 'income' ? (
-                      <>
-                        <option value="Eğitim Geliri">📚 Eğitim Geliri</option>
-                        <option value="Kayıt Ücreti">📋 Kayıt Ücreti</option>
-                        <option value="Kitap Satışı">📖 Kitap Satışı</option>
-                        <option value="Kırtasiye">✏️ Kırtasiye</option>
-                        <option value="Diğer Gelir">💰 Diğer Gelir</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="Personel">👤 Personel Maaşı</option>
-                        <option value="Kira">🏢 Kira</option>
-                        <option value="Elektrik">💡 Elektrik</option>
-                        <option value="Su">💧 Su</option>
-                        <option value="Doğalgaz">🔥 Doğalgaz</option>
-                        <option value="İnternet">🌐 İnternet</option>
-                        <option value="Telefon">📞 Telefon</option>
-                        <option value="Malzeme">📦 Malzeme</option>
-                        <option value="Bakım">🔧 Bakım/Onarım</option>
-                        <option value="Temizlik">🧹 Temizlik</option>
-                        <option value="Vergi">📊 Vergi</option>
-                        <option value="Sigorta">🛡️ Sigorta</option>
-                        <option value="Diğer">📋 Diğer</option>
-                      </>
-                    )}
-                  </select>
+                  {!showCustomCategory ? (
+                    <select
+                      value={formData.category}
+                      onChange={(e) => {
+                        if (e.target.value === '__custom__') {
+                          setShowCustomCategory(true);
+                          setFormData({ ...formData, category: '' });
+                        } else {
+                          setFormData({ ...formData, category: e.target.value });
+                        }
+                      }}
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition"
+                    >
+                      <option value="">Seçin</option>
+                      {addType === 'income' ? (
+                        <>
+                          <option value="Eğitim Geliri">📚 Eğitim Geliri</option>
+                          <option value="Kayıt Ücreti">📋 Kayıt Ücreti</option>
+                          <option value="Kitap Satışı">📖 Kitap Satışı</option>
+                          <option value="Kırtasiye">✏️ Kırtasiye</option>
+                          <option value="Servis">🚌 Servis</option>
+                          <option value="Yemek">🍽️ Yemek</option>
+                          <option value="Diğer Gelir">💰 Diğer Gelir</option>
+                          <option value="__custom__">✏️ Manuel Giriş...</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Personel">👤 Personel Maaşı</option>
+                          <option value="Kira">🏢 Kira</option>
+                          <option value="Elektrik">💡 Elektrik</option>
+                          <option value="Su">💧 Su</option>
+                          <option value="Doğalgaz">🔥 Doğalgaz</option>
+                          <option value="İnternet">🌐 İnternet</option>
+                          <option value="Telefon">📞 Telefon</option>
+                          <option value="Malzeme">📦 Malzeme</option>
+                          <option value="Bakım">🔧 Bakım/Onarım</option>
+                          <option value="Temizlik">🧹 Temizlik</option>
+                          <option value="Vergi">📊 Vergi</option>
+                          <option value="Sigorta">🛡️ Sigorta</option>
+                          <option value="Ulaşım">🚗 Ulaşım</option>
+                          <option value="Yemek">🍽️ Yemek</option>
+                          <option value="Diğer">📋 Diğer</option>
+                          <option value="__custom__">✏️ Manuel Giriş...</option>
+                        </>
+                      )}
+                    </select>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={customCategory}
+                        onChange={(e) => {
+                          setCustomCategory(e.target.value);
+                          setFormData({ ...formData, category: e.target.value });
+                        }}
+                        placeholder="Kategori adı yazın..."
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white outline-none transition pr-10"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomCategory(false);
+                          setCustomCategory('');
+                          setFormData({ ...formData, category: '' });
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Ödeme Yöntemi */}
