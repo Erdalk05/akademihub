@@ -46,43 +46,22 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   
-  // Hooks - güvenli erişim
-  let isSuperAdmin = false;
-  let isAdmin = false;
-  let isAccounting = false;
-  let isLoading = true;
-  let currentUser: any = null;
-  let setCurrentUser: any = () => {};
-  let currentOrganization: any = null;
-  let orgHasHydrated = false;
+  // Hooks - HER ZAMAN ÇAĞRILMALI (React kuralları)
+  const permission = usePermission();
+  const role = useRole();
+  const authStore = useAuthStore();
+  const orgStore = useOrganizationStore();
   
-  try {
-    const permission = usePermission();
-    isSuperAdmin = permission.isSuperAdmin;
-    isAdmin = permission.isAdmin;
-    isAccounting = permission.isAccounting;
-    isLoading = permission.isLoading;
-  } catch (e) {
-    // Hydration hatası - varsayılan değerler kullan
-  }
-  
-  try {
-    const role = useRole();
-    currentUser = role.currentUser;
-    setCurrentUser = role.setCurrentUser;
-  } catch (e) {
-    // Hydration hatası
-  }
-  
-  const { logout } = useAuthStore();
-  
-  try {
-    const orgStore = useOrganizationStore();
-    currentOrganization = orgStore.currentOrganization;
-    orgHasHydrated = orgStore._hasHydrated;
-  } catch (e) {
-    // Hydration hatası
-  }
+  // Değerleri güvenli şekilde al
+  const isSuperAdmin = permission?.isSuperAdmin ?? false;
+  const isAdmin = permission?.isAdmin ?? false;
+  const isAccounting = permission?.isAccounting ?? false;
+  const isLoading = permission?.isLoading ?? true;
+  const currentUser = role?.currentUser ?? null;
+  const setCurrentUser = role?.setCurrentUser ?? (() => {});
+  const logout = authStore?.logout ?? (() => {});
+  const currentOrganization = orgStore?.currentOrganization ?? null;
+  const orgHasHydrated = orgStore?._hasHydrated ?? false;
 
   useEffect(() => {
     setMounted(true);
