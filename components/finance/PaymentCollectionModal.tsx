@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { X, CreditCard, Banknote, Building, Printer, MessageSquare, Calculator, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 // Makbuz yazdırma fonksiyonu - Profesyonel Format
 function printReceiptDocument(payment: {
@@ -13,7 +14,7 @@ function printReceiptDocument(payment: {
   paymentDate: Date;
   paymentMethod: string;
   installmentNo?: number;
-}) {
+}, organizationName: string = 'AkademiHub') {
   const docNo = `#${payment.id.slice(0, 8).toUpperCase()}`;
   const currentDateTime = new Date().toLocaleString('tr-TR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -71,7 +72,7 @@ function printReceiptDocument(payment: {
     <body>
       <div class="receipt">
         <div class="header-top"><span>${currentDateTime}</span><span>Tahsilat Makbuzu - ${payment.studentName}</span></div>
-        <div class="brand"><h1>AkademiHub</h1></div>
+        <div class="brand"><h1>${organizationName}</h1></div>
         <div class="title">TAHSİLAT MAKBUZU</div>
         <div class="doc-no">Belge No: ${docNo}</div>
         <hr>
@@ -93,7 +94,7 @@ function printReceiptDocument(payment: {
         </div>
         <div class="footer">
           <p>Bu belge elektronik ortamda üretilmiştir. Geçerli bir tahsilat belgesi yerine geçer.</p>
-          <p><span class="green">AkademiHub</span> Eğitim Kurumları Yönetim Sistemi</p>
+          <p><span class="green">${organizationName}</span> Eğitim Kurumları Yönetim Sistemi</p>
         </div>
       </div>
       <script>window.onload=function(){setTimeout(function(){window.print()},100)};</script>
@@ -127,6 +128,8 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
 
   const [isSubmitting, startTransition] = useTransition();
   const { showToast, ToastContainer } = useToast();
+  const { currentOrganization } = useOrganizationStore();
+  const organizationName = currentOrganization?.name || 'AkademiHub';
 
   useEffect(() => {
     if (installment) {
@@ -195,7 +198,7 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
               paymentDate: new Date(),
               paymentMethod: method,
               installmentNo: installment.installment_no
-            });
+            }, organizationName);
           }
 
           // Mock Action: Send SMS

@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { X, Printer, Download } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ interface ReceiptModalProps {
 
 export default function ReceiptModal({ isOpen, onClose, payment }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { currentOrganization } = useOrganizationStore();
+  const organizationName = currentOrganization?.name || 'AkademiHub';
 
   if (!isOpen || !payment) return null;
 
@@ -264,7 +267,7 @@ export default function ReceiptModal({ isOpen, onClose, payment }: ReceiptModalP
 
             {/* Brand */}
             <div className="text-center mb-2">
-              <h1 className="text-3xl font-bold text-emerald-600 tracking-tight">AkademiHub</h1>
+              <h1 className="text-2xl font-bold text-emerald-600 tracking-tight">{organizationName}</h1>
             </div>
 
             {/* Title */}
@@ -340,7 +343,7 @@ export default function ReceiptModal({ isOpen, onClose, payment }: ReceiptModalP
                 Bu belge elektronik ortamda üretilmiştir. Geçerli bir tahsilat belgesi yerine geçer.
               </p>
               <p className="text-[11px] text-gray-400 mt-1">
-                <span className="font-semibold text-emerald-600">AkademiHub</span> Eğitim Kurumları Yönetim Sistemi
+                <span className="font-semibold text-emerald-600">{organizationName}</span> Eğitim Kurumları Yönetim Sistemi
               </p>
             </div>
           </div>
