@@ -58,8 +58,8 @@ export async function GET(req: NextRequest) {
       if (statusFilter === 'deleted') {
         query = query.eq('status', 'deleted');
       } else if (statusFilter === 'active') {
-        // Aktif öğrenciler: status 'active' veya null/boş olanlar (deleted ve inactive hariç)
-        query = query.or('status.eq.active,status.is.null');
+        // Aktif öğrenciler: status 'deleted' OLMAYANLAR (öğrenci listesiyle uyumlu)
+        query = query.neq('status', 'deleted');
       }
       // 'all' durumunda filtre yok
       

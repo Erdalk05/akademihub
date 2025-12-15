@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('students')
       .select('*')
+      .neq('status', 'deleted') // Silinmiş öğrencileri hariç tut
       .order('created_at', { ascending: false })
       .limit(200);
 
