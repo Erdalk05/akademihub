@@ -319,11 +319,20 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Yardım */}
+          {/* Şifremi Unuttum */}
           <div className="mt-6 text-center">
+            <a
+              href="/forgot-password"
+              className="text-[#25D366] hover:text-[#DCF8C6] transition text-sm font-medium"
+            >
+              Şifremi Unuttum
+            </a>
+          </div>
+
+          {/* Yardım */}
+          <div className="mt-4 text-center">
             <p className="text-white/50 text-sm">
-              Giriş bilgilerinizi hatırlamıyorsanız
-              <br />
+              Sorun yaşıyorsanız{' '}
               <span className="text-[#25D366]">kurum yöneticinize</span> başvurun.
             </p>
           </div>
