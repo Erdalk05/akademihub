@@ -223,7 +223,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Toplam Alacak</p>
                 <p className="text-3xl font-bold text-red-600 mt-1">
-                  ₺{((kpi.totalDebt || 0) / 1000).toFixed(0)}K
+                  ₺{(kpi.totalDebt || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
@@ -238,7 +238,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Bu Ay Tahsilat</p>
                 <p className="text-3xl font-bold text-emerald-600 mt-1">
-                  ₺{((kpi.monthlyCollection || 0) / 1000).toFixed(0)}K
+                  ₺{(kpi.monthlyCollection || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center">

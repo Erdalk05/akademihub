@@ -426,7 +426,7 @@ function StudentsContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-500 font-medium">Toplam Alacak</p>
-                <p className="text-2xl font-bold text-slate-900">₺{(stats.totalDebt / 1000).toFixed(0)}K</p>
+                <p className="text-2xl font-bold text-slate-900">₺{stats.totalDebt.toLocaleString('tr-TR')}</p>
               </div>
               <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
                 <CreditCard size={20} className="text-indigo-500" />

@@ -325,8 +325,6 @@ export default function OtherIncomePage() {
   const paginatedData = groupedByStudent.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const formatMoney = (val: number) => {
-    if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `₺${(val / 1000).toFixed(0)}K`;
     return `₺${val.toLocaleString('tr-TR')}`;
   };
 
@@ -802,13 +800,13 @@ export default function OtherIncomePage() {
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-1 justify-center">
+                          <div className="flex flex-wrap gap-2 justify-center">
                             {group.categories.map(cat => {
                               const catInfo = getCategoryInfo(cat);
                               const CatIcon = catInfo.icon;
                               return (
-                                <span key={cat} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white ${catInfo.color}`}>
-                                  <CatIcon size={10} />
+                                <span key={cat} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
+                                  <CatIcon size={12} />
                                   {catInfo.label}
                                 </span>
                               );

@@ -177,8 +177,6 @@ export default function CollectionsPage() {
   const paginatedData = filteredCollections.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const formatMoney = (val: number) => {
-    if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `₺${(val / 1000).toFixed(0)}K`;
     return `₺${val.toLocaleString('tr-TR')}`;
   };
 
