@@ -273,9 +273,56 @@ export default function OtherIncomePage() {
     };
   }, [incomes, filteredByPeriod]);
 
+  // Öğrenci bazında gruplama
+  type StudentGroup = {
+    studentId: string | null;
+    studentName: string;
+    studentClass: string | null;
+    totalAmount: number;
+    paidAmount: number;
+    remainingAmount: number;
+    itemCount: number;
+    paidCount: number;
+    categories: string[];
+  };
+
+  const groupedByStudent = useMemo(() => {
+    const groups: { [key: string]: StudentGroup } = {};
+    
+    filteredIncomes.forEach(income => {
+      const key = income.studentId || 'unknown';
+      
+      if (!groups[key]) {
+        groups[key] = {
+          studentId: income.studentId,
+          studentName: income.studentName,
+          studentClass: income.studentClass,
+          totalAmount: 0,
+          paidAmount: 0,
+          remainingAmount: 0,
+          itemCount: 0,
+          paidCount: 0,
+          categories: []
+        };
+      }
+      
+      groups[key].totalAmount += income.amount;
+      groups[key].paidAmount += income.paidAmount;
+      groups[key].remainingAmount += (income.amount - income.paidAmount);
+      groups[key].itemCount += 1;
+      if (income.isPaid) groups[key].paidCount += 1;
+      
+      if (!groups[key].categories.includes(income.category)) {
+        groups[key].categories.push(income.category);
+      }
+    });
+    
+    return Object.values(groups).sort((a, b) => b.remainingAmount - a.remainingAmount);
+  }, [filteredIncomes]);
+
   // Pagination
-  const totalPages = Math.ceil(filteredIncomes.length / pageSize);
-  const paginatedData = filteredIncomes.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.ceil(groupedByStudent.length / pageSize);
+  const paginatedData = groupedByStudent.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const formatMoney = (val: number) => {
     if (val >= 1000000) return `₺${(val / 1000000).toFixed(1)}M`;
@@ -706,7 +753,7 @@ export default function OtherIncomePage() {
             </div>
             
             {/* Count */}
-            <span className="text-sm text-slate-500">{filteredIncomes.length} kayıt</span>
+            <span className="text-sm text-slate-500">{groupedByStudent.length} öğrenci</span>
           </div>
         </div>
 
@@ -726,11 +773,10 @@ export default function OtherIncomePage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tarih</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödeme</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategoriler</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Adet</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Toplam</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödenen</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kalan</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Durum</th>
@@ -738,102 +784,77 @@ export default function OtherIncomePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedData.map((row) => {
-                    const catInfo = getCategoryInfo(row.category);
-                    const CatIcon = catInfo.icon;
-                    const remaining = row.amount - row.paidAmount;
-                    const isOverdue = row.dueDate && new Date() > row.dueDate && !row.isPaid;
+                  {paginatedData.map((group) => {
+                    const isFullyPaid = group.remainingAmount <= 0;
+                    const hasUnpaid = group.paidCount < group.itemCount;
                     
                     return (
-                      <tr key={row.id} className={`hover:bg-slate-50/50 transition ${isOverdue ? 'bg-red-50/30' : ''}`}>
-                        <td className="px-4 py-3">
-                          <p className="text-slate-900 font-medium">{row.dueDate ? row.dueDate.toLocaleDateString('tr-TR') : row.date.toLocaleDateString('tr-TR')}</p>
-                          {row.dueDate && isOverdue && (
-                            <p className="text-xs text-red-500 font-medium">Gecikmiş</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
+                      <tr key={group.studentId || 'unknown'} className="hover:bg-slate-50/50 transition">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-medium text-xs">
-                              {row.studentName !== '-' ? getInitials(row.studentName) : '?'}
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
+                              {group.studentName !== '-' ? getInitials(group.studentName) : '?'}
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{row.studentName}</p>
-                              {row.studentClass && <p className="text-xs text-slate-500">{row.studentClass}</p>}
-                              {row.title && <p className="text-xs text-slate-400 truncate max-w-[150px]">{row.title}</p>}
+                              <p className="font-semibold text-slate-900">{group.studentName}</p>
+                              {group.studentClass && <p className="text-xs text-slate-500">{group.studentClass}</p>}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
-                            <CatIcon size={12} />
-                            {catInfo.label}
-                          </span>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {group.categories.map(cat => {
+                              const catInfo = getCategoryInfo(cat);
+                              const CatIcon = catInfo.icon;
+                              return (
+                                <span key={cat} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white ${catInfo.color}`}>
+                                  <CatIcon size={10} />
+                                  {catInfo.label}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-slate-600">
-                            {row.paymentType === 'cash' ? '💵 Nakit' : row.paymentType === 'card' ? '💳 Kart' : '🏦 Banka'}
-                          </span>
+                        <td className="px-4 py-4 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="text-sm font-medium text-slate-700">{group.paidCount}</span>
+                            <span className="text-slate-400">/</span>
+                            <span className="text-sm font-medium text-slate-900">{group.itemCount}</span>
+                          </div>
+                          <p className="text-xs text-slate-400">ödeme</p>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-semibold text-slate-900">₺{row.amount.toLocaleString('tr-TR')}</p>
+                        <td className="px-4 py-4 text-right">
+                          <p className="font-bold text-lg text-slate-900">₺{group.totalAmount.toLocaleString('tr-TR')}</p>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-semibold text-emerald-600">₺{row.paidAmount.toLocaleString('tr-TR')}</p>
+                        <td className="px-4 py-4 text-right">
+                          <p className="font-semibold text-emerald-600">₺{group.paidAmount.toLocaleString('tr-TR')}</p>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className={`font-semibold ${remaining > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
-                            ₺{remaining.toLocaleString('tr-TR')}
+                        <td className="px-4 py-4 text-right">
+                          <p className={`font-bold text-lg ${group.remainingAmount > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
+                            ₺{group.remainingAmount.toLocaleString('tr-TR')}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {row.isPaid ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                              <Check size={12} /> Ödendi
+                        <td className="px-4 py-4 text-center">
+                          {isFullyPaid ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                              <Check size={12} /> Tamamlandı
                             </span>
                           ) : (
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {isOverdue ? 'Gecikmiş' : 'Beklemede'}
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                              {group.itemCount - group.paidCount} Beklemede
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1">
-                            {!row.isPaid && (
-                              <button 
-                                onClick={() => handleOpenPayment(row)}
-                                className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
-                                title="Tahsil Et"
-                              >
-                                <Wallet size={14} />
-                                Tahsil Et
-                              </button>
-                            )}
-                            {row.isPaid && (
-                              <button 
-                                className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500"
-                                title="Makbuz"
-                              >
-                                <Receipt size={16} />
-                              </button>
-                            )}
-                            {row.studentId && (
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            {group.studentId && (
                               <Link
-                                href={`/students/${row.studentId}`}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500"
-                                title="Öğrenci Profili"
+                                href={`/students/${group.studentId}?tab=finance`}
+                                className="px-4 py-2 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition flex items-center gap-1.5"
                               >
-                                <Users size={16} />
+                                <Users size={14} />
+                                Detay & Tahsilat
                               </Link>
-                            )}
-                            {canDeleteInstallment && (
-                              <button 
-                                onClick={() => handleDelete(row.id)}
-                                className="p-2 hover:bg-red-50 rounded-lg transition text-red-500"
-                                title="Sil"
-                              >
-                                <Trash2 size={16} />
-                              </button>
                             )}
                           </div>
                         </td>
@@ -849,7 +870,7 @@ export default function OtherIncomePage() {
           {totalPages > 1 && (
             <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
               <span className="text-sm text-slate-500">
-                {filteredIncomes.length} kayıttan {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIncomes.length)} arası
+                {groupedByStudent.length} öğrenciden {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, groupedByStudent.length)} arası
               </span>
               <div className="flex items-center gap-1">
                 <button
