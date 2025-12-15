@@ -258,72 +258,72 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       
       const receiptDiv = document.createElement('div');
       receiptDiv.innerHTML = `
-        <div style="width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #9333ea; border-radius: 12px; font-family: Arial, sans-serif; background: white;">
-          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px;">
+        <div style="width: 260px; margin: 0 auto; padding: 12px; border: 2px solid #9333ea; border-radius: 10px; font-family: Arial, sans-serif; background: white;">
+          <div style="display: flex; justify-content: space-between; font-size: 8px; color: #666; margin-bottom: 6px;">
             <span>${currentDateTime}</span>
             <span>Diğer Gelir Makbuzu</span>
           </div>
-          <div style="text-align: center; margin-bottom: 15px;">
-            <h1 style="font-size: 20px; color: #9333ea; font-weight: 700; margin: 0;">${organizationName}</h1>
+          <div style="text-align: center; margin-bottom: 8px;">
+            <h1 style="font-size: 16px; color: #9333ea; font-weight: 700; margin: 0;">${organizationName}</h1>
           </div>
-          <div style="text-align: center; font-size: 14px; font-weight: 600; color: #333; padding: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px;">DİĞER GELİR MAKBUZU</div>
-          <div style="text-align: center; font-size: 10px; color: #666; margin-bottom: 15px;">Belge No: ${receiptNo}</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 600; color: #333; padding: 5px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 8px;">DİĞER GELİR MAKBUZU</div>
+          <div style="text-align: center; font-size: 8px; color: #666; margin-bottom: 8px;">Belge No: ${receiptNo}</div>
           
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;">
             <div>
-              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Öğrenci Adı Soyadı</div>
-              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${studentName}</div>
+              <div style="font-size: 7px; color: #888; text-transform: uppercase;">Öğrenci</div>
+              <div style="font-size: 9px; color: #333; font-weight: 500;">${studentName}</div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Tarih</div>
-              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${formattedDate}</div>
+              <div style="font-size: 7px; color: #888; text-transform: uppercase;">Tarih</div>
+              <div style="font-size: 9px; color: #333; font-weight: 500;">${formattedDate}</div>
             </div>
             <div>
-              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Ödeme Yapan</div>
-              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${parentName}</div>
+              <div style="font-size: 7px; color: #888; text-transform: uppercase;">Ödeme Yapan</div>
+              <div style="font-size: 9px; color: #333; font-weight: 500;">${parentName}</div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Kategori</div>
-              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${categoryLabel}</div>
+              <div style="font-size: 7px; color: #888; text-transform: uppercase;">Kategori</div>
+              <div style="font-size: 9px; color: #333; font-weight: 500;">${categoryLabel}</div>
             </div>
             <div style="grid-column: span 2;">
-              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Açıklama</div>
-              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${income.title}</div>
+              <div style="font-size: 7px; color: #888; text-transform: uppercase;">Açıklama</div>
+              <div style="font-size: 9px; color: #333; font-weight: 500;">${income.title}</div>
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-            <div style="font-size: 10px; opacity: 0.9;">Tahsil Edilen Tutar</div>
-            <div style="font-size: 24px; font-weight: 700; margin-top: 5px;">₺${income.paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 10px;">
+            <div style="font-size: 8px; opacity: 0.9;">Tahsil Edilen Tutar</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 3px;">₺${income.paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
           
-          <div style="display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc;">
+          <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px dashed #ccc;">
             <div style="text-align: center; width: 45%;">
-              <div style="font-size: 9px; color: #888;">Teslim Alan</div>
-              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">Muhasebe Birimi</div>
-              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+              <div style="font-size: 7px; color: #888;">Teslim Alan</div>
+              <div style="font-size: 8px; color: #333; font-weight: 500;">Muhasebe Birimi</div>
+              <div style="border-top: 1px solid #333; margin-top: 15px;"></div>
             </div>
             <div style="text-align: center; width: 45%;">
-              <div style="font-size: 9px; color: #888;">Teslim Eden</div>
-              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">${studentName} / Veli</div>
-              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+              <div style="font-size: 7px; color: #888;">Teslim Eden</div>
+              <div style="font-size: 8px; color: #333; font-weight: 500;">${studentName} / Veli</div>
+              <div style="border-top: 1px solid #333; margin-top: 15px;"></div>
             </div>
           </div>
           
-          <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-            <p style="font-size: 8px; color: #888; line-height: 1.5; margin: 0;">Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
-            <p style="font-size: 8px; color: #9333ea; font-weight: 500; margin-top: 5px;">${organizationName} Eğitim Yönetim Sistemi</p>
+          <div style="text-align: center; margin-top: 8px; padding-top: 6px; border-top: 1px solid #e5e7eb;">
+            <p style="font-size: 6px; color: #888; margin: 0;">Bu belge elektronik ortamda üretilmiştir. Geçerli bir tahsilat belgesi yerine geçer.</p>
+            <p style="font-size: 6px; color: #9333ea; font-weight: 500; margin-top: 2px;">${organizationName} Eğitim Yönetim Sistemi</p>
           </div>
         </div>
       `;
       container.appendChild(receiptDiv);
 
       const opt = {
-        margin: 5,
+        margin: 2,
         filename: `DigerGelir_Makbuz_${categoryLabel}_${student.last_name}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: [100, 160] as [number, number], orientation: 'portrait' as const }
+        jsPDF: { unit: 'mm', format: [80, 120] as [number, number], orientation: 'portrait' as const }
       };
 
       await html2pdf().set(opt).from(receiptDiv).save();
