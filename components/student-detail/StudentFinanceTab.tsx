@@ -8,7 +8,14 @@ import {
   Download,
   CreditCard,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Book,
+  Shirt,
+  UtensilsCrossed,
+  Pencil,
+  Package,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -24,6 +31,29 @@ interface Installment {
   paid_at?: string;
   payment_method?: string;
 }
+
+interface OtherIncome {
+  id: string;
+  title: string;
+  category: string;
+  amount: number;
+  paidAmount: number;
+  isPaid: boolean;
+  dueDate: string | null;
+  paidAt: string | null;
+  date: string;
+  payment_type: string;
+  notes?: string;
+}
+
+// Kategori bilgileri
+const CATEGORY_INFO: Record<string, { label: string; icon: any; color: string }> = {
+  book: { label: 'Kitap', icon: Book, color: 'bg-blue-500' },
+  uniform: { label: 'Üniforma', icon: Shirt, color: 'bg-purple-500' },
+  meal: { label: 'Yemek', icon: UtensilsCrossed, color: 'bg-orange-500' },
+  stationery: { label: 'Kırtasiye', icon: Pencil, color: 'bg-green-500' },
+  other: { label: 'Diğer', icon: Package, color: 'bg-gray-500' },
+};
 
 interface Props {
   student: any;
@@ -72,6 +102,10 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState<Installment | null>(null);
   const [showRestructureModal, setShowRestructureModal] = useState(false);
+  
+  // Diğer Gelirler State
+  const [otherIncomes, setOtherIncomes] = useState<OtherIncome[]>([]);
+  const [loadingOtherIncomes, setLoadingOtherIncomes] = useState(false);
 
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
@@ -100,6 +134,45 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   useEffect(() => {
     fetchInstallments();
   }, [fetchInstallments]);
+
+  // Diğer gelirleri çek
+  const fetchOtherIncomes = useCallback(async () => {
+    setLoadingOtherIncomes(true);
+    try {
+      const response = await fetch(`/api/finance/other-income?student_id=${student.id}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const mapped = (data.data || []).map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          amount: Number(item.amount) || 0,
+          paidAmount: Number(item.paid_amount) || 0,
+          isPaid: item.is_paid || false,
+          dueDate: item.due_date,
+          paidAt: item.paid_at,
+          date: item.date,
+          payment_type: item.payment_type,
+          notes: item.notes
+        }));
+        // Ödenmemişler önce
+        mapped.sort((a: OtherIncome, b: OtherIncome) => {
+          if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+          return 0;
+        });
+        setOtherIncomes(mapped);
+      }
+    } catch {
+      // Error handled silently
+    } finally {
+      setLoadingOtherIncomes(false);
+    }
+  }, [student.id]);
+
+  useEffect(() => {
+    fetchOtherIncomes();
+  }, [fetchOtherIncomes]);
 
   const handlePayment = (installment: Installment) => {
     setSelectedInstallment(installment);
@@ -586,6 +659,103 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                             </button>
                           )}
                         </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* DİĞER GELİRLER - Kitap, Üniforma, Yemek vb. */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Package className="h-5 w-5 text-purple-600" />
+              Diğer Gelirler
+            </h3>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-emerald-600 font-medium">
+                Ödenen: ₺{otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0).toLocaleString('tr-TR')}
+              </span>
+              <span className="text-orange-600 font-medium">
+                Bekleyen: ₺{otherIncomes.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {loadingOtherIncomes ? (
+          <div className="flex items-center justify-center p-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600"></div>
+          </div>
+        ) : otherIncomes.length === 0 ? (
+          <div className="p-12 text-center text-gray-500">
+            <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+            <p>Bu öğrenci için diğer gelir kaydı bulunmuyor.</p>
+            <p className="text-sm mt-1">Kitap, üniforma, yemek gibi gelirleri buradan takip edebilirsiniz.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+                <tr>
+                  <th className="p-4 text-left">Başlık</th>
+                  <th className="p-4 text-center">Kategori</th>
+                  <th className="p-4 text-right">Tutar</th>
+                  <th className="p-4 text-right">Ödenen</th>
+                  <th className="p-4 text-right">Kalan</th>
+                  <th className="p-4 text-center">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {otherIncomes.map((income) => {
+                  const categoryInfo = CATEGORY_INFO[income.category] || CATEGORY_INFO.other;
+                  const CategoryIcon = categoryInfo.icon;
+                  const remaining = income.amount - income.paidAmount;
+
+                  return (
+                    <tr
+                      key={income.id}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition ${!income.isPaid ? 'bg-orange-50/30' : ''}`}
+                    >
+                      <td className="p-4">
+                        <span className="font-medium text-gray-900">{income.title}</span>
+                        {income.notes && (
+                          <p className="text-xs text-gray-500 mt-0.5">{income.notes}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {income.dueDate ? new Date(income.dueDate).toLocaleDateString('tr-TR') : new Date(income.date).toLocaleDateString('tr-TR')}
+                        </p>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white ${categoryInfo.color}`}>
+                          <CategoryIcon className="h-3 w-3" />
+                          {categoryInfo.label}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-medium text-gray-900">
+                        ₺{income.amount.toLocaleString('tr-TR')}
+                      </td>
+                      <td className="p-4 text-right font-medium text-emerald-600">
+                        ₺{income.paidAmount.toLocaleString('tr-TR')}
+                      </td>
+                      <td className="p-4 text-right font-medium text-orange-600">
+                        ₺{remaining.toLocaleString('tr-TR')}
+                      </td>
+                      <td className="p-4 text-center">
+                        {income.isPaid ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                            Ödendi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            Beklemede
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

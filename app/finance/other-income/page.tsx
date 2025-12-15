@@ -48,9 +48,14 @@ type OtherIncomeRow = {
   id: string;
   studentId: string | null;
   studentName: string;
+  studentClass: string | null;
   title: string;
   category: string;
   amount: number;
+  paidAmount: number;
+  isPaid: boolean;
+  dueDate: Date | null;
+  paidAt: Date | null;
   date: Date;
   paymentType: string;
   notes: string | null;
@@ -85,6 +90,11 @@ export default function OtherIncomePage() {
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedIncome, setSelectedIncome] = useState<OtherIncomeRow | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [paymentLoading, setPaymentLoading] = useState(false);
   
   // Öğrenci Arama
   const [students, setStudents] = useState<Student[]>([]);
@@ -128,15 +138,24 @@ export default function OtherIncomePage() {
         const data = (json.data || []).map((r: any) => ({
           id: r.id,
           studentId: r.student_id,
-          studentName: r.students ? `${r.students.first_name || ''} ${r.students.last_name || ''}`.trim() : '-',
+          studentName: r.student ? `${r.student.first_name || ''} ${r.student.last_name || ''}`.trim() : '-',
+          studentClass: r.student?.class || r.student?.section || null,
           title: r.title || '-',
           category: r.category || 'other',
           amount: Number(r.amount) || 0,
+          paidAmount: Number(r.paid_amount) || 0,
+          isPaid: r.is_paid || false,
+          dueDate: r.due_date ? new Date(r.due_date) : null,
+          paidAt: r.paid_at ? new Date(r.paid_at) : null,
           date: new Date(r.date),
           paymentType: r.payment_type || 'cash',
           notes: r.notes,
         }));
-        setIncomes(data.sort((a: OtherIncomeRow, b: OtherIncomeRow) => b.date.getTime() - a.date.getTime()));
+        // Ödenmemişler önce, sonra tarihe göre sırala
+        setIncomes(data.sort((a: OtherIncomeRow, b: OtherIncomeRow) => {
+          if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+          return b.date.getTime() - a.date.getTime();
+        }));
       }
     } catch {
       toast.error('Veriler yüklenemedi');
@@ -370,6 +389,57 @@ export default function OtherIncomePage() {
       }
     } catch {
       toast.error('Silme işlemi başarısız');
+    }
+  };
+
+  // Tahsilat al
+  const handleOpenPayment = (income: OtherIncomeRow) => {
+    setSelectedIncome(income);
+    const remaining = income.amount - income.paidAmount;
+    setPaymentAmount(remaining.toString());
+    setPaymentMethod('cash');
+    setShowPaymentModal(true);
+  };
+
+  const handleCollectPayment = async () => {
+    if (!selectedIncome) return;
+    
+    const amount = Number(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Geçerli bir tutar girin');
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      const newPaidAmount = selectedIncome.paidAmount + amount;
+      const isFullyPaid = newPaidAmount >= selectedIncome.amount;
+
+      const res = await fetch('/api/finance/other-income', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedIncome.id,
+          paid_amount: newPaidAmount,
+          is_paid: isFullyPaid,
+          paid_at: new Date().toISOString(),
+          payment_type: paymentMethod
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`✅ ₺${amount.toLocaleString('tr-TR')} tahsil edildi!`);
+        setShowPaymentModal(false);
+        setSelectedIncome(null);
+        fetchData();
+      } else {
+        toast.error(json.error || 'Tahsilat başarısız');
+      }
+    } catch {
+      toast.error('Bağlantı hatası');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -647,21 +717,29 @@ export default function OtherIncomePage() {
                   <tr className="border-b border-slate-100 bg-slate-50/50">
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tarih</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Başlık</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">İşlemler</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödeme</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tutar</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödenen</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kalan</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Durum</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedData.map((row) => {
                     const catInfo = getCategoryInfo(row.category);
                     const CatIcon = catInfo.icon;
+                    const remaining = row.amount - row.paidAmount;
+                    const isOverdue = row.dueDate && new Date() > row.dueDate && !row.isPaid;
+                    
                     return (
-                      <tr key={row.id} className="hover:bg-slate-50/50 transition">
+                      <tr key={row.id} className={`hover:bg-slate-50/50 transition ${isOverdue ? 'bg-red-50/30' : ''}`}>
                         <td className="px-4 py-3">
-                          <p className="text-slate-900 font-medium">{row.date.toLocaleDateString('tr-TR')}</p>
-                          <p className="text-xs text-slate-400">{row.date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-slate-900 font-medium">{row.dueDate ? row.dueDate.toLocaleDateString('tr-TR') : row.date.toLocaleDateString('tr-TR')}</p>
+                          {row.dueDate && isOverdue && (
+                            <p className="text-xs text-red-500 font-medium">Gecikmiş</p>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -670,12 +748,10 @@ export default function OtherIncomePage() {
                             </div>
                             <div>
                               <p className="font-medium text-slate-900">{row.studentName}</p>
+                              {row.studentClass && <p className="text-xs text-slate-500">{row.studentClass}</p>}
+                              {row.title && <p className="text-xs text-slate-400 truncate max-w-[150px]">{row.title}</p>}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">{row.title}</p>
-                          {row.notes && <p className="text-xs text-slate-500 truncate max-w-[200px]">{row.notes}</p>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
@@ -684,11 +760,52 @@ export default function OtherIncomePage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-bold text-teal-600">₺{row.amount.toLocaleString('tr-TR')}</p>
-                          <p className="text-xs text-slate-400">{row.paymentType === 'cash' ? 'Nakit' : row.paymentType}</p>
+                          <span className="text-xs text-slate-600">
+                            {row.paymentType === 'cash' ? '💵 Nakit' : row.paymentType === 'card' ? '💳 Kart' : '🏦 Banka'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <p className="font-semibold text-slate-900">₺{row.amount.toLocaleString('tr-TR')}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <p className="font-semibold text-emerald-600">₺{row.paidAmount.toLocaleString('tr-TR')}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <p className={`font-semibold ${remaining > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
+                            ₺{remaining.toLocaleString('tr-TR')}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {row.isPaid ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                              <Check size={12} /> Ödendi
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {isOverdue ? 'Gecikmiş' : 'Beklemede'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1">
+                            {!row.isPaid && (
+                              <button 
+                                onClick={() => handleOpenPayment(row)}
+                                className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                                title="Tahsil Et"
+                              >
+                                <Wallet size={14} />
+                                Tahsil Et
+                              </button>
+                            )}
+                            {row.isPaid && (
+                              <button 
+                                className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500"
+                                title="Makbuz"
+                              >
+                                <Receipt size={16} />
+                              </button>
+                            )}
                             {row.studentId && (
                               <Link
                                 href={`/students/${row.studentId}`}
@@ -866,7 +983,18 @@ export default function OtherIncomePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Toplam Tutar (₺) *</label>
-                  <input type="number" value={formTotalAmount} onChange={(e) => setFormTotalAmount(e.target.value)} placeholder="0" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl font-bold" />
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    value={formTotalAmount} 
+                    onChange={(e) => {
+                      // Sadece rakam ve nokta/virgül kabul et
+                      const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                      setFormTotalAmount(val);
+                    }} 
+                    placeholder="0" 
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-lg"
+                  />
                 </div>
               </div>
 
@@ -1037,6 +1165,130 @@ export default function OtherIncomePage() {
               >
                 <Download size={18} />
                 PDF İndir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAHSİLAT MODAL */}
+      {showPaymentModal && selectedIncome && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                    <Wallet size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold">Tahsilat Al</h2>
+                    <p className="text-emerald-100 text-sm">{selectedIncome.studentName}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowPaymentModal(false)}
+                  className="text-white/70 hover:text-white transition"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Bilgi Kartı */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-slate-600">Başlık</span>
+                  <span className="font-medium text-slate-900">{selectedIncome.title}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-slate-600">Kategori</span>
+                  <span className={`px-2 py-1 rounded text-xs font-medium text-white ${getCategoryInfo(selectedIncome.category).color}`}>
+                    {getCategoryInfo(selectedIncome.category).label}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-slate-600">Toplam Tutar</span>
+                  <span className="font-bold text-slate-900">₺{selectedIncome.amount.toLocaleString('tr-TR')}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-slate-600">Ödenen</span>
+                  <span className="font-bold text-emerald-600">₺{selectedIncome.paidAmount.toLocaleString('tr-TR')}</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                  <span className="text-sm font-medium text-slate-700">Kalan Borç</span>
+                  <span className="font-bold text-lg text-orange-600">₺{(selectedIncome.amount - selectedIncome.paidAmount).toLocaleString('tr-TR')}</span>
+                </div>
+              </div>
+
+              {/* Tutar Girişi */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Tahsil Edilecek Tutar</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">₺</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={paymentAmount}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                      setPaymentAmount(val);
+                    }}
+                    className="w-full pl-10 pr-4 py-3 text-xl font-bold text-slate-900 bg-white border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Ödeme Yöntemi */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Ödeme Yöntemi</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'cash', label: '💵 Nakit' },
+                    { value: 'card', label: '💳 Kart' },
+                    { value: 'bank', label: '🏦 Banka' },
+                  ].map((method) => (
+                    <button
+                      key={method.value}
+                      type="button"
+                      onClick={() => setPaymentMethod(method.value as 'cash' | 'card' | 'bank')}
+                      className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                        paymentMethod === method.value
+                          ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
+                          : 'bg-slate-100 text-slate-600 border-2 border-transparent hover:bg-slate-200'
+                      }`}
+                    >
+                      {method.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-slate-50 border-t border-slate-200 flex gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="flex-1 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleCollectPayment}
+                disabled={paymentLoading || !paymentAmount || Number(paymentAmount) <= 0}
+                className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
+              >
+                {paymentLoading ? (
+                  <RefreshCw size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <Check size={18} />
+                    Tahsil Et
+                  </>
+                )}
               </button>
             </div>
           </div>

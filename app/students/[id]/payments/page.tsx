@@ -559,6 +559,7 @@ export default function StudentPaymentsPage() {
             installment={selectedInstallment}
             studentName={studentName}
             onSuccess={fetchSummary}
+            parentPhone={studentRecord?.parent_phone || ''}
           />
 
           <EditPaymentModal

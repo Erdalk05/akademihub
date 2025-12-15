@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, CheckCircle, BarChart3 } from 'lucide-react';
+import { Plus, Search, CheckCircle, BarChart3, X, Wallet, Building, Wrench, FileText, Users, Zap, ShoppingBag, Briefcase, Receipt, TrendingDown } from 'lucide-react';
 import { ExpenseStatusEnum, ExpenseTypeEnum } from '@/types/finance.types';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -31,10 +31,12 @@ export default function ExpenseManagementPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createTitle, setCreateTitle] = useState('');
-  const [createCategory, setCreateCategory] = useState<ExpenseTypeEnum | ''>('');
+  const [createCategory, setCreateCategory] = useState<ExpenseTypeEnum | string>('');
+  const [createCustomCategory, setCreateCustomCategory] = useState('');
   const [createAmount, setCreateAmount] = useState('');
-  const [createDate, setCreateDate] = useState('');
+  const [createDate, setCreateDate] = useState(new Date().toISOString().split('T')[0]);
   const [createDescription, setCreateDescription] = useState('');
+  const [createPaymentMethod, setCreatePaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
   const [quickDateRange, setQuickDateRange] = useState<
     'all' | 'this_month' | 'last_month' | 'this_year'
   >('all');
@@ -71,6 +73,9 @@ export default function ExpenseManagementPage() {
       setCreateLoading(true);
       setCreateError(null);
 
+      // Kategori belirleme - özel kategori varsa onu kullan
+      const finalCategory = createCategory === 'custom' ? createCustomCategory : createCategory;
+      
       const res = await fetch('/api/finance/expenses', {
         method: 'POST',
         headers: {
@@ -78,11 +83,12 @@ export default function ExpenseManagementPage() {
         },
         body: JSON.stringify({
           title: createTitle,
-          category: createCategory,
+          category: finalCategory || 'other',
           amount: Number(createAmount || 0),
           date: createDate,
           description: createDescription || null,
           organization_id: currentOrganization?.id || null,
+          payment_method: createPaymentMethod,
         }),
         });
 
@@ -111,9 +117,11 @@ export default function ExpenseManagementPage() {
       setIsCreateOpen(false);
       setCreateTitle('');
       setCreateCategory('');
+      setCreateCustomCategory('');
       setCreateAmount('');
-      setCreateDate('');
+      setCreateDate(new Date().toISOString().split('T')[0]);
       setCreateDescription('');
+      setCreatePaymentMethod('cash');
       } catch {
       setCreateError('Gider kaydı sırasında bağlantı hatası oluştu.');
       } finally {
@@ -611,101 +619,200 @@ export default function ExpenseManagementPage() {
       </div>
 
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Yeni Gider</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-rose-600 to-red-600 p-6 text-white">
+              <button 
+                onClick={() => setIsCreateOpen(false)}
+                className="absolute right-4 top-4 text-white/70 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                  <TrendingDown size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Yeni Gider Ekle</h2>
+                  <p className="text-sm text-white/80">Kasadan çıkış kaydı oluştur</p>
+                </div>
+              </div>
+            </div>
+
             {createError && (
-              <div className="mb-3 text-sm text-rose-600 border border-rose-100 rounded-md px-3 py-2 bg-rose-50">
+              <div className="mx-6 mt-4 text-sm text-rose-600 border border-rose-200 rounded-xl px-4 py-3 bg-rose-50 flex items-center gap-2">
+                <X size={16} />
                 {createError}
               </div>
             )}
-            <form onSubmit={handleCreateSubmit} className="space-y-3">
+            
+            <form onSubmit={handleCreateSubmit} className="p-6 space-y-5">
+              {/* Kategori Seçimi - İkonlu Grid */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Başlık
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={createTitle}
-                  onChange={(e) =>
-                    setCreateTitle(e.target.value.toLocaleUpperCase('tr-TR'))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Kategori</label>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {[
+                    { value: ExpenseTypeEnum.PAYROLL, label: 'Maaş', icon: Users, color: 'bg-blue-500' },
+                    { value: ExpenseTypeEnum.RENT, label: 'Kira', icon: Building, color: 'bg-purple-500' },
+                    { value: ExpenseTypeEnum.UTILITIES, label: 'Faturalar', icon: Zap, color: 'bg-yellow-500' },
+                    { value: ExpenseTypeEnum.MATERIALS, label: 'Malzeme', icon: ShoppingBag, color: 'bg-green-500' },
+                    { value: ExpenseTypeEnum.MAINTENANCE, label: 'Bakım', icon: Wrench, color: 'bg-orange-500' },
+                    { value: ExpenseTypeEnum.ADMIN, label: 'İdari', icon: Briefcase, color: 'bg-indigo-500' },
+                    { value: ExpenseTypeEnum.OTHER, label: 'Diğer', icon: Receipt, color: 'bg-gray-500' },
+                    { value: 'custom', label: 'Özel', icon: FileText, color: 'bg-pink-500' },
+                  ].map((cat) => {
+                    const Icon = cat.icon;
+                    const isSelected = createCategory === cat.value;
+                    return (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => setCreateCategory(cat.value)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                          isSelected 
+                            ? `border-rose-500 bg-rose-50 ring-2 ring-rose-200` 
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg ${cat.color} flex items-center justify-center`}>
+                          <Icon size={16} className="text-white" />
+                        </div>
+                        <span className={`text-xs font-medium ${isSelected ? 'text-rose-700' : 'text-gray-600'}`}>
+                          {cat.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Özel Kategori Girişi */}
+                {createCategory === 'custom' && (
+                  <input
+                    type="text"
+                    placeholder="Kategori adını yazın..."
+                    value={createCustomCategory}
+                    onChange={(e) => setCreateCustomCategory(e.target.value)}
+                    className="w-full mt-2 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                  />
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kategori
-                </label>
-                <select
-                  required
-                  value={createCategory}
-                  onChange={(e) => setCreateCategory(e.target.value as ExpenseTypeEnum | '')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Seçiniz</option>
-                  <option value={ExpenseTypeEnum.PAYROLL}>Bordro</option>
-                  <option value={ExpenseTypeEnum.UTILITIES}>Elektrik/Su/Gaz</option>
-                  <option value={ExpenseTypeEnum.MATERIALS}>Malzeme</option>
-                  <option value={ExpenseTypeEnum.MAINTENANCE}>Bakım</option>
-                  <option value={ExpenseTypeEnum.RENT}>Kira</option>
-                </select>
+
+              {/* Başlık ve Tutar - Yan Yana */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Başlık *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Gider açıklaması"
+                    value={createTitle}
+                    onChange={(e) => setCreateTitle(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tutar (₺) *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      placeholder="0"
+                      value={createAmount}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                        setCreateAmount(val);
+                      }}
+                      className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none text-lg font-bold"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tutar
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  value={createAmount}
-                  onChange={(e) => setCreateAmount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+
+              {/* Tarih ve Ödeme Yöntemi */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tarih</label>
+                  <input
+                    type="date"
+                    required
+                    value={createDate}
+                    onChange={(e) => setCreateDate(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: 'cash', label: '💵 Nakit' },
+                      { value: 'card', label: '💳 Kart' },
+                      { value: 'bank', label: '🏦 Banka' },
+                    ].map((method) => (
+                      <button
+                        key={method.value}
+                        type="button"
+                        onClick={() => setCreatePaymentMethod(method.value as 'cash' | 'card' | 'bank')}
+                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                          createPaymentMethod === method.value
+                            ? 'bg-rose-100 text-rose-700 border-2 border-rose-500'
+                            : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                        }`}
+                      >
+                        {method.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {/* Açıklama */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tarih
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={createDate}
-                  onChange={(e) => setCreateDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Açıklama (opsiyonel)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Açıklama (opsiyonel)</label>
                 <textarea
                   value={createDescription}
-                  onChange={(e) =>
-                    setCreateDescription(e.target.value.toLocaleUpperCase('tr-TR'))
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Ek notlar..."
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none resize-none"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              {/* Özet Kutusu */}
+              {createAmount && Number(createAmount) > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-rose-700">Kasadan Çıkacak Tutar:</span>
+                    <span className="text-xl font-bold text-rose-700">-₺{Number(createAmount).toLocaleString('tr-TR')}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Butonlar */}
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   disabled={createLoading}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  className="flex-1 px-4 py-3 text-sm font-medium rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
                 >
                   Vazgeç
                 </button>
                 <button
                   type="submit"
-                  disabled={createLoading}
-                  className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+                  disabled={createLoading || !createTitle || !createAmount || !createCategory}
+                  className="flex-[2] px-4 py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white hover:from-rose-700 hover:to-red-700 disabled:opacity-60 transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2"
                 >
-                  {createLoading ? 'Kaydediliyor...' : 'Kaydet'}
+                  {createLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Wallet size={18} />
+                      Gideri Kaydet
+                    </>
+                  )}
                 </button>
               </div>
             </form>

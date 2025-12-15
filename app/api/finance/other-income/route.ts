@@ -105,7 +105,11 @@ export async function POST(request: NextRequest) {
         date: date || new Date().toISOString(),
         notes: notes || null,
         created_by: created_by || null,
-        organization_id: organization_id || null
+        organization_id: organization_id || null,
+        is_paid: body.is_paid ?? false,
+        paid_amount: body.paid_amount ?? 0,
+        paid_at: body.paid_at || null,
+        due_date: body.due_date || null
       })
       .select()
       .single();

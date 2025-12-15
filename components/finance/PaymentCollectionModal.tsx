@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { X, CreditCard, Banknote, Building, Printer, MessageSquare, Calculator, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, CreditCard, Banknote, Building, Printer, MessageCircle, Calculator, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -113,14 +113,45 @@ interface Props {
   installment: FinanceInstallment | null;
   studentName: string;
   onSuccess: () => void;
+  parentPhone?: string;
 }
 
-export default function PaymentCollectionModal({ isOpen, onClose, installment, studentName, onSuccess }: Props) {
+export default function PaymentCollectionModal({ isOpen, onClose, installment, studentName, onSuccess, parentPhone }: Props) {
   const [amount, setAmount] = useState<string>('');
   const [method, setMethod] = useState<'cash' | 'card' | 'bank'>('cash');
   const [note, setNote] = useState('');
   const [printReceipt, setPrintReceipt] = useState(true);
-  const [sendSms, setSendSms] = useState(true);
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
+
+  // WhatsApp ile makbuz gönder
+  const handleSendWhatsApp = (payAmount: number) => {
+    if (!parentPhone) return;
+    
+    let phone = parentPhone.replace(/\D/g, '');
+    if (phone.startsWith('0')) {
+      phone = '90' + phone.slice(1);
+    } else if (!phone.startsWith('90') && phone.length === 10) {
+      phone = '90' + phone;
+    }
+    
+    const methodLabels: Record<string, string> = {
+      cash: 'Nakit', card: 'Kredi Kartı', bank: 'Havale/EFT'
+    };
+    
+    const message = `🧾 *TAHSİLAT MAKBUZU*\n\n` +
+      `📌 *${organizationName}*\n\n` +
+      `👨‍🎓 Öğrenci: ${studentName}\n` +
+      `💰 Ödenen: ₺${payAmount.toLocaleString('tr-TR')}\n` +
+      `📅 Tarih: ${new Date().toLocaleDateString('tr-TR')}\n` +
+      `💳 Yöntem: ${methodLabels[method] || 'Nakit'}\n` +
+      `📝 Taksit No: #${installment?.installment_no || '-'}\n\n` +
+      `✅ Ödemeniz başarıyla alınmıştır.\n` +
+      `Teşekkür ederiz. 🙏\n\n` +
+      `_${organizationName} Eğitim Kurumları_`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');
+  };
   
   // Calculate penalty/delay
   const [delayDays, setDelayDays] = useState(0);
@@ -201,9 +232,9 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
             }, organizationName);
           }
 
-          // Mock Action: Send SMS
-          if (sendSms) {
-            console.log('Sending SMS to parent...');
+          // WhatsApp ile makbuz gönder
+          if (sendWhatsApp && parentPhone) {
+            handleSendWhatsApp(payAmount);
           }
 
           setTimeout(() => {
@@ -366,12 +397,12 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
              </label>
 
              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${sendSms ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 group-hover:border-emerald-400'}`}>
-                   {sendSms && <CheckCircle2 size={14} className="text-white" />}
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${sendWhatsApp ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 group-hover:border-emerald-400'}`}>
+                   {sendWhatsApp && <CheckCircle2 size={14} className="text-white" />}
                 </div>
-                <input type="checkbox" className="hidden" checked={sendSms} onChange={() => setSendSms(!sendSms)} />
+                <input type="checkbox" className="hidden" checked={sendWhatsApp} onChange={() => setSendWhatsApp(!sendWhatsApp)} />
                 <span className="text-sm text-gray-600 flex items-center gap-1.5">
-                    <MessageSquare size={14} /> SMS Gönder
+                    <MessageCircle size={14} /> WhatsApp Gönder
                 </span>
              </label>
           </div>

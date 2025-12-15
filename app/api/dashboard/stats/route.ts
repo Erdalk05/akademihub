@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     };
 
     const buildOtherIncomeQuery = () => {
-      let query = supabase.from('other_income').select('amount');
+      let query = supabase.from('other_income').select('amount, paid_amount, is_paid');
       if (organizationId) query = query.eq('organization_id', organizationId);
       return query;
     };
@@ -123,8 +123,13 @@ export async function GET(req: NextRequest) {
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
     
-    // Diğer gelirler toplamı
-    const otherIncomeTotal = (otherIncomeResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+    // Diğer gelirler toplamı (ödenen tutarlar)
+    const otherIncomeData = otherIncomeResult.data || [];
+    const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0);
+    const otherIncomePending = otherIncomeData.reduce((sum, item) => {
+      const remaining = (item.amount || 0) - (item.paid_amount || 0);
+      return sum + (remaining > 0 ? remaining : 0);
+    }, 0);
     
     // Toplam giderler
     const totalExpenses = (expensesResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -212,7 +217,7 @@ export async function GET(req: NextRequest) {
         academicYear, // Hangi yılın verisi olduğunu belirt
         kpi: {
           activeStudents,
-          totalRevenue, // Ödenen tutar
+          totalRevenue, // Eğitim ödemeleri - ödenen tutar
           totalContract, // Toplam sözleşme tutarı
           paymentRate: parseFloat(paymentRate),
           debtorStudents,
@@ -220,8 +225,13 @@ export async function GET(req: NextRequest) {
           monthlyCollection,
           deletedStudents,
           overduePayments: overdueCount,
-          otherIncome: otherIncomeTotal,
+          // Diğer gelirler
+          otherIncome: otherIncomeTotal, // Diğer gelirler - tahsil edilen
+          otherIncomePending: otherIncomePending, // Diğer gelirler - bekleyen
+          // Giderler ve net durum
           totalExpenses,
+          // Toplam ciro = Eğitim ödemeleri + Diğer gelirler
+          totalCiro: totalRevenue + otherIncomeTotal,
           cashBalance: totalRevenue + otherIncomeTotal - totalExpenses // Net kasa durumu
         },
         todayCollection: {
