@@ -716,38 +716,39 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const html2pdf = (await import('html2pdf.js')).default;
       const today = new Date().toLocaleDateString('tr-TR');
       
-      // HTML içerik oluştur - Türkçe karakterler tam destekleniyor
+      // Diğer satışlar toplamları
+      const otherTotalAmount = otherIncomes.reduce((sum, i) => sum + i.amount, 0);
+      const otherPaidAmount = otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0);
+      
+      // HTML içerik oluştur
       const htmlContent = `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; max-width: 800px; margin: 0 auto;">
           <!-- BAŞLIK -->
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #1e293b;">KAYIT SÖZLEŞMESİ</h1>
-            <p style="font-size: 10px; color: #64748b; margin-top: 5px;">
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h1 style="font-size: 16px; font-weight: bold; margin: 0; color: #1e293b;">KAYIT VE SATIŞLAR SÖZLEŞMESİ</h1>
+            <p style="font-size: 9px; color: #64748b; margin-top: 4px;">
               Tarih: ${today} | Öğrenci No: ${student.student_no || '-'}
             </p>
           </div>
           
           <!-- ÖĞRENCİ VE VELİ BİLGİLERİ -->
-          <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-            <!-- Öğrenci -->
-            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+              <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; padding: 6px 10px; font-size: 10px; font-weight: bold;">
                 ÖĞRENCİ BİLGİLERİ
               </div>
-              <div style="padding: 12px; font-size: 10px; color: #334155; line-height: 1.6;">
+              <div style="padding: 8px; font-size: 9px; color: #334155; line-height: 1.5;">
                 <div><strong>Ad Soyad:</strong> ${student.first_name || ''} ${student.last_name || ''}</div>
                 <div><strong>TC Kimlik No:</strong> ${student.tc_no || '-'}</div>
                 <div><strong>Sınıf:</strong> ${student.class || '-'}-${student.section || 'A'}</div>
                 <div><strong>Kayıt Tarihi:</strong> ${today}</div>
               </div>
             </div>
-            
-            <!-- Veli -->
-            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
+            <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+              <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 6px 10px; font-size: 10px; font-weight: bold;">
                 VELİ BİLGİLERİ
               </div>
-              <div style="padding: 12px; font-size: 10px; color: #334155; line-height: 1.6;">
+              <div style="padding: 8px; font-size: 9px; color: #334155; line-height: 1.5;">
                 <div><strong>Veli Adı:</strong> ${student.parent_name || '-'}</div>
                 <div><strong>Telefon:</strong> ${student.parent_phone || '-'}</div>
                 <div><strong>E-posta:</strong> ${student.parent_email || '-'}</div>
@@ -755,108 +756,160 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             </div>
           </div>
           
-          <!-- ÖDEME PLANI -->
-          <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
-            <div style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 8px 12px; font-size: 11px; font-weight: bold;">
-              ÖDEME PLANI VE TAKSİT DURUMU
+          <!-- EĞİTİM ÖDEME PLANI -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 6px 10px; font-size: 10px; font-weight: bold;">
+              EĞİTİM ÖDEME PLANI
             </div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 8px;">
               <thead>
                 <tr style="background: #f1f5f9;">
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0; width: 35px;">No</th>
-                  <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0;">Açıklama</th>
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Vade</th>
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Ödeme Tarihi</th>
-                  <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">Tutar</th>
-                  <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0;">Durum</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0; width: 30px;">No</th>
+                  <th style="padding: 5px; text-align: left; border-bottom: 1px solid #e2e8f0;">Açıklama</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0;">Vade</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0;">Ödeme Tarihi</th>
+                  <th style="padding: 5px; text-align: right; border-bottom: 1px solid #e2e8f0;">Tutar</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0;">Durum</th>
                 </tr>
               </thead>
               <tbody>
                 ${installments.slice(0, 12).map((inst, index) => `
                   <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 6px 8px; text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : index + 1}</td>
-                    <td style="padding: 6px 8px;">${inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}</td>
-                    <td style="padding: 6px 8px; text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; text-align: center; color: ${inst.status === 'paid' ? '#059669' : '#9ca3af'};">
-                      ${inst.status === 'paid' ? new Date().toLocaleDateString('tr-TR') : '-'}
+                    <td style="padding: 4px 5px; text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : index + 1}</td>
+                    <td style="padding: 4px 5px;">${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
+                    <td style="padding: 4px 5px; text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                    <td style="padding: 4px 5px; text-align: center; color: ${inst.status === 'paid' ? '#059669' : '#9ca3af'};">
+                      ${inst.status === 'paid' && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}
                     </td>
-                    <td style="padding: 6px 8px; text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
-                    <td style="padding: 6px 8px; text-align: center;">
-                      <span style="padding: 2px 8px; border-radius: 12px; font-size: 8px; font-weight: bold; 
-                        ${inst.status === 'paid' ? 'background: #dcfce7; color: #166534;' : 
-                          inst.status === 'overdue' ? 'background: #fee2e2; color: #991b1b;' : 
-                          'background: #fef3c7; color: #92400e;'}">
-                        ${inst.status === 'paid' ? 'Ödendi' : inst.status === 'overdue' ? 'Gecikmiş' : 'Bekliyor'}
+                    <td style="padding: 4px 5px; text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
+                    <td style="padding: 4px 5px; text-align: center;">
+                      <span style="padding: 1px 6px; border-radius: 10px; font-size: 7px; font-weight: bold; 
+                        ${inst.status === 'paid' ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'}">
+                        ${inst.status === 'paid' ? 'Ödendi' : 'Bekliyor'}
                       </span>
                     </td>
                   </tr>
                 `).join('')}
                 <tr style="background: #f8fafc; font-weight: bold;">
-                  <td colspan="2" style="padding: 8px;">TOPLAM</td>
-                  <td></td>
-                  <td style="padding: 8px; text-align: right;">${totalAmount.toLocaleString('tr-TR')} TL</td>
-                  <td style="padding: 8px; text-align: center; font-size: 8px;">Ödenen: ${paidAmount.toLocaleString('tr-TR')} TL</td>
+                  <td colspan="4" style="padding: 5px;">EĞİTİM TOPLAM</td>
+                  <td style="padding: 5px; text-align: right;">${totalAmount.toLocaleString('tr-TR')} TL</td>
+                  <td style="padding: 5px; text-align: center; font-size: 7px;">Ödenen: ${paidAmount.toLocaleString('tr-TR')} TL</td>
                 </tr>
               </tbody>
             </table>
           </div>
           
+          <!-- DİĞER SATIŞLAR -->
+          ${otherIncomes.length > 0 ? `
+          <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 6px 10px; font-size: 10px; font-weight: bold;">
+              DİĞER SATIŞLAR (Kitap, Üniforma, Yemek vb.)
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 8px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 5px; text-align: left; border-bottom: 1px solid #e2e8f0;">Açıklama</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0;">Kategori</th>
+                  <th style="padding: 5px; text-align: right; border-bottom: 1px solid #e2e8f0;">Tutar</th>
+                  <th style="padding: 5px; text-align: right; border-bottom: 1px solid #e2e8f0;">Ödenen</th>
+                  <th style="padding: 5px; text-align: center; border-bottom: 1px solid #e2e8f0;">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${otherIncomes.map(inc => `
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 5px;">${inc.title}</td>
+                    <td style="padding: 4px 5px; text-align: center;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
+                    <td style="padding: 4px 5px; text-align: right; font-weight: bold;">${inc.amount.toLocaleString('tr-TR')} TL</td>
+                    <td style="padding: 4px 5px; text-align: right; color: #059669;">${inc.paidAmount.toLocaleString('tr-TR')} TL</td>
+                    <td style="padding: 4px 5px; text-align: center;">
+                      <span style="padding: 1px 6px; border-radius: 10px; font-size: 7px; font-weight: bold; 
+                        ${inc.isPaid ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'}">
+                        ${inc.isPaid ? 'Ödendi' : 'Bekliyor'}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+                <tr style="background: #f8fafc; font-weight: bold;">
+                  <td colspan="2" style="padding: 5px;">DİĞER SATIŞLAR TOPLAM</td>
+                  <td style="padding: 5px; text-align: right;">${otherTotalAmount.toLocaleString('tr-TR')} TL</td>
+                  <td style="padding: 5px; text-align: right; color: #059669;">${otherPaidAmount.toLocaleString('tr-TR')} TL</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          <!-- GENEL TOPLAM -->
+          <div style="background: linear-gradient(135deg, #1e293b, #334155); color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 10px;">
+              <div>
+                <div style="opacity: 0.8; font-size: 8px;">GENEL TOPLAM</div>
+                <div style="font-size: 14px; font-weight: bold;">${(totalAmount + otherTotalAmount).toLocaleString('tr-TR')} TL</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="opacity: 0.8; font-size: 8px;">ÖDENEN</div>
+                <div style="font-size: 14px; font-weight: bold; color: #4ade80;">${(paidAmount + otherPaidAmount).toLocaleString('tr-TR')} TL</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="opacity: 0.8; font-size: 8px;">KALAN BORÇ</div>
+                <div style="font-size: 14px; font-weight: bold; color: #fbbf24;">${((totalAmount + otherTotalAmount) - (paidAmount + otherPaidAmount)).toLocaleString('tr-TR')} TL</div>
+              </div>
+            </div>
+          </div>
+          
           <!-- YASAL BEYAN -->
-          <p style="font-size: 8px; color: #64748b; font-style: italic; margin-bottom: 25px; line-height: 1.4;">
+          <p style="font-size: 7px; color: #64748b; font-style: italic; margin-bottom: 15px; line-height: 1.3;">
             MEB Özel Öğretim Kurumları Yönetmeliği gereği hazırlanmıştır. Yukarıdaki bilgilerin doğruluğunu, ödeme planına uyacağımı, KVKK kapsamında kişisel verilerimin işlenmesini kabul ettiğimi beyan ederim.
           </p>
           
           <!-- İMZA ALANLARI -->
-          <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+          <div style="display: flex; justify-content: space-between; margin-top: 20px;">
             <div style="text-align: center; width: 45%;">
-              <p style="font-size: 10px; font-weight: bold; margin-bottom: 30px;">KURUM YETKİLİSİ</p>
-              <div style="border-top: 1px solid #334155; padding-top: 5px;">
-                <p style="font-size: 8px; color: #64748b;">İmza / Tarih / Kaşe</p>
+              <p style="font-size: 9px; font-weight: bold; margin-bottom: 25px;">KURUM YETKİLİSİ</p>
+              <div style="border-top: 1px solid #334155; padding-top: 4px;">
+                <p style="font-size: 7px; color: #64748b;">İmza / Tarih / Kaşe</p>
               </div>
             </div>
             <div style="text-align: center; width: 45%;">
-              <p style="font-size: 10px; font-weight: bold; margin-bottom: 30px;">VELİ / MALİ SORUMLU</p>
-              <div style="border-top: 1px solid #334155; padding-top: 5px;">
-                <p style="font-size: 8px; color: #64748b;">İmza / Tarih</p>
+              <p style="font-size: 9px; font-weight: bold; margin-bottom: 25px;">VELİ / MALİ SORUMLU</p>
+              <div style="border-top: 1px solid #334155; padding-top: 4px;">
+                <p style="font-size: 7px; color: #64748b;">İmza / Tarih</p>
               </div>
             </div>
           </div>
           
           <!-- FOOTER -->
-          <div style="text-align: center; margin-top: 30px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-            <p style="font-size: 7px; color: #94a3b8;">
+          <div style="text-align: center; margin-top: 15px; padding-top: 8px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 6px; color: #94a3b8;">
               AkademiHub © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}
             </p>
           </div>
         </div>
       `;
       
-      // Geçici div oluştur
       const container = document.createElement('div');
       container.innerHTML = htmlContent;
       document.body.appendChild(container);
       
-      // PDF ayarları
       const opt = {
-        margin: 10,
-        filename: `Sozlesme_${student.first_name}_${student.last_name}_${today.replace(/\./g, '-')}.pdf`,
+        margin: 8,
+        filename: 'Kayit_Satislar_Sozlesme_' + (student.first_name || '') + '_' + (student.last_name || '') + '_' + today.replace(/\\./g, '-') + '.pdf',
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
       };
       
-      // PDF oluştur ve indir
       await html2pdf().set(opt).from(container).save();
-      
-      // Geçici div'i kaldır
       document.body.removeChild(container);
       
       toast.success(
-        `✅ Sözleşme İndirildi!\n\nTürkçe karakterler düzgün görünüyor.`,
+        '✅ Kayıt ve Satışlar Sözleşmesi İndirildi!',
         { id: toastId, duration: 4000, icon: '📄' }
       );
     } catch (error: any) {
-      toast.error(`❌ PDF oluşturulamadı: ${error.message}`, { id: toastId });
+      toast.error('PDF oluşturulamadı: ' + error.message, { id: toastId });
     }
   };
 
@@ -1178,7 +1231,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <FileText className="h-5 w-5 text-indigo-600" />
-            Kayıt Sözleşmesi
+            Kayıt ve Satışlar Sözleşmesi
           </h3>
           <button 
             onClick={downloadContract}
