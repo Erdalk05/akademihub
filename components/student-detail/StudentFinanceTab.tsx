@@ -163,10 +163,16 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           payment_type: item.payment_type,
           notes: item.notes
         }));
-        // Ödenmemişler önce
+        // Önce kategoriye göre, sonra vade tarihine göre sırala (1. taksit üstte)
         mapped.sort((a: OtherIncome, b: OtherIncome) => {
-          if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
-          return 0;
+          // Önce kategoriye göre grupla
+          if (a.category !== b.category) {
+            return a.category.localeCompare(b.category, 'tr');
+          }
+          // Aynı kategoride vade tarihine göre sırala (erken tarih üstte)
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : new Date(a.date).getTime();
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : new Date(b.date).getTime();
+          return dateA - dateB;
         });
         setOtherIncomes(mapped);
       }
