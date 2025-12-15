@@ -273,36 +273,37 @@ export default function OtherIncomePage() {
     };
   }, [incomes, filteredByPeriod]);
 
-  // Öğrenci bazında gruplama
-  type StudentGroup = {
+  // Öğrenci + Kategori bazında gruplama (her kategori ayrı satırda)
+  type StudentCategoryGroup = {
     studentId: string | null;
     studentName: string;
     studentClass: string | null;
+    category: string;
     totalAmount: number;
     paidAmount: number;
     remainingAmount: number;
     itemCount: number;
     paidCount: number;
-    categories: string[];
   };
 
   const groupedByStudent = useMemo(() => {
-    const groups: { [key: string]: StudentGroup } = {};
+    const groups: { [key: string]: StudentCategoryGroup } = {};
     
     filteredIncomes.forEach(income => {
-      const key = income.studentId || 'unknown';
+      // Öğrenci + Kategori kombinasyonu için unique key
+      const key = `${income.studentId || 'unknown'}_${income.category}`;
       
       if (!groups[key]) {
         groups[key] = {
           studentId: income.studentId,
           studentName: income.studentName,
           studentClass: income.studentClass,
+          category: income.category,
           totalAmount: 0,
           paidAmount: 0,
           remainingAmount: 0,
           itemCount: 0,
-          paidCount: 0,
-          categories: []
+          paidCount: 0
         };
       }
       
@@ -311,13 +312,15 @@ export default function OtherIncomePage() {
       groups[key].remainingAmount += (income.amount - income.paidAmount);
       groups[key].itemCount += 1;
       if (income.isPaid) groups[key].paidCount += 1;
-      
-      if (!groups[key].categories.includes(income.category)) {
-        groups[key].categories.push(income.category);
-      }
     });
     
-    return Object.values(groups).sort((a, b) => b.remainingAmount - a.remainingAmount);
+    // Önce öğrenci adına, sonra kalan borca göre sırala
+    return Object.values(groups).sort((a, b) => {
+      if (a.studentName !== b.studentName) {
+        return a.studentName.localeCompare(b.studentName, 'tr');
+      }
+      return b.remainingAmount - a.remainingAmount;
+    });
   }, [filteredIncomes]);
 
   // Pagination
@@ -772,7 +775,7 @@ export default function OtherIncomePage() {
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategoriler</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Adet</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Toplam</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödenen</th>
@@ -787,7 +790,7 @@ export default function OtherIncomePage() {
                     const hasUnpaid = group.paidCount < group.itemCount;
                     
                     return (
-                      <tr key={group.studentId || 'unknown'} className="hover:bg-slate-50/50 transition">
+                      <tr key={`${group.studentId || 'unknown'}_${group.category}`} className="hover:bg-slate-50/50 transition">
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
@@ -800,18 +803,16 @@ export default function OtherIncomePage() {
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            {group.categories.map(cat => {
-                              const catInfo = getCategoryInfo(cat);
-                              const CatIcon = catInfo.icon;
-                              return (
-                                <span key={cat} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
-                                  <CatIcon size={12} />
-                                  {catInfo.label}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          {(() => {
+                            const catInfo = getCategoryInfo(group.category);
+                            const CatIcon = catInfo.icon;
+                            return (
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
+                                <CatIcon size={14} />
+                                {catInfo.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-4 text-center">
                           <div className="flex items-center justify-center gap-1">
