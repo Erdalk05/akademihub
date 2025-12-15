@@ -105,15 +105,8 @@ export async function GET(req: NextRequest) {
     if (installmentsResult.error) throw installmentsResult.error;
 
     // TÜM AKTİF öğrenciler (deleted olmayanlar)
-    const allStudents = studentsResult.data || [];
-    
-    // Akademik yıl filtresi: Seçili akademik yıldaki öğrenciler veya tüm öğrenciler
-    const students = allStudents.filter(s => {
-      // Eğer öğrencinin academic_year'ı varsa ve seçili akademik yılla eşleşiyorsa dahil et
-      // Eğer academic_year yoksa (null/boş) tüm öğrencileri dahil et (geriye uyumluluk)
-      if (!s.academic_year) return true;
-      return s.academic_year === academicYear;
-    });
+    // Öğrenci listesi sayfasıyla uyumlu: Tüm aktif öğrencileri al (academic_year filtresi yok)
+    const students = studentsResult.data || [];
     
     const allInstallments = installmentsResult.data || [];
     
