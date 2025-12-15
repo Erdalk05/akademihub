@@ -233,6 +233,111 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     }
   };
 
+  // Diğer Gelirler Makbuz İndir
+  const downloadOtherIncomeReceipt = async (income: OtherIncome) => {
+    const toastId = toast.loading('Makbuz hazırlanıyor...');
+    
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const receiptNo = `DG-${new Date().getFullYear()}-${income.id.slice(0, 8).toUpperCase()}`;
+      const formattedDate = income.paidAt 
+        ? new Date(income.paidAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
+        : new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const currentDateTime = new Date().toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Öğrenci';
+      const parentName = student.parent_name || 'Sayın Veli';
+      const categoryLabel = CATEGORY_INFO[income.category]?.label || 'Diğer';
+      const organizationName = 'AkademiHub';
+
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      document.body.appendChild(container);
+      
+      const receiptDiv = document.createElement('div');
+      receiptDiv.innerHTML = `
+        <div style="width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #9333ea; border-radius: 12px; font-family: Arial, sans-serif; background: white;">
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px;">
+            <span>${currentDateTime}</span>
+            <span>Diğer Gelir Makbuzu</span>
+          </div>
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h1 style="font-size: 20px; color: #9333ea; font-weight: 700; margin: 0;">${organizationName}</h1>
+          </div>
+          <div style="text-align: center; font-size: 14px; font-weight: 600; color: #333; padding: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px;">DİĞER GELİR MAKBUZU</div>
+          <div style="text-align: center; font-size: 10px; color: #666; margin-bottom: 15px;">Belge No: ${receiptNo}</div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <div>
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Öğrenci Adı Soyadı</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${studentName}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Tarih</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${formattedDate}</div>
+            </div>
+            <div>
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Ödeme Yapan</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${parentName}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Kategori</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${categoryLabel}</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <div style="font-size: 9px; color: #888; text-transform: uppercase;">Açıklama</div>
+              <div style="font-size: 11px; color: #333; font-weight: 500; margin-top: 2px;">${income.title}</div>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 10px; opacity: 0.9;">Tahsil Edilen Tutar</div>
+            <div style="font-size: 24px; font-weight: 700; margin-top: 5px;">₺${income.paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc;">
+            <div style="text-align: center; width: 45%;">
+              <div style="font-size: 9px; color: #888;">Teslim Alan</div>
+              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">Muhasebe Birimi</div>
+              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+            </div>
+            <div style="text-align: center; width: 45%;">
+              <div style="font-size: 9px; color: #888;">Teslim Eden</div>
+              <div style="font-size: 10px; color: #333; margin-top: 3px; font-weight: 500;">${studentName} / Veli</div>
+              <div style="border-top: 1px solid #333; margin-top: 30px;"></div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+            <p style="font-size: 8px; color: #888; line-height: 1.5; margin: 0;">Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
+            <p style="font-size: 8px; color: #9333ea; font-weight: 500; margin-top: 5px;">${organizationName} Eğitim Yönetim Sistemi</p>
+          </div>
+        </div>
+      `;
+      container.appendChild(receiptDiv);
+
+      const opt = {
+        margin: 5,
+        filename: `DigerGelir_Makbuz_${categoryLabel}_${student.last_name}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: [100, 160] as [number, number], orientation: 'portrait' as const }
+      };
+
+      await html2pdf().set(opt).from(receiptDiv).save();
+      document.body.removeChild(container);
+      
+      toast.success(
+        `✅ Makbuz İndirildi!\n\n${categoryLabel} - ₺${income.paidAmount.toLocaleString('tr-TR')}`,
+        { id: toastId, duration: 4000, icon: '🧾' }
+      );
+    } catch (error: any) {
+      toast.error(`❌ Makbuz oluşturulamadı: ${error.message}`, { id: toastId });
+    }
+  };
+
   const handlePayment = (installment: Installment) => {
     setSelectedInstallment(installment);
     setShowPaymentModal(true);
@@ -398,6 +503,209 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       );
     } catch (error: any) {
       toast.error(`❌ Makbuz oluşturulamadı: ${error.message}`, { id: toastId });
+    }
+  };
+
+  // Eğitim Taksitleri Özet PDF
+  const downloadEducationSummaryPDF = async () => {
+    const toastId = toast.loading('Eğitim ödemeleri PDF hazırlanıyor...');
+    
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      const today = new Date().toLocaleDateString('tr-TR');
+      const totalAmount = installments.reduce((sum, i) => sum + i.amount, 0);
+      const paidAmount = installments.reduce((sum, i) => sum + (i.paid_amount || 0), 0);
+      const remainingAmount = totalAmount - paidAmount;
+      
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+      
+      const pdfDiv = document.createElement('div');
+      pdfDiv.innerHTML = `
+        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #4f46e5; padding-bottom: 15px;">
+            <h1 style="color: #4f46e5; margin: 0;">EĞİTİM ÖDEME PLANI</h1>
+            <p style="color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div><strong>Öğrenci:</strong> ${studentName}</div>
+              <div><strong>Öğrenci No:</strong> ${student.student_no || '-'}</div>
+              <div><strong>Veli:</strong> ${student.parent_name || '-'}</div>
+              <div><strong>Sınıf:</strong> ${student.class || student.section || '-'}</div>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div style="background: #4f46e5; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Toplam</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${totalAmount.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Ödenen</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Kalan</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
+            </div>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Taksit</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Vade</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Tutar</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Ödenen</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${installments.map(inst => `
+                <tr>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${inst.installment_no > 0 ? inst.installment_no + '. Taksit' : 'Peşinat'}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inst.status === 'paid' ? '#d1fae5' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : '#92400e'};">
+                      ${inst.status === 'paid' ? 'Ödendi' : 'Beklemede'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px;">
+            AkademiHub - Eğitim Yönetim Sistemi
+          </div>
+        </div>
+      `;
+      container.appendChild(pdfDiv);
+
+      const opt = {
+        margin: 10,
+        filename: 'Egitim_Odemeler_' + studentName.replace(/\\s/g, '_') + '_' + today.replace(/\\./g, '-') + '.pdf',
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+      };
+
+      await html2pdf().set(opt).from(pdfDiv).save();
+      document.body.removeChild(container);
+      
+      toast.success('✅ Eğitim Ödemeleri PDF indirildi!', { id: toastId });
+    } catch (error: any) {
+      toast.error('PDF oluşturulamadı: ' + error.message, { id: toastId });
+    }
+  };
+
+  // Diğer Gelirler Özet PDF
+  const downloadOtherIncomeSummaryPDF = async () => {
+    const toastId = toast.loading('Diğer gelirler PDF hazırlanıyor...');
+    
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      const today = new Date().toLocaleDateString('tr-TR');
+      const totalAmount = otherIncomes.reduce((sum, i) => sum + i.amount, 0);
+      const paidAmount = otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0);
+      const remainingAmount = totalAmount - paidAmount;
+      
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+      
+      const pdfDiv = document.createElement('div');
+      pdfDiv.innerHTML = `
+        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #9333ea; padding-bottom: 15px;">
+            <h1 style="color: #9333ea; margin: 0;">DİĞER GELİRLER</h1>
+            <p style="color: #666; margin: 5px 0 0 0;">Kitap, Üniforma, Yemek ve Diğer</p>
+            <p style="color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div><strong>Öğrenci:</strong> ${studentName}</div>
+              <div><strong>Öğrenci No:</strong> ${student.student_no || '-'}</div>
+              <div><strong>Veli:</strong> ${student.parent_name || '-'}</div>
+              <div><strong>Sınıf:</strong> ${student.class || student.section || '-'}</div>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div style="background: #9333ea; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Toplam</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${totalAmount.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Ödenen</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Kalan</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
+            </div>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Açıklama</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Kategori</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Tutar</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Ödenen</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${otherIncomes.map(inc => `
+                <tr>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${inc.title}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inc.isPaid ? '#d1fae5' : '#fef3c7'}; color: ${inc.isPaid ? '#065f46' : '#92400e'};">
+                      ${inc.isPaid ? 'Ödendi' : 'Beklemede'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px;">
+            AkademiHub - Eğitim Yönetim Sistemi
+          </div>
+        </div>
+      `;
+      container.appendChild(pdfDiv);
+
+      const opt = {
+        margin: 10,
+        filename: 'Diger_Gelirler_' + studentName.replace(/\\s/g, '_') + '_' + today.replace(/\\./g, '-') + '.pdf',
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+      };
+
+      await html2pdf().set(opt).from(pdfDiv).save();
+      document.body.removeChild(container);
+      
+      toast.success('✅ Diğer Gelirler PDF indirildi!', { id: toastId });
+    } catch (error: any) {
+      toast.error('PDF oluşturulamadı: ' + error.message, { id: toastId });
     }
   };
 
@@ -635,10 +943,21 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       {/* TAKSİT LİSTESİ */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-indigo-600" />
-            Ödeme Planı ve Hareketler
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-indigo-600" />
+              Ödeme Planı ve Hareketler
+            </h3>
+            {installments.length > 0 && (
+              <button
+                onClick={downloadEducationSummaryPDF}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
+              >
+                <Download className="h-4 w-4" />
+                PDF İndir
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -743,6 +1062,15 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <span className="text-orange-600 font-medium">
                 Bekleyen: ₺{otherIncomes.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')}
               </span>
+              {otherIncomes.length > 0 && (
+                <button
+                  onClick={downloadOtherIncomeSummaryPDF}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm font-medium transition"
+                >
+                  <Download className="h-4 w-4" />
+                  PDF İndir
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -828,7 +1156,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                           </button>
                         ) : (
                           <button
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium transition"
+                            onClick={() => downloadOtherIncomeReceipt(income)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition"
                           >
                             <Download className="h-3 w-3" />
                             Makbuz
