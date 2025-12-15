@@ -106,6 +106,13 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   // Diğer Gelirler State
   const [otherIncomes, setOtherIncomes] = useState<OtherIncome[]>([]);
   const [loadingOtherIncomes, setLoadingOtherIncomes] = useState(false);
+  
+  // Diğer Gelirler Tahsilat State
+  const [showOtherPaymentModal, setShowOtherPaymentModal] = useState(false);
+  const [selectedOtherIncome, setSelectedOtherIncome] = useState<OtherIncome | null>(null);
+  const [otherPaymentAmount, setOtherPaymentAmount] = useState('');
+  const [otherPaymentMethod, setOtherPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [otherPaymentLoading, setOtherPaymentLoading] = useState(false);
 
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
@@ -173,6 +180,58 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   useEffect(() => {
     fetchOtherIncomes();
   }, [fetchOtherIncomes]);
+
+  // Diğer Gelir Tahsilat Fonksiyonları
+  const handleOpenOtherPayment = (income: OtherIncome) => {
+    setSelectedOtherIncome(income);
+    const remaining = income.amount - income.paidAmount;
+    setOtherPaymentAmount(remaining.toString());
+    setOtherPaymentMethod('cash');
+    setShowOtherPaymentModal(true);
+  };
+
+  const handleCollectOtherPayment = async () => {
+    if (!selectedOtherIncome) return;
+    
+    const amount = Number(otherPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Geçerli bir tutar girin');
+      return;
+    }
+
+    setOtherPaymentLoading(true);
+    try {
+      const newPaidAmount = selectedOtherIncome.paidAmount + amount;
+      const isFullyPaid = newPaidAmount >= selectedOtherIncome.amount;
+
+      const res = await fetch('/api/finance/other-income', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedOtherIncome.id,
+          paid_amount: newPaidAmount,
+          is_paid: isFullyPaid,
+          paid_at: new Date().toISOString(),
+          payment_type: otherPaymentMethod
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`✅ ₺${amount.toLocaleString('tr-TR')} tahsil edildi!`);
+        setShowOtherPaymentModal(false);
+        setSelectedOtherIncome(null);
+        fetchOtherIncomes();
+        onRefresh?.();
+      } else {
+        toast.error(json.error || 'Tahsilat başarısız');
+      }
+    } catch {
+      toast.error('Bağlantı hatası');
+    } finally {
+      setOtherPaymentLoading(false);
+    }
+  };
 
   const handlePayment = (installment: Installment) => {
     setSelectedInstallment(installment);
@@ -709,6 +768,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                   <th className="p-4 text-right">Ödenen</th>
                   <th className="p-4 text-right">Kalan</th>
                   <th className="p-4 text-center">Durum</th>
+                  <th className="p-4 text-center">İşlem</th>
                 </tr>
               </thead>
               <tbody>
@@ -755,6 +815,24 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                             Beklemede
                           </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        {!income.isPaid ? (
+                          <button
+                            onClick={() => handleOpenOtherPayment(income)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition"
+                          >
+                            <CreditCard className="h-3 w-3" />
+                            Tahsil Et
+                          </button>
+                        ) : (
+                          <button
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium transition"
+                          >
+                            <Download className="h-3 w-3" />
+                            Makbuz
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -896,6 +974,128 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             >
               <CreditCard className="h-4 w-4" />
               Ödemeyi Kaydet
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* DİĞER GELİRLER TAHSİLAT MODAL */}
+    {showOtherPaymentModal && selectedOtherIncome && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Package className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Diğer Gelir Tahsilatı</h3>
+                  <p className="text-purple-200 text-sm">{selectedOtherIncome.title}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowOtherPaymentModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* Bilgi Kartı */}
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-gray-600">Kategori</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium text-white ${CATEGORY_INFO[selectedOtherIncome.category]?.color || 'bg-gray-500'}`}>
+                  {CATEGORY_INFO[selectedOtherIncome.category]?.label || 'Diğer'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-gray-600">Toplam Tutar</span>
+                <span className="font-bold text-gray-900">₺{selectedOtherIncome.amount.toLocaleString('tr-TR')}</span>
+              </div>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-gray-600">Ödenen</span>
+                <span className="font-bold text-emerald-600">₺{selectedOtherIncome.paidAmount.toLocaleString('tr-TR')}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                <span className="text-sm font-medium text-gray-700">Kalan Borç</span>
+                <span className="font-bold text-lg text-orange-600">₺{(selectedOtherIncome.amount - selectedOtherIncome.paidAmount).toLocaleString('tr-TR')}</span>
+              </div>
+            </div>
+
+            {/* Tutar Girişi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tahsil Edilecek Tutar</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={otherPaymentAmount}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                    setOtherPaymentAmount(val);
+                  }}
+                  className="w-full pl-10 pr-4 py-3 text-xl font-bold text-gray-900 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            {/* Ödeme Yöntemi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'cash', label: '💵 Nakit' },
+                  { value: 'card', label: '💳 Kart' },
+                  { value: 'bank', label: '🏦 Banka' },
+                ].map((method) => (
+                  <button
+                    key={method.value}
+                    type="button"
+                    onClick={() => setOtherPaymentMethod(method.value as 'cash' | 'card' | 'bank')}
+                    className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                      otherPaymentMethod === method.value
+                        ? 'bg-purple-100 text-purple-700 border-2 border-purple-500'
+                        : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                    }`}
+                  >
+                    {method.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => setShowOtherPaymentModal(false)}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              Vazgeç
+            </button>
+            <button
+              onClick={handleCollectOtherPayment}
+              disabled={otherPaymentLoading || !otherPaymentAmount || Number(otherPaymentAmount) <= 0}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:opacity-60 transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2"
+            >
+              {otherPaymentLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4" />
+                  Tahsil Et
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -333,41 +333,52 @@ export default function OtherIncomePage() {
     try {
       const studentName = `${selectedStudent.first_name} ${selectedStudent.last_name}`;
       
+      // Peşinat varsa - HEMEN ÖDENMİŞ olarak kaydet
       if (Number(formDownPayment) > 0) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             student_id: selectedStudent.id,
-            title: `${formTitle} - Peşinat (${studentName})`,
+            title: `${formTitle} - Peşinat`,
             category: formCategory,
             amount: Number(formDownPayment),
+            paid_amount: Number(formDownPayment), // Peşinat ödendi
+            is_paid: true, // Peşinat ödendi
+            paid_at: new Date().toISOString(),
             payment_type: 'cash',
-            date: new Date(formDownPaymentDate).toISOString(),
-            notes: null,
+            date: new Date().toISOString(),
+            due_date: new Date(formDownPaymentDate).toISOString().split('T')[0],
+            notes: `Toplam: ₺${formTotalAmount}`,
             organization_id: currentOrganization?.id || null
           })
         });
       }
 
+      // Taksitler - ÖDENMEMİŞ olarak kaydet
       for (const inst of installmentPreview) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             student_id: selectedStudent.id,
-            title: `${formTitle} - ${inst.no}. Taksit (${studentName})`,
+            title: `${formTitle} - ${inst.no}. Taksit`,
             category: formCategory,
             amount: inst.amount,
+            paid_amount: 0, // Henüz ödenmedi
+            is_paid: false, // Ödenmedi
+            paid_at: null,
             payment_type: 'cash',
-            date: new Date(inst.dueDate).toISOString(),
+            date: new Date().toISOString(), // Kayıt tarihi
+            due_date: inst.dueDate, // Vade tarihi
             notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`,
             organization_id: currentOrganization?.id || null
           })
         });
       }
 
-      toast.success(`${installmentPreview.length} taksit oluşturuldu`);
+      const totalCreated = (Number(formDownPayment) > 0 ? 1 : 0) + installmentPreview.length;
+      toast.success(`✅ ${totalCreated} ödeme planı oluşturuldu`);
       setShowAddModal(false);
       resetForm();
       fetchData();
