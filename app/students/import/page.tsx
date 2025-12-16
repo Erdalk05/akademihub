@@ -1,49 +1,151 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X, ArrowRight, Save, Loader2, ClipboardPaste, Table } from 'lucide-react';
+import { 
+  Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X, ArrowRight, Save, Loader2, 
+  ClipboardPaste, Table, User, Users, GraduationCap, Wallet, Download, HelpCircle
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+// Genişletilmiş Import Row - Kayıt Sözleşmesindeki Tüm Alanlar
 interface ImportRow {
+  // Öğrenci Bilgileri
   studentNo: string;
   firstName: string;
   lastName: string;
+  tcNo: string;
+  birthDate: string;
+  birthPlace: string;
+  nationality: string;
+  gender: string;
+  bloodGroup: string;
+  phone: string;
+  phone2: string;
+  email: string;
+  city: string;
+  district: string;
+  address: string;
+  previousSchool: string;
+  healthNotes: string;
+  
+  // Eğitim Bilgileri
   class: string;
   section: string;
+  programName: string;
+  academicYear: string;
+  
+  // Veli Bilgileri
+  parentType: string;
   parentName: string;
-  tcId: string;
-  phone: string;
+  parentTcNo: string;
+  parentPhone: string;
+  parentEmail: string;
+  parentJob: string;
+  parentWorkplace: string;
+  parentWorkAddress: string;
+  parentWorkPhone: string;
+  parentHomeAddress: string;
+  parentHomeCity: string;
+  parentHomeDistrict: string;
+  
+  // Ödeme Bilgileri
   totalFee: number;
+  discountPercent: number;
+  discountAmount: number;
+  netFee: number;
+  downPayment: number;
+  installmentCount: number;
+  firstInstallmentDate: string;
+  paymentMethod: string;
   paidAmount: number;
   remainingAmount: number;
-  installmentCount: number;
+  
+  // Validasyon
   isValid: boolean;
   errors: string[];
+  warnings: string[];
 }
 
-// Kolon ismini esnek ara (boşlukları, büyük/küçük harf farkını yoksay)
+// Kolon ismini esnek ara
 const findColumn = (row: any, possibleNames: string[]): string => {
   const keys = Object.keys(row);
   
   for (const name of possibleNames) {
-    // Tam eşleşme
-    if (row[name] !== undefined) return row[name]?.toString() || '';
+    if (row[name] !== undefined) return row[name]?.toString().trim() || '';
     
-    // Küçük harfle eşleşme
     const lowerName = name.toLowerCase().trim();
     for (const key of keys) {
-      if (key.toLowerCase().trim() === lowerName) {
-        return row[key]?.toString() || '';
-      }
-      // Kısmi eşleşme (içeriyor mu)
-      if (key.toLowerCase().includes(lowerName) || lowerName.includes(key.toLowerCase())) {
-        return row[key]?.toString() || '';
+      const lowerKey = key.toLowerCase().trim();
+      if (lowerKey === lowerName) return row[key]?.toString().trim() || '';
+      if (lowerKey.includes(lowerName) || lowerName.includes(lowerKey)) {
+        return row[key]?.toString().trim() || '';
       }
     }
   }
   return '';
+};
+
+// Para formatını sayıya çevir
+const parseAmount = (str: string): number => {
+  if (!str) return 0;
+  return parseFloat(str.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+};
+
+// Desteklenen kolonlar listesi
+const SUPPORTED_COLUMNS = {
+  student: [
+    { key: 'Öğrenci No', desc: 'Benzersiz öğrenci numarası' },
+    { key: 'Ad', desc: 'Öğrenci adı' },
+    { key: 'Soyad', desc: 'Öğrenci soyadı' },
+    { key: 'TC Kimlik', desc: '11 haneli TC kimlik numarası' },
+    { key: 'Doğum Tarihi', desc: 'GG.AA.YYYY formatında' },
+    { key: 'Doğum Yeri', desc: 'Doğum yeri/şehri' },
+    { key: 'Cinsiyet', desc: 'Erkek veya Kadın' },
+    { key: 'Kan Grubu', desc: 'A+, B-, O+, AB+ vb.' },
+    { key: 'Uyruk', desc: 'TC veya diğer' },
+    { key: 'Telefon', desc: 'Öğrenci telefonu' },
+    { key: 'Telefon 2', desc: 'İkinci telefon' },
+    { key: 'E-posta', desc: 'Öğrenci e-postası' },
+    { key: 'Şehir', desc: 'İkamet şehri' },
+    { key: 'İlçe', desc: 'İkamet ilçesi' },
+    { key: 'Adres', desc: 'Tam adres' },
+    { key: 'Önceki Okul', desc: 'Önceki okul adı' },
+    { key: 'Sağlık Notu', desc: 'Alerji, hastalık vb.' },
+  ],
+  education: [
+    { key: 'Sınıf', desc: '1, 2, 3... veya 8/A' },
+    { key: 'Şube', desc: 'A, B, C veya şube adı' },
+    { key: 'Program', desc: 'Eğitim programı adı' },
+    { key: 'Akademik Yıl', desc: '2024-2025 formatında' },
+  ],
+  parent: [
+    { key: 'Veli Tipi', desc: 'Anne/Baba/Vasi' },
+    { key: 'Veli Ad Soyad', desc: 'Veli tam adı' },
+    { key: 'Veli TC', desc: 'Veli TC kimlik' },
+    { key: 'Veli Telefon', desc: 'Veli telefonu' },
+    { key: 'Veli E-posta', desc: 'Veli e-postası' },
+    { key: 'Veli Meslek', desc: 'Meslek' },
+    { key: 'İş Yeri', desc: 'Çalıştığı kurum' },
+    { key: 'İş Adresi', desc: 'İş yeri adresi' },
+    { key: 'İş Telefonu', desc: 'İş telefonu' },
+    { key: 'Ev Adresi', desc: 'Veli ev adresi' },
+    { key: 'Ev Şehri', desc: 'Veli ikamet şehri' },
+    { key: 'Ev İlçesi', desc: 'Veli ikamet ilçesi' },
+  ],
+  payment: [
+    { key: 'Toplam Ücret', desc: 'Brüt eğitim ücreti' },
+    { key: 'İndirim %', desc: 'Yüzde olarak indirim' },
+    { key: 'İndirim Tutarı', desc: 'TL olarak indirim' },
+    { key: 'Net Ücret', desc: 'Ödenecek toplam' },
+    { key: 'Peşinat', desc: 'Peşin ödeme tutarı' },
+    { key: 'Taksit Sayısı', desc: 'Aylık taksit adedi' },
+    { key: 'İlk Taksit Tarihi', desc: 'GG.AA.YYYY' },
+    { key: 'Ödeme Yöntemi', desc: 'Nakit/Kredi/Havale' },
+    { key: 'Ödenen', desc: 'Şu ana kadar ödenen' },
+    { key: 'Kalan', desc: 'Kalan borç' },
+  ],
 };
 
 export default function StudentImportPage() {
@@ -56,62 +158,128 @@ export default function StudentImportPage() {
   const [pasteData, setPasteData] = useState('');
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [showColumnGuide, setShowColumnGuide] = useState(false);
   const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] }>({
     success: 0,
     failed: 0,
     errors: [],
   });
 
-  // Excel kolonlarını sistem alanlarıyla eşleştir
+  // Excel satırını eşleştir
   const mapExcelRow = (row: any): ImportRow => {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
-    // Öğrenci adını ayır (Ad Soyad formatında)
-    const fullName = findColumn(row, ['Öğrenciler', 'Ogrenciler', 'Ad Soyad', 'AdSoyad', 'Öğrenci', 'Ogrenci', 'İsim', 'Isim', 'Ad', 'Adı']);
-    const nameParts = fullName.trim().split(' ');
-    const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0] || '';
-    const lastName = nameParts[nameParts.length - 1] || '';
+    // Öğrenci adını ayır (Ad Soyad formatında olabilir)
+    let firstName = findColumn(row, ['Ad', 'Adı', 'FirstName', 'First Name']);
+    let lastName = findColumn(row, ['Soyad', 'Soyadı', 'LastName', 'Last Name']);
+    
+    // Eğer ayrı alanlar yoksa, birleşik alandan ayır
+    if (!firstName && !lastName) {
+      const fullName = findColumn(row, ['Öğrenciler', 'Ogrenciler', 'Ad Soyad', 'AdSoyad', 'Öğrenci', 'Ogrenci', 'İsim', 'Isim', 'Tam Ad']);
+      const nameParts = fullName.trim().split(' ');
+      firstName = nameParts.slice(0, -1).join(' ') || nameParts[0] || '';
+      lastName = nameParts[nameParts.length - 1] || '';
+    }
 
     // Şube bilgisini ayır (8/B05 -> class: 8, section: B05)
-    const sube = findColumn(row, ['Şube', 'Sube', 'Sinif', 'Sınıf', 'Class']);
-    const subeParts = sube.split('/');
-    const classLevel = subeParts[0] || '';
-    const section = subeParts[1] || '';
+    let classLevel = findColumn(row, ['Sınıf', 'Sinif', 'Class', 'Seviye']);
+    let section = findColumn(row, ['Şube', 'Sube', 'Section', 'Bölüm']);
+    
+    if (!section && classLevel.includes('/')) {
+      const subeParts = classLevel.split('/');
+      classLevel = subeParts[0] || '';
+      section = subeParts[1] || '';
+    }
 
-    // Veli telefon numarasını temizle
-    let phone = findColumn(row, ['Veli İletişim Bilgisi', 'Veli Iletisim', 'Telefon', 'Tel', 'Phone', 'Cep', 'GSM', 'İletişim']);
+    // Telefon numaralarını temizle
+    let phone = findColumn(row, ['Telefon', 'Tel', 'Phone', 'Cep', 'GSM', 'Öğrenci Telefon']);
     phone = phone.replace(/[^0-9+]/g, '');
+    
+    let phone2 = findColumn(row, ['Telefon 2', 'Tel 2', 'İkinci Telefon', 'Diğer Telefon']);
+    phone2 = phone2.replace(/[^0-9+]/g, '');
+    
+    let parentPhone = findColumn(row, ['Veli Telefon', 'Veli Tel', 'Veli İletişim', 'Veli İletişim Bilgisi', 'Veli GSM']);
+    parentPhone = parentPhone.replace(/[^0-9+]/g, '');
 
     // Finansal bilgiler
-    const totalFeeStr = findColumn(row, ['Taksit (Öğrenci)', 'Taksit', 'Toplam', 'Ücret', 'Ucret', 'Tutar', 'Total']);
-    const paidStr = findColumn(row, ['Ödeme Öğrenci', 'Ödeme', 'Odeme', 'Ödenen', 'Odenen', 'Paid']);
-    const remainingStr = findColumn(row, ['Kalan (Öğrenci)', 'Kalan', 'Borç', 'Borc', 'Balance']);
-    
-    const totalFee = parseFloat(totalFeeStr.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-    const paidAmount = parseFloat(paidStr.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-    const remainingAmount = parseFloat(remainingStr.replace(/[^0-9.,]/g, '').replace(',', '.')) || (totalFee - paidAmount);
+    const totalFee = parseAmount(findColumn(row, ['Toplam Ücret', 'Taksit (Öğrenci)', 'Taksit', 'Toplam', 'Ücret', 'Ucret', 'Brüt Tutar', 'Total']));
+    const discountPercent = parseAmount(findColumn(row, ['İndirim %', 'İndirim Yüzde', 'İndirim Oranı', 'Discount %']));
+    const discountAmount = parseAmount(findColumn(row, ['İndirim Tutarı', 'İndirim', 'Discount Amount']));
+    const netFee = parseAmount(findColumn(row, ['Net Ücret', 'Net Tutar', 'Ödenecek', 'Net Fee'])) || (totalFee - discountAmount);
+    const downPayment = parseAmount(findColumn(row, ['Peşinat', 'Kapora', 'Ön Ödeme', 'Down Payment']));
+    const paidAmount = parseAmount(findColumn(row, ['Ödeme Öğrenci', 'Ödeme', 'Odeme', 'Ödenen', 'Odenen', 'Paid', 'Tahsil Edilen']));
+    const remainingAmount = parseAmount(findColumn(row, ['Kalan (Öğrenci)', 'Kalan', 'Borç', 'Borc', 'Balance', 'Kalan Borç'])) || (netFee - paidAmount);
+    const installmentCount = parseInt(findColumn(row, ['Taksit Sayısı', 'Taksit Adedi', 'Installments'])) || 12;
 
-    // Taksit sayısını hesapla (satır sayısına göre veya varsayılan 12)
-    const installmentCount = 12;
+    // Cinsiyet
+    let gender = findColumn(row, ['Cinsiyet', 'Gender', 'Sex']).toLowerCase();
+    if (gender.includes('erkek') || gender === 'male' || gender === 'e' || gender === 'm') {
+      gender = 'Erkek';
+    } else if (gender.includes('kadın') || gender.includes('kız') || gender === 'female' || gender === 'k' || gender === 'f') {
+      gender = 'Kadın';
+    }
 
-    // Validasyon - daha esnek
-    if (!firstName && !lastName && !fullName) errors.push('İsim boş');
+    // Validasyon
+    if (!firstName && !lastName) errors.push('İsim boş');
+    if (totalFee > 0 && !parentPhone && !phone) warnings.push('Telefon eksik');
 
     return {
+      // Öğrenci Bilgileri
       studentNo: findColumn(row, ['Öğrenci No', 'Ogrenci No', 'No', 'Numara', 'ID', 'Öğrenci Numarası']),
       firstName,
       lastName,
+      tcNo: findColumn(row, ['TC Kimlik', 'TC', 'T.C.', 'TC No', 'Kimlik No', 'Öğrenci TC']),
+      birthDate: findColumn(row, ['Doğum Tarihi', 'Dogum Tarihi', 'Birth Date', 'Doğum']),
+      birthPlace: findColumn(row, ['Doğum Yeri', 'Dogum Yeri', 'Birth Place']),
+      nationality: findColumn(row, ['Uyruk', 'Nationality', 'Vatandaşlık']) || 'TC',
+      gender,
+      bloodGroup: findColumn(row, ['Kan Grubu', 'Blood Group', 'Kan']),
+      phone,
+      phone2,
+      email: findColumn(row, ['E-posta', 'Email', 'Mail', 'Öğrenci E-posta']),
+      city: findColumn(row, ['Şehir', 'Sehir', 'İl', 'City']),
+      district: findColumn(row, ['İlçe', 'Ilce', 'District']),
+      address: findColumn(row, ['Adres', 'Address', 'Tam Adres']),
+      previousSchool: findColumn(row, ['Önceki Okul', 'Onceki Okul', 'Eski Okul', 'Previous School']),
+      healthNotes: findColumn(row, ['Sağlık Notu', 'Saglik Notu', 'Sağlık', 'Health Notes', 'Alerji']),
+      
+      // Eğitim Bilgileri
       class: classLevel,
       section,
-      parentName: findColumn(row, ['Veli Ad-Soyad', 'Veli AdSoyad', 'Veli', 'Veli Adı', 'Parent']),
-      tcId: findColumn(row, ['Veli T.C.', 'Veli TC', 'TC', 'T.C.', 'TC Kimlik', 'TCKimlik', 'Kimlik']),
-      phone,
+      programName: findColumn(row, ['Program', 'Program Adı', 'Eğitim Programı', 'Kurs']),
+      academicYear: findColumn(row, ['Akademik Yıl', 'Eğitim Yılı', 'Dönem', 'Academic Year']) || '2024-2025',
+      
+      // Veli Bilgileri
+      parentType: findColumn(row, ['Veli Tipi', 'Veli Türü', 'Yakınlık', 'Parent Type']) || 'Anne',
+      parentName: findColumn(row, ['Veli Ad-Soyad', 'Veli AdSoyad', 'Veli', 'Veli Adı', 'Parent Name']),
+      parentTcNo: findColumn(row, ['Veli T.C.', 'Veli TC', 'Veli TC Kimlik', 'Veli Kimlik']),
+      parentPhone,
+      parentEmail: findColumn(row, ['Veli E-posta', 'Veli Email', 'Veli Mail', 'Parent Email']),
+      parentJob: findColumn(row, ['Veli Meslek', 'Meslek', 'Job', 'Occupation']),
+      parentWorkplace: findColumn(row, ['İş Yeri', 'Çalıştığı Yer', 'Workplace', 'Şirket']),
+      parentWorkAddress: findColumn(row, ['İş Adresi', 'Work Address']),
+      parentWorkPhone: findColumn(row, ['İş Telefonu', 'Work Phone', 'İş Tel']),
+      parentHomeAddress: findColumn(row, ['Ev Adresi', 'Home Address', 'Veli Adres']),
+      parentHomeCity: findColumn(row, ['Ev Şehri', 'Veli Şehir', 'Home City']),
+      parentHomeDistrict: findColumn(row, ['Ev İlçesi', 'Veli İlçe', 'Home District']),
+      
+      // Ödeme Bilgileri
       totalFee,
+      discountPercent,
+      discountAmount,
+      netFee,
+      downPayment,
+      installmentCount,
+      firstInstallmentDate: findColumn(row, ['İlk Taksit Tarihi', 'Taksit Başlangıç', 'First Installment']),
+      paymentMethod: findColumn(row, ['Ödeme Yöntemi', 'Ödeme Şekli', 'Payment Method']) || 'Nakit',
       paidAmount,
       remainingAmount,
-      installmentCount,
+      
+      // Validasyon
       isValid: errors.length === 0,
       errors,
+      warnings,
     };
   };
 
@@ -129,12 +297,9 @@ export default function StudentImportPage() {
         return;
       }
 
-      // İlk satır başlık
       const headers = lines[0].split('\t').map(h => h.trim());
       setExcelColumns(headers);
-      console.log('Yapıştırılan kolonlar:', headers);
 
-      // Veri satırları
       const jsonData: any[] = [];
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split('\t');
@@ -154,18 +319,14 @@ export default function StudentImportPage() {
       jsonData.forEach((row: any) => {
         const studentNo = findColumn(row, ['Öğrenci No', 'Ogrenci No', 'No', 'Numara', 'ID']);
         const studentName = findColumn(row, ['Öğrenciler', 'Ogrenciler', 'Ad Soyad', 'İsim', 'Öğrenci']);
-        const key = studentNo || studentName;
+        const key = studentNo || studentName || `row-${jsonData.indexOf(row)}`;
         
-        if (key && !studentMap.has(key)) {
+        if (!studentMap.has(key)) {
           studentMap.set(key, row);
         }
       });
 
-      let uniqueRows = Array.from(studentMap.values());
-      if (uniqueRows.length === 0 && jsonData.length > 0) {
-        uniqueRows = jsonData;
-      }
-
+      const uniqueRows = Array.from(studentMap.values());
       const mapped = uniqueRows.map(mapExcelRow);
       setMappedData(mapped);
       setStep('preview');
@@ -175,14 +336,13 @@ export default function StudentImportPage() {
       console.error('Yapıştırma hatası:', error);
       toast.error('Veri işlenemedi. Lütfen Excel\'den düzgün kopyaladığınızdan emin olun.');
     }
-  }, [pasteData, mapExcelRow]);
+  }, [pasteData]);
 
   // Dosya yükleme
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
 
-    // Dosya türü kontrolü
     const validTypes = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
@@ -207,37 +367,24 @@ export default function StudentImportPage() {
 
         setRawData(jsonData);
 
-        // Excel kolon isimlerini al (ilk satırdan)
         if (jsonData.length > 0) {
           const columns = Object.keys(jsonData[0] as object);
           setExcelColumns(columns);
-          console.log('Excel Kolonları:', columns);
         }
 
-        // Benzersiz öğrencileri bul (aynı öğrenci no'ya sahip satırları grupla)
+        // Benzersiz öğrencileri bul
         const studentMap = new Map<string, any>();
-        jsonData.forEach((row: any) => {
-          // Öğrenci No'yu esnek şekilde bul
+        jsonData.forEach((row: any, idx: number) => {
           const studentNo = findColumn(row, ['Öğrenci No', 'Ogrenci No', 'No', 'Numara', 'ID']);
-          
-          // Öğrenci ismi ile de eşleştir (No yoksa)
           const studentName = findColumn(row, ['Öğrenciler', 'Ogrenciler', 'Ad Soyad', 'İsim', 'Öğrenci']);
+          const key = studentNo || studentName || `row-${idx}`;
           
-          const key = studentNo || studentName;
-          
-          if (key && !studentMap.has(key)) {
+          if (!studentMap.has(key)) {
             studentMap.set(key, row);
           }
         });
 
-        // Eğer hiç benzersiz öğrenci bulunamadıysa, tüm satırları al
-        let uniqueRows = Array.from(studentMap.values());
-        if (uniqueRows.length === 0 && jsonData.length > 0) {
-          // Her satırı benzersiz kabul et
-          uniqueRows = jsonData as any[];
-        }
-
-        // Benzersiz öğrencileri eşleştir
+        const uniqueRows = Array.from(studentMap.values());
         const mapped = uniqueRows.map(mapExcelRow);
         setMappedData(mapped);
         setStep('preview');
@@ -251,6 +398,52 @@ export default function StudentImportPage() {
 
     reader.readAsBinaryString(uploadedFile);
   }, []);
+
+  // Örnek Excel şablonu indir
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        'Öğrenci No': '2024-001',
+        'Ad': 'Ahmet',
+        'Soyad': 'Yılmaz',
+        'TC Kimlik': '12345678901',
+        'Doğum Tarihi': '15.05.2010',
+        'Doğum Yeri': 'Ankara',
+        'Cinsiyet': 'Erkek',
+        'Kan Grubu': 'A+',
+        'Uyruk': 'TC',
+        'Telefon': '05321234567',
+        'E-posta': 'ahmet@mail.com',
+        'Şehir': 'Ankara',
+        'İlçe': 'Çankaya',
+        'Adres': 'Örnek Mah. 123 Sok. No:5',
+        'Sınıf': '8',
+        'Şube': 'A',
+        'Program': 'Ortaokul',
+        'Akademik Yıl': '2024-2025',
+        'Veli Tipi': 'Anne',
+        'Veli Ad Soyad': 'Ayşe Yılmaz',
+        'Veli TC': '98765432109',
+        'Veli Telefon': '05551234567',
+        'Veli E-posta': 'ayse@mail.com',
+        'Veli Meslek': 'Öğretmen',
+        'Toplam Ücret': '50000',
+        'İndirim %': '10',
+        'Net Ücret': '45000',
+        'Peşinat': '5000',
+        'Taksit Sayısı': '10',
+        'Ödeme Yöntemi': 'Nakit',
+        'Ödenen': '5000',
+        'Kalan': '40000',
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Öğrenci Şablonu');
+    XLSX.writeFile(wb, 'ogrenci_kayit_sablonu.xlsx');
+    toast.success('Şablon indirildi!');
+  };
 
   // Toplu kayıt işlemi
   const handleImport = async () => {
@@ -271,21 +464,37 @@ export default function StudentImportPage() {
       const row = validRows[i];
       
       try {
-        // Öğrenci kaydı oluştur
+        // Öğrenci kaydı oluştur - tüm alanlarla
         const studentPayload: Record<string, any> = {
           student_no: row.studentNo || `IMP-${Date.now()}-${i}`,
           first_name: row.firstName.toUpperCase(),
           last_name: row.lastName.toUpperCase(),
-          parent_name: row.parentName.toUpperCase(),
-          parent_phone: row.phone,
-          phone: row.phone,
-          tc_id: row.tcId || null,
-          class: row.class,
-          section: row.section,
+          full_name: `${row.firstName} ${row.lastName}`.toUpperCase(),
+          tc_id: row.tcNo || null,
+          birth_date: row.birthDate || null,
+          birth_place: row.birthPlace || null,
+          nationality: row.nationality || 'TC',
+          gender: row.gender === 'Erkek' ? 'male' : row.gender === 'Kadın' ? 'female' : null,
+          blood_type: row.bloodGroup || null,
+          phone: row.phone || row.parentPhone || null,
+          phone2: row.phone2 || null,
+          email: row.email || null,
+          city: row.city || row.parentHomeCity || null,
+          district: row.district || row.parentHomeDistrict || null,
+          address: row.address || row.parentHomeAddress || null,
+          previous_school: row.previousSchool || null,
+          health_notes: row.healthNotes || null,
+          class: row.class || null,
+          section: row.section || null,
+          program_name: row.programName || null,
+          academic_year: row.academicYear || '2024-2025',
+          parent_name: row.parentName?.toUpperCase() || null,
+          parent_phone: row.parentPhone || null,
+          parent_email: row.parentEmail || null,
           status: 'active',
-          total_fee: row.totalFee,
-          paid_amount: row.paidAmount,
-          balance: row.remainingAmount,
+          total_amount: row.netFee || row.totalFee || 0,
+          paid_amount: row.paidAmount || 0,
+          balance: row.remainingAmount || 0,
         };
         
         // Boş değerleri temizle
@@ -306,18 +515,44 @@ export default function StudentImportPage() {
         if (res.ok && result.success) {
           results.success++;
 
-          // Taksit planı oluştur (eğer toplam ücret varsa)
-          if (row.totalFee > 0 && result.data?.id) {
+          // Taksit planı oluştur
+          if ((row.netFee > 0 || row.totalFee > 0) && result.data?.id) {
             const studentId = result.data.id;
-            const monthlyAmount = Math.round((row.totalFee - row.paidAmount) / row.installmentCount);
+            const totalAmount = row.netFee || row.totalFee;
+            const remainingAfterDown = totalAmount - (row.downPayment || 0);
+            const monthlyAmount = Math.round(remainingAfterDown / row.installmentCount);
 
-            // Taksitleri oluştur
+            // Peşinat taksiti
+            if (row.downPayment > 0) {
+              await fetch('/api/installments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  student_id: studentId,
+                  installment_no: 0,
+                  amount: row.downPayment,
+                  due_date: new Date().toISOString().split('T')[0],
+                  status: row.paidAmount >= row.downPayment ? 'paid' : 'pending',
+                  paid_amount: Math.min(row.paidAmount, row.downPayment),
+                }),
+              });
+            }
+
+            // Diğer taksitler
+            let remainingPaid = row.paidAmount - (row.downPayment || 0);
             for (let j = 1; j <= row.installmentCount; j++) {
               const dueDate = new Date();
+              if (row.firstInstallmentDate) {
+                const parts = row.firstInstallmentDate.split(/[./-]/);
+                if (parts.length === 3) {
+                  dueDate.setFullYear(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                }
+              }
               dueDate.setMonth(dueDate.getMonth() + j - 1);
               
-              // Ödenen tutarı ilk taksitlere dağıt
-              const isPaid = j * monthlyAmount <= row.paidAmount;
+              const isPaid = remainingPaid >= monthlyAmount;
+              const paidForThis = isPaid ? monthlyAmount : Math.max(0, remainingPaid);
+              remainingPaid -= paidForThis;
 
               await fetch('/api/installments', {
                 method: 'POST',
@@ -327,8 +562,8 @@ export default function StudentImportPage() {
                   installment_no: j,
                   amount: monthlyAmount,
                   due_date: dueDate.toISOString().split('T')[0],
-                  is_paid: isPaid,
-                  paid_at: isPaid ? new Date().toISOString() : null,
+                  status: isPaid ? 'paid' : 'pending',
+                  paid_amount: paidForThis,
                 }),
               });
             }
@@ -342,7 +577,6 @@ export default function StudentImportPage() {
         results.errors.push(`${row.firstName} ${row.lastName}: ${error.message}`);
       }
 
-      // Progress güncelle
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
     }
 
@@ -382,12 +616,23 @@ export default function StudentImportPage() {
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
           <Link href="/students" className="hover:text-indigo-600">Öğrenciler</Link>
           <span>/</span>
-          <span>Excel'den Aktar</span>
+          <span>Excel'den Kayıt Aktar</span>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Excel'den Toplu Öğrenci Aktarımı</h1>
-        <p className="text-gray-600">
-          Başka kurumlardan veya Excel dosyasından öğrenci verilerini toplu olarak sisteme aktarın.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Excel'den Toplu Kayıt Aktarımı</h1>
+            <p className="text-gray-600">
+              Kayıt sözleşmesindeki tüm bilgileri içeren Excel dosyasından öğrenci verilerini aktarın.
+            </p>
+          </div>
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          >
+            <Download size={18} />
+            Şablon İndir
+          </button>
+        </div>
       </div>
 
       {/* Progress Steps */}
@@ -420,7 +665,7 @@ export default function StudentImportPage() {
 
       {/* Step 1: Upload */}
       {step === 'upload' && (
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Tab Seçici */}
             <div className="flex border-b border-gray-200">
@@ -496,21 +741,11 @@ export default function StudentImportPage() {
                   </div>
 
                   <div className="mb-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                      <p className="text-sm text-green-800">
-                        <strong>💡 İpucu:</strong> Excel'de başlık satırı dahil tüm verileri seçin, 
-                        <kbd className="mx-1 px-2 py-0.5 bg-white rounded border border-green-300 text-xs">Ctrl+C</kbd> 
-                        ile kopyalayın ve aşağıdaki alana 
-                        <kbd className="mx-1 px-2 py-0.5 bg-white rounded border border-green-300 text-xs">Ctrl+V</kbd> 
-                        ile yapıştırın.
-                      </p>
-                    </div>
-                    
                     <textarea
                       value={pasteData}
                       onChange={(e) => setPasteData(e.target.value)}
-                      placeholder="Excel'den kopyaladığınız verileri buraya yapıştırın...&#10;&#10;Örnek:&#10;Öğrenci No&#9;Öğrenciler&#9;Şube&#9;Veli Ad-Soyad&#9;Telefon&#10;27&#9;ADA DİLA SAYGILI&#9;8/B05&#9;ARZU SAYGILI&#9;05321234567"
-                      className="w-full h-64 px-4 py-3 border border-gray-300 rounded-xl font-mono text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                      placeholder="Excel'den kopyaladığınız verileri buraya yapıştırın..."
+                      className="w-full h-48 px-4 py-3 border border-gray-300 rounded-xl font-mono text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
                     />
                     
                     <div className="flex items-center justify-between mt-3">
@@ -530,23 +765,93 @@ export default function StudentImportPage() {
                 </>
               )}
 
-              {/* Örnek Format */}
-              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
-                  <AlertTriangle size={18} />
-                  Desteklenen Kolonlar
-                </h3>
-                <p className="text-sm text-amber-700 mb-3">
-                  Excel dosyanızda şu kolonlardan bazıları olmalıdır:
-                </p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {['Öğrenci No', 'Öğrenciler', 'Şube', 'Veli Ad-Soyad', 'Veli T.C.', 'Veli İletişim Bilgisi', 'Taksit', 'Ödeme', 'Kalan'].map((col) => (
-                    <span key={col} className="px-2 py-1 bg-white rounded border border-amber-200 font-mono text-amber-800">
-                      {col}
-                    </span>
-                  ))}
-                </div>
+              {/* Desteklenen Kolonlar Butonu */}
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowColumnGuide(!showColumnGuide)}
+                  className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  <HelpCircle size={18} />
+                  {showColumnGuide ? 'Kolon Rehberini Gizle' : 'Desteklenen Kolonları Göster'}
+                </button>
               </div>
+
+              {/* Kolon Rehberi */}
+              {showColumnGuide && (
+                <div className="mt-4 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
+                  <h3 className="font-bold text-gray-800 mb-4 text-lg">📋 Kayıt Sözleşmesi Kolon Rehberi</h3>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Öğrenci Bilgileri */}
+                    <div>
+                      <h4 className="font-semibold text-indigo-700 mb-2 flex items-center gap-2">
+                        <User size={16} /> Öğrenci Bilgileri
+                      </h4>
+                      <div className="space-y-1">
+                        {SUPPORTED_COLUMNS.student.map((col) => (
+                          <div key={col.key} className="flex items-start gap-2 text-sm">
+                            <span className="px-2 py-0.5 bg-white rounded border font-mono text-indigo-600 text-xs whitespace-nowrap">
+                              {col.key}
+                            </span>
+                            <span className="text-gray-600 text-xs">{col.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Veli Bilgileri */}
+                    <div>
+                      <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                        <Users size={16} /> Veli Bilgileri
+                      </h4>
+                      <div className="space-y-1">
+                        {SUPPORTED_COLUMNS.parent.map((col) => (
+                          <div key={col.key} className="flex items-start gap-2 text-sm">
+                            <span className="px-2 py-0.5 bg-white rounded border font-mono text-green-600 text-xs whitespace-nowrap">
+                              {col.key}
+                            </span>
+                            <span className="text-gray-600 text-xs">{col.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Eğitim Bilgileri */}
+                    <div>
+                      <h4 className="font-semibold text-purple-700 mb-2 flex items-center gap-2">
+                        <GraduationCap size={16} /> Eğitim Bilgileri
+                      </h4>
+                      <div className="space-y-1">
+                        {SUPPORTED_COLUMNS.education.map((col) => (
+                          <div key={col.key} className="flex items-start gap-2 text-sm">
+                            <span className="px-2 py-0.5 bg-white rounded border font-mono text-purple-600 text-xs whitespace-nowrap">
+                              {col.key}
+                            </span>
+                            <span className="text-gray-600 text-xs">{col.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Ödeme Bilgileri */}
+                    <div>
+                      <h4 className="font-semibold text-amber-700 mb-2 flex items-center gap-2">
+                        <Wallet size={16} /> Ödeme Bilgileri
+                      </h4>
+                      <div className="space-y-1">
+                        {SUPPORTED_COLUMNS.payment.map((col) => (
+                          <div key={col.key} className="flex items-start gap-2 text-sm">
+                            <span className="px-2 py-0.5 bg-white rounded border font-mono text-amber-600 text-xs whitespace-nowrap">
+                              {col.key}
+                            </span>
+                            <span className="text-gray-600 text-xs">{col.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -560,7 +865,7 @@ export default function StudentImportPage() {
             <div className="text-white">
               <h2 className="text-xl font-bold">Önizleme</h2>
               <p className="text-indigo-100 text-sm">
-                {mappedData.length} öğrenci bulundu • {mappedData.filter(r => r.isValid).length} geçerli
+                {mappedData.length} öğrenci • {mappedData.filter(r => r.isValid).length} geçerli • {mappedData.filter(r => r.warnings.length > 0).length} uyarılı
               </p>
             </div>
             <div className="flex gap-2">
@@ -596,7 +901,7 @@ export default function StudentImportPage() {
           )}
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-4 gap-4 p-6 bg-gray-50 border-b">
+          <div className="grid grid-cols-5 gap-4 p-6 bg-gray-50 border-b">
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <p className="text-sm text-gray-500">Toplam Satır</p>
               <p className="text-2xl font-bold text-gray-900">{rawData.length}</p>
@@ -609,8 +914,12 @@ export default function StudentImportPage() {
               <p className="text-sm text-emerald-600">Geçerli Kayıt</p>
               <p className="text-2xl font-bold text-emerald-600">{mappedData.filter(r => r.isValid).length}</p>
             </div>
+            <div className="bg-white rounded-xl p-4 border border-amber-200">
+              <p className="text-sm text-amber-600">Uyarılı</p>
+              <p className="text-2xl font-bold text-amber-600">{mappedData.filter(r => r.warnings.length > 0).length}</p>
+            </div>
             <div className="bg-white rounded-xl p-4 border border-red-200">
-              <p className="text-sm text-red-600">Hatalı Kayıt</p>
+              <p className="text-sm text-red-600">Hatalı</p>
               <p className="text-2xl font-bold text-red-600">{mappedData.filter(r => !r.isValid).length}</p>
             </div>
           </div>
@@ -620,55 +929,62 @@ export default function StudentImportPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Durum</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Öğrenci No</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Ad Soyad</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Sınıf</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Veli</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Telefon</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-700">Toplam Ücret</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-700">Ödenen</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-700">Kalan</th>
-                  <th className="px-4 py-3 text-center font-semibold text-gray-700">İşlem</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Durum</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Öğrenci No</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Ad Soyad</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">TC</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Sınıf</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Veli</th>
+                  <th className="px-3 py-3 text-left font-semibold text-gray-700">Telefon</th>
+                  <th className="px-3 py-3 text-right font-semibold text-gray-700">Net Ücret</th>
+                  <th className="px-3 py-3 text-right font-semibold text-gray-700">Ödenen</th>
+                  <th className="px-3 py-3 text-right font-semibold text-gray-700">Kalan</th>
+                  <th className="px-3 py-3 text-center font-semibold text-gray-700">İşlem</th>
                 </tr>
               </thead>
               <tbody>
                 {mappedData.map((row, idx) => (
                   <tr 
                     key={idx} 
-                    className={`border-b hover:bg-gray-50 ${!row.isValid ? 'bg-red-50' : ''}`}
+                    className={`border-b hover:bg-gray-50 ${!row.isValid ? 'bg-red-50' : row.warnings.length > 0 ? 'bg-amber-50' : ''}`}
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       {row.isValid ? (
-                        <CheckCircle size={18} className="text-green-600" />
+                        row.warnings.length > 0 ? (
+                          <div className="flex items-center gap-1" title={row.warnings.join(', ')}>
+                            <AlertTriangle size={16} className="text-amber-500" />
+                          </div>
+                        ) : (
+                          <CheckCircle size={16} className="text-green-600" />
+                        )
                       ) : (
-                        <div className="flex items-center gap-1">
-                          <AlertTriangle size={18} className="text-red-600" />
-                          <span className="text-xs text-red-600">{row.errors.join(', ')}</span>
+                        <div className="flex items-center gap-1" title={row.errors.join(', ')}>
+                          <X size={16} className="text-red-600" />
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-gray-600">{row.studentNo || '-'}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">
+                    <td className="px-3 py-3 font-mono text-gray-600 text-xs">{row.studentNo || '-'}</td>
+                    <td className="px-3 py-3 font-semibold text-gray-900">
                       {row.firstName} {row.lastName}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 font-mono text-gray-600 text-xs">{row.tcNo?.slice(0, 3)}***</td>
+                    <td className="px-3 py-3">
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
-                        {row.class}/{row.section}
+                        {row.class}/{row.section || 'A'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{row.parentName || '-'}</td>
-                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.phone || '-'}</td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      ₺{row.totalFee.toLocaleString('tr-TR')}
+                    <td className="px-3 py-3 text-gray-700 text-xs">{row.parentName || '-'}</td>
+                    <td className="px-3 py-3 text-gray-600 font-mono text-xs">{row.parentPhone || row.phone || '-'}</td>
+                    <td className="px-3 py-3 text-right font-semibold">
+                      ₺{(row.netFee || row.totalFee).toLocaleString('tr-TR')}
                     </td>
-                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                    <td className="px-3 py-3 text-right text-green-600 font-semibold">
                       ₺{row.paidAmount.toLocaleString('tr-TR')}
                     </td>
-                    <td className="px-4 py-3 text-right text-red-600 font-semibold">
+                    <td className="px-3 py-3 text-right text-red-600 font-semibold">
                       ₺{row.remainingAmount.toLocaleString('tr-TR')}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       <button
                         onClick={() => handleRemoveRow(idx)}
                         className="p-1 hover:bg-red-100 rounded text-red-600"
@@ -695,7 +1011,6 @@ export default function StudentImportPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Öğrenciler Aktarılıyor...</h2>
             <p className="text-gray-600 mb-6">Lütfen bekleyin, bu işlem birkaç dakika sürebilir.</p>
             
-            {/* Progress Bar */}
             <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-300"
@@ -765,4 +1080,3 @@ export default function StudentImportPage() {
     </div>
   );
 }
-
