@@ -47,13 +47,16 @@ export async function GET(req: NextRequest) {
     // Akademik yıl parametresi
     const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
     
+    console.log(`[Dashboard API] Request: academicYear=${academicYear}, organizationId=${organizationId || 'ALL'}`);
+    
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
 
     // Organization filtreli sorgular oluştur
     const buildStudentsQuery = (statusFilter: 'active' | 'deleted' | 'all') => {
-      let query = supabase.from('students').select('id, created_at, status, academic_year');
+      // total_amount ve paid_amount dahil et
+      let query = supabase.from('students').select('id, created_at, status, academic_year, total_amount, paid_amount, balance');
       
       if (statusFilter === 'deleted') {
         query = query.eq('status', 'deleted');
@@ -110,8 +113,9 @@ export async function GET(req: NextRequest) {
     
     const allInstallments = installmentsResult.data || [];
     
-    // Debug log
-    console.log(`Dashboard Stats: academicYear=${academicYear}, totalStudents=${allStudents.length}, filteredStudents=${students.length}`);
+    // Debug logs
+    console.log(`[Dashboard API] Students: ${students.length}, Installments: ${allInstallments.length}`);
+    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}, Deleted: ${deletedStudents}`);
     
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
@@ -141,10 +145,22 @@ export async function GET(req: NextRequest) {
     const paidInstallments = installments.filter(inst => inst.is_paid);
     const totalRevenue = paidInstallments.reduce((sum, inst) => sum + (inst.paid_amount || inst.amount || 0), 0);
     
-    // Toplam sözleşme tutarı
-    const totalContract = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
+    // Toplam sözleşme tutarı - önce installments'tan, yoksa students tablosundan
+    let totalContract = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
     
-    const paymentRate = totalContract > 0 ? ((totalRevenue / totalContract) * 100).toFixed(1) : '0';
+    // Eğer installments'tan veri gelmezse, students tablosundaki total_amount'u kullan
+    if (totalContract === 0) {
+      totalContract = students.reduce((sum, st) => sum + (st.total_amount || 0), 0);
+      console.log(`[Dashboard API] Using students.total_amount: ${totalContract}`);
+    }
+    
+    // Ödeme oranı - students tablosundaki paid_amount'u da kontrol et
+    let actualRevenue = totalRevenue;
+    if (totalRevenue === 0) {
+      actualRevenue = students.reduce((sum, st) => sum + (st.paid_amount || 0), 0);
+    }
+    
+    const paymentRate = totalContract > 0 ? ((actualRevenue / totalContract) * 100).toFixed(1) : '0';
     
     // Borçlu öğrenci sayısı (ödenmemiş taksiti olan)
     const unpaidInstallments = installments.filter(inst => !inst.is_paid);
@@ -203,6 +219,10 @@ export async function GET(req: NextRequest) {
         net: income
       });
     }
+
+    // DEBUG: Final values
+    console.log(`[Dashboard API] FINAL: activeStudents=${activeStudents}, totalContract=${totalContract}, totalRevenue=${totalRevenue}`);
+    console.log(`[Dashboard API] FINAL: otherIncomeContract=${otherIncomeContract}, totalDebt=${totalDebt}, monthlyCollection=${monthlyCollection}`);
 
     // RESPONSE
     return NextResponse.json({
