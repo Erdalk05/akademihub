@@ -361,12 +361,16 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
           studentType: 'edit', // Düzenleme modu
         };
 
-        // Ödeme bilgileri - mevcut bilgiler korunur veya sıfırdan başlar
+        // Ödeme bilgileri - mevcut taksit bilgilerinden yükle
         const payment = {
           ...defaultPayment,
           totalFee: studentData.total_amount || 0,
           netFee: studentData.total_amount || 0,
+          downPayment: studentData.down_payment || 0,
           downPaymentDate: new Date().toISOString().split('T')[0],
+          installmentCount: studentData.installment_count || 9,
+          monthlyInstallment: studentData.monthly_installment || 0,
+          firstInstallmentDate: studentData.first_installment_date || '',
         };
 
         // Sözleşme bilgileri

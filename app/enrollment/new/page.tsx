@@ -75,7 +75,7 @@ export default function NewEnrollmentPage() {
   const loadStudentForEdit = async (studentId: string) => {
     setLoadingEdit(true);
     try {
-      // Öğrenci bilgilerini getir
+      // 1. Öğrenci bilgilerini getir
       let studentData = null;
       
       const response = await fetch(`/api/students/${studentId}`);
@@ -91,13 +91,48 @@ export default function NewEnrollmentPage() {
       
       if (!studentData) {
         toast.error('Öğrenci bulunamadı!');
+        setLoadingEdit(false);
         return;
+      }
+
+      // 2. Taksit bilgilerini getir
+      let installmentsData: any[] = [];
+      try {
+        const instRes = await fetch(`/api/installments?student_id=${studentId}`);
+        if (instRes.ok) {
+          const instResult = await instRes.json();
+          installmentsData = instResult.data || [];
+        }
+      } catch (e) {
+        console.warn('Taksit bilgileri yüklenemedi:', e);
+      }
+
+      // 3. Taksit bilgilerinden ödeme planını hesapla
+      if (installmentsData.length > 0) {
+        const totalFee = installmentsData.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
+        const paidAmount = installmentsData.reduce((sum: number, inst: any) => sum + (inst.paid_amount || 0), 0);
+        const downPaymentInst = installmentsData.find((inst: any) => inst.installment_no === 0);
+        const regularInstallments = installmentsData.filter((inst: any) => inst.installment_no > 0);
+        
+        // studentData'ya ödeme bilgilerini ekle
+        studentData.total_amount = totalFee;
+        studentData.paid_amount = paidAmount;
+        studentData.down_payment = downPaymentInst?.amount || 0;
+        studentData.installment_count = regularInstallments.length;
+        studentData.monthly_installment = regularInstallments.length > 0 ? regularInstallments[0].amount : 0;
+        studentData.first_installment_date = regularInstallments.length > 0 ? regularInstallments[0].due_date : '';
       }
       
       // Store'a düzenleme için yükle
       store.loadForEditing(studentData);
       setIsEditMode(true);
-      toast.success(`${studentData.first_name} ${studentData.last_name} bilgileri yüklendi. Düzenleyebilirsiniz.`);
+      
+      const studentName = `${studentData.first_name} ${studentData.last_name}`;
+      const taksitInfo = installmentsData.length > 0 
+        ? ` (${installmentsData.length} taksit, ₺${(studentData.total_amount || 0).toLocaleString('tr-TR')})` 
+        : '';
+      
+      toast.success(`${studentName} bilgileri yüklendi${taksitInfo}. Düzenleyebilirsiniz.`);
       
     } catch (err: any) {
       console.error('Öğrenci yükleme hatası:', err);
@@ -119,7 +154,11 @@ export default function NewEnrollmentPage() {
   const handlePrint = () => setShowPrint(true);
 
   const handleReset = () => {
-    if (confirm('Form sifirlanacak. Emin misiniz?')) {
+    const message = isEditMode 
+      ? 'Düzenleme iptal edilecek ve form sıfırlanacak. Emin misiniz?' 
+      : 'Form sifirlanacak. Emin misiniz?';
+    
+    if (confirm(message)) {
       store.reset();
       setCurrentStep(1);
       setIsSaved(false);
@@ -127,6 +166,12 @@ export default function NewEnrollmentPage() {
       setError(null);
       setIsRenewalMode(false);
       setRenewalStudentName(null);
+      setIsEditMode(false);
+      
+      // URL'den edit parametresini kaldır
+      if (editStudentId) {
+        window.history.replaceState({}, '', '/enrollment/new');
+      }
     }
   };
 
