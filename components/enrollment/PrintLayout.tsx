@@ -64,6 +64,65 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
   const printContentRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
+  // PDF oluşturma fonksiyonu - html2canvas + jsPDF kullanarak
+  const generatePDF = async (): Promise<Blob | null> => {
+    const element = printContentRef.current;
+    if (!element) {
+      toast.error('İçerik bulunamadı!');
+      return null;
+    }
+
+    try {
+      // html2canvas ve jsPDF'i ayrı ayrı import et
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+      const { jsPDF } = await import('jspdf');
+
+      // Toolbar'ı gizle
+      const toolbar = document.querySelector('.toolbar-hide') as HTMLElement;
+      if (toolbar) toolbar.style.display = 'none';
+
+      // İçeriği canvas'a çevir
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 794, // A4 genişlik piksel
+      });
+
+      // Toolbar'ı geri getir
+      if (toolbar) toolbar.style.display = '';
+
+      // PDF oluştur
+      const imgWidth = 210; // A4 mm
+      const pageHeight = 297; // A4 mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // İlk sayfa
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Ek sayfalar (gerekirse)
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      return pdf.output('blob');
+    } catch (error: any) {
+      console.error('PDF oluşturma hatası:', error);
+      throw error;
+    }
+  };
+
   // PDF oluştur ve WhatsApp ile gönder
   const handleWhatsAppPDF = async () => {
     const phone = primaryGuardian?.phone;
@@ -76,38 +135,26 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     const toastId = toast.loading('PDF oluşturuluyor...');
 
     try {
-      // html2pdf'i dinamik import et
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default;
+      const pdfBlob = await generatePDF();
       
-      const element = printContentRef.current;
-      if (!element) {
-        toast.error('İçerik bulunamadı!', { id: toastId });
-        setIsGeneratingPdf(false);
+      if (!pdfBlob) {
+        toast.error('PDF oluşturulamadı!', { id: toastId });
         return;
       }
 
       const fileName = `Kayit_Sozlesmesi_${student.firstName}_${student.lastName}.pdf`;
       
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true,
-          logging: false,
-          letterRendering: true
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+      // PDF'i indir
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      // PDF'i oluştur ve indir
-      await html2pdf().set(opt).from(element).save();
-      
-      toast.dismiss(toastId);
-      toast.success('PDF indirildi!');
+      toast.success('PDF indirildi!', { id: toastId });
 
       // WhatsApp'ı aç
       let formattedPhone = phone.replace(/\D/g, '');
@@ -130,7 +177,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       // Biraz bekleyip WhatsApp'ı aç
       setTimeout(() => {
         window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-      }, 1000);
+      }, 500);
       
     } catch (error: any) {
       console.error('PDF oluşturma hatası:', error);
@@ -146,33 +193,24 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     const toastId = toast.loading('PDF oluşturuluyor...');
 
     try {
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default;
+      const pdfBlob = await generatePDF();
       
-      const element = printContentRef.current;
-      if (!element) {
-        toast.error('İçerik bulunamadı!', { id: toastId });
-        setIsGeneratingPdf(false);
+      if (!pdfBlob) {
+        toast.error('PDF oluşturulamadı!', { id: toastId });
         return;
       }
 
       const fileName = `Kayit_Sozlesmesi_${student.firstName}_${student.lastName}.pdf`;
       
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true,
-          logging: false,
-          letterRendering: true
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-
-      await html2pdf().set(opt).from(element).save();
+      // PDF'i indir
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       toast.success('PDF başarıyla indirildi!', { id: toastId });
     } catch (error: any) {
