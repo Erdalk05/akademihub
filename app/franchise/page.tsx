@@ -1203,13 +1203,82 @@ export default function FranchiseDashboardPage() {
         )}
 
         {/* KARŞILAŞTIRMA */}
-        {activeTab === 'comparison' && (
+        {activeTab === 'comparison' && consolidated && (
           <div className="space-y-6">
-            {/* Performans Sıralaması */}
+            {/* Performans Sıralaması - Eğitim */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-blue-400" />
+                  Eğitim Geliri Sıralaması
+                </h3>
+                <div className="space-y-3">
+                  {[...orgStats].sort((a, b) => b.totalRevenue - a.totalRevenue).map((org, idx) => (
+                    <div key={org.id} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                        idx === 0 ? 'bg-amber-500 text-white' :
+                        idx === 1 ? 'bg-slate-400 text-white' :
+                        idx === 2 ? 'bg-amber-700 text-white' :
+                        'bg-white/10 text-emerald-200'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white text-sm">{org.name}</span>
+                          <span className="text-blue-300 font-medium">{formatCurrency(org.totalRevenue)}</span>
+                        </div>
+                        <div className="w-full bg-white/10 rounded-full h-1.5 mt-1">
+                          <div 
+                            className="h-1.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-400"
+                            style={{ width: `${consolidated.totalRevenue > 0 ? (org.totalRevenue / consolidated.totalRevenue) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-purple-400" />
+                  Satış Geliri Sıralaması
+                </h3>
+                <div className="space-y-3">
+                  {[...orgStats].sort((a, b) => b.otherSalesTotal - a.otherSalesTotal).map((org, idx) => (
+                    <div key={org.id} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                        idx === 0 ? 'bg-amber-500 text-white' :
+                        idx === 1 ? 'bg-slate-400 text-white' :
+                        idx === 2 ? 'bg-amber-700 text-white' :
+                        'bg-white/10 text-emerald-200'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white text-sm">{org.name}</span>
+                          <span className="text-purple-300 font-medium">{formatCurrency(org.otherSalesTotal)}</span>
+                        </div>
+                        <div className="w-full bg-white/10 rounded-full h-1.5 mt-1">
+                          <div 
+                            className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-purple-400"
+                            style={{ width: `${consolidated.totalOtherSales > 0 ? (org.otherSalesTotal / consolidated.totalOtherSales) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tahsilat Performans Sıralaması */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Award className="w-5 h-5 text-amber-400" />
-                Kurum Performans Sıralaması
+                Tahsilat Performans Sıralaması
               </h3>
               <div className="space-y-4">
                 {[...orgStats].sort((a, b) => b.collectionRate - a.collectionRate).map((org, idx) => (
@@ -1223,17 +1292,18 @@ export default function FranchiseDashboardPage() {
                       {idx + 1}
                     </div>
                     <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium">{org.name}</span>
                         <div className="flex items-center gap-4">
                           <span className="text-emerald-200 text-sm">{org.activeStudents} öğrenci</span>
+                          <span className="text-blue-300 text-sm">{formatCurrency(org.collectedAmount + org.otherSalesCollected)}</span>
                           <span className={`font-bold ${
                             org.collectionRate >= 70 ? 'text-emerald-400' : 
                             org.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'
-                  }`}>
-                    %{org.collectionRate.toFixed(1)}
-                  </span>
-                </div>
+                          }`}>
+                            %{org.collectionRate.toFixed(1)}
+                          </span>
+                        </div>
                       </div>
                       <div className="w-full bg-white/10 rounded-full h-3">
                         <div 
@@ -1241,10 +1311,10 @@ export default function FranchiseDashboardPage() {
                             org.collectionRate >= 70 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 
                             org.collectionRate >= 50 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 
                             'bg-gradient-to-r from-red-500 to-red-400'
-                    }`}
-                    style={{ width: `${Math.min(org.collectionRate, 100)}%` }}
-                  />
-                </div>
+                          }`}
+                          style={{ width: `${Math.min(org.collectionRate, 100)}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1255,16 +1325,27 @@ export default function FranchiseDashboardPage() {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <h3 className="text-lg font-semibold text-white mb-4">Çoklu Metrik Karşılaştırma</h3>
               <ResponsiveContainer width="100%" height={400}>
-                <ComposedChart data={comparisonData}>
+                <ComposedChart data={orgStats.map(org => ({
+                  name: org.name.length > 12 ? org.name.substring(0, 12) + '...' : org.name,
+                  öğrenci: org.activeStudents,
+                  eğitim: org.collectedAmount,
+                  satış: org.otherSalesCollected,
+                  oran: org.collectionRate
+                }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis dataKey="name" tick={{ fill: '#a7f3d0', fontSize: 11 }} />
-                  <YAxis yAxisId="left" tick={{ fill: '#a7f3d0' }} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fill: '#a7f3d0' }} />
+                  <YAxis yAxisId="left" tick={{ fill: '#a7f3d0' }} tickFormatter={(v) => `₺${(v/1000).toFixed(0)}K`} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: '#a7f3d0' }} domain={[0, 100]} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
+                    formatter={(value: number, name: string) => [
+                      name === 'oran' ? `%${value.toFixed(1)}` : formatCurrency(value),
+                      name === 'eğitim' ? 'Eğitim Tahsil' : name === 'satış' ? 'Satış Tahsil' : name === 'oran' ? 'Tahsilat Oranı' : name
+                    ]}
                   />
                   <Legend />
-                  <Bar yAxisId="left" dataKey="öğrenci" name="Öğrenci Sayısı" fill="#34B7F1" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="eğitim" name="Eğitim Tahsil" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="satış" name="Satış Tahsil" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
                   <Line yAxisId="right" type="monotone" dataKey="oran" name="Tahsilat Oranı (%)" stroke="#25D366" strokeWidth={3} dot={{ fill: '#25D366', r: 6 }} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -1275,55 +1356,197 @@ export default function FranchiseDashboardPage() {
         {/* RAPORLAR */}
         {activeTab === 'reports' && consolidated && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { title: 'Finansal Özet', desc: 'Tüm kurumların gelir-gider analizi', icon: Wallet, color: 'emerald' },
-                { title: 'Tahsilat Raporu', desc: 'Detaylı tahsilat performansı', icon: CreditCard, color: 'blue' },
-                { title: 'Öğrenci Analizi', desc: 'Kayıt ve sınıf dağılımları', icon: Users, color: 'purple' },
-                { title: 'Gecikme Raporu', desc: 'Riskli alacaklar listesi', icon: AlertTriangle, color: 'red' },
-                { title: 'Performans Raporu', desc: 'Kurum karşılaştırması', icon: Award, color: 'amber' },
-                { title: 'Aylık Rapor', desc: 'Bu ay özet değerlendirme', icon: Calendar, color: 'teal' },
-              ].map((report, idx) => (
-                <div key={idx} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition cursor-pointer group">
-                  <div className={`w-14 h-14 bg-${report.color}-500/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
-                    <report.icon className={`w-7 h-7 text-${report.color}-300`} />
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">{report.title}</h3>
-                  <p className="text-emerald-200 text-sm mb-4">{report.desc}</p>
-                  <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 text-[#25D366] hover:text-emerald-300 text-sm font-medium">
-                      <Download className="w-4 h-4" />
-                      Excel
-                    </button>
-                    <button className="flex items-center gap-2 text-[#25D366] hover:text-emerald-300 text-sm font-medium">
-                      <FileText className="w-4 h-4" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              ))}
+            {/* Detaylı Kurum Tablosu */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#25D366]" />
+                  Kurum Bazlı Detaylı Rapor
+                </h3>
+                <button
+                  onClick={() => {
+                    // Excel export
+                    const headers = ['Kurum', 'Öğrenci', 'Eğitim Toplam', 'Eğitim Tahsil', 'Satış Toplam', 'Satış Tahsil', 'Genel Toplam', 'Genel Tahsil', 'Oran'];
+                    const rows = orgStats.map(org => [
+                      org.name,
+                      org.activeStudents,
+                      org.totalRevenue,
+                      org.collectedAmount,
+                      org.otherSalesTotal,
+                      org.otherSalesCollected,
+                      org.totalRevenue + org.otherSalesTotal,
+                      org.collectedAmount + org.otherSalesCollected,
+                      org.collectionRate.toFixed(1) + '%'
+                    ]);
+                    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+                    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `franchise_rapor_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                    toast.success('Rapor indirildi!');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg hover:bg-[#128C7E] transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Excel İndir
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left p-3 text-emerald-200 font-medium">Kurum</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Öğrenci</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Eğitim Geliri</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Satış Geliri</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Toplam</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Tahsilat</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Bekleyen</th>
+                      <th className="text-center p-3 text-emerald-200 font-medium">Oran</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orgStats.map((org, idx) => (
+                      <tr key={org.id} className="border-b border-white/10 hover:bg-white/5">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                                 style={{ backgroundColor: COLORS[idx % COLORS.length] }}>
+                              {org.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-white font-medium">{org.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-center text-white">{org.activeStudents}</td>
+                        <td className="p-3 text-center text-blue-300">{formatCurrency(org.totalRevenue)}</td>
+                        <td className="p-3 text-center text-purple-300">{formatCurrency(org.otherSalesTotal)}</td>
+                        <td className="p-3 text-center text-white font-medium">{formatCurrency(org.totalRevenue + org.otherSalesTotal)}</td>
+                        <td className="p-3 text-center text-emerald-400 font-medium">{formatCurrency(org.collectedAmount + org.otherSalesCollected)}</td>
+                        <td className="p-3 text-center text-amber-400">{formatCurrency(org.pendingAmount + org.overdueAmount + org.otherSalesPending)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            org.collectionRate >= 70 ? 'bg-emerald-500/30 text-emerald-300' : 
+                            org.collectionRate >= 50 ? 'bg-amber-500/30 text-amber-300' : 
+                            'bg-red-500/30 text-red-300'
+                          }`}>
+                            %{org.collectionRate.toFixed(0)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Toplam Satırı */}
+                    <tr className="bg-white/10 font-bold">
+                      <td className="p-3 text-white">TOPLAM</td>
+                      <td className="p-3 text-center text-white">{consolidated.totalStudents}</td>
+                      <td className="p-3 text-center text-blue-300">{formatCurrency(consolidated.totalRevenue)}</td>
+                      <td className="p-3 text-center text-purple-300">{formatCurrency(consolidated.totalOtherSales)}</td>
+                      <td className="p-3 text-center text-white">{formatCurrency(consolidated.grandTotalRevenue)}</td>
+                      <td className="p-3 text-center text-emerald-400">{formatCurrency(consolidated.grandTotalCollected)}</td>
+                      <td className="p-3 text-center text-amber-400">{formatCurrency(consolidated.grandTotalRevenue - consolidated.grandTotalCollected)}</td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-1 bg-emerald-500/30 text-emerald-300 rounded-full text-xs">
+                          %{consolidated.avgCollectionRate.toFixed(0)}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Özet Kartları */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-white">{consolidated.totalOrganizations}</p>
+                <p className="text-emerald-200 text-sm">Kurum</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-white">{consolidated.totalStudents}</p>
+                <p className="text-emerald-200 text-sm">Öğrenci</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-blue-300">{formatCurrency(consolidated.totalRevenue)}</p>
+                <p className="text-emerald-200 text-sm">Eğitim Geliri</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-purple-300">{formatCurrency(consolidated.totalOtherSales)}</p>
+                <p className="text-emerald-200 text-sm">Satış Geliri</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-emerald-400">{formatCurrency(consolidated.grandTotalCollected)}</p>
+                <p className="text-emerald-200 text-sm">Toplam Tahsilat</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center border border-white/20">
+                <p className="text-3xl font-bold text-amber-400">%{consolidated.avgCollectionRate.toFixed(0)}</p>
+                <p className="text-emerald-200 text-sm">Ort. Oran</p>
+              </div>
+            </div>
+
+            {/* Hızlı Raporlar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div 
+                onClick={() => {
+                  const data = orgStats.filter(o => o.overdueAmount > 0);
+                  if (data.length === 0) {
+                    toast.success('Gecikmiş ödeme yok!');
+                    return;
+                  }
+                  const csv = 'Kurum,Gecikmiş Tutar\n' + data.map(o => `${o.name},${o.overdueAmount}`).join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = `gecikme_raporu_${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                  toast.success('Gecikme raporu indirildi!');
+                }}
+                className="bg-gradient-to-br from-red-500/20 to-orange-500/20 backdrop-blur-lg rounded-2xl p-6 border border-red-500/30 cursor-pointer hover:from-red-500/30 hover:to-orange-500/30 transition"
+              >
+                <AlertTriangle className="w-10 h-10 text-red-400 mb-3" />
+                <h4 className="text-white font-semibold mb-1">Gecikme Raporu</h4>
+                <p className="text-red-200 text-sm mb-3">Gecikmiş ödemeler listesi</p>
+                <p className="text-2xl font-bold text-red-400">{formatCurrency(consolidated.totalOverdue)}</p>
               </div>
 
-            {/* Hızlı Özet */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <h3 className="text-lg font-semibold text-white mb-6">📊 Anlık Durum Özeti</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-white">{consolidated.totalOrganizations}</p>
-                  <p className="text-emerald-200">Kurum</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-white">{consolidated.totalStudents}</p>
-                  <p className="text-emerald-200">Öğrenci</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-emerald-400">{formatCurrency(consolidated.totalCollected)}</p>
-                  <p className="text-emerald-200">Tahsilat</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-amber-400">%{consolidated.avgCollectionRate.toFixed(1)}</p>
-                  <p className="text-emerald-200">Ort. Oran</p>
-                </div>
+              <div 
+                onClick={() => {
+                  const csv = 'Kurum,Öğrenci Sayısı,Tahsilat Oranı\n' + 
+                    [...orgStats].sort((a, b) => b.collectionRate - a.collectionRate)
+                      .map(o => `${o.name},${o.activeStudents},${o.collectionRate.toFixed(1)}%`).join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = `performans_raporu_${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                  toast.success('Performans raporu indirildi!');
+                }}
+                className="bg-gradient-to-br from-amber-500/20 to-yellow-500/20 backdrop-blur-lg rounded-2xl p-6 border border-amber-500/30 cursor-pointer hover:from-amber-500/30 hover:to-yellow-500/30 transition"
+              >
+                <Award className="w-10 h-10 text-amber-400 mb-3" />
+                <h4 className="text-white font-semibold mb-1">Performans Raporu</h4>
+                <p className="text-amber-200 text-sm mb-3">Kurum sıralaması</p>
+                <p className="text-2xl font-bold text-amber-400">
+                  🏆 {orgStats.length > 0 ? [...orgStats].sort((a, b) => b.collectionRate - a.collectionRate)[0]?.name.substring(0, 15) : '-'}
+                </p>
+              </div>
+
+              <div 
+                onClick={() => {
+                  const csv = 'Sınıf,Öğrenci Sayısı\n' + 
+                    consolidated.gradeDistribution.map(g => `${g.grade},${g.count}`).join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = `sinif_dagilimi_${new Date().toISOString().split('T')[0]}.csv`;
+                  link.click();
+                  toast.success('Sınıf dağılımı raporu indirildi!');
+                }}
+                className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-lg rounded-2xl p-6 border border-blue-500/30 cursor-pointer hover:from-blue-500/30 hover:to-indigo-500/30 transition"
+              >
+                <GraduationCap className="w-10 h-10 text-blue-400 mb-3" />
+                <h4 className="text-white font-semibold mb-1">Öğrenci Analizi</h4>
+                <p className="text-blue-200 text-sm mb-3">Sınıf dağılımları</p>
+                <p className="text-2xl font-bold text-blue-400">{consolidated.gradeDistribution.length} Sınıf</p>
               </div>
             </div>
           </div>
