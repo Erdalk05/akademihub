@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useEnrollmentStore } from './store';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { PROGRAMS, GUARDIAN_TYPES } from './types';
-import { X, Printer, Edit3, Copy, ClipboardPaste, MessageCircle } from 'lucide-react';
+import { X, Printer, Edit3, Copy, ClipboardPaste, MessageCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface PrintLayoutProps {
@@ -61,39 +61,89 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     catch { alert('Pano erişimi gerekli.'); }
   };
 
-  // WhatsApp ile sözleşme özeti gönder
-  const handleWhatsAppSend = () => {
+  const printContentRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // PDF oluştur ve WhatsApp ile gönder
+  const handleWhatsAppPDF = async () => {
     const phone = primaryGuardian?.phone;
     if (!phone) {
       toast.error('Veli telefon numarası bulunamadı!');
       return;
     }
 
-    let formattedPhone = phone.replace(/\D/g, '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '90' + formattedPhone.slice(1);
-    } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
-      formattedPhone = '90' + formattedPhone;
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading('PDF oluşturuluyor...');
+
+    try {
+      // html2pdf'i dinamik import et
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const element = printContentRef.current;
+      if (!element) {
+        toast.error('İçerik bulunamadı!', { id: toastId });
+        return;
+      }
+
+      const fileName = `Kayit_Sozlesmesi_${student.firstName}_${student.lastName}.pdf`;
+      
+      const opt = {
+        margin: 10,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // PDF'i blob olarak oluştur
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // Web Share API ile paylaş (mobilde çalışır)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: 'Kayıt Sözleşmesi',
+          text: `${organizationName} - ${student.firstName} ${student.lastName} Kayıt Sözleşmesi`
+        });
+        toast.success('PDF paylaşıma hazır!', { id: toastId });
+      } else {
+        // Web Share desteklenmiyorsa PDF'i indir ve WhatsApp aç
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        // WhatsApp'ı aç
+        let formattedPhone = phone.replace(/\D/g, '');
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '90' + formattedPhone.slice(1);
+        } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
+          formattedPhone = '90' + formattedPhone;
+        }
+
+        const message = `📋 *KAYIT SÖZLEŞMESİ*\n\n` +
+          `🏫 *${organizationName}*\n\n` +
+          `👤 Öğrenci: ${student.firstName} ${student.lastName}\n` +
+          `💰 Net Tutar: ${payment.netFee.toLocaleString('tr-TR')} TL\n\n` +
+          `📎 PDF sözleşme dosyası indirildi. Lütfen WhatsApp'tan ekleyerek gönderin.`;
+
+        const encodedMessage = encodeURIComponent(message);
+        
+        toast.success('PDF indirildi! WhatsApp açılıyor...', { id: toastId });
+        
+        setTimeout(() => {
+          window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+        }, 500);
+      }
+    } catch (error) {
+      console.error('PDF oluşturma hatası:', error);
+      toast.error('PDF oluşturulamadı!', { id: toastId });
+    } finally {
+      setIsGeneratingPdf(false);
     }
-
-    const message = `📋 *KAYIT FORMU ÖZETİ*\n\n` +
-      `🏫 *${organizationName}*\n\n` +
-      `👤 *Öğrenci:* ${student.firstName} ${student.lastName}\n` +
-      `📅 *Öğretim Yılı:* ${education.academicYear}\n` +
-      `📚 *Program:* ${programName}\n` +
-      `🎓 *Sınıf:* ${education.gradeName || education.gradeId + '. Sınıf'}\n\n` +
-      `💰 *ÖDEME BİLGİLERİ*\n` +
-      `• Toplam: ${payment.totalFee.toLocaleString('tr-TR')} TL\n` +
-      (payment.discount > 0 ? `• İndirim: -${payment.discount.toLocaleString('tr-TR')} TL\n` : '') +
-      `• Net Tutar: *${payment.netFee.toLocaleString('tr-TR')} TL*\n` +
-      `• Taksit: ${payment.installmentCount} x ${payment.monthlyInstallment.toLocaleString('tr-TR')} TL\n\n` +
-      `👨‍👩‍👧 *Veli:* ${primaryGuardian?.firstName} ${primaryGuardian?.lastName}\n\n` +
-      `📝 Kayıt işleminiz tamamlanmıştır. Detaylı sözleşme kurumumuzda imzalanacaktır.\n\n` +
-      `_${organizationName}_`;
-
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-    toast.success('WhatsApp açılıyor...');
   };
 
   return (
@@ -111,13 +161,14 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setIsEditing(!isEditing)} 
               style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isEditing ? '#fef3c7' : '#f3f4f6', color: isEditing ? '#92400e' : '#374151' }}>
-              <Edit3 size={16} /> {isEditing ? 'Bitir' : 'Sözleşmeyi Düzenle'}
+              <Edit3 size={16} /> {isEditing ? 'Bitir' : 'Düzenle'}
             </button>
             <button 
-              onClick={handleWhatsAppSend}
-              style={{ padding: '8px 20px', backgroundColor: '#25D366', color: '#ffffff', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}
+              onClick={handleWhatsAppPDF}
+              disabled={isGeneratingPdf}
+              style={{ padding: '8px 20px', backgroundColor: '#25D366', color: '#ffffff', borderRadius: '8px', border: 'none', cursor: isGeneratingPdf ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', opacity: isGeneratingPdf ? 0.7 : 1 }}
             >
-              <MessageCircle size={16} /> WhatsApp
+              <MessageCircle size={16} /> {isGeneratingPdf ? 'PDF Hazırlanıyor...' : 'WhatsApp PDF'}
             </button>
             <button 
               onClick={() => window.print()} 
@@ -170,7 +221,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         }
       `}</style>
 
-      <div id="print-content" style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
+      <div id="print-content" ref={printContentRef} style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
         <div className="print-page" style={{ maxWidth: '210mm', margin: '0 auto', backgroundColor: '#ffffff', padding: '25px' }}>
