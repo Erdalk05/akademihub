@@ -117,6 +117,9 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [otherPaymentAmount, setOtherPaymentAmount] = useState('');
   const [otherPaymentMethod, setOtherPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
   const [otherPaymentLoading, setOtherPaymentLoading] = useState(false);
+  
+  // Eski Kayıt Formu Accordion
+  const [showOldEnrollmentInfo, setShowOldEnrollmentInfo] = useState(false);
 
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
@@ -1001,6 +1004,148 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             Yeniden Taksitlendir
           </button>
         </div>
+      </div>
+
+      {/* ESKİ KAYIT FORMU ACCORDION */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowOldEnrollmentInfo(!showOldEnrollmentInfo)}
+          className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 transition"
+        >
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-amber-600" />
+            <span className="font-bold text-gray-900">Eski Kayıt Formu</span>
+            <span className="text-sm text-gray-500">(Kayıt bilgileri, taksit planı)</span>
+          </div>
+          <svg 
+            className={`w-5 h-5 text-gray-500 transition-transform ${showOldEnrollmentInfo ? 'rotate-180' : ''}`}
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        
+        {showOldEnrollmentInfo && (
+          <div className="p-6 border-t border-gray-200 bg-white">
+            {/* Öğrenci Bilgileri */}
+            <div className="mb-6">
+              <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <span className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">👤</span>
+                Öğrenci Bilgileri
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Ad Soyad:</span>
+                  <p className="font-medium">{student.first_name} {student.last_name}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Öğrenci No:</span>
+                  <p className="font-medium font-mono">{student.student_no}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Sınıf:</span>
+                  <p className="font-medium">{student.class} / {student.section || 'A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Kayıt Tarihi:</span>
+                  <p className="font-medium">{student.created_at ? new Date(student.created_at).toLocaleDateString('tr-TR') : '-'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Veli Bilgileri */}
+            <div className="mb-6">
+              <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <span className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">👨‍👩‍👧</span>
+                Veli Bilgileri
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Veli Adı:</span>
+                  <p className="font-medium">{student.parent_name || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Telefon:</span>
+                  <p className="font-medium">{student.parent_phone || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">E-posta:</span>
+                  <p className="font-medium">{student.parent_email || '-'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Ödeme Özeti */}
+            <div className="mb-6">
+              <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <span className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">💰</span>
+                Ödeme Özeti
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Toplam Sözleşme</p>
+                  <p className="text-lg font-bold text-gray-800">₺{(student.total_amount || 0).toLocaleString('tr-TR')}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Tahsil Edilen</p>
+                  <p className="text-lg font-bold text-green-600">₺{(student.paid_amount || 0).toLocaleString('tr-TR')}</p>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Kalan Borç</p>
+                  <p className="text-lg font-bold text-orange-600">₺{(student.balance || (student.total_amount || 0) - (student.paid_amount || 0)).toLocaleString('tr-TR')}</p>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Taksit Sayısı</p>
+                  <p className="text-lg font-bold text-blue-600">{installments.length}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Taksit Listesi Özeti */}
+            {installments.length > 0 && (
+              <div>
+                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <span className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">📋</span>
+                  Taksit Planı
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Taksit</th>
+                        <th className="px-3 py-2 text-left">Vade Tarihi</th>
+                        <th className="px-3 py-2 text-right">Tutar</th>
+                        <th className="px-3 py-2 text-right">Ödenen</th>
+                        <th className="px-3 py-2 text-center">Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {installments.map((inst, idx) => (
+                        <tr key={inst.id} className="border-b border-gray-100">
+                          <td className="px-3 py-2">{inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}</td>
+                          <td className="px-3 py-2">{new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                          <td className="px-3 py-2 text-right font-medium">₺{inst.amount.toLocaleString('tr-TR')}</td>
+                          <td className="px-3 py-2 text-right text-green-600">₺{(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              inst.status === 'paid' ? 'bg-green-100 text-green-700' :
+                              inst.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {inst.status === 'paid' ? 'Ödendi' : inst.status === 'overdue' ? 'Gecikmiş' : 'Bekliyor'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* TAKSİT LİSTESİ */}

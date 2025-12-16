@@ -6,6 +6,7 @@ import {
   AlertCircle, User, Users, GraduationCap, FileText, Sparkles, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEnrollmentStore } from '@/components/enrollment/store';
 import { StudentSection } from '@/components/enrollment/sections/StudentSection';
 import { GuardianSection } from '@/components/enrollment/sections/GuardianSection';
@@ -42,6 +43,9 @@ const getNextAcademicYear = () => {
 export default function NewEnrollmentPage() {
   const store = useEnrollmentStore();
   const { currentOrganization } = useOrganizationStore();
+  const searchParams = useSearchParams();
+  const editStudentId = searchParams.get('edit');
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -49,6 +53,8 @@ export default function NewEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPrint, setShowPrint] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   
   // Kayıt Yenileme
   const [showRenewalModal, setShowRenewalModal] = useState(false);
@@ -58,6 +64,48 @@ export default function NewEnrollmentPage() {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // Düzenleme modu - URL'de edit parametresi varsa öğrenciyi yükle
+  useEffect(() => {
+    if (editStudentId && isHydrated && !store.existingStudentId) {
+      loadStudentForEdit(editStudentId);
+    }
+  }, [editStudentId, isHydrated]);
+
+  const loadStudentForEdit = async (studentId: string) => {
+    setLoadingEdit(true);
+    try {
+      // Öğrenci bilgilerini getir
+      let studentData = null;
+      
+      const response = await fetch(`/api/students/${studentId}`);
+      if (response.ok) {
+        const data = await response.json();
+        studentData = data.data || data;
+      } else {
+        // Fallback - öğrenci listesinden bul
+        const listRes = await fetch('/api/students');
+        const listData = await listRes.json();
+        studentData = (listData.data || []).find((s: any) => s.id === studentId);
+      }
+      
+      if (!studentData) {
+        toast.error('Öğrenci bulunamadı!');
+        return;
+      }
+      
+      // Store'a düzenleme için yükle
+      store.loadForEditing(studentData);
+      setIsEditMode(true);
+      toast.success(`${studentData.first_name} ${studentData.last_name} bilgileri yüklendi. Düzenleyebilirsiniz.`);
+      
+    } catch (err: any) {
+      console.error('Öğrenci yükleme hatası:', err);
+      toast.error('Öğrenci yüklenirken hata oluştu');
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   // Kayıt yenileme - öğrenci seçildiğinde
   const handleRenewalStudentSelect = (student: any) => {
@@ -136,12 +184,14 @@ export default function NewEnrollmentPage() {
   const nextStep = () => currentStep < 4 && setCurrentStep(currentStep + 1);
   const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
-  if (!isHydrated) {
+  if (!isHydrated || loadingEdit) {
     return (
       <div className="min-h-screen bg-[#075E54] flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
-          <span className="text-white">Yukleniyor...</span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="text-white text-lg">
+            {loadingEdit ? 'Öğrenci bilgileri yükleniyor...' : 'Yukleniyor...'}
+          </span>
         </div>
       </div>
     );
