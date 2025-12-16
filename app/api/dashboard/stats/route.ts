@@ -116,9 +116,10 @@ export async function GET(req: NextRequest) {
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
     
-    // Diğer gelirler toplamı (ödenen tutarlar)
+    // Diğer gelirler toplamı
     const otherIncomeData = otherIncomeResult.data || [];
-    const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0);
+    const otherIncomeContract = otherIncomeData.reduce((sum, item) => sum + (item.amount || 0), 0); // Toplam sözleşme
+    const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0); // Tahsil edilen
     const otherIncomePending = otherIncomeData.reduce((sum, item) => {
       const remaining = (item.amount || 0) - (item.paid_amount || 0);
       return sum + (remaining > 0 ? remaining : 0);
@@ -218,9 +219,10 @@ export async function GET(req: NextRequest) {
           monthlyCollection,
           deletedStudents,
           overduePayments: overdueCount,
-          // Diğer gelirler
-          otherIncome: otherIncomeTotal, // Diğer gelirler - tahsil edilen
-          otherIncomePending: otherIncomePending, // Diğer gelirler - bekleyen
+          // Diğer gelirler (Satışlar)
+          otherIncomeContract: otherIncomeContract, // Satışlar - toplam sözleşme
+          otherIncome: otherIncomeTotal, // Satışlar - tahsil edilen
+          otherIncomePending: otherIncomePending, // Satışlar - bekleyen
           // Giderler ve net durum
           totalExpenses,
           // Toplam ciro = Eğitim ödemeleri + Diğer gelirler

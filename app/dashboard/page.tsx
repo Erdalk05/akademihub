@@ -118,6 +118,7 @@ export default function DashboardPage() {
           stats={dashboardData?.kpi ? {
             revenue: dashboardData.kpi.totalRevenue || 0,
             totalContract: dashboardData.kpi.totalContract || 0,
+            totalSales: dashboardData.kpi.otherIncomeContract || 0,
             activeStudents: dashboardData.kpi.activeStudents || 0,
             paymentRate: dashboardData.kpi.paymentRate || 0,
           } : undefined}

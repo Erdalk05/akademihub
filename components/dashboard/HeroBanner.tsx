@@ -9,7 +9,8 @@ interface HeroBannerProps {
   onAIReport?: () => void;
   stats?: {
     revenue: number; // Toplam tahsilat
-    totalContract: number; // Toplam sözleşme
+    totalContract: number; // Toplam sözleşme (eğitim)
+    totalSales: number; // Toplam satışlar (diğer gelirler)
     activeStudents: number;
     paymentRate: number;
   };
@@ -24,8 +25,6 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
   const displayName = userName || currentUser?.name || 'Misafir';
   
   const formatCurrency = (value: number) => {
-    if (value >= 1000000) return `₺${(value / 1000000).toFixed(2)}M`;
-    if (value >= 1000) return `₺${(value / 1000).toFixed(0)}K`;
     return `₺${value.toLocaleString('tr-TR')}`;
   };
 
@@ -79,20 +78,34 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
           </button>
         </div>
 
-        {/* Quick Stats - Kompakt */}
+        {/* Quick Stats - 4 Kart */}
         {stats && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
+            {/* Toplam Eğitim */}
             <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-xs">Toplam Sözleşme</span>
+                <span className="text-white/80 text-xs">Toplam Eğitim</span>
               </div>
               <p className="text-xl font-bold text-white">{formatCurrency(stats.totalContract || 0)}</p>
-              <p className="text-white/50 text-[10px]">{isAllOrganizations ? '🌐 Tüm Kurumlar' : 'Canlı veri'}</p>
+              <p className="text-white/50 text-[10px]">Eğitim sözleşmeleri</p>
             </div>
 
+            {/* Satışlar */}
+            <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 bg-purple-200 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-purple-700" />
+                </div>
+                <span className="text-white/80 text-xs">Satışlar</span>
+              </div>
+              <p className="text-xl font-bold text-white">{formatCurrency(stats.totalSales || 0)}</p>
+              <p className="text-white/50 text-[10px]">Kitap, yemek vb.</p>
+            </div>
+
+            {/* Aktif Öğrenci */}
             <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
@@ -104,6 +117,7 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
               <p className="text-white/50 text-[10px]">Kayıtlı öğrenci</p>
             </div>
 
+            {/* Ödeme Oranı */}
             <div className="bg-white/15 rounded-xl p-3 backdrop-blur-sm border border-white/20">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center">
