@@ -33,6 +33,11 @@ interface OrganizationStats {
   overdueAmount: number;
   collectionRate: number;
   userCount: number;
+  // Diğer satışlar
+  otherSalesTotal: number;
+  otherSalesCollected: number;
+  otherSalesPending: number;
+  // Genel
   gradeDistribution: { grade: string; count: number }[];
   monthlyData: { month: string; revenue: number; collected: number }[];
 }
@@ -46,6 +51,13 @@ interface ConsolidatedStats {
   totalOverdue: number;
   avgCollectionRate: number;
   totalUsers: number;
+  // Diğer satışlar
+  totalOtherSales: number;
+  totalOtherSalesCollected: number;
+  totalOtherSalesPending: number;
+  // Genel toplamlar
+  grandTotalRevenue: number;
+  grandTotalCollected: number;
   gradeDistribution: { grade: string; count: number }[];
 }
 
@@ -105,19 +117,22 @@ export default function FranchiseDashboardPage() {
       
       for (const org of orgs) {
         try {
-          const [studentsRes, installmentsRes, usersRes] = await Promise.all([
+          const [studentsRes, installmentsRes, usersRes, otherIncomeRes] = await Promise.all([
             fetch(`/api/students?organization_id=${org.id}`),
             fetch(`/api/installments?organization_id=${org.id}`),
-            fetch(`/api/settings/users?organization_id=${org.id}`)
+            fetch(`/api/settings/users?organization_id=${org.id}&is_super_admin=true`),
+            fetch(`/api/finance/other-income?organization_id=${org.id}`)
           ]);
           
           const studentsData = await studentsRes.json();
           const installmentsData = await installmentsRes.json();
           const usersData = await usersRes.json();
+          const otherIncomeData = await otherIncomeRes.json();
           
           const students = studentsData.data || [];
           const installments = installmentsData.data || [];
-          const orgUsers = usersData.data || [];
+          const orgUsers = (usersData.data || []).filter((u: any) => u.organization_id === org.id);
+          const otherIncomes = otherIncomeData.data || [];
           
           // Sınıf dağılımı
           const gradeDistribution: { grade: string; count: number }[] = [];
@@ -136,6 +151,7 @@ export default function FranchiseDashboardPage() {
           // Aylık veriler (son 6 ay simülasyonu)
           const monthlyData = generateMonthlyData(installments);
           
+          // Eğitim taksitleri
           const totalRevenue = installments.reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
           const collectedAmount = installments
             .filter((i: any) => i.is_paid)
@@ -146,6 +162,13 @@ export default function FranchiseDashboardPage() {
           const overdueAmount = installments
             .filter((i: any) => !i.is_paid && new Date(i.due_date) < new Date())
             .reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+          
+          // Diğer satışlar
+          const otherSalesTotal = otherIncomes.reduce((sum: number, i: any) => sum + (Number(i.amount) || 0), 0);
+          const otherSalesCollected = otherIncomes
+            .filter((i: any) => i.is_paid)
+            .reduce((sum: number, i: any) => sum + (Number(i.paid_amount) || Number(i.amount) || 0), 0);
+          const otherSalesPending = otherSalesTotal - otherSalesCollected;
           
           stats.push({
             id: org.id,
@@ -159,6 +182,9 @@ export default function FranchiseDashboardPage() {
             overdueAmount,
             collectionRate: totalRevenue > 0 ? (collectedAmount / totalRevenue) * 100 : 0,
             userCount: orgUsers.length,
+            otherSalesTotal,
+            otherSalesCollected,
+            otherSalesPending,
             gradeDistribution,
             monthlyData
           });
@@ -172,17 +198,29 @@ export default function FranchiseDashboardPage() {
       // Konsolide istatistikler
       const gradeDistributionArray = Object.entries(allGrades).map(([grade, count]) => ({ grade, count }));
       
+      const totalEduRevenue = stats.reduce((sum, s) => sum + s.totalRevenue, 0);
+      const totalEduCollected = stats.reduce((sum, s) => sum + s.collectedAmount, 0);
+      const totalOtherSales = stats.reduce((sum, s) => sum + s.otherSalesTotal, 0);
+      const totalOtherSalesCollected = stats.reduce((sum, s) => sum + s.otherSalesCollected, 0);
+      
       const consolidated: ConsolidatedStats = {
         totalOrganizations: stats.length,
         totalStudents: stats.reduce((sum, s) => sum + s.activeStudents, 0),
-        totalRevenue: stats.reduce((sum, s) => sum + s.totalRevenue, 0),
-        totalCollected: stats.reduce((sum, s) => sum + s.collectedAmount, 0),
+        totalRevenue: totalEduRevenue,
+        totalCollected: totalEduCollected,
         totalPending: stats.reduce((sum, s) => sum + s.pendingAmount, 0),
         totalOverdue: stats.reduce((sum, s) => sum + s.overdueAmount, 0),
         avgCollectionRate: stats.length > 0 
           ? stats.reduce((sum, s) => sum + s.collectionRate, 0) / stats.length 
           : 0,
         totalUsers: stats.reduce((sum, s) => sum + s.userCount, 0),
+        // Diğer satışlar
+        totalOtherSales,
+        totalOtherSalesCollected,
+        totalOtherSalesPending: totalOtherSales - totalOtherSalesCollected,
+        // Genel toplamlar (Eğitim + Satışlar)
+        grandTotalRevenue: totalEduRevenue + totalOtherSales,
+        grandTotalCollected: totalEduCollected + totalOtherSalesCollected,
         gradeDistribution: gradeDistributionArray
       };
       
@@ -319,10 +357,10 @@ export default function FranchiseDashboardPage() {
         {/* GENEL BAKIŞ */}
         {activeTab === 'overview' && consolidated && (
           <div className="space-y-6">
-            {/* KPI Kartları */}
+            {/* Ana KPI Kartları - 4'lü Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4">
                   <div className="w-14 h-14 bg-[#25D366]/30 rounded-xl flex items-center justify-center">
                     <Building2 className="w-7 h-7 text-[#25D366]" />
                   </div>
@@ -341,8 +379,8 @@ export default function FranchiseDashboardPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">Kayıtlı</span>
-            </div>
-          </div>
+                  </div>
+                </div>
                 <p className="text-4xl font-bold text-white">{consolidated.totalStudents}</p>
                 <p className="text-emerald-200 mt-1">Toplam Öğrenci</p>
               </div>
@@ -356,15 +394,15 @@ export default function FranchiseDashboardPage() {
                     <span className="text-xs text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-full flex items-center gap-1">
                       <ArrowUpRight className="w-3 h-3" />
                       %{consolidated.avgCollectionRate.toFixed(0)}
-              </span>
-            </div>
+                    </span>
+                  </div>
                 </div>
-                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.totalCollected)}</p>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.grandTotalCollected)}</p>
                 <p className="text-emerald-200 mt-1">Toplam Tahsilat</p>
-          </div>
+              </div>
 
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4">
                   <div className="w-14 h-14 bg-amber-500/30 rounded-xl flex items-center justify-center">
                     <AlertTriangle className="w-7 h-7 text-amber-300" />
                   </div>
@@ -374,6 +412,57 @@ export default function FranchiseDashboardPage() {
                 </div>
                 <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.totalOverdue)}</p>
                 <p className="text-emerald-200 mt-1">Riskli Alacak</p>
+              </div>
+            </div>
+
+            {/* Detay KPI Kartları - Eğitim vs Satışlar */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-lg rounded-2xl p-5 border border-blue-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <GraduationCap className="w-6 h-6 text-blue-300" />
+                  <span className="text-blue-200 font-medium">Eğitim Gelirleri</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(consolidated.totalRevenue)}</p>
+                <div className="flex items-center justify-between mt-2 text-sm">
+                  <span className="text-blue-200">Tahsil: {formatCurrency(consolidated.totalCollected)}</span>
+                  <span className="text-blue-300">%{consolidated.totalRevenue > 0 ? ((consolidated.totalCollected / consolidated.totalRevenue) * 100).toFixed(0) : 0}</span>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-2xl p-5 border border-purple-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <Receipt className="w-6 h-6 text-purple-300" />
+                  <span className="text-purple-200 font-medium">Diğer Satışlar</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(consolidated.totalOtherSales)}</p>
+                <div className="flex items-center justify-between mt-2 text-sm">
+                  <span className="text-purple-200">Tahsil: {formatCurrency(consolidated.totalOtherSalesCollected)}</span>
+                  <span className="text-purple-300">%{consolidated.totalOtherSales > 0 ? ((consolidated.totalOtherSalesCollected / consolidated.totalOtherSales) * 100).toFixed(0) : 0}</span>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-lg rounded-2xl p-5 border border-emerald-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <TrendingUp className="w-6 h-6 text-emerald-300" />
+                  <span className="text-emerald-200 font-medium">Toplam Sözleşme</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(consolidated.grandTotalRevenue)}</p>
+                <div className="flex items-center justify-between mt-2 text-sm">
+                  <span className="text-emerald-200">Eğitim + Satış</span>
+                  <span className="text-emerald-300">Tüm Kurumlar</span>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 backdrop-blur-lg rounded-2xl p-5 border border-orange-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <Clock className="w-6 h-6 text-orange-300" />
+                  <span className="text-orange-200 font-medium">Bekleyen Alacak</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{formatCurrency(consolidated.totalPending + consolidated.totalOtherSalesPending)}</p>
+                <div className="flex items-center justify-between mt-2 text-sm">
+                  <span className="text-orange-200">Vadesi gelmemiş</span>
+                  <span className="text-orange-300">{consolidated.totalOrganizations} kurum</span>
+                </div>
               </div>
             </div>
 
@@ -403,16 +492,17 @@ export default function FranchiseDashboardPage() {
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <PieChart className="w-5 h-5 text-[#25D366]" />
-                  Tahsilat Durumu
+                  Genel Tahsilat Durumu
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <RechartsPie>
                     <Pie
                       data={[
-                        { name: 'Tahsil Edilen', value: consolidated.totalCollected },
-                        { name: 'Bekleyen', value: consolidated.totalPending },
+                        { name: 'Eğitim Tahsil', value: consolidated.totalCollected },
+                        { name: 'Satış Tahsil', value: consolidated.totalOtherSalesCollected },
+                        { name: 'Bekleyen', value: consolidated.totalPending + consolidated.totalOtherSalesPending },
                         { name: 'Gecikmiş', value: consolidated.totalOverdue },
-                      ]}
+                      ].filter(d => d.value > 0)}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -423,8 +513,69 @@ export default function FranchiseDashboardPage() {
                       labelLine={{ stroke: '#fff' }}
                     >
                       <Cell fill="#25D366" />
+                      <Cell fill="#8B5CF6" />
                       <Cell fill="#F59E0B" />
                       <Cell fill="#EF4444" />
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                  </RechartsPie>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Gelir Dağılımı - Yeni Grafik */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-purple-400" />
+                  Kurum Bazlı Satış Gelirleri
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={orgStats.map(org => ({
+                    name: org.name.length > 12 ? org.name.substring(0, 12) + '...' : org.name,
+                    eğitim: org.collectedAmount,
+                    satış: org.otherSalesCollected
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="name" tick={{ fill: '#a7f3d0', fontSize: 11 }} />
+                    <YAxis tick={{ fill: '#a7f3d0', fontSize: 12 }} tickFormatter={(v) => `₺${(v/1000).toFixed(0)}K`} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
+                      formatter={(value: number) => [formatCurrency(value)]}
+                    />
+                    <Legend />
+                    <Bar dataKey="eğitim" name="Eğitim" fill="#25D366" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="satış" name="Satışlar" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-amber-400" />
+                  Gelir Türü Dağılımı
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPie>
+                    <Pie
+                      data={[
+                        { name: 'Eğitim Gelirleri', value: consolidated.totalRevenue },
+                        { name: 'Diğer Satışlar', value: consolidated.totalOtherSales },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: %${(percent * 100).toFixed(0)}`}
+                      labelLine={{ stroke: '#fff' }}
+                    >
+                      <Cell fill="#3B82F6" />
+                      <Cell fill="#8B5CF6" />
                     </Pie>
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#075E54', border: 'none', borderRadius: '12px', color: '#fff' }}
@@ -478,12 +629,22 @@ export default function FranchiseDashboardPage() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-white/5 rounded-lg p-3">
-                        <p className="text-xs text-emerald-200">Tahsilat</p>
+                        <p className="text-xs text-emerald-200">Eğitim Tahsilat</p>
                         <p className="text-sm font-semibold text-emerald-400">{formatCurrency(org.collectedAmount)}</p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-3">
+                        <p className="text-xs text-emerald-200">Satış Tahsilat</p>
+                        <p className="text-sm font-semibold text-purple-400">{formatCurrency(org.otherSalesCollected)}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      <div className="bg-white/5 rounded-lg p-3">
+                        <p className="text-xs text-emerald-200">Toplam Gelir</p>
+                        <p className="text-sm font-semibold text-white">{formatCurrency(org.totalRevenue + org.otherSalesTotal)}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-3">
                         <p className="text-xs text-emerald-200">Bekleyen</p>
-                        <p className="text-sm font-semibold text-amber-400">{formatCurrency(org.pendingAmount + org.overdueAmount)}</p>
+                        <p className="text-sm font-semibold text-amber-400">{formatCurrency(org.pendingAmount + org.overdueAmount + org.otherSalesPending)}</p>
                       </div>
                     </div>
                   </div>
@@ -542,7 +703,7 @@ export default function FranchiseDashboardPage() {
                 <div className="w-16 h-16 mx-auto mb-4 bg-blue-500/20 rounded-full flex items-center justify-center">
                   <Users className="w-8 h-8 text-blue-400" />
                 </div>
-                <p className="text-3xl font-bold text-white">{(consolidated.totalStudents / consolidated.totalOrganizations).toFixed(0)}</p>
+                <p className="text-3xl font-bold text-white">{consolidated.totalOrganizations > 0 ? (consolidated.totalStudents / consolidated.totalOrganizations).toFixed(0) : 0}</p>
                 <p className="text-emerald-200">Kurum Başına Öğrenci</p>
               </div>
               
@@ -550,16 +711,37 @@ export default function FranchiseDashboardPage() {
                 <div className="w-16 h-16 mx-auto mb-4 bg-amber-500/20 rounded-full flex items-center justify-center">
                   <Wallet className="w-8 h-8 text-amber-400" />
                 </div>
-                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.totalRevenue / consolidated.totalStudents || 0)}</p>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.totalStudents > 0 ? consolidated.grandTotalRevenue / consolidated.totalStudents : 0)}</p>
                 <p className="text-emerald-200">Öğrenci Başına Gelir</p>
               </div>
               
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-purple-500/20 rounded-full flex items-center justify-center">
-                  <UserCheck className="w-8 h-8 text-purple-400" />
+                  <Receipt className="w-8 h-8 text-purple-400" />
                 </div>
-                <p className="text-3xl font-bold text-white">{consolidated.totalUsers}</p>
-                <p className="text-emerald-200">Toplam Kullanıcı</p>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.totalOtherSales)}</p>
+                <p className="text-emerald-200">Toplam Diğer Satış</p>
+              </div>
+            </div>
+
+            {/* Ek Metrikler */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-lg rounded-2xl p-6 border border-emerald-500/30">
+                <h4 className="text-emerald-200 mb-2">Toplam Sözleşme Değeri</h4>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.grandTotalRevenue)}</p>
+                <p className="text-emerald-300 text-sm mt-1">Eğitim + Satışlar</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-lg rounded-2xl p-6 border border-blue-500/30">
+                <h4 className="text-blue-200 mb-2">Toplam Tahsilat</h4>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.grandTotalCollected)}</p>
+                <p className="text-blue-300 text-sm mt-1">Tüm kurumlar</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 backdrop-blur-lg rounded-2xl p-6 border border-orange-500/30">
+                <h4 className="text-orange-200 mb-2">Toplam Alacak</h4>
+                <p className="text-3xl font-bold text-white">{formatCurrency(consolidated.grandTotalRevenue - consolidated.grandTotalCollected)}</p>
+                <p className="text-orange-300 text-sm mt-1">Bekleyen + Gecikmiş</p>
               </div>
             </div>
           </div>
@@ -1171,7 +1353,7 @@ export default function FranchiseDashboardPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* İstatistikler */}
+              {/* İstatistikler - Üst Sıra */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white/10 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-white">{selectedOrg.activeStudents}</p>
@@ -1182,16 +1364,65 @@ export default function FranchiseDashboardPage() {
                   <p className="text-emerald-200 text-sm">Kullanıcı</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-emerald-400">{formatCurrency(selectedOrg.collectedAmount)}</p>
-                  <p className="text-emerald-200 text-sm">Tahsilat</p>
+                  <p className="text-2xl font-bold text-emerald-400">{formatCurrency(selectedOrg.totalRevenue + selectedOrg.otherSalesTotal)}</p>
+                  <p className="text-emerald-200 text-sm">Toplam Sözleşme</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-4 text-center">
                   <p className={`text-2xl font-bold ${selectedOrg.collectionRate >= 70 ? 'text-emerald-400' : selectedOrg.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                     %{selectedOrg.collectionRate.toFixed(1)}
                   </p>
-                  <p className="text-emerald-200 text-sm">Oran</p>
-            </div>
-          </div>
+                  <p className="text-emerald-200 text-sm">Tahsilat Oranı</p>
+                </div>
+              </div>
+
+              {/* Gelir Detayları */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl p-4 border border-blue-500/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <GraduationCap className="w-5 h-5 text-blue-300" />
+                    <h4 className="text-blue-200 font-medium">Eğitim Gelirleri</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-blue-200/70">Toplam:</span>
+                      <span className="text-white font-medium">{formatCurrency(selectedOrg.totalRevenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-200/70">Tahsil Edilen:</span>
+                      <span className="text-emerald-400 font-medium">{formatCurrency(selectedOrg.collectedAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-200/70">Bekleyen:</span>
+                      <span className="text-amber-400 font-medium">{formatCurrency(selectedOrg.pendingAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-200/70">Gecikmiş:</span>
+                      <span className="text-red-400 font-medium">{formatCurrency(selectedOrg.overdueAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 border border-purple-500/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Receipt className="w-5 h-5 text-purple-300" />
+                    <h4 className="text-purple-200 font-medium">Diğer Satışlar</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-purple-200/70">Toplam:</span>
+                      <span className="text-white font-medium">{formatCurrency(selectedOrg.otherSalesTotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-200/70">Tahsil Edilen:</span>
+                      <span className="text-emerald-400 font-medium">{formatCurrency(selectedOrg.otherSalesCollected)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-200/70">Bekleyen:</span>
+                      <span className="text-amber-400 font-medium">{formatCurrency(selectedOrg.otherSalesPending)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Sınıf Dağılımı */}
               {selectedOrg.gradeDistribution.length > 0 && (
@@ -1202,8 +1433,8 @@ export default function FranchiseDashboardPage() {
                       <span key={g.grade} className="px-3 py-1 bg-[#25D366]/20 text-emerald-200 rounded-full text-sm">
                         {g.grade}: {g.count}
                       </span>
-        ))}
-      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
