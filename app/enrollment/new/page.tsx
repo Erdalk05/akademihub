@@ -67,29 +67,49 @@ export default function NewEnrollmentPage() {
 
   // Düzenleme modu - URL'de edit parametresi varsa öğrenciyi yükle
   useEffect(() => {
-    if (editStudentId && isHydrated && !store.existingStudentId) {
-      loadStudentForEdit(editStudentId);
+    if (!isHydrated) return;
+    
+    if (editStudentId) {
+      // URL'de edit ID varsa ve store'daki ID farklıysa yükle
+      if (store.existingStudentId !== editStudentId) {
+        console.log('[Enrollment] Loading student for edit:', editStudentId);
+        loadStudentForEdit(editStudentId);
+      } else {
+        // Aynı öğrenci zaten yüklü
+        setIsEditMode(true);
+      }
+    } else if (!editStudentId && store.existingStudentId) {
+      // URL'de edit yok ama store'da var - yeni kayıt modu, store'u temizle
+      console.log('[Enrollment] Clearing store for new enrollment');
+      store.reset();
     }
   }, [editStudentId, isHydrated]);
 
   const loadStudentForEdit = async (studentId: string) => {
     setLoadingEdit(true);
+    console.log('[Enrollment] loadStudentForEdit started:', studentId);
+    
     try {
       // 1. Öğrenci bilgilerini getir
       let studentData = null;
       
       const response = await fetch(`/api/students/${studentId}`);
+      console.log('[Enrollment] Student API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
         studentData = data.data || data;
+        console.log('[Enrollment] Student data loaded:', studentData?.first_name, studentData?.last_name);
       } else {
         // Fallback - öğrenci listesinden bul
+        console.log('[Enrollment] Trying fallback...');
         const listRes = await fetch('/api/students');
         const listData = await listRes.json();
         studentData = (listData.data || []).find((s: any) => s.id === studentId);
       }
       
       if (!studentData) {
+        console.error('[Enrollment] Student not found!');
         toast.error('Öğrenci bulunamadı!');
         setLoadingEdit(false);
         return;

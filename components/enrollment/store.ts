@@ -308,6 +308,8 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
 
       // Düzenleme modu - Mevcut öğrenciyi düzenleme için yükle (öğrenci no değişmez)
       loadForEditing: (studentData: any) => set((state) => {
+        console.log('[Store] loadForEditing called with:', studentData?.first_name, studentData?.last_name, studentData?.id);
+        
         // Öğrenci bilgilerini aktar - öğrenci numarası AYNI KALIR
         const student: Student = {
           firstName: studentData.first_name || '',
@@ -376,6 +378,8 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         // Sözleşme bilgileri
         const contract = { ...defaultContract };
 
+        console.log('[Store] loadForEditing complete. Student:', student.firstName, student.lastName, 'ID:', studentData.id);
+        
         return {
           student,
           guardians,
@@ -388,7 +392,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
       }),
     }),
     {
-      name: 'enrollment-store-v7',
+      name: 'enrollment-store-v8', // Store versiyonunu artır - eski cache'i temizle
       partialize: (state) => ({
         student: state.student,
         guardians: state.guardians,
