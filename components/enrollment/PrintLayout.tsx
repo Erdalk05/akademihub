@@ -77,70 +77,107 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
 
     try {
       // html2pdf'i dinamik import et
-      const html2pdf = (await import('html2pdf.js')).default;
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default;
       
       const element = printContentRef.current;
       if (!element) {
         toast.error('İçerik bulunamadı!', { id: toastId });
+        setIsGeneratingPdf(false);
         return;
       }
 
       const fileName = `Kayit_Sozlesmesi_${student.firstName}_${student.lastName}.pdf`;
       
       const opt = {
-        margin: 10,
+        margin: [10, 10, 10, 10],
         filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          logging: false,
+          letterRendering: true
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      // PDF'i blob olarak oluştur
-      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      // PDF'i oluştur ve indir
+      await html2pdf().set(opt).from(element).save();
+      
+      toast.dismiss(toastId);
+      toast.success('PDF indirildi!');
 
-      // Web Share API ile paylaş (mobilde çalışır)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: 'Kayıt Sözleşmesi',
-          text: `${organizationName} - ${student.firstName} ${student.lastName} Kayıt Sözleşmesi`
-        });
-        toast.success('PDF paylaşıma hazır!', { id: toastId });
-      } else {
-        // Web Share desteklenmiyorsa PDF'i indir ve WhatsApp aç
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-
-        // WhatsApp'ı aç
-        let formattedPhone = phone.replace(/\D/g, '');
-        if (formattedPhone.startsWith('0')) {
-          formattedPhone = '90' + formattedPhone.slice(1);
-        } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
-          formattedPhone = '90' + formattedPhone;
-        }
-
-        const message = `📋 *KAYIT SÖZLEŞMESİ*\n\n` +
-          `🏫 *${organizationName}*\n\n` +
-          `👤 Öğrenci: ${student.firstName} ${student.lastName}\n` +
-          `💰 Net Tutar: ${payment.netFee.toLocaleString('tr-TR')} TL\n\n` +
-          `📎 PDF sözleşme dosyası indirildi. Lütfen WhatsApp'tan ekleyerek gönderin.`;
-
-        const encodedMessage = encodeURIComponent(message);
-        
-        toast.success('PDF indirildi! WhatsApp açılıyor...', { id: toastId });
-        
-        setTimeout(() => {
-          window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-        }, 500);
+      // WhatsApp'ı aç
+      let formattedPhone = phone.replace(/\D/g, '');
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '90' + formattedPhone.slice(1);
+      } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
+        formattedPhone = '90' + formattedPhone;
       }
-    } catch (error) {
+
+      const message = `📋 *KAYIT SÖZLEŞMESİ*\n\n` +
+        `🏫 *${organizationName}*\n\n` +
+        `👤 Öğrenci: ${student.firstName} ${student.lastName}\n` +
+        `📚 Sınıf: ${education.gradeName || education.gradeId}. Sınıf\n` +
+        `💰 Net Tutar: ${payment.netFee.toLocaleString('tr-TR')} TL\n` +
+        `📅 Taksit: ${payment.installmentCount} x ${payment.monthlyInstallment.toLocaleString('tr-TR')} TL\n\n` +
+        `📎 PDF sözleşme dosyası indirildi. Lütfen WhatsApp'tan dosya olarak ekleyerek gönderin.`;
+
+      const encodedMessage = encodeURIComponent(message);
+      
+      // Biraz bekleyip WhatsApp'ı aç
+      setTimeout(() => {
+        window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+      }, 1000);
+      
+    } catch (error: any) {
       console.error('PDF oluşturma hatası:', error);
-      toast.error('PDF oluşturulamadı!', { id: toastId });
+      toast.error(`PDF oluşturulamadı: ${error.message || 'Bilinmeyen hata'}`, { id: toastId });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // Sadece PDF indir (WhatsApp olmadan)
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading('PDF oluşturuluyor...');
+
+    try {
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default;
+      
+      const element = printContentRef.current;
+      if (!element) {
+        toast.error('İçerik bulunamadı!', { id: toastId });
+        setIsGeneratingPdf(false);
+        return;
+      }
+
+      const fileName = `Kayit_Sozlesmesi_${student.firstName}_${student.lastName}.pdf`;
+      
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          logging: false,
+          letterRendering: true
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      
+      toast.success('PDF başarıyla indirildi!', { id: toastId });
+    } catch (error: any) {
+      console.error('PDF oluşturma hatası:', error);
+      toast.error(`PDF oluşturulamadı: ${error.message || 'Bilinmeyen hata'}`, { id: toastId });
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -164,11 +201,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               <Edit3 size={16} /> {isEditing ? 'Bitir' : 'Düzenle'}
             </button>
             <button 
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPdf}
+              style={{ padding: '8px 20px', backgroundColor: '#6366f1', color: '#ffffff', borderRadius: '8px', border: 'none', cursor: isGeneratingPdf ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', opacity: isGeneratingPdf ? 0.7 : 1 }}
+            >
+              <Download size={16} /> {isGeneratingPdf ? 'PDF Hazırlanıyor...' : 'PDF İndir'}
+            </button>
+            <button 
               onClick={handleWhatsAppPDF}
               disabled={isGeneratingPdf}
               style={{ padding: '8px 20px', backgroundColor: '#25D366', color: '#ffffff', borderRadius: '8px', border: 'none', cursor: isGeneratingPdf ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', opacity: isGeneratingPdf ? 0.7 : 1 }}
             >
-              <MessageCircle size={16} /> {isGeneratingPdf ? 'PDF Hazırlanıyor...' : 'WhatsApp PDF'}
+              <MessageCircle size={16} /> WhatsApp
             </button>
             <button 
               onClick={() => window.print()} 
