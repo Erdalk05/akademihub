@@ -1178,7 +1178,7 @@ function SettingsPageContent() {
                         <div className="flex items-center justify-between">
                           <h3 className="font-bold text-indigo-900 text-lg">Yeni Kullanıcı Ekle</h3>
                           <button
-                            onClick={() => setNewUser(null)}
+                            onClick={() => { setNewUser(null); setUserPassword(''); }}
                             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg"
                           >
                             <X size={18} />
@@ -1236,14 +1236,31 @@ function SettingsPageContent() {
                           )}
                           
                           <div className="relative">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Şifre *</label>
                             <input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="En az 6 karakter"
-                              value={newUser.password || ''}
-                              onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                              placeholder="En az 8 karakter, büyük/küçük harf, rakam"
+                              value={userPassword}
+                              onChange={(e) => setUserPassword(e.target.value)}
                               className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white pr-10 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                             />
+                            {/* Şifre Gücü Göstergesi */}
+                            {userPassword && (
+                              <div className="mt-2">
+                                <div className="flex gap-1 mb-1">
+                                  <div className={`h-1 flex-1 rounded ${userPassword.length >= 8 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                                  <div className={`h-1 flex-1 rounded ${/[A-Z]/.test(userPassword) ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                                  <div className={`h-1 flex-1 rounded ${/[a-z]/.test(userPassword) ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                                  <div className={`h-1 flex-1 rounded ${/[0-9]/.test(userPassword) ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                  {userPassword.length < 8 && '• En az 8 karakter '}
+                                  {!/[A-Z]/.test(userPassword) && '• Büyük harf '}
+                                  {!/[a-z]/.test(userPassword) && '• Küçük harf '}
+                                  {!/[0-9]/.test(userPassword) && '• Rakam '}
+                                </p>
+                              </div>
+                            )}
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
