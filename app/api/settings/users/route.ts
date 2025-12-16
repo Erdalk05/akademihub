@@ -13,18 +13,34 @@ export async function GET(request: NextRequest) {
     const organizationId = searchParams.get('organization_id');
     const isSuperAdmin = searchParams.get('is_super_admin') === 'true';
 
-    let query = supabase
-      .from('app_users')
-      .select('id, name, email, phone, role, status, permissions, last_login, created_at, organization_id, is_super_admin')
-      .order('created_at', { ascending: false });
+    // Franchise Yöneticisi (Super Admin) TÜM kullanıcıları görür
+    if (isSuperAdmin) {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('id, name, email, phone, role, status, permissions, last_login, created_at, organization_id, is_super_admin')
+        .order('created_at', { ascending: false });
 
-    // Franchise Yöneticisi TÜM kullanıcıları görür
-    // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür (Franchise Yöneticisi hariç)
-    if (!isSuperAdmin && organizationId) {
-      query = query.eq('organization_id', organizationId);
+      if (error) throw error;
+      return NextResponse.json({ success: true, data: data || [] });
     }
 
-    const { data, error } = await query;
+    // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür
+    // organizationId yoksa boş liste döndür (güvenlik için)
+    if (!organizationId) {
+      return NextResponse.json({ 
+        success: true, 
+        data: [],
+        message: 'Kurum bilgisi bulunamadı. Lütfen tekrar giriş yapın.'
+      });
+    }
+
+    // Kurum içindeki kullanıcıları getir (super_admin'ler hariç)
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('id, name, email, phone, role, status, permissions, last_login, created_at, organization_id, is_super_admin')
+      .eq('organization_id', organizationId)
+      .eq('is_super_admin', false) // Franchise yöneticileri kurum panelinde görünmemeli
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 

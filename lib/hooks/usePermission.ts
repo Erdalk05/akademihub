@@ -101,7 +101,8 @@ export function usePermission(): UsePermissionReturn {
   // Basit değerler - hook yok
   const role = currentUser?.role || UserRole.STAFF;
   const isLoading = !isHydrated;
-  const isSuperAdmin = role === UserRole.SUPER_ADMIN;
+  // Super Admin kontrolü - hem role hem is_super_admin flag'i kontrol et
+  const isSuperAdmin = role === UserRole.SUPER_ADMIN || currentUser?.is_super_admin === true;
   const isAdmin = role === UserRole.ADMIN || isSuperAdmin; // Super Admin de admin yetkilerine sahip
   const isAccounting = role === UserRole.ACCOUNTING;
   const isStaff = role === UserRole.STAFF;

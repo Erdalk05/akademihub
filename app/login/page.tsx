@@ -98,6 +98,8 @@ export default function LoginPage() {
           name: authData.user.name,
           email: authData.user.email,
           role: roleMap[authData.user.role] || UserRole.STAFF,
+          organization_id: authData.user.organization_id || null,
+          is_super_admin: authData.user.is_super_admin || false,
         };
         
         setCurrentUser(roleUser);

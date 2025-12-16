@@ -479,6 +479,13 @@ function SettingsPageContent() {
     }
   }, []);
 
+  // currentOrganization değiştiğinde kullanıcıları yeniden yükle
+  useEffect(() => {
+    if (currentOrganization?.id || isSuperAdmin) {
+      loadUsers();
+    }
+  }, [currentOrganization?.id, isSuperAdmin]);
+
   const loadAllData = async () => {
     setIsLoading(true);
     try {
@@ -518,30 +525,44 @@ function SettingsPageContent() {
       // Franchise Yöneticisi TÜM kullanıcıları görür
       // Kurum Admin SADECE kendi kurumundaki kullanıcıları görür
       const params = new URLSearchParams();
+      
       if (isSuperAdmin) {
         params.append('is_super_admin', 'true');
-      } else if (currentOrganization?.id) {
-        params.append('organization_id', currentOrganization.id);
+      } else {
+        // Önce currentOrganization'dan, yoksa localStorage'dan organization_id al
+        const orgId = currentOrganization?.id;
+        if (!orgId) {
+          // currentOrganization henüz yüklenmemişse localStorage'dan user'ın organization_id'sini al
+          try {
+            const savedUser = localStorage.getItem('akademi_current_user');
+            if (savedUser) {
+              const userData = JSON.parse(savedUser);
+              if (userData.organization_id) {
+                params.append('organization_id', userData.organization_id);
+              }
+            }
+          } catch {
+            console.log('User organization lookup failed');
+          }
+        } else {
+          params.append('organization_id', orgId);
+        }
       }
       
       const res = await fetch(`/api/settings/users?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setUsers(data.data || []);
-      } else {
-        // Fallback: localStorage
-        const savedUsers = localStorage.getItem('akademihub_users');
-        if (savedUsers) {
-          setUsers(JSON.parse(savedUsers));
+        if (data.message) {
+          console.log('Users API message:', data.message);
         }
+      } else {
+        console.error('Users load error:', data.error);
+        setUsers([]);
       }
     } catch (error) {
       console.error('Users load error:', error);
-      // Fallback: localStorage
-      const savedUsers = localStorage.getItem('akademihub_users');
-      if (savedUsers) {
-        setUsers(JSON.parse(savedUsers));
-      }
+      setUsers([]);
     }
   };
 

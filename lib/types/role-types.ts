@@ -262,6 +262,8 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  organization_id?: string | null; // Kullanıcının bağlı olduğu kurum
+  is_super_admin?: boolean;
 }
 
 // Rol etiketleri
