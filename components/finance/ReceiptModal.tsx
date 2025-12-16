@@ -22,7 +22,7 @@ interface ReceiptModalProps {
 export default function ReceiptModal({ isOpen, onClose, payment }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const { currentOrganization } = useOrganizationStore();
-  const organizationName = currentOrganization?.name || 'AkademiHub';
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
 
   if (!isOpen || !payment) return null;
 

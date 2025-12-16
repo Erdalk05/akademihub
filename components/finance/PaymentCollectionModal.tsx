@@ -14,7 +14,7 @@ function printReceiptDocument(payment: {
   paymentDate: Date;
   paymentMethod: string;
   installmentNo?: number;
-}, organizationName: string = 'AkademiHub') {
+}, organizationName: string = 'Eğitim Kurumu') {
   const docNo = `#${payment.id.slice(0, 8).toUpperCase()}`;
   const currentDateTime = new Date().toLocaleString('tr-TR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -160,7 +160,7 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
   const [isSubmitting, startTransition] = useTransition();
   const { showToast, ToastContainer } = useToast();
   const { currentOrganization } = useOrganizationStore();
-  const organizationName = currentOrganization?.name || 'AkademiHub';
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
 
   useEffect(() => {
     if (installment) {

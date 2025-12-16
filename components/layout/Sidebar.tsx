@@ -211,6 +211,12 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
     label: isAdmin ? 'Admin' : isAccounting ? 'Muhasebe' : 'Personel'
   };
 
+  // Kurum adı kısaltması (ilk 2 harf büyük)
+  const orgShortName = currentOrganization?.name 
+    ? currentOrganization.name.split(' ').slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('')
+    : 'EK';
+  const orgDisplayName = currentOrganization?.name || 'Eğitim Kurumu';
+
   // Loading durumunda basit sidebar göster
   if (isLoading) {
     return (
@@ -218,9 +224,9 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
-              AH
+              {orgShortName}
             </div>
-            {!collapsed && <span className="font-bold text-lg text-white">AkademiHub</span>}
+            {!collapsed && <span className="font-bold text-lg text-white">{orgDisplayName}</span>}
           </div>
         </div>
         <div className="flex-1 p-4 animate-pulse">
@@ -238,9 +244,9 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       <div className="p-6 border-b border-white/10">
         <Link href="/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
           <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
-            AH
+            {orgShortName}
           </div>
-          {!collapsed && <span className="font-bold text-lg text-white">AkademiHub</span>}
+          {!collapsed && <span className="font-bold text-lg text-white">{orgDisplayName}</span>}
         </Link>
         
         {/* Aktif Kurum Bilgisi */}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Sparkles, TrendingUp, Users, FileText, ArrowRight, Shield } from 'lucide-react';
 import { useRole } from '@/lib/contexts/RoleContext';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface HeroBannerProps {
   userName?: string;
@@ -20,6 +21,8 @@ interface HeroBannerProps {
 export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizations }: HeroBannerProps) {
   const [isHovering, setIsHovering] = useState(false);
   const { currentUser, isAdmin, isAccounting } = useRole();
+  const { currentOrganization } = useOrganizationStore();
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
   
   // Kullanıcı adını al
   const displayName = userName || currentUser?.name || 'Misafir';
@@ -59,7 +62,7 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
               {displayName}! 👋
             </h1>
             <p className="text-white/70 text-sm">
-              AkademiHub AI sistemi ile yönetim kolaylaştırıldı
+              {organizationName} - Yönetim sistemi ile işlemler kolaylaştırıldı
             </p>
           </div>
 

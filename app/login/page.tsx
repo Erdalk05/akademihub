@@ -225,8 +225,8 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-sm mb-6 shadow-2xl border border-white/20">
             <span className="text-4xl">🎓</span>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">AkademiHub</h1>
-          <p className="text-[#DCF8C6] text-lg">Eğitim Yönetim Sistemi</p>
+          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Eğitim Portalı</h1>
+          <p className="text-[#DCF8C6] text-lg">Kurum Yönetim Sistemi</p>
         </div>
 
         {/* Giriş Kartı */}
@@ -342,7 +342,7 @@ export default function LoginPage() {
 
         {/* Alt Bilgi */}
         <p className="text-center text-white/50 text-sm mt-8">
-          © 2025 AkademiHub. Tüm hakları saklıdır.
+          © 2025 Eğitim Portalı. Tüm hakları saklıdır.
         </p>
       </div>
     </div>

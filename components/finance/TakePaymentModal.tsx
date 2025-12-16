@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { MessageCircle, Check } from 'lucide-react';
 
 type Props = {
@@ -29,6 +30,8 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
   const [ok, setOk] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const { showToast, ToastContainer } = useToast();
+  const { currentOrganization } = useOrganizationStore();
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
 
   // WhatsApp ile makbuz gönder
   const handleSendWhatsApp = () => {
@@ -51,7 +54,7 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
       `💳 Yöntem: ${method === 'cash' ? 'Nakit' : method === 'card' ? 'Kart' : 'Banka'}\n` +
       `📝 Taksit No: ${installment?.installment_no || '-'}\n\n` +
       `Ödemeniz için teşekkür ederiz. 🙏\n\n` +
-      `_AkademiHub Eğitim Yönetim Sistemi_`;
+      `_${organizationName}_`;
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');

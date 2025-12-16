@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useEnrollmentStore } from './store';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { PROGRAMS, GUARDIAN_TYPES } from './types';
 import { X, Printer, Edit3, Copy, ClipboardPaste } from 'lucide-react';
 
@@ -9,9 +10,18 @@ interface PrintLayoutProps {
   onClose: () => void;
 }
 
-const DEFAULT_CONTRACT = `EĞİTİM HİZMETİ SÖZLEŞMESİ
+export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
+  const { student, guardians, education, payment, contract } = useEnrollmentStore();
+  const { currentOrganization } = useOrganizationStore();
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Kurum adı - dinamik olarak mevcut kurumdan alınır
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
+  
+  // Sözleşme metni kurum adıyla dinamik oluşturulur
+  const defaultContractText = useMemo(() => `EĞİTİM HİZMETİ SÖZLEŞMESİ
 
-İşbu sözleşme, AkademiHub Eğitim Kurumları ("Kurum") ile aşağıda bilgileri bulunan veli arasında karşılıklı olarak düzenlenmiştir.
+İşbu sözleşme, ${organizationName} ("Kurum") ile aşağıda bilgileri bulunan veli arasında karşılıklı olarak düzenlenmiştir.
 
 MADDE 1 - TARAFLAR
 Kurum eğitim hizmetini sunmayı, Veli belirlenen ücret ve koşulları kabul etmeyi taahhüt eder.
@@ -28,12 +38,14 @@ Veli; bilgilerin doğruluğunu, okul kurallarını kabul ettiğini, ödeme plan�
 MADDE 5 - KURUM BEYANI
 Kurum, eğitim hizmetini sunmayı ve öğrenci dosyasını gizlilik esaslarına uygun korumayı taahhüt eder.
 
-Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.`;
+Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.`, [organizationName]);
 
-export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
-  const { student, guardians, education, payment, contract } = useEnrollmentStore();
-  const [isEditing, setIsEditing] = useState(false);
-  const [contractText, setContractText] = useState(DEFAULT_CONTRACT);
+  const [contractText, setContractText] = useState(defaultContractText);
+  
+  // Kurum değiştiğinde sözleşme metnini güncelle
+  useEffect(() => {
+    setContractText(defaultContractText);
+  }, [defaultContractText]);
 
   const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   const program = PROGRAMS.find(p => p.id === education.programId);
@@ -119,8 +131,8 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
           <div style={{ borderBottom: '3px solid #000000', paddingBottom: '15px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <h1 style={{ fontSize: '28px', fontWeight: '900', letterSpacing: '-0.5px', color: '#000000', margin: 0 }}>AKADEMİHUB</h1>
-                <p style={{ fontSize: '14px', color: '#4b5563', marginTop: '4px' }}>K12 Eğitim Kurumları</p>
+                <h1 style={{ fontSize: '28px', fontWeight: '900', letterSpacing: '-0.5px', color: '#000000', margin: 0 }}>{organizationName.toUpperCase()}</h1>
+                <p style={{ fontSize: '14px', color: '#4b5563', marginTop: '4px' }}>Eğitim Kurumu</p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ border: '3px solid #000000', padding: '8px 20px', display: 'inline-block' }}>
@@ -321,7 +333,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
                 <p style={{ fontSize: '14px', marginTop: '6px', color: '#000000' }}>{student.firstName} {student.lastName} - {education.academicYear} Öğretim Yılı</p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontWeight: 'bold', fontSize: '20px', color: '#000000', margin: 0 }}>AKADEMİHUB</p>
+                <p style={{ fontWeight: 'bold', fontSize: '20px', color: '#000000', margin: 0 }}>{organizationName.toUpperCase()}</p>
                 <p style={{ fontSize: '12px', color: '#000000', marginTop: '4px' }}>{today}</p>
               </div>
             </div>
@@ -436,7 +448,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ onClose }) => {
           <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '2px solid #000000', textAlign: 'center', fontSize: '11px' }}>
             <p style={{ fontWeight: '600', color: '#000000' }}>Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
             <p style={{ color: '#4b5563', marginTop: '4px' }}>Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.</p>
-            <p style={{ color: '#4b5563' }}>AkademiHub K12 Eğitim Kurumları - {today}</p>
+            <p style={{ color: '#4b5563' }}>{organizationName} - {today}</p>
           </div>
         </div>
       </div>

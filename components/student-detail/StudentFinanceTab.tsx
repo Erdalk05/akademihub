@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 interface Installment {
@@ -97,6 +98,9 @@ const PDF_LABELS = {
 
 export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const { canCollectPayment, canEditInstallment, canAddInstallment, canExportPdf } = usePermission();
+  const { currentOrganization } = useOrganizationStore();
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
+  
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -254,7 +258,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Öğrenci';
       const parentName = student.parent_name || 'Sayın Veli';
       const categoryLabel = CATEGORY_INFO[income.category]?.label || 'Diğer';
-      const organizationName = 'AkademiHub';
+      const receiptOrgName = organizationName;
 
       const container = document.createElement('div');
       container.style.position = 'absolute';
@@ -416,7 +420,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                             installment.payment_method === 'bank' ? 'Havale/EFT' : 'Belirtilmedi';
       const installmentLabel = installment.installment_no > 0 ? `${installment.installment_no}. Taksit` : 'Peşin Ödeme';
       const paidAmount = installment.paid_amount || installment.amount;
-      const organizationName = 'AkademiHub'; // TODO: Dynamic organization name
+      const receiptOrgName = organizationName;
 
       // HTML'i DOM'a ekle
       const container = document.createElement('div');
@@ -590,7 +594,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </table>
           
           <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px;">
-            AkademiHub - Eğitim Yönetim Sistemi
+            ${organizationName} - Eğitim Yönetim Sistemi
           </div>
         </div>
       `;
@@ -692,7 +696,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </table>
           
           <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px;">
-            AkademiHub - Eğitim Yönetim Sistemi
+            ${organizationName} - Eğitim Yönetim Sistemi
           </div>
         </div>
       `;
@@ -889,7 +893,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           <!-- FOOTER -->
           <div style="text-align: center; margin-top: 15px; padding-top: 8px; border-top: 1px solid #e2e8f0;">
             <p style="font-size: 6px; color: #94a3b8;">
-              AkademiHub © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}
+              ${organizationName} © ${new Date().getFullYear()} | ${student.first_name} ${student.last_name} | ${today}
             </p>
           </div>
         </div>
