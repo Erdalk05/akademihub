@@ -314,31 +314,31 @@ export default function FounderReportPage() {
   <meta charset="UTF-8">
   <title>Kurucu Raporu - ${reportDate}</title>
   <style>
-    @page { size: A4 landscape; margin: 8mm; }
+    @page { size: A4 landscape; margin: 5mm; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 8px; color: #000; background: #fff; line-height: 1.2; }
-    .page { width: 100%; padding: 5px; }
-    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px; }
-    .header h1 { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
-    .header h2 { font-size: 11px; font-weight: normal; }
-    .section { margin-bottom: 8px; }
-    .section-title { background: #1a5f4a; color: #fff; padding: 3px 6px; font-size: 9px; font-weight: bold; margin-bottom: 4px; }
-    .row { display: flex; gap: 8px; margin-bottom: 8px; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 6.5px; color: #000; background: #fff; line-height: 1.1; }
+    .page { width: 100%; padding: 3px; }
+    .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 4px; }
+    .header h1 { font-size: 12px; font-weight: bold; margin-bottom: 1px; }
+    .header h2 { font-size: 9px; font-weight: normal; }
+    .section { margin-bottom: 4px; }
+    .section-title { background: #1a5f4a; color: #fff; padding: 2px 4px; font-size: 7px; font-weight: bold; margin-bottom: 2px; }
+    .row { display: flex; gap: 4px; margin-bottom: 4px; }
     .col { flex: 1; }
     .col-2 { flex: 2; }
-    table { width: 100%; border-collapse: collapse; font-size: 7px; }
-    th { background: #2d7a5e; color: #fff; padding: 3px 4px; text-align: center; font-weight: bold; border: 1px solid #1a5f4a; }
-    td { padding: 2px 4px; border: 1px solid #ccc; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 6px; }
+    th { background: #2d7a5e; color: #fff; padding: 2px 3px; text-align: center; font-weight: bold; border: 1px solid #1a5f4a; }
+    td { padding: 1px 2px; border: 1px solid #ccc; text-align: center; }
     .text-left { text-align: left; }
     .text-right { text-align: right; }
     .total-row { background: #e8f5e9; font-weight: bold; }
     .highlight { background: #fff3cd; }
     .danger { background: #ffebee; color: #c62828; }
     .success { background: #e8f5e9; color: #2e7d32; }
-    .summary-box { display: inline-block; background: #f5f5f5; border: 1px solid #ddd; padding: 4px 8px; margin: 2px; text-align: center; min-width: 80px; }
-    .summary-box .value { font-size: 11px; font-weight: bold; color: #1a5f4a; }
-    .summary-box .label { font-size: 7px; color: #666; }
-    .footer { text-align: center; font-size: 7px; color: #666; border-top: 1px solid #ccc; padding-top: 4px; margin-top: 8px; }
+    .summary-box { display: inline-block; background: #f5f5f5; border: 1px solid #ddd; padding: 2px 6px; margin: 1px; text-align: center; min-width: 70px; }
+    .summary-box .value { font-size: 9px; font-weight: bold; color: #1a5f4a; }
+    .summary-box .label { font-size: 6px; color: #666; }
+    .footer { text-align: center; font-size: 6px; color: #666; border-top: 1px solid #ccc; padding-top: 2px; margin-top: 4px; }
     @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
@@ -350,7 +350,7 @@ export default function FounderReportPage() {
     </div>
 
     <!-- ÖZET KARTLARI -->
-    <div style="text-align: center; margin-bottom: 8px;">
+    <div style="text-align: center; margin-bottom: 4px;">
       <div class="summary-box"><div class="value">${totals.totalStudents}</div><div class="label">Toplam Öğrenci</div></div>
       <div class="summary-box"><div class="value">${totals.paidStudents}</div><div class="label">Ücretli</div></div>
       <div class="summary-box"><div class="value">${totals.freeStudents}</div><div class="label">Ücretsiz</div></div>
@@ -557,7 +557,7 @@ export default function FounderReportPage() {
     </div>
 
     <!-- YIL KARŞILAŞTIRMASI -->
-    <div class="section" style="page-break-before: always;">
+    <div class="section">
       <div class="section-title">${currentYear}-${currentYear+1} SEZONU CİRO - TAHSİLAT - GECİKEN DURUMU</div>
       <div class="row">
         <div class="col">
@@ -716,7 +716,7 @@ export default function FounderReportPage() {
 
     <div class="footer">
       <p>Bu rapor AkademiHub Eğitim Yönetim Sistemi tarafından ${reportDate} ${reportTime} tarihinde otomatik olarak oluşturulmuştur.</p>
-      <p>© ${currentYear} AkademiHub - Tüm Hakları Saklıdır | Sayfa 1/2</p>
+      <p>© ${currentYear} AkademiHub - Tüm Hakları Saklıdır | Sayfa 1/1</p>
     </div>
   </div>
   <script>window.onload = function() { setTimeout(() => window.print(), 300); }</script>
