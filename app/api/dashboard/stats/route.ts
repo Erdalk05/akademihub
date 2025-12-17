@@ -3,6 +3,8 @@ import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0; // Cache'i tamamen devre dışı bırak
+export const fetchCache = 'force-no-store'; // Fetch cache'i devre dışı bırak
 
 // Helper: Mevcut akademik yılı hesapla
 function getCurrentAcademicYear() {
@@ -57,8 +59,8 @@ export async function GET(req: NextRequest) {
 
     // Organization ve Academic Year filtreli sorgular oluştur
     const buildStudentsQuery = (statusFilter: 'active' | 'deleted' | 'all') => {
-      // total_amount ve paid_amount dahil et
-      let query = supabase.from('students').select('id, created_at, status, academic_year, total_amount, paid_amount, balance');
+      // total_amount ve paid_amount dahil et + isim (debug için)
+      let query = supabase.from('students').select('id, first_name, last_name, created_at, status, academic_year, total_amount, paid_amount, balance');
       
       if (statusFilter === 'deleted') {
         query = query.eq('status', 'deleted');
@@ -72,6 +74,9 @@ export async function GET(req: NextRequest) {
       
       // ✅ AKADEMİK YIL FİLTRESİ - Sadece seçilen yıldaki öğrenciler
       if (academicYear) query = query.eq('academic_year', academicYear);
+      
+      // Cache busting - sıralama ekle
+      query = query.order('created_at', { ascending: false });
       
       return query;
     };
@@ -266,12 +271,14 @@ export async function GET(req: NextRequest) {
       success: true,
       // Debug bilgisi - sorun çözülünce kaldırılabilir
       _debug: {
+        timestamp: new Date().toISOString(),
         query: {
           organizationId,
           academicYear,
         },
         counts: {
           studentsFromQuery: students.length,
+          studentNames: students.map(s => `${s.first_name} ${s.last_name}`),
           studentIds: students.map(s => s.id),
           installmentsTotal: allInstallments.length,
           otherIncomeTotal: allOtherIncome.length,
