@@ -148,11 +148,16 @@ export async function GET(req: NextRequest) {
       ? allExpenses.filter(item => isInAcademicYear(item.date, academicYear))
       : allExpenses;
     
-    // Debug logs
+    // Debug logs - Detaylı
+    console.log(`[Dashboard API] ========== DEBUG START ==========`);
+    console.log(`[Dashboard API] OrganizationId: ${organizationId}`);
     console.log(`[Dashboard API] AcademicYear: ${academicYear}`);
-    console.log(`[Dashboard API] Students: ${students.length} (filtered by academic_year)`);
+    console.log(`[Dashboard API] Students fetched: ${students.length}`);
+    console.log(`[Dashboard API] Student IDs:`, students.map(s => `${s.id.substring(0,8)}...`).join(', '));
     console.log(`[Dashboard API] Installments: ${allInstallments.length}`);
-    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}/${allOtherIncome.length}, Expenses: ${filteredExpenses.length}/${allExpenses.length}`);
+    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}/${allOtherIncome.length}`);
+    console.log(`[Dashboard API] Expenses: ${filteredExpenses.length}/${allExpenses.length}`);
+    console.log(`[Dashboard API] ========== DEBUG END ==========`);
     
     const otherIncomeContract = otherIncomeData.reduce((sum, item) => sum + (item.amount || 0), 0); // Toplam sözleşme
     const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0); // Tahsil edilen
@@ -259,6 +264,19 @@ export async function GET(req: NextRequest) {
     // RESPONSE
     return NextResponse.json({
       success: true,
+      // Debug bilgisi - sorun çözülünce kaldırılabilir
+      _debug: {
+        query: {
+          organizationId,
+          academicYear,
+        },
+        counts: {
+          studentsFromQuery: students.length,
+          studentIds: students.map(s => s.id),
+          installmentsTotal: allInstallments.length,
+          otherIncomeTotal: allOtherIncome.length,
+        }
+      },
       data: {
         academicYear, // Hangi yılın verisi olduğunu belirt
         kpi: {
