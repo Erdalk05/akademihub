@@ -98,13 +98,15 @@ function StudentsContent() {
         const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
         const yearParam = `academic_year=${selectedYear}`;
         
-        // ✅ Students API'sine de academic_year parametresi eklendi
+        // ✅ Students API'sine academic_year parametresi eklendi
         const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
-        const installmentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
         
+        // ⚠️ Taksitler için academic_year filtresi KALDIRILDI
+        // Çünkü öğrenci görünüyorsa TÜM taksitleri (tüm yıllardan) gösterilmeli
+        // Aksi halde öğrenci 2024-2025'te kayıtlı ama taksitleri 2025-2026'da ise borç 0 görünür
         const [studentsRes, installmentsRes] = await Promise.all([
           fetch(`/api/students?${studentsQuery}`),
-          fetch(`/api/installments?academicYear=${selectedYear}${orgParam ? `&${orgParam}` : ''}`)
+          fetch(`/api/installments${orgParam ? `?${orgParam}` : ''}`) // academicYear kaldırıldı
         ]);
         
         const studentsJson = await studentsRes.json();
