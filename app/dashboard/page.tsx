@@ -102,6 +102,26 @@ export default function DashboardPage() {
   };
 
   const handleYearChange = (year: string) => {
+    // Akademik yıl değişikliği uyarısı
+    if (year !== selectedYear) {
+      const currentYearLabel = selectedYear;
+      const newYearLabel = year;
+      
+      // Toast ile bildirim göster
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast(`📅 ${currentYearLabel} → ${newYearLabel} akademik yılına geçiliyor...`, {
+          icon: '🔄',
+          duration: 3000,
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            borderRadius: '12px',
+            padding: '12px 20px',
+          },
+        });
+      });
+    }
+    
     setSelectedYear(year);
     setIsYearDropdownOpen(false);
   };

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
 
-    // Organization filtreli sorgular oluştur
+    // Organization ve Academic Year filtreli sorgular oluştur
     const buildStudentsQuery = (statusFilter: 'active' | 'deleted' | 'all') => {
       // total_amount ve paid_amount dahil et
       let query = supabase.from('students').select('id, created_at, status, academic_year, total_amount, paid_amount, balance');
@@ -69,25 +69,43 @@ export async function GET(req: NextRequest) {
       // 'all' durumunda filtre yok
       
       if (organizationId) query = query.eq('organization_id', organizationId);
+      
+      // ✅ AKADEMİK YIL FİLTRESİ - Sadece seçilen yıldaki öğrenciler
+      if (academicYear) query = query.eq('academic_year', academicYear);
+      
       return query;
     };
 
     const buildInstallmentsQuery = () => {
+      // Not: finance_installments'ta academic_year sütunu yok
+      // Öğrenci bazında filtreleme students sorgusu sonrası yapılacak
       let query = supabase.from('finance_installments').select('*');
       if (organizationId) query = query.eq('organization_id', organizationId);
       return query;
     };
 
     const buildOtherIncomeQuery = () => {
-      let query = supabase.from('other_income').select('amount, paid_amount, is_paid');
+      // other_income'da academic_year yok, due_date veya date üzerinden filtreleme
+      let query = supabase.from('other_income').select('amount, paid_amount, is_paid, due_date, date');
       if (organizationId) query = query.eq('organization_id', organizationId);
       return query;
     };
 
     const buildExpensesQuery = () => {
-      let query = supabase.from('expenses').select('amount');
+      // expenses'te academic_year yok, date üzerinden filtreleme
+      let query = supabase.from('expenses').select('amount, date');
       if (organizationId) query = query.eq('organization_id', organizationId);
       return query;
+    };
+    
+    // Tarih bazlı akademik yıl filtreleme fonksiyonu
+    const isInAcademicYear = (dateStr: string | null, targetYear: string): boolean => {
+      if (!dateStr || !targetYear) return true; // Tarih yoksa göster
+      const date = new Date(dateStr);
+      const [startYear, endYear] = targetYear.split('-').map(Number);
+      const academicStart = new Date(startYear, 8, 1); // Eylül 1
+      const academicEnd = new Date(endYear, 7, 31, 23, 59, 59); // Ağustos 31
+      return date >= academicStart && date <= academicEnd;
     };
 
     // PARALEL FETCH (Hız x5!)
@@ -118,12 +136,24 @@ export async function GET(req: NextRequest) {
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
     
-    // Diğer gelirler toplamı
-    const otherIncomeData = otherIncomeResult.data || [];
+    // Diğer gelirler - akademik yıla göre filtrele (due_date veya date üzerinden)
+    const allOtherIncome = otherIncomeResult.data || [];
+    const otherIncomeData = academicYear 
+      ? allOtherIncome.filter(item => isInAcademicYear(item.due_date || item.date, academicYear))
+      : allOtherIncome;
+    
+    // Giderler - akademik yıla göre filtrele
+    const allExpenses = expensesResult.data || [];
+    const filteredExpenses = academicYear
+      ? allExpenses.filter(item => isInAcademicYear(item.date, academicYear))
+      : allExpenses;
     
     // Debug logs
-    console.log(`[Dashboard API] Students: ${students.length}, Installments: ${allInstallments.length}`);
-    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}, Deleted: ${deletedStudents}`);
+    console.log(`[Dashboard API] AcademicYear: ${academicYear}`);
+    console.log(`[Dashboard API] Students: ${students.length} (filtered by academic_year)`);
+    console.log(`[Dashboard API] Installments: ${allInstallments.length}`);
+    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}/${allOtherIncome.length}, Expenses: ${filteredExpenses.length}/${allExpenses.length}`);
+    
     const otherIncomeContract = otherIncomeData.reduce((sum, item) => sum + (item.amount || 0), 0); // Toplam sözleşme
     const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0); // Tahsil edilen
     const otherIncomePending = otherIncomeData.reduce((sum, item) => {
@@ -131,8 +161,8 @@ export async function GET(req: NextRequest) {
       return sum + (remaining > 0 ? remaining : 0);
     }, 0);
     
-    // Toplam giderler
-    const totalExpenses = (expensesResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+    // Toplam giderler (filtrelenmiş)
+    const totalExpenses = filteredExpenses.reduce((sum, item) => sum + (item.amount || 0), 0);
     
     // Tüm öğrencilerin ID'lerini al
     const studentIds = new Set(students.map(s => s.id));
