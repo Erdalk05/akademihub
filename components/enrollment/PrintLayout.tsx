@@ -6,6 +6,7 @@ import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { PROGRAMS, GUARDIAN_TYPES } from './types';
 import { X, Printer, Edit3, Copy, ClipboardPaste, MessageCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadPDF } from '@/lib/utils/pdfGenerator';
 
 interface PrintLayoutProps {
   onClose: () => void;
@@ -64,8 +65,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
   const printContentRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // PDF oluşturma fonksiyonu - html2canvas + jsPDF kullanarak
-  const generatePDF = async (): Promise<Blob | null> => {
+  // PDF oluşturma fonksiyonu - yeni pdfGenerator kullanarak
+  const generatePDFBlob = async (): Promise<Blob | null> => {
     const element = printContentRef.current;
     if (!element) {
       toast.error('İçerik bulunamadı!');
@@ -73,14 +74,17 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     }
 
     try {
-      // html2canvas ve jsPDF'i ayrı ayrı import et
       const html2canvasModule = await import('html2canvas');
       const html2canvas = html2canvasModule.default;
       const { jsPDF } = await import('jspdf');
 
       // Toolbar'ı gizle
-      const toolbar = document.querySelector('.toolbar-hide') as HTMLElement;
-      if (toolbar) toolbar.style.display = 'none';
+      const toolbars = document.querySelectorAll('.toolbar-hide');
+      toolbars.forEach(t => (t as HTMLElement).style.display = 'none');
+
+      // Print-content'in padding'ini geçici olarak kaldır
+      const originalPadding = element.style.paddingTop;
+      element.style.paddingTop = '0';
 
       // İçeriği canvas'a çevir
       const canvas = await html2canvas(element, {
@@ -88,27 +92,30 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 794, // A4 genişlik piksel
+        width: 794,
+        windowWidth: 794,
       });
 
       // Toolbar'ı geri getir
-      if (toolbar) toolbar.style.display = '';
+      toolbars.forEach(t => (t as HTMLElement).style.display = '');
+      element.style.paddingTop = originalPadding;
 
       // PDF oluştur
-      const imgWidth = 210; // A4 mm
-      const pageHeight = 297; // A4 mm
+      const imgWidth = 210;
+      const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      
       let heightLeft = imgHeight;
       let position = 0;
 
       // İlk sayfa
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Ek sayfalar (gerekirse)
+      // Ek sayfalar
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -135,7 +142,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     const toastId = toast.loading('PDF oluşturuluyor...');
 
     try {
-      const pdfBlob = await generatePDF();
+      const pdfBlob = await generatePDFBlob();
       
       if (!pdfBlob) {
         toast.error('PDF oluşturulamadı!', { id: toastId });
@@ -193,7 +200,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     const toastId = toast.loading('PDF oluşturuluyor...');
 
     try {
-      const pdfBlob = await generatePDF();
+      const pdfBlob = await generatePDFBlob();
       
       if (!pdfBlob) {
         toast.error('PDF oluşturulamadı!', { id: toastId });

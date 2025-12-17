@@ -20,6 +20,7 @@ import {
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { downloadPDFFromHTML } from '@/lib/utils/pdfGenerator';
 import toast from 'react-hot-toast';
 
 interface Installment {
@@ -251,8 +252,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Makbuz hazırlanıyor...');
     
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
       const receiptNo = `DG-${new Date().getFullYear()}-${income.id.slice(0, 8).toUpperCase()}`;
       const formattedDate = income.paidAt 
         ? new Date(income.paidAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -261,16 +260,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Öğrenci';
       const parentName = student.parent_name || 'Sayın Veli';
       const categoryLabel = CATEGORY_INFO[income.category]?.label || 'Diğer';
-      const receiptOrgName = organizationName;
 
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      document.body.appendChild(container);
-      
-      const receiptDiv = document.createElement('div');
-      receiptDiv.innerHTML = `
+      const htmlContent = `
         <div style="width: 260px; margin: 0 auto; padding: 12px; border: 2px solid #9333ea; border-radius: 10px; font-family: Arial, sans-serif; background: white;">
           <div style="display: flex; justify-content: space-between; font-size: 8px; color: #666; margin-bottom: 6px;">
             <span>${currentDateTime}</span>
@@ -305,7 +296,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #9333ea, #c026d3); color: white; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 10px;">
+          <div style="background: #9333ea; color: white; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 10px;">
             <div style="font-size: 8px; opacity: 0.9;">Tahsil Edilen Tutar</div>
             <div style="font-size: 20px; font-weight: 700; margin-top: 3px;">₺${income.paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
@@ -329,18 +320,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </div>
         </div>
       `;
-      container.appendChild(receiptDiv);
 
-      const opt = {
-        margin: 2,
+      await downloadPDFFromHTML(htmlContent, {
         filename: `DigerGelir_Makbuz_${categoryLabel}_${student.last_name}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: [80, 120] as [number, number], orientation: 'portrait' as const }
-      };
-
-      await html2pdf().set(opt).from(receiptDiv).save();
-      document.body.removeChild(container);
+        format: [80, 120],
+        margin: 2,
+      });
       
       toast.success(
         `✅ Makbuz İndirildi!\n\n${categoryLabel} - ₺${income.paidAmount.toLocaleString('tr-TR')}`,
@@ -409,8 +394,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Makbuz hazırlanıyor...');
     
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
       const receiptNo = `MKB-${new Date().getFullYear()}-${installment.id.slice(0, 8).toUpperCase()}`;
       const formattedDate = installment.paid_at 
         ? new Date(installment.paid_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -423,18 +406,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                             installment.payment_method === 'bank' ? 'Havale/EFT' : 'Belirtilmedi';
       const installmentLabel = installment.installment_no > 0 ? `${installment.installment_no}. Taksit` : 'Peşin Ödeme';
       const paidAmount = installment.paid_amount || installment.amount;
-      const receiptOrgName = organizationName;
 
-      // HTML'i DOM'a ekle
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      document.body.appendChild(container);
-      
-      // Sadece receipt div'ini al (HTML wrapper olmadan)
-      const receiptDiv = document.createElement('div');
-      receiptDiv.innerHTML = `
+      const htmlContent = `
         <div style="width: 280px; margin: 0 auto; padding: 20px; border: 2px solid #059669; border-radius: 12px; font-family: Arial, sans-serif; background: white;">
           <div style="display: flex; justify-content: space-between; font-size: 9px; color: #666; margin-bottom: 10px;">
             <span>${currentDateTime}</span>
@@ -473,7 +446,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+          <div style="background: #059669; color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
             <div style="font-size: 10px; opacity: 0.9;">Tahsil Edilen Tutar</div>
             <div style="font-size: 24px; font-weight: 700; margin-top: 5px;">₺${paidAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
@@ -492,23 +465,17 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </div>
           
           <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-            <p style="font-size: 8px; color: #888; line-height: 1.5; margin: 0;">Bu belge elektronik ortamda üretilmiştir.<br>Geçerli bir tahsilat belgesi yerine geçer.</p>
+            <p style="font-size: 8px; color: #888; line-height: 1.5; margin: 0;">Bu belge elektronik ortamda üretilmiştir. Geçerli bir tahsilat belgesi yerine geçer.</p>
             <p style="font-size: 8px; color: #059669; font-weight: 500; margin-top: 5px;">${organizationName} Eğitim Yönetim Sistemi</p>
           </div>
         </div>
       `;
-      container.appendChild(receiptDiv);
 
-      const opt = {
-        margin: 5,
+      await downloadPDFFromHTML(htmlContent, {
         filename: `Makbuz_${installment.installment_no}_${student.last_name}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: [100, 160] as [number, number], orientation: 'portrait' as const }
-      };
-
-      await html2pdf().set(opt).from(receiptDiv).save();
-      document.body.removeChild(container);
+        format: [100, 160],
+        margin: 5,
+      });
       
       toast.success(
         `✅ Makbuz İndirildi!\n\n${installmentLabel} - ₺${paidAmount.toLocaleString('tr-TR')}`,
@@ -524,22 +491,14 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Eğitim ödemeleri PDF hazırlanıyor...');
     
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
       const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
       const today = new Date().toLocaleDateString('tr-TR');
       const totalAmount = installments.reduce((sum, i) => sum + i.amount, 0);
       const paidAmount = installments.reduce((sum, i) => sum + (i.paid_amount || 0), 0);
       const remainingAmount = totalAmount - paidAmount;
       
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      document.body.appendChild(container);
-      
-      const pdfDiv = document.createElement('div');
-      pdfDiv.innerHTML = `
-        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif;">
+      const htmlContent = `
+        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif; background: white;">
           <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #4f46e5; padding-bottom: 15px;">
             <h1 style="color: #4f46e5; margin: 0;">EĞİTİM ÖDEME PLANI</h1>
             <p style="color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
@@ -601,18 +560,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </div>
         </div>
       `;
-      container.appendChild(pdfDiv);
 
-      const opt = {
+      await downloadPDFFromHTML(htmlContent, {
+        filename: `Egitim_Odemeler_${studentName.replace(/\s/g, '_')}_${today.replace(/\./g, '-')}.pdf`,
+        format: 'a4',
         margin: 10,
-        filename: 'Egitim_Odemeler_' + studentName.replace(/\\s/g, '_') + '_' + today.replace(/\\./g, '-') + '.pdf',
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
-      };
-
-      await html2pdf().set(opt).from(pdfDiv).save();
-      document.body.removeChild(container);
+      });
       
       toast.success('✅ Eğitim Ödemeleri PDF indirildi!', { id: toastId });
     } catch (error: any) {
@@ -625,22 +578,14 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Diğer gelirler PDF hazırlanıyor...');
     
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
       const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
       const today = new Date().toLocaleDateString('tr-TR');
       const totalAmount = otherIncomes.reduce((sum, i) => sum + i.amount, 0);
       const paidAmount = otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0);
       const remainingAmount = totalAmount - paidAmount;
       
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      document.body.appendChild(container);
-      
-      const pdfDiv = document.createElement('div');
-      pdfDiv.innerHTML = `
-        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif;">
+      const htmlContent = `
+        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif; background: white;">
           <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #9333ea; padding-bottom: 15px;">
             <h1 style="color: #9333ea; margin: 0;">DİĞER GELİRLER</h1>
             <p style="color: #666; margin: 5px 0 0 0;">Kitap, Üniforma, Yemek ve Diğer</p>
@@ -661,6 +606,17 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <div style="font-size: 12px;">Toplam</div>
               <div style="font-size: 20px; font-weight: bold;">₺${totalAmount.toLocaleString('tr-TR')}</div>
             </div>
+            <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Ödenen</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 12px;">Kalan</div>
+              <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
+            </div>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
             <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
               <div style="font-size: 12px;">Ödenen</div>
               <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
@@ -703,18 +659,12 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </div>
         </div>
       `;
-      container.appendChild(pdfDiv);
 
-      const opt = {
+      await downloadPDFFromHTML(htmlContent, {
+        filename: `Diger_Gelirler_${studentName.replace(/\s/g, '_')}_${today.replace(/\./g, '-')}.pdf`,
+        format: 'a4',
         margin: 10,
-        filename: 'Diger_Gelirler_' + studentName.replace(/\\s/g, '_') + '_' + today.replace(/\\./g, '-') + '.pdf',
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
-      };
-
-      await html2pdf().set(opt).from(pdfDiv).save();
-      document.body.removeChild(container);
+      });
       
       toast.success('✅ Diğer Gelirler PDF indirildi!', { id: toastId });
     } catch (error: any) {
@@ -726,7 +676,6 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     const toastId = toast.loading('Sözleşme PDF\'i hazırlanıyor...');
     
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
       const today = new Date().toLocaleDateString('tr-TR');
       
       // Diğer satışlar toplamları
@@ -902,20 +851,11 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         </div>
       `;
       
-      const container = document.createElement('div');
-      container.innerHTML = htmlContent;
-      document.body.appendChild(container);
-      
-      const opt = {
+      await downloadPDFFromHTML(htmlContent, {
+        filename: `Kayit_Satislar_Sozlesme_${student.first_name || ''}_${student.last_name || ''}_${today.replace(/\./g, '-')}.pdf`,
+        format: 'a4',
         margin: 8,
-        filename: 'Kayit_Satislar_Sozlesme_' + (student.first_name || '') + '_' + (student.last_name || '') + '_' + today.replace(/\\./g, '-') + '.pdf',
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-      };
-      
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
+      });
       
       toast.success(
         '✅ Kayıt ve Satışlar Sözleşmesi İndirildi!',
