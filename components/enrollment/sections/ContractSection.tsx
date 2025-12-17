@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { FileText, CheckCircle, User, Users, GraduationCap, Wallet, PenTool, Calendar, CreditCard, Edit3, Copy, ClipboardPaste, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FileText, CheckCircle, User, Users, GraduationCap, Wallet, PenTool, Calendar, CreditCard, Edit3, Copy, ClipboardPaste, RotateCcw, Download, Eye, Printer } from 'lucide-react';
 import { useEnrollmentStore } from '../store';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { Section, Divider } from '../ui/Section';
 import { Checkbox, FormField } from '../ui/FormField';
-import { GUARDIAN_TYPES } from '../types';
+import { GUARDIAN_TYPES, PROGRAMS } from '../types';
+import toast from 'react-hot-toast';
 
 const DEFAULT_CONTRACT = `K12 EĞİTİM KAYIT SÖZLEŞMESİ
 
@@ -34,10 +36,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
 
 export const ContractSection = () => {
   const { student, guardians, education, payment, contract, updateContract } = useEnrollmentStore();
+  const { currentOrganization } = useOrganizationStore();
   const [isEditing, setIsEditing] = useState(false);
   const [contractText, setContractText] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const primaryGuardian = guardians.find(g => g.isEmergency) || guardians[0];
+  const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
+  const program = PROGRAMS.find(p => p.id === education.programId);
+  const programName = program?.name || education.programName || 'Belirtilmedi';
+  
   const today = new Date().toLocaleDateString('tr-TR', {
     day: '2-digit',
     month: 'long',
@@ -45,6 +55,61 @@ export const ContractSection = () => {
   });
 
   const getGuardianType = (type: string) => GUARDIAN_TYPES.find(g => g.id === type)?.name || type;
+
+  // PDF İndir fonksiyonu
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading('PDF oluşturuluyor...');
+
+    try {
+      const element = previewRef.current;
+      if (!element) {
+        toast.error('Önizleme bulunamadı!', { id: toastId });
+        return;
+      }
+
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 794,
+      });
+
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Kayit_Formu_${student.firstName}_${student.lastName}.pdf`);
+      toast.success('PDF başarıyla indirildi!', { id: toastId });
+    } catch (error: any) {
+      console.error('PDF oluşturma hatası:', error);
+      toast.error(`PDF oluşturulamadı: ${error.message}`, { id: toastId });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   // Sözleşme metnini form verileriyle doldur
   useEffect(() => {
@@ -375,6 +440,323 @@ export const ContractSection = () => {
             </div>
           </div>
         )}
+
+        {/* ========== PDF ÖNİZLEME BÖLÜMÜ ========== */}
+        <div className="rounded-2xl border-2 border-[#6366f1]/30 overflow-hidden bg-gradient-to-br from-indigo-50 to-white">
+          <div className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 py-3 flex items-center justify-between">
+            <h4 className="font-bold text-white flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Kayıt Formu Önizleme (2 Sayfa)
+            </h4>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPreview(!showPreview)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-medium transition"
+              >
+                <Eye size={14} />
+                {showPreview ? 'Gizle' : 'Göster'}
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPdf || !showPreview}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#6366f1] hover:bg-indigo-50 rounded-xl text-sm font-medium transition disabled:opacity-50"
+              >
+                <Download size={14} />
+                {isGeneratingPdf ? 'Hazırlanıyor...' : 'PDF İndir'}
+              </button>
+            </div>
+          </div>
+
+          {showPreview && (
+            <div className="p-4 bg-gray-100 max-h-[600px] overflow-y-auto">
+              <p className="text-center text-sm text-gray-500 mb-3">
+                📄 Kayıt tamamlanmadan önce formun son halini kontrol edin
+              </p>
+              
+              {/* PDF Önizleme İçeriği */}
+              <div ref={previewRef} className="bg-white mx-auto" style={{ width: '794px', transform: 'scale(0.6)', transformOrigin: 'top center', marginBottom: '-300px' }}>
+                
+                {/* ===== SAYFA 1 - KAYIT FORMU ===== */}
+                <div style={{ padding: '15px 20px', borderBottom: '3px dashed #ccc', minHeight: '1123px', boxSizing: 'border-box' }}>
+                  {/* Başlık */}
+                  <div style={{ borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h1 style={{ fontSize: '18px', fontWeight: '900', color: '#000', margin: 0 }}>{organizationName.toUpperCase()}</h1>
+                        <p style={{ fontSize: '10px', color: '#666', margin: '2px 0 0 0' }}>Eğitim Kurumu</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ border: '2px solid #000', padding: '4px 12px', display: 'inline-block' }}>
+                          <h2 style={{ fontSize: '12px', fontWeight: 'bold', color: '#000', margin: 0 }}>KAYIT FORMU</h2>
+                        </div>
+                        <p style={{ fontSize: '9px', marginTop: '4px', color: '#000', margin: '4px 0 0 0' }}>Tarih: {today} | No: {student.studentNo || '______'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Öğrenci Bilgileri */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ backgroundColor: '#f0f0f0', border: '1px solid #000', padding: '3px 8px' }}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>ÖĞRENCİ BİLGİLERİ</h3>
+                    </div>
+                    <table style={{ width: '100%', border: '1px solid #000', borderTop: 'none', fontSize: '9px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #ccc' }}>
+                          <td style={{ padding: '4px 6px', width: '15%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Ad Soyad</td>
+                          <td style={{ padding: '4px 6px', width: '20%', fontWeight: 'bold', borderRight: '1px solid #ccc', color: '#000' }}>{student.firstName} {student.lastName}</td>
+                          <td style={{ padding: '4px 6px', width: '15%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>TC No</td>
+                          <td style={{ padding: '4px 6px', width: '18%', fontFamily: 'monospace', borderRight: '1px solid #ccc', color: '#000' }}>{student.tcNo || '_____________'}</td>
+                          <td style={{ padding: '4px 6px', width: '12%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Doğum</td>
+                          <td style={{ padding: '4px 6px', width: '20%', color: '#000' }}>{student.birthDate || '__________'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '4px 6px', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Telefon</td>
+                          <td style={{ padding: '4px 6px', borderRight: '1px solid #ccc', color: '#000' }}>{student.phone || '_____________'}</td>
+                          <td style={{ padding: '4px 6px', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Cinsiyet</td>
+                          <td style={{ padding: '4px 6px', borderRight: '1px solid #ccc', color: '#000' }}>{student.gender === 'male' ? 'Erkek' : student.gender === 'female' ? 'Kız' : '____'}</td>
+                          <td style={{ padding: '4px 6px', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Adres</td>
+                          <td style={{ padding: '4px 6px', color: '#000' }}>{[student.city, student.district].filter(Boolean).join(', ') || '________________'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Veli Bilgileri */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ backgroundColor: '#f0f0f0', border: '1px solid #000', padding: '3px 8px' }}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>VELİ BİLGİLERİ</h3>
+                    </div>
+                    <table style={{ width: '100%', border: '1px solid #000', borderTop: 'none', fontSize: '9px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '4px 6px', width: '12%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Yakınlık</td>
+                          <td style={{ padding: '4px 6px', width: '13%', fontWeight: 'bold', borderRight: '1px solid #ccc', color: '#000' }}>{getGuardianType(primaryGuardian?.type || '')}</td>
+                          <td style={{ padding: '4px 6px', width: '12%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Ad Soyad</td>
+                          <td style={{ padding: '4px 6px', width: '20%', fontWeight: 'bold', borderRight: '1px solid #ccc', color: '#000' }}>{primaryGuardian?.firstName} {primaryGuardian?.lastName}</td>
+                          <td style={{ padding: '4px 6px', width: '10%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>TC No</td>
+                          <td style={{ padding: '4px 6px', width: '16%', fontFamily: 'monospace', borderRight: '1px solid #ccc', color: '#000' }}>{primaryGuardian?.tcNo || '_____________'}</td>
+                          <td style={{ padding: '4px 6px', width: '8%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Tel</td>
+                          <td style={{ padding: '4px 6px', color: '#000' }}>{primaryGuardian?.phone || '___________'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Eğitim & Ödeme */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ backgroundColor: '#f0f0f0', border: '1px solid #000', padding: '3px 8px' }}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>EĞİTİM & ÖDEME BİLGİLERİ</h3>
+                    </div>
+                    <table style={{ width: '100%', border: '1px solid #000', borderTop: 'none', fontSize: '9px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '5px 6px', width: '10%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Program</td>
+                          <td style={{ padding: '5px 6px', width: '15%', borderRight: '1px solid #ccc', color: '#000' }}>{programName}</td>
+                          <td style={{ padding: '5px 6px', width: '10%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Sınıf</td>
+                          <td style={{ padding: '5px 6px', width: '10%', borderRight: '1px solid #ccc', color: '#000' }}>{education.gradeName || `${education.gradeId}. Sınıf`}</td>
+                          <td style={{ padding: '5px 6px', width: '8%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Yıl</td>
+                          <td style={{ padding: '5px 6px', width: '12%', fontWeight: 'bold', borderRight: '1px solid #ccc', color: '#000' }}>{education.academicYear}</td>
+                          <td style={{ padding: '5px 6px', width: '10%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Net Tutar</td>
+                          <td style={{ padding: '5px 6px', width: '12%', fontWeight: 'bold', fontSize: '11px', borderRight: '1px solid #ccc', color: '#000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
+                          <td style={{ padding: '5px 6px', width: '8%', fontWeight: '600', borderRight: '1px solid #ccc', color: '#000' }}>Taksit</td>
+                          <td style={{ padding: '5px 6px', fontWeight: 'bold', color: '#000' }}>{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Taksit Planı */}
+                  {payment.installments && payment.installments.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ backgroundColor: '#f0f0f0', border: '1px solid #000', padding: '3px 8px' }}>
+                        <h3 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>TAKSİT PLANI ({payment.installments.length} Taksit)</h3>
+                      </div>
+                      <table style={{ width: '100%', border: '1px solid #000', borderTop: 'none', fontSize: '8px', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '1px solid #000' }}>
+                            <th style={{ padding: '3px 4px', textAlign: 'center', width: '30px', color: '#000', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>No</th>
+                            <th style={{ padding: '3px 4px', textAlign: 'left', color: '#000', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>Açıklama</th>
+                            <th style={{ padding: '3px 4px', textAlign: 'center', width: '70px', color: '#000', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>Vade Tarihi</th>
+                            <th style={{ padding: '3px 4px', textAlign: 'right', width: '70px', color: '#000', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>Tutar</th>
+                            <th style={{ padding: '3px 4px', textAlign: 'center', width: '50px', color: '#000', fontWeight: 'bold' }}>İmza</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {payment.installments.map((inst, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                              <td style={{ padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', color: '#000', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'P' : inst.no}</td>
+                              <td style={{ padding: '3px 4px', color: '#000', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'Peşinat' : `${inst.no}. Taksit`}</td>
+                              <td style={{ padding: '3px 4px', textAlign: 'center', color: '#000', borderRight: '1px solid #ddd' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__/__/____'}</td>
+                              <td style={{ padding: '3px 4px', textAlign: 'right', fontWeight: 'bold', color: '#000', borderRight: '1px solid #ddd' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
+                              <td style={{ padding: '3px 4px', textAlign: 'center', color: '#000' }}>______</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ backgroundColor: '#f0f0f0', borderTop: '2px solid #000', fontWeight: 'bold' }}>
+                            <td style={{ padding: '4px', color: '#000', fontSize: '9px', borderRight: '1px solid #ccc' }} colSpan={3}>TOPLAM</td>
+                            <td style={{ padding: '4px', textAlign: 'right', fontSize: '10px', color: '#000', borderRight: '1px solid #ccc' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* İmza Alanları */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                    <div style={{ border: '2px solid #000', padding: '8px' }}>
+                      <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '25px', fontSize: '10px', color: '#000', margin: '0 0 25px 0' }}>VELİ İMZASI</p>
+                      <div style={{ borderTop: '1px solid #000', paddingTop: '6px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '9px', color: '#000', fontWeight: '500', margin: 0 }}>{primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
+                        <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
+                      </div>
+                    </div>
+                    <div style={{ border: '2px solid #000', padding: '8px' }}>
+                      <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '25px', fontSize: '10px', color: '#000', margin: '0 0 25px 0' }}>KURUM YETKİLİSİ</p>
+                      <div style={{ borderTop: '1px solid #000', paddingTop: '6px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '9px', color: '#000', fontWeight: '500', margin: 0 }}>{contract.institutionOfficer || '________________________'}</p>
+                        <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p style={{ textAlign: 'center', fontSize: '8px', color: '#888', marginTop: '8px', borderTop: '1px solid #ccc', paddingTop: '6px' }}>Sayfa 1/2 - Kayıt Formu | {organizationName}</p>
+                </div>
+
+                {/* ===== SAYFA 2 - SÖZLEŞME ===== */}
+                <div style={{ padding: '15px 20px', minHeight: '1123px', boxSizing: 'border-box' }}>
+                  {/* Başlık */}
+                  <div style={{ borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h1 style={{ fontSize: '16px', fontWeight: '900', color: '#000', margin: 0 }}>EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
+                        <p style={{ fontSize: '10px', marginTop: '3px', color: '#000', margin: '3px 0 0 0' }}>{student.firstName} {student.lastName} - {education.academicYear} Öğretim Yılı</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontWeight: 'bold', fontSize: '14px', color: '#000', margin: 0 }}>{organizationName.toUpperCase()}</p>
+                        <p style={{ fontSize: '9px', color: '#000', margin: '2px 0 0 0' }}>{today}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sözleşme Metni */}
+                  <div style={{ border: '1px solid #000', padding: '12px', fontSize: '9px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: '#000' }}>
+                    {`EĞİTİM HİZMETİ SÖZLEŞMESİ
+
+İşbu sözleşme, ${organizationName} ("Kurum") ile aşağıda bilgileri bulunan veli arasında karşılıklı olarak düzenlenmiştir.
+
+MADDE 1 - TARAFLAR
+Kurum eğitim hizmetini sunmayı, Veli belirlenen ücret ve koşulları kabul etmeyi taahhüt eder.
+
+MADDE 2 - EĞİTİM HİZMETİ
+Kurum, öğretim yılı boyunca müfredat, ölçme-değerlendirme, rehberlik ve akademik danışmanlık hizmetlerini sunacaktır.
+
+MADDE 3 - ÖDEME KOŞULLARI
+Belirlenen ücret ve taksit planı her iki tarafça kabul edilmiştir. Taksitlerin zamanında ödenmemesi halinde kurum yasal işlem başlatma hakkını saklı tutar.
+
+MADDE 4 - VELİ BEYANI
+Veli; bilgilerin doğruluğunu, okul kurallarını kabul ettiğini, ödeme planını onayladığını ve KVKK kapsamında bilgilendirildiğini beyan eder.
+
+MADDE 5 - KURUM BEYANI
+Kurum, eğitim hizmetini sunmayı ve öğrenci dosyasını gizlilik esaslarına uygun korumayı taahhüt eder.
+
+Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.`}
+                  </div>
+
+                  {/* Taraf Bilgileri */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                    <div style={{ border: '1px solid #000' }}>
+                      <div style={{ backgroundColor: '#f0f0f0', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>VELİ BİLGİLERİ</h4>
+                      </div>
+                      <div style={{ padding: '8px', fontSize: '9px' }}>
+                        <p style={{ marginBottom: '4px', color: '#000', margin: '0 0 4px 0' }}><span style={{ fontWeight: '600' }}>Ad Soyad:</span> {primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
+                        <p style={{ marginBottom: '4px', color: '#000', margin: '0 0 4px 0' }}><span style={{ fontWeight: '600' }}>TC Kimlik:</span> {primaryGuardian?.tcNo || '________________'}</p>
+                        <p style={{ marginBottom: '0', color: '#000', margin: 0 }}><span style={{ fontWeight: '600' }}>Telefon:</span> {primaryGuardian?.phone || '________________'}</p>
+                      </div>
+                    </div>
+                    <div style={{ border: '1px solid #000' }}>
+                      <div style={{ backgroundColor: '#f0f0f0', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>ÖĞRENCİ BİLGİLERİ</h4>
+                      </div>
+                      <div style={{ padding: '8px', fontSize: '9px' }}>
+                        <p style={{ marginBottom: '4px', color: '#000', margin: '0 0 4px 0' }}><span style={{ fontWeight: '600' }}>Ad Soyad:</span> {student.firstName} {student.lastName}</p>
+                        <p style={{ marginBottom: '4px', color: '#000', margin: '0 0 4px 0' }}><span style={{ fontWeight: '600' }}>TC Kimlik:</span> {student.tcNo || '________________'}</p>
+                        <p style={{ marginBottom: '0', color: '#000', margin: 0 }}><span style={{ fontWeight: '600' }}>Program:</span> {programName}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ödeme Özeti */}
+                  <div style={{ border: '1px solid #000', marginTop: '10px' }}>
+                    <div style={{ backgroundColor: '#f0f0f0', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                      <h4 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>ÖDEME PLANI ÖZETİ</h4>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', padding: '8px', fontSize: '9px' }}>
+                      <div><span style={{ fontWeight: '600', display: 'block', color: '#000', marginBottom: '2px' }}>Toplam Ücret</span><span style={{ color: '#000', fontSize: '10px' }}>{payment.totalFee.toLocaleString('tr-TR')} TL</span></div>
+                      <div><span style={{ fontWeight: '600', display: 'block', color: '#000', marginBottom: '2px' }}>İndirim</span><span style={{ color: '#000', fontSize: '10px' }}>{payment.discount > 0 ? `-${payment.discount.toLocaleString('tr-TR')} TL` : '—'}</span></div>
+                      <div><span style={{ fontWeight: '600', display: 'block', color: '#000', marginBottom: '2px' }}>Net Tutar</span><span style={{ fontWeight: 'bold', fontSize: '12px', color: '#000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</span></div>
+                      <div><span style={{ fontWeight: '600', display: 'block', color: '#000', marginBottom: '2px' }}>Taksit</span><span style={{ color: '#000', fontSize: '10px' }}>{payment.installmentCount} x {payment.monthlyInstallment.toLocaleString('tr-TR')} TL</span></div>
+                    </div>
+                  </div>
+
+                  {/* Onaylar */}
+                  <div style={{ border: '1px solid #000', marginTop: '10px' }}>
+                    <div style={{ backgroundColor: '#f0f0f0', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                      <h4 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, color: '#000' }}>ONAYLAR</h4>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '8px', fontSize: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <span style={{ width: '12px', height: '12px', border: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold', flexShrink: 0, color: '#000' }}>
+                          {contract.kvkkApproved ? 'X' : ''}
+                        </span>
+                        <span style={{ color: '#000' }}>KVKK Aydınlatma Metni okundu ve kabul edildi.</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <span style={{ width: '12px', height: '12px', border: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold', flexShrink: 0, color: '#000' }}>
+                          {contract.termsApproved ? 'X' : ''}
+                        </span>
+                        <span style={{ color: '#000' }}>Okul kuralları ve yönetmelikleri kabul edildi.</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <span style={{ width: '12px', height: '12px', border: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold', flexShrink: 0, color: '#000' }}>
+                          {contract.paymentApproved ? 'X' : ''}
+                        </span>
+                        <span style={{ color: '#000' }}>Ödeme planı ve koşulları kabul edildi.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* İmza Alanları */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                    <div style={{ border: '2px solid #000', padding: '8px' }}>
+                      <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '25px', fontSize: '10px', color: '#000', margin: '0 0 25px 0' }}>VELİ İMZASI</p>
+                      <div style={{ borderTop: '1px solid #000', paddingTop: '6px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '9px', color: '#000', fontWeight: '500', margin: 0 }}>{contract.guardianSignature || `${primaryGuardian?.firstName} ${primaryGuardian?.lastName}`}</p>
+                        <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
+                      </div>
+                    </div>
+                    <div style={{ border: '2px solid #000', padding: '8px' }}>
+                      <p style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '25px', fontSize: '10px', color: '#000', margin: '0 0 25px 0' }}>KURUM YETKİLİSİ</p>
+                      <div style={{ borderTop: '1px solid #000', paddingTop: '6px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '9px', color: '#000', fontWeight: '500', margin: 0 }}>{contract.institutionOfficer || '________________________'}</p>
+                        <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alt Bilgi */}
+                  <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #ccc', textAlign: 'center', fontSize: '8px' }}>
+                    <p style={{ fontWeight: '600', color: '#000', margin: 0 }}>Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
+                    <p style={{ color: '#666', margin: '3px 0 0 0' }}>Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.</p>
+                    <p style={{ color: '#666', margin: '2px 0 0 0' }}>{organizationName} - {today}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </Section>
   );
