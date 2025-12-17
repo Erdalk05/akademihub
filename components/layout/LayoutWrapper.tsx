@@ -9,6 +9,7 @@ import TopBar from './TopBar';
 // Lazy load heavy components
 const SearchModal = lazy(() => import('@/components/modals/SearchModal'));
 const ThemeToggle = lazy(() => import('@/components/ui/ThemeToggle'));
+const NavigationButtons = lazy(() => import('@/components/ui/NavigationButtons'));
 
 export default function LayoutWrapper({
   children,
@@ -147,6 +148,11 @@ export default function LayoutWrapper({
       <main className={`min-h-[calc(100vh-56px)] lg:pt-16 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         {children}
       </main>
+
+      {/* Navigation Buttons - İleri/Geri/Ana Sayfa */}
+      <Suspense fallback={null}>
+        <NavigationButtons position="bottom-left" showHome={true} />
+      </Suspense>
 
       {/* Search Modal - Lazy Loaded */}
       {showSearch && (

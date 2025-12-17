@@ -461,6 +461,7 @@ export const exportInstallmentPlanToExcel = (
     return {
       Taksit: `Y${idx + 1}`,
       'Vade Tarihi': it.due_date ? new Date(it.due_date).toLocaleDateString('tr-TR') : '',
+      'Ödeme Tarihi': it.paid_at ? new Date(it.paid_at).toLocaleDateString('tr-TR') : '-', // ✅ ÖDEME TARİHİ
       Planlanan: `₺${amount.toLocaleString('tr-TR')}`,
       Ödenen: paid > 0 ? `₺${paid.toLocaleString('tr-TR')}` : '-',
       Kalan: `₺${remaining.toLocaleString('tr-TR')}`,
@@ -509,12 +510,13 @@ export const exportInstallmentPlanToExcel = (
 
   const wsNew = XLSX.utils.json_to_sheet(newSheetData);
   wsNew['!cols'] = [
-    { wch: 6 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 12 },
+    { wch: 6 },  // Taksit
+    { wch: 14 }, // Vade Tarihi
+    { wch: 14 }, // Ödeme Tarihi
+    { wch: 14 }, // Planlanan
+    { wch: 14 }, // Ödenen
+    { wch: 14 }, // Kalan
+    { wch: 12 }, // Durum
   ];
   XLSX.utils.book_append_sheet(wb, wsNew, 'Yeni Plan');
 
@@ -797,6 +799,7 @@ export const exportInstallmentPlanToPDF = async (
   const columns: string[] = [
     normalizeTrForPdf('Taksit Kodu'),
     normalizeTrForPdf('Vade Tarihi'),
+    normalizeTrForPdf('Odeme Tarihi'), // ✅ ÖDEME TARİHİ EKLENDİ
     normalizeTrForPdf('Planlanan Tutar'),
     normalizeTrForPdf('Odenen Tutar'),
     normalizeTrForPdf('Kalan Tutar'),
@@ -831,6 +834,7 @@ export const exportInstallmentPlanToPDF = async (
     const row: (string | number)[] = [
       code,
       it.due_date ? formatDateWithZero(new Date(it.due_date)) : '',
+      it.paid_at ? formatDateWithZero(new Date(it.paid_at)) : '-', // ✅ ÖDEME TARİHİ
       formatCurrency(amount),
       paid > 0 ? formatCurrency(paid) : '-',
       formatCurrency(remaining),
@@ -877,10 +881,11 @@ export const exportInstallmentPlanToPDF = async (
     columnStyles: {
       0: { halign: 'left' }, // Taksit Kodu
       1: { halign: 'center' }, // Vade Tarihi
-      2: { halign: 'right' }, // Planlanan
-      3: { halign: 'right' }, // Ödenen
-      4: { halign: 'right' }, // Kalan
-      5: { halign: 'left' }, // Durum
+      2: { halign: 'center' }, // Ödeme Tarihi
+      3: { halign: 'right' }, // Planlanan
+      4: { halign: 'right' }, // Ödenen
+      5: { halign: 'right' }, // Kalan
+      6: { halign: 'left' }, // Durum
       ...(hasDelay ? { [delayIndex]: { halign: 'right' as const } } : {}),
       ...(hasPaymentMethod ? { [payMethodIndex]: { halign: 'left' as const } } : {}),
       ...(hasCollector ? { [collectorIndex]: { halign: 'left' as const } } : {}),
