@@ -13,7 +13,6 @@ import {
   Users, 
   TrendingDown, 
   RefreshCw, 
-  Calendar, 
   TrendingUp
 } from 'lucide-react';
 
@@ -108,43 +107,6 @@ export default function DashboardPage() {
             paymentRate: dashboardData.kpi.paymentRate || 0,
           } : undefined}
         />
-
-        {/* Akademik Yıl Seçici */}
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Akademik Yıl</p>
-                <p className="text-xs text-gray-500">Görüntülemek istediğiniz dönemi seçin</p>
-              </div>
-            </div>
-            
-            {/* Akademik yıl bilgisi - Değiştirmek için sağ üstteki seçiciyi kullanın */}
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-lg shadow-emerald-200">
-              <Calendar className="w-4 h-4" />
-              <span className="font-bold">{selectedYear}</span>
-              {selectedYear === getCurrentAcademicYear() && (
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">GÜNCEL</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Farklı Yıl Uyarısı */}
-        {selectedYear !== getCurrentAcademicYear() && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <p className="text-sm text-amber-800">
-              <strong>{selectedYear}</strong> akademik yılının verilerini görüntülüyorsunuz.
-              <span className="ml-2 text-emerald-600 font-medium">
-                Sağ üstteki takvim simgesinden güncel yıla dönebilirsiniz →
-              </span>
-            </p>
-          </div>
-        )}
 
         {/* Hızlı Erişim */}
         <QuickAccessPanel />
