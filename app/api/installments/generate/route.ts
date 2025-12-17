@@ -64,6 +64,25 @@ export async function POST(req: NextRequest) {
     const start = new Date(effectiveStart);
     const step = interval === 'weekly' ? 'weekly' : 'monthly';
 
+    // 0) Öğrencinin organization_id'sini al (taksitlere eklemek için)
+    const { data: studentData, error: studentError } = await supabase
+      .from('students')
+      .select('organization_id, academic_year')
+      .eq('id', student_id)
+      .single();
+    
+    if (studentError) {
+      console.error('Öğrenci bulunamadı:', studentError);
+      return NextResponse.json(
+        { success: false, error: 'Öğrenci bulunamadı: ' + studentError.message },
+        { status: 404 }
+      );
+    }
+    
+    const organizationId = studentData?.organization_id;
+    const academicYear = studentData?.academic_year;
+    console.log('[Installments] Student org:', organizationId, 'Year:', academicYear);
+
     // 1) Öğrencinin mevcut taksitlerini al
     const { data: existing, error: existingError } = await supabase
       .from('finance_installments')
@@ -138,8 +157,12 @@ export async function POST(req: NextRequest) {
         due_date: toDateOnlyIso(due),
         is_paid: false,
         payment_id: null,
+        organization_id: organizationId, // ✅ ORGANİZASYON ID EKLENDİ
+        academic_year: academicYear, // ✅ AKADEMİK YIL EKLENDİ
       });
     }
+    
+    console.log('[Installments] Creating', rows.length, 'installments for org:', organizationId);
 
     const { data, error } = await supabase
       .from('finance_installments')
@@ -148,6 +171,23 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
+    
+    // 3) Öğrencinin total_amount değerini güncelle (Dashboard için önemli!)
+    const totalAmount = n * perAmount;
+    const { error: updateError } = await supabase
+      .from('students')
+      .update({ 
+        total_amount: totalAmount,
+        balance: totalAmount // Henüz ödeme yapılmadığı için bakiye = toplam tutar
+      })
+      .eq('id', student_id);
+    
+    if (updateError) {
+      console.warn('[Installments] Students total_amount update failed:', updateError.message);
+    } else {
+      console.log('[Installments] Updated student total_amount:', totalAmount);
+    }
+    
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
