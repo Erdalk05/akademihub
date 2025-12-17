@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { 
   Printer, Save, CheckCircle, RotateCcw, ArrowLeft, ArrowRight,
-  AlertCircle, User, Users, GraduationCap, FileText, Sparkles, RefreshCw
+  AlertCircle, User, Users, GraduationCap, FileText, Sparkles, RefreshCw, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -18,6 +18,18 @@ import { createEnrollment } from '@/components/enrollment/actions';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { StudentSearchModal } from '@/components/enrollment/ui/StudentSearchModal';
 import toast from 'react-hot-toast';
+
+// Loading component for Suspense
+function EnrollmentLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mx-auto mb-4" />
+        <p className="text-gray-600">Kayıt formu yükleniyor...</p>
+      </div>
+    </div>
+  );
+}
 
 const STEPS = [
   { id: 1, title: 'Ogrenci', icon: User },
@@ -40,7 +52,8 @@ const getNextAcademicYear = () => {
   return `${start + 1}-${start + 2}`;
 };
 
-export default function NewEnrollmentPage() {
+// Ana içerik bileşeni - useSearchParams kullanan
+function EnrollmentContent() {
   const store = useEnrollmentStore();
   const { currentOrganization } = useOrganizationStore();
   const searchParams = useSearchParams();
@@ -592,5 +605,14 @@ export default function NewEnrollmentPage() {
         currentAcademicYear={getCurrentAcademicYear()}
       />
     </div>
+  );
+}
+
+// Sayfa export'u - Suspense ile sarılmış
+export default function NewEnrollmentPage() {
+  return (
+    <Suspense fallback={<EnrollmentLoading />}>
+      <EnrollmentContent />
+    </Suspense>
   );
 }
