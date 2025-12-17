@@ -27,19 +27,10 @@ import {
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
 import FinanceQuickViewDrawer from '@/components/students/FinanceQuickViewDrawer';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
 import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
 import { Edit, Trash2 } from 'lucide-react';
-
-// Akademik Yıllar
-const ACADEMIC_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
-
-const getCurrentAcademicYear = () => {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-};
 
 type StudentRow = {
   id: string;
@@ -73,6 +64,7 @@ function StudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
+  const { selectedYear } = useAcademicYearStore(); // Global akademik yıl store
   const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents } = usePermission();
   
   // Data
@@ -81,10 +73,6 @@ function StudentsContent() {
   
   // URL'den filter parametresini oku
   const urlFilter = searchParams.get('filter');
-  
-  // Filters
-  const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
-  const [isYearOpen, setIsYearOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical' | 'deleted'>(
     urlFilter === 'deleted' ? 'deleted' : 'all'
@@ -106,10 +94,16 @@ function StudentsContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Çoklu kurum desteği: organization_id filtresi (Tüm Kurumlar modunda boş)
+        // Çoklu kurum desteği: organization_id ve academic_year filtresi
         const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+        const yearParam = `academic_year=${selectedYear}`;
+        
+        // ✅ Students API'sine de academic_year parametresi eklendi
+        const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
+        const installmentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
+        
         const [studentsRes, installmentsRes] = await Promise.all([
-          fetch(`/api/students${orgParam ? `?${orgParam}` : ''}`),
+          fetch(`/api/students?${studentsQuery}`),
           fetch(`/api/installments?academicYear=${selectedYear}${orgParam ? `&${orgParam}` : ''}`)
         ]);
         
@@ -332,32 +326,16 @@ function StudentsContent() {
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
             
-            {/* Akademik Yıl */}
-            <div className="relative">
-              <button
-                onClick={() => setIsYearOpen(!isYearOpen)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"
-              >
-                <Calendar size={16} />
-                {selectedYear}
-                <ChevronDown size={14} className={`transition ${isYearOpen ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {isYearOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsYearOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border z-50 py-1">
-                    {ACADEMIC_YEARS.map(year => (
-                      <button
-                        key={year}
-                        onClick={() => { setSelectedYear(year); setIsYearOpen(false); }}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${selectedYear === year ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
-                      >
-                        {year}
-                      </button>
-                    ))}
-                  </div>
-                </>
+            {/* Akademik Yıl - Sadece bilgi gösterir, sağ üstteki header'dan değiştirilir */}
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium ${
+              selectedYear === getCurrentAcademicYear() 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-amber-100 text-amber-700 border border-amber-300'
+            }`}>
+              <Calendar size={16} />
+              <span>{selectedYear}</span>
+              {selectedYear === getCurrentAcademicYear() && (
+                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">GÜNCEL</span>
               )}
             </div>
             

@@ -14,10 +14,12 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 // - Authorization header varsa RLS'li client kullanılır.
 // - Yoksa, eğer service role key tanımlıysa service client, değilse anon client kullanılır.
 // - organization_id query parametresi ile filtreleme yapılabilir
+// - academic_year query parametresi ile akademik yıla göre filtreleme yapılabilir
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const organizationId = searchParams.get('organization_id');
+    const academicYear = searchParams.get('academic_year');
     
     const accessToken = getAccessTokenFromRequest(req);
     const hasServiceRoleKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,11 +35,16 @@ export async function GET(req: NextRequest) {
       .select('*')
       .neq('status', 'deleted') // Silinmiş öğrencileri hariç tut
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     // Organization filtresi (çoklu kurum desteği)
     if (organizationId) {
       query = query.eq('organization_id', organizationId);
+    }
+    
+    // ✅ AKADEMİK YIL FİLTRESİ - Sadece seçilen yıldaki öğrenciler
+    if (academicYear) {
+      query = query.eq('academic_year', academicYear);
     }
 
     const { data, error } = await query;
