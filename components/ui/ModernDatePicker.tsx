@@ -223,7 +223,7 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
   };
 
   return (
-    <div className={`space-y-1.5 ${className}`} ref={containerRef}>
+    <div className={`space-y-1.5 relative ${className}`} ref={containerRef} style={{ overflow: 'visible' }}>
       {label && (
         <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
           {label}
@@ -262,7 +262,7 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute z-[100] mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-in fade-in slide-in-from-top-2 duration-200 right-0 sm:right-auto sm:left-0">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               {viewMode === 'days' && (

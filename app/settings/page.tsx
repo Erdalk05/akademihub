@@ -16,9 +16,10 @@ import APISettings from '@/components/settings/APISettings';
 import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import OrganizationSettings from '@/components/settings/OrganizationSettings';
+import DataMigrationSection from '@/components/settings/DataMigrationSection';
 
 // Tab Types
-type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts';
+type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration';
 
 // Interfaces
 interface SchoolInfo {
@@ -965,6 +966,7 @@ function SettingsPageContent() {
     { id: 'payments', label: 'Ödeme Şablonları', icon: CreditCard, description: 'Program ücretleri' },
     { id: 'api', label: 'API Ayarları', icon: Server, description: 'SMS, E-posta provider' },
     { id: 'backup', label: 'Yedekleme', icon: Database, description: 'Veri yedekleme ve geri yükleme' },
+    { id: 'migration', label: 'Veri Aktarımı', icon: Upload, description: 'Geçmiş yıllardan veri aktarımı' },
     { id: 'shortcuts', label: 'Klavye Kısayolları', icon: Keyboard, description: 'Hızlı erişim tuşları' },
   ];
   
@@ -2553,6 +2555,11 @@ function SettingsPageContent() {
                 {/* Yedekleme Sekmesi */}
                 {activeTab === 'backup' && (
                   <BackupRestore />
+                )}
+
+                {/* Veri Aktarımı Sekmesi */}
+                {activeTab === 'migration' && (
+                  <DataMigrationSection organizationId={currentOrganization?.id} />
                 )}
 
                 {/* Klavye Kısayolları Sekmesi */}
