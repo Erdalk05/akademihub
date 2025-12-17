@@ -158,27 +158,11 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
     }
 
     // 3. Finance_Installments tablosuna taksitleri ekle
-    // ⚠️ DÜZENLEME MODUNDA: Önce eski ÖDENMEMİŞ taksitleri sil
-    if (existingStudentId) {
-      try {
-        // Sadece ödenmemiş taksitleri sil (ödenen taksitler korunur)
-        const { error: deleteError, count } = await supabase
-          .from('finance_installments')
-          .delete()
-          .eq('student_id', existingStudentId)
-          .eq('is_paid', false);
-        
-        if (deleteError) {
-          console.warn('Eski taksitler silinemedi:', deleteError.message);
-        } else {
-          console.log(`[Düzenleme] ${count || 0} adet ödenmemiş taksit silindi`);
-        }
-      } catch (e) {
-        console.warn('Taksit silme hatası:', e);
-      }
-    }
+    // ⚠️ GÜNCELLEME MODUNDA: Taksitlere DOKUNMA! Sadece bilgiler güncellenir.
+    // Taksit değişikliği için "Yeniden Taksitlendir" butonu kullanılmalı.
     
-    if (data.payment.netFee > 0 && data.payment.installmentCount > 0) {
+    // Sadece YENİ KAYIT modunda taksit oluştur
+    if (!existingStudentId && data.payment.netFee > 0 && data.payment.installmentCount > 0) {
       const installments = [];
       const today = new Date();
       const downPayment = data.payment.downPayment || 0;

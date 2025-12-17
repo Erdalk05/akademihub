@@ -298,7 +298,7 @@ function EnrollmentContent() {
                 <h1 className="text-xl font-bold text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-[#25D366]" />
                   {store.existingStudentId 
-                    ? (store.education.studentType === 'renewal' ? 'Kayıt Yenileme' : 'Kayıt Düzenle')
+                    ? (store.education.studentType === 'renewal' ? 'Kayıt Yenileme' : 'Bilgi Güncelleme')
                     : 'Yeni Ogrenci Kaydi'}
                 </h1>
                 <p className="text-sm text-white/70">
@@ -414,7 +414,7 @@ function EnrollmentContent() {
         </div>
       )}
 
-      {/* Kayıt Düzenleme Bilgi Banner */}
+      {/* Bilgi Güncelleme Bilgi Banner */}
       {store.existingStudentId && store.education.studentType === 'edit' && !isSaved && (
         <div className="max-w-5xl mx-auto px-4 pt-4">
           <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-2xl shadow-lg">
@@ -423,11 +423,13 @@ function EnrollmentContent() {
                 <User className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-lg font-bold text-blue-800">Kayıt Düzenleme Modu</p>
+                <p className="text-lg font-bold text-blue-800">Bilgi Güncelleme Modu</p>
                 <p className="text-blue-700">
                   <strong>{store.student.firstName} {store.student.lastName}</strong> - #{store.student.studentNo}
                 </p>
-                <p className="text-blue-600 text-sm">Tüm bilgileri düzenleyebilir ve güncelleyebilirsiniz.</p>
+                <p className="text-blue-600 text-sm">
+                  💡 Kişisel bilgiler güncellenir. Taksit planı DEĞİŞMEZ - bunun için "Yeniden Taksitlendir" kullanın.
+                </p>
               </div>
               <button 
                 onClick={handleReset}
@@ -589,7 +591,9 @@ function EnrollmentContent() {
                 ) : (
                   <>
                     <Save size={18} />
-                    Kaydi Tamamla
+                    {store.existingStudentId && store.education.studentType === 'edit' 
+                      ? 'Bilgileri Güncelle' 
+                      : 'Kaydi Tamamla'}
                   </>
                 )}
               </button>

@@ -422,7 +422,7 @@ export default function StudentDetailPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition text-sm font-medium"
                     >
             <Edit className="w-4 h-4" />
-            <span className="hidden sm:inline">Düzenle</span>
+            <span className="hidden sm:inline">Bilgileri Güncelle</span>
                     </button>
                     <button
             onClick={handleViewHistory}
