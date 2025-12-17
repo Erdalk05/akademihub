@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
 import HeroBanner from '@/components/dashboard/HeroBanner';
 import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
 import { 
@@ -13,29 +14,8 @@ import {
   TrendingDown, 
   RefreshCw, 
   Calendar, 
-  ChevronDown,
   TrendingUp
 } from 'lucide-react';
-
-// Akademik Yıllar
-const ACADEMIC_YEARS = [
-  { value: '2023-2024', label: '2023-2024' },
-  { value: '2024-2025', label: '2024-2025' },
-  { value: '2025-2026', label: '2025-2026' },
-  { value: '2026-2027', label: '2026-2027' },
-  { value: '2027-2028', label: '2027-2028' },
-];
-
-const getCurrentAcademicYear = () => {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  if (month >= 8) {
-    return `${year}-${year + 1}`;
-  } else {
-    return `${year - 1}-${year}`;
-  }
-};
 
 // LAZY LOADING
 const TodayCollectionWidget = lazy(() => import('@/components/dashboard/TodayCollectionWidget'));
@@ -55,11 +35,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, token, _hasHydrated } = useAuthStore();
   const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
+  const { selectedYear } = useAcademicYearStore(); // Global store'dan al
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
-  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -101,30 +80,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleYearChange = (year: string) => {
-    // Akademik yıl değişikliği uyarısı
-    if (year !== selectedYear) {
-      const currentYearLabel = selectedYear;
-      const newYearLabel = year;
-      
-      // Toast ile bildirim göster
-      import('react-hot-toast').then(({ default: toast }) => {
-        toast(`📅 ${currentYearLabel} → ${newYearLabel} akademik yılına geçiliyor...`, {
-          icon: '🔄',
-          duration: 3000,
-          style: {
-            background: '#1e293b',
-            color: '#fff',
-            borderRadius: '12px',
-            padding: '12px 20px',
-          },
-        });
-      });
-    }
-    
-    setSelectedYear(year);
-    setIsYearDropdownOpen(false);
-  };
 
   if (!isClient || !_hasHydrated || !user) {
     return (
@@ -167,35 +122,12 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div className="relative">
-              <button
-                onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
-                className="flex items-center justify-between gap-3 min-w-[180px] px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:shadow-xl transition-all font-medium"
-              >
-                <span className="font-bold">{selectedYear}</span>
-                <ChevronDown className={`w-5 h-5 transition-transform ${isYearDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {isYearDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsYearDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-emerald-100 py-2 z-50">
-                    {ACADEMIC_YEARS.map((year) => (
-                      <button
-                        key={year.value}
-                        onClick={() => handleYearChange(year.value)}
-                        className={`w-full px-4 py-2.5 text-left transition-colors flex items-center justify-between ${
-                          selectedYear === year.value
-                            ? 'bg-emerald-50 text-emerald-700 font-semibold'
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span>{year.label}</span>
-                        {selectedYear === year.value && <span className="text-emerald-500">✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </>
+            {/* Akademik yıl bilgisi - Değiştirmek için sağ üstteki seçiciyi kullanın */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-lg shadow-emerald-200">
+              <Calendar className="w-4 h-4" />
+              <span className="font-bold">{selectedYear}</span>
+              {selectedYear === getCurrentAcademicYear() && (
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">GÜNCEL</span>
               )}
             </div>
           </div>
@@ -207,12 +139,9 @@ export default function DashboardPage() {
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
             <p className="text-sm text-amber-800">
               <strong>{selectedYear}</strong> akademik yılının verilerini görüntülüyorsunuz.
-              <button 
-                onClick={() => handleYearChange(getCurrentAcademicYear())}
-                className="ml-2 text-emerald-600 underline hover:text-emerald-700 font-medium"
-              >
-                Güncel yıla dön →
-              </button>
+              <span className="ml-2 text-emerald-600 font-medium">
+                Sağ üstteki takvim simgesinden güncel yıla dönebilirsiniz →
+              </span>
             </p>
           </div>
         )}

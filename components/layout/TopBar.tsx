@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Settings,
   Moon,
@@ -8,17 +8,22 @@ import {
   Building2,
   ChevronDown,
   Check,
+  Calendar,
+  AlertCircle,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import RoleSwitcher from '@/components/auth/RoleSwitcher';
 import ActivityLogButton from './ActivityLogButton';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
 
 const TopBar: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
   const { isAdmin, isSuperAdmin, isLoading: permissionLoading } = usePermission();
   
   const { 
@@ -31,6 +36,10 @@ const TopBar: React.FC = () => {
     _hasHydrated,
     setHasHydrated
   } = useOrganizationStore();
+  
+  // Akademik yıl store
+  const { selectedYear, availableYears, setSelectedYear } = useAcademicYearStore();
+  const currentAcademicYear = getCurrentAcademicYear();
   
   // Güvenli değerler
   const safeOrganizations = organizations || [];
@@ -64,6 +73,54 @@ const TopBar: React.FC = () => {
       }
     }
   };
+  
+  // Akademik yıl değişikliği
+  const handleYearChange = useCallback((year: string) => {
+    if (year !== selectedYear) {
+      // Uyarı toast'u göster
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <AlertCircle className="text-amber-500" size={24} />
+          <div>
+            <p className="font-semibold text-gray-800">Akademik Yıl Değişikliği</p>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium text-red-500">{selectedYear}</span>
+              {' → '}
+              <span className="font-medium text-green-600">{year}</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {year === currentAcademicYear ? '📍 Güncel yıl' : '📅 Geçmiş/Gelecek yıl'}
+            </p>
+          </div>
+          <button 
+            onClick={() => toast.dismiss(t.id)}
+            className="ml-2 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        </div>
+      ), {
+        duration: 4000,
+        style: {
+          background: '#fff',
+          borderRadius: '12px',
+          padding: '16px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+          border: '1px solid #e5e7eb',
+        },
+      });
+      
+      setSelectedYear(year);
+      setShowYearDropdown(false);
+      
+      // Sayfayı yenile (verilerin güncellenmesi için)
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } else {
+      setShowYearDropdown(false);
+    }
+  }, [selectedYear, currentAcademicYear, setSelectedYear]);
 
   return (
     <nav className="hidden lg:flex fixed top-0 right-0 left-64 h-16 bg-white dark:bg-[#075E54] border-b border-[#25D366]/20 dark:border-[#25D366]/30 items-center justify-between px-4 md:px-8 z-30 shadow-sm">
@@ -159,6 +216,62 @@ const TopBar: React.FC = () => {
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-3">
+        {/* Akademik Yıl Seçici - Her Zaman Görünür */}
+        {mounted && (
+          <div className="relative">
+            <button
+              onClick={() => setShowYearDropdown(!showYearDropdown)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition shadow-sm border ${
+                selectedYear === currentAcademicYear
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-400'
+                  : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+              }`}
+            >
+              <Calendar size={16} />
+              <span className="font-semibold text-sm">{selectedYear}</span>
+              <ChevronDown size={14} className={`transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showYearDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowYearDropdown(false)} />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
+                      <Calendar size={12} />
+                      Akademik Yıl Seçin
+                    </p>
+                  </div>
+                  
+                  {availableYears.map((year) => (
+                    <button
+                      key={year}
+                      onClick={() => handleYearChange(year)}
+                      className={`w-full px-4 py-2.5 text-left flex items-center justify-between hover:bg-emerald-50 transition ${
+                        selectedYear === year ? 'bg-emerald-100' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${selectedYear === year ? 'text-emerald-700' : 'text-gray-700'}`}>
+                          {year}
+                        </span>
+                        {year === currentAcademicYear && (
+                          <span className="text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">
+                            GÜNCEL
+                          </span>
+                        )}
+                      </div>
+                      {selectedYear === year && (
+                        <Check size={16} className="text-emerald-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Role Switcher - Giriş Türü */}
         <RoleSwitcher />
 
