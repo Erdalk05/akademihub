@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
     // Akademik yıl parametresi
     const academicYear = searchParams.get('academicYear') || getCurrentAcademicYear();
     
+    console.log(`[Dashboard API] ========================================`);
     console.log(`[Dashboard API] Request: academicYear=${academicYear}, organizationId=${organizationId || 'ALL'}`);
+    console.log(`[Dashboard API] Timestamp: ${new Date().toISOString()}`);
     
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
@@ -113,15 +115,15 @@ export async function GET(req: NextRequest) {
     
     const allInstallments = installmentsResult.data || [];
     
-    // Debug logs
-    console.log(`[Dashboard API] Students: ${students.length}, Installments: ${allInstallments.length}`);
-    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}, Deleted: ${deletedStudents}`);
-    
     // Kaydı silinen öğrenciler
     const deletedStudents = deletedStudentsResult.data?.length || 0;
     
     // Diğer gelirler toplamı
     const otherIncomeData = otherIncomeResult.data || [];
+    
+    // Debug logs
+    console.log(`[Dashboard API] Students: ${students.length}, Installments: ${allInstallments.length}`);
+    console.log(`[Dashboard API] OtherIncome: ${otherIncomeData.length}, Deleted: ${deletedStudents}`);
     const otherIncomeContract = otherIncomeData.reduce((sum, item) => sum + (item.amount || 0), 0); // Toplam sözleşme
     const otherIncomeTotal = otherIncomeData.reduce((sum, item) => sum + (item.paid_amount || 0), 0); // Tahsil edilen
     const otherIncomePending = otherIncomeData.reduce((sum, item) => {

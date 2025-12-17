@@ -79,6 +79,16 @@ export default function DashboardPage() {
     try {
       // Çoklu kurum desteği: organization_id filtresi (Tüm Kurumlar modunda boş)
       const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      
+      // Debug log
+      console.log('[Dashboard] Fetching with:', {
+        academicYear,
+        organizationId: currentOrganization?.id,
+        organizationName: currentOrganization?.name,
+        isAllOrganizations,
+        apiUrl: `/api/dashboard/stats?academicYear=${academicYear}${orgParam}`
+      });
+      
       const response = await fetch(`/api/dashboard/stats?academicYear=${academicYear}${orgParam}`);
       const result = await response.json();
       if (result.success) {
