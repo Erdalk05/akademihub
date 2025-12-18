@@ -187,176 +187,258 @@ export default function ContractsPage() {
   const handlePrintContract = (student: Student) => {
     const info = getStudentPaymentInfo(student.id);
     const name = getStudentName(student);
+    const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const parentName = student.parent_name ? student.parent_name.split(' - Veli: ')[1] || student.parent_name : '-';
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    // STANDART 2 SAYFA A4 FORMAT - PrintLayout.tsx ile AYNI
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Sözleşme - ${name}</title>
+  <title>Kayıt Formu - ${name}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 8pt; line-height: 1.2; padding: 8mm; }
-    .header { border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { font-size: 14pt; }
-    .header-right { text-align: right; font-size: 7pt; }
-    .header-right h2 { font-size: 10pt; padding: 4px 8px; }
-    .section { margin-bottom: 6px; }
-    .section-title { background: #f0f0f0; border: 1px solid #000; padding: 3px 8px; font-weight: bold; font-size: 8pt; }
-    .section-content { border: 1px solid #000; border-top: none; padding: 6px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 3px 4px; text-align: left; border-bottom: 1px solid #ddd; font-size: 7pt; }
-    th { background: #f5f5f5; font-weight: bold; }
-    .paid { color: #16a34a; font-weight: bold; }
-    .pending { color: #ea580c; }
-    .overdue { color: #dc2626; font-weight: bold; }
-    .total-row { border-top: 1px solid #000; font-weight: bold; font-size: 8pt; }
-    .signature { margin-top: 10px; display: flex; justify-content: space-between; }
-    .signature-box { border: 1px solid #000; padding: 6px; width: 45%; text-align: center; }
-    .signature-box p { margin-bottom: 25px; font-weight: bold; font-size: 7pt; }
-    .footer { margin-top: 8px; text-align: center; font-size: 6pt; color: #666; border-top: 1px solid #ccc; padding-top: 4px; }
-    .terms { font-size: 6pt; line-height: 1.3; }
-    .terms p { margin-bottom: 1px; }
+    body { font-family: Arial, sans-serif; font-size: 10px; line-height: 1.4; background: #f3f4f6; }
+    .page { width: 210mm; max-width: 794px; margin: 0 auto 10px; background: #fff; padding: 30px 40px; box-sizing: border-box; }
+    .header { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .logo { width: 40px; height: 40px; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900; }
+    .section { margin-bottom: 8px; }
+    .section-title { border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5; font-weight: bold; font-size: 11px; }
+    table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 10px; }
+    th, td { padding: 5px 8px; text-align: left; border-right: 1px solid #ccc; }
+    th { background: #f0f0f0; font-weight: bold; border-bottom: 1px solid #000; }
+    tr { border-bottom: 1px solid #ddd; }
+    .signature-row { display: flex; gap: 20px; margin-top: 15px; }
+    .signature-box { flex: 1; border: 1px solid #000; padding: 8px; text-align: center; }
+    .signature-box p { font-weight: bold; font-size: 10px; margin: 0 0 25px 0; }
+    .footer { text-align: center; font-size: 8px; color: #666; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px; }
     @media print { 
-      body { padding: 5mm; } 
-      @page { size: A4; margin: 5mm; }
+      body { background: #fff; }
+      .page { margin: 0; box-shadow: none; page-break-after: always; }
+      .page:last-child { page-break-after: avoid; }
+      @page { size: A4; margin: 8mm; }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>AKADEMİHUB</h1>
-      <p>K12 Eğitim Kurumları</p>
+  <!-- SAYFA 1 - KAYIT FORMU -->
+  <div class="page">
+    <div class="header">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="logo">İ</div>
+        <div>
+          <h1 style="font-size: 18px; font-weight: 800; margin: 0;">EĞİTİM KURUMU</h1>
+          <p style="font-size: 10px; color: #666; margin: 0;">Akademik Yönetim</p>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="border: 1px solid #000; padding: 5px 15px; display: inline-block;">
+          <h2 style="font-size: 13px; font-weight: 800; margin: 0;">KAYIT FORMU</h2>
+        </div>
+        <p style="font-size: 10px; margin: 4px 0 0 0;">Tarih: ${today} | No: ${student.student_no || '____'}</p>
+      </div>
     </div>
-    <div class="header-right">
-      <h2 style="border: 2px solid #000; padding: 8px 16px;">KAYIT SÖZLEŞMESİ</h2>
-      <p style="margin-top: 8px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</p>
-      <p>Öğrenci No: ${student.student_no || '-'}</p>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">ÖĞRENCİ BİLGİLERİ</div>
-    <div class="section-content">
+    <div class="section">
+      <div class="section-title">ÖĞRENCİ BİLGİLERİ</div>
       <table>
         <tr>
-          <td style="width: 25%; font-weight: bold;">Ad Soyad:</td>
-          <td style="width: 25%;">${name}</td>
-          <td style="width: 25%; font-weight: bold;">TC Kimlik No:</td>
-          <td style="width: 25%;">${student.tc_id || '-'}</td>
-        </tr>
-        <tr>
-          <td style="font-weight: bold;">Sınıf:</td>
-          <td>${student.class || '-'}${student.section ? '-' + student.section : ''}</td>
-          <td style="font-weight: bold;">Kayıt Tarihi:</td>
-          <td>${student.created_at ? new Date(student.created_at).toLocaleDateString('tr-TR') : '-'}</td>
+          <td style="width: 12%; font-weight: 600;">Ad Soyad</td>
+          <td style="width: 28%; font-weight: bold;">${name}</td>
+          <td style="width: 12%; font-weight: 600;">TC Kimlik</td>
+          <td style="width: 20%; font-family: monospace;">${student.tc_id || '_____________'}</td>
+          <td style="width: 10%; font-weight: 600;">Sınıf</td>
+          <td>${student.class || '-'}-${student.section || 'A'}</td>
         </tr>
       </table>
     </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">VELİ BİLGİLERİ</div>
-    <div class="section-content">
+    <div class="section">
+      <div class="section-title">VELİ BİLGİLERİ</div>
       <table>
         <tr>
-          <td style="width: 25%; font-weight: bold;">Veli Adı:</td>
-          <td style="width: 25%;">${student.parent_name ? student.parent_name.split(' - Veli: ')[1] || student.parent_name : '-'}</td>
-          <td style="width: 25%; font-weight: bold;">Telefon:</td>
-          <td style="width: 25%;">${student.parent_phone || '-'}</td>
-        </tr>
-        <tr>
-          <td style="font-weight: bold;">E-posta:</td>
-          <td colspan="3">${student.parent_email || '-'}</td>
+          <td style="width: 12%; font-weight: 600;">Veli Adı</td>
+          <td style="width: 30%; font-weight: bold;">${parentName}</td>
+          <td style="width: 10%; font-weight: 600;">Telefon</td>
+          <td style="font-weight: bold;">${student.parent_phone || '-'}</td>
         </tr>
       </table>
     </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">ÖDEME PLANI VE TAKSİT DURUMU</div>
-    <div class="section-content">
-      <table>
+    <div class="section">
+      <div class="section-title">TAKSİT PLANI (${info.installments.length} Taksit)</div>
+      <table style="font-size: 9px;">
         <thead>
           <tr>
-            <th style="width: 8%;">No</th>
-            <th style="width: 20%;">Açıklama</th>
-            <th style="width: 18%;">Vade Tarihi</th>
-            <th style="width: 18%;">Ödeme Tarihi</th>
-            <th style="width: 18%; text-align: right;">Tutar</th>
-            <th style="width: 18%; text-align: center;">Durum</th>
+            <th style="width: 30px; text-align: center;">No</th>
+            <th>Açıklama</th>
+            <th style="width: 80px; text-align: center;">Vade</th>
+            <th style="width: 70px; text-align: right;">Tutar</th>
+            <th style="width: 50px; text-align: center;">İmza</th>
           </tr>
         </thead>
         <tbody>
-          ${info.installments.map(inst => `
+          ${info.installments.slice(0, 12).map((inst, i) => `
             <tr>
-              <td style="text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : inst.installment_no}</td>
+              <td style="text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : i + 1}</td>
               <td>${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
               <td style="text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-              <td style="text-align: center; ${inst.is_paid ? 'color: #059669; font-weight: 500;' : 'color: #9ca3af;'}">
-                ${inst.is_paid && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}
-              </td>
-              <td style="text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} ₺</td>
-              <td style="text-align: center;" class="${inst.is_paid ? 'paid' : new Date(inst.due_date) < new Date() ? 'overdue' : 'pending'}">
-                ${inst.is_paid 
-                  ? '✓ Ödendi'
-                  : new Date(inst.due_date) < new Date() 
-                    ? '⚠ Gecikmiş'
-                    : '○ Bekliyor'
-                }
-              </td>
+              <td style="text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
+              <td style="text-align: center;">____</td>
             </tr>
           `).join('')}
-          <tr class="total-row">
-            <td colspan="4" style="text-align: left; font-weight: bold;">TOPLAM</td>
-            <td style="text-align: right; font-weight: bold;">${info.total.toLocaleString('tr-TR')} ₺</td>
-            <td style="text-align: center; font-weight: bold;">Ödenen: ${info.paid.toLocaleString('tr-TR')} ₺</td>
-          </tr>
         </tbody>
+        <tfoot>
+          <tr style="background: #f0f0f0;">
+            <td colspan="3" style="font-size: 10px; font-weight: bold; border-top: 1px solid #000;">TOPLAM</td>
+            <td style="text-align: right; font-size: 11px; font-weight: bold; border-top: 1px solid #000;">${info.total.toLocaleString('tr-TR')} TL</td>
+            <td style="border-top: 1px solid #000;"></td>
+          </tr>
+        </tfoot>
       </table>
-      <p style="margin-top: 15px; font-size: 10pt;">
-        <strong>Kalan Borç:</strong> ${info.remaining.toLocaleString('tr-TR')} ₺ | 
-        <strong>Ödeme Durumu:</strong> ${info.paidCount}/${info.totalCount} taksit ödendi
-        ${info.overdueCount > 0 ? ` | <span style="color: #dc2626;"><strong>${info.overdueCount} gecikmiş taksit</strong></span>` : ''}
-      </p>
     </div>
+
+    <div class="section">
+      <div class="section-title">ÖDEME ÖZETİ</div>
+      <table>
+        <tr>
+          <td style="width: 33%;"><strong>Toplam:</strong> ${info.total.toLocaleString('tr-TR')} TL</td>
+          <td style="width: 33%;"><strong>Ödenen:</strong> ${info.paid.toLocaleString('tr-TR')} TL</td>
+          <td><strong>Kalan:</strong> <span style="font-weight: bold; font-size: 11px;">${info.remaining.toLocaleString('tr-TR')} TL</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="signature-row">
+      <div class="signature-box">
+        <p>VELİ İMZASI</p>
+        <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+        <span style="font-size: 9px;">${parentName}</span><br>
+        <span style="font-size: 8px; color: #666;">Tarih: ${today}</span>
+      </div>
+      <div class="signature-box">
+        <p>KURUM YETKİLİSİ</p>
+        <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+        <span style="font-size: 9px;">________________</span><br>
+        <span style="font-size: 8px; color: #666;">Tarih: ${today}</span>
+      </div>
+    </div>
+
+    <div class="footer">Sayfa 1/2 - Kayıt Formu</div>
   </div>
 
-  <div class="section">
-    <div class="section-title">SÖZLEŞME ŞARTLARI</div>
-    <div class="section-content terms">
-      <p>1. Veli, belirlenen ödeme planına uymayı taahhüt eder. 2. Taksitlerin zamanında ödenmemesi halinde kurum yasal işlem başlatma hakkını saklı tutar.</p>
-      <p>3. Kurum, eğitim hizmetini müfredata uygun şekilde sunmayı taahhüt eder. 4. Taraflar, KVKK kapsamında bilgilendirilmiştir.</p>
+  <!-- SAYFA 2 - SÖZLEŞME -->
+  <div class="page" style="border-top: 2px dashed #ccc;">
+    <div class="header">
+      <div>
+        <h1 style="font-size: 16px; font-weight: 800; margin: 0;">EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
+        <p style="font-size: 10px; margin: 4px 0 0 0;">${name} - ${student.academic_year || '2024-2025'}</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="text-align: right;">
+          <p style="font-weight: 800; font-size: 14px; margin: 0;">EĞİTİM KURUMU</p>
+          <p style="font-size: 10px; margin: 0;">${today}</p>
+        </div>
+        <div class="logo">İ</div>
+      </div>
     </div>
-  </div>
 
-  <div class="signature">
-    <div class="signature-box">
-      <p>VELİ İMZASI</p>
-      <small>${student.parent_name ? student.parent_name.split(' - Veli: ')[1] || student.parent_name : '________________________'}</small>
-    </div>
-    <div class="signature-box">
-      <p>KURUM YETKİLİSİ</p>
-      <small>________________________</small>
-    </div>
-  </div>
+    <div class="section">
+      <div style="border: 1px solid #000; padding: 12px; font-size: 9px; line-height: 1.6;">
+EĞİTİM HİZMETİ SÖZLEŞMESİ
 
-  <div class="footer">
-    Bu belge ${new Date().toLocaleDateString('tr-TR')} tarihinde oluşturulmuştur. | AkademiHub K12 Eğitim Kurumları
+İşbu sözleşme, Eğitim Kurumu ("Kurum") ile aşağıda bilgileri bulunan veli arasında karşılıklı olarak düzenlenmiştir.
+
+MADDE 1 - TARAFLAR
+Kurum eğitim hizmetini sunmayı, Veli belirlenen ücret ve koşulları kabul etmeyi taahhüt eder.
+
+MADDE 2 - EĞİTİM HİZMETİ
+Kurum, öğretim yılı boyunca müfredat, ölçme-değerlendirme, rehberlik ve akademik danışmanlık hizmetlerini sunacaktır.
+
+MADDE 3 - ÖDEME KOŞULLARI
+Belirlenen ücret ve taksit planı her iki tarafça kabul edilmiştir. Taksitlerin zamanında ödenmemesi halinde kurum yasal işlem başlatma hakkını saklı tutar.
+
+MADDE 4 - VELİ BEYANI
+Veli; bilgilerin doğruluğunu, okul kurallarını kabul ettiğini, ödeme planını onayladığını ve KVKK kapsamında bilgilendirildiğini beyan eder.
+
+MADDE 5 - KURUM BEYANI
+Kurum, eğitim hizmetini sunmayı ve öğrenci dosyasını gizlilik esaslarına uygun korumayı taahhüt eder.
+
+Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+      <div style="flex: 1; border: 1px solid #000;">
+        <div class="section-title">VELİ BİLGİLERİ</div>
+        <div style="padding: 8px 10px; font-size: 9px;">
+          <p style="margin: 0 0 4px 0;"><strong>Ad Soyad:</strong> ${parentName}</p>
+          <p style="margin: 0;"><strong>Telefon:</strong> ${student.parent_phone || '-'}</p>
+        </div>
+      </div>
+      <div style="flex: 1; border: 1px solid #000;">
+        <div class="section-title">ÖĞRENCİ BİLGİLERİ</div>
+        <div style="padding: 8px 10px; font-size: 9px;">
+          <p style="margin: 0 0 4px 0;"><strong>Ad Soyad:</strong> ${name}</p>
+          <p style="margin: 0;"><strong>Sınıf:</strong> ${student.class || '-'}-${student.section || 'A'}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ÖDEME PLANI ÖZETİ</div>
+      <table>
+        <tr>
+          <td style="width: 33%;"><strong>Toplam:</strong> ${info.total.toLocaleString('tr-TR')} TL</td>
+          <td style="width: 33%;"><strong>Ödenen:</strong> ${info.paid.toLocaleString('tr-TR')} TL</td>
+          <td><strong>Kalan:</strong> <span style="font-weight: bold; font-size: 11px;">${info.remaining.toLocaleString('tr-TR')} TL</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ONAYLAR</div>
+      <table style="font-size: 8px;">
+        <tr>
+          <td style="width: 33%;"><span style="border: 1px solid #000; padding: 2px 4px; font-weight: bold;">✓</span> KVKK kabul edildi</td>
+          <td style="width: 33%;"><span style="border: 1px solid #000; padding: 2px 4px; font-weight: bold;">✓</span> Okul kuralları kabul edildi</td>
+          <td><span style="border: 1px solid #000; padding: 2px 4px; font-weight: bold;">✓</span> Ödeme planı kabul edildi</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="signature-row">
+      <div class="signature-box">
+        <p>VELİ İMZASI</p>
+        <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+        <span style="font-size: 9px;">${parentName}</span><br>
+        <span style="font-size: 8px; color: #666;">Tarih: ${today}</span>
+      </div>
+      <div class="signature-box">
+        <p>KURUM YETKİLİSİ</p>
+        <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+        <span style="font-size: 9px;">________________</span><br>
+        <span style="font-size: 8px; color: #666;">Tarih: ${today}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p style="font-weight: 600; margin: 0;">Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
+      <p style="color: #666; margin: 3px 0 0 0;">Bu sözleşme iki nüsha olarak düzenlenmiştir. | ${today}</p>
+    </div>
   </div>
+  
+  <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); };</script>
 </body>
 </html>
     `;
 
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.print();
-    };
   };
 
   // Download PDF
