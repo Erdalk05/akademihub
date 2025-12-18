@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { X, CreditCard, Banknote, Building, Printer, MessageCircle, Calculator, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, CreditCard, Banknote, Building, Printer, MessageCircle, Calculator, AlertCircle, CheckCircle2, Calendar, Clock } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -122,9 +122,11 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
   const [note, setNote] = useState('');
   const [printReceipt, setPrintReceipt] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
+  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isBackdatedPayment, setIsBackdatedPayment] = useState(false);
 
-  // WhatsApp ile makbuz gönder
-  const handleSendWhatsApp = (payAmount: number) => {
+  // WhatsApp ile makbuz gönder - Seçilen tarihle
+  const handleSendWhatsApp = (payAmount: number, selectedDate: Date) => {
     if (!parentPhone) return;
     
     let phone = parentPhone.replace(/\D/g, '');
@@ -142,7 +144,7 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
       `📌 *${organizationName}*\n\n` +
       `👨‍🎓 Öğrenci: ${studentName}\n` +
       `💰 Ödenen: ₺${payAmount.toLocaleString('tr-TR')}\n` +
-      `📅 Tarih: ${new Date().toLocaleDateString('tr-TR')}\n` +
+      `📅 Tarih: ${selectedDate.toLocaleDateString('tr-TR')}\n` +
       `💳 Yöntem: ${methodLabels[method] || 'Nakit'}\n` +
       `📝 Taksit No: #${installment?.installment_no || '-'}\n\n` +
       `✅ Ödemeniz başarıyla alınmıştır.\n` +
@@ -162,6 +164,21 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
   const { currentOrganization } = useOrganizationStore();
   const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
 
+  // Tarih değişikliğini kontrol et - geçmiş tarih mi?
+  const handleDateChange = (newDate: string) => {
+    setPaymentDate(newDate);
+    const selectedDate = new Date(newDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      setIsBackdatedPayment(true);
+    } else {
+      setIsBackdatedPayment(false);
+    }
+  };
+
   useEffect(() => {
     if (installment) {
       const totalAmt = Number(installment.amount) || 0;
@@ -169,6 +186,10 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
       // Kalan tutarı kuruş hassasiyeti ile hesapla
       const remaining = Math.round((totalAmt - paidAmt) * 100) / 100;
       setAmount(remaining.toString()); // Varsayılan: kalan borcun tamamı
+      
+      // Tarih varsayılan bugün
+      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setIsBackdatedPayment(false);
       
       // Calculate delay
       if (installment.due_date) {
@@ -188,6 +209,8 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
       setAmount('');
       setDelayDays(0);
       setPenaltyAmount(0);
+      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setIsBackdatedPayment(false);
     }
   }, [installment, isOpen]);
 
@@ -202,6 +225,10 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
 
     startTransition(async () => {
       try {
+        // Seçilen tarihi kullan
+        const selectedPaymentDate = new Date(paymentDate);
+        selectedPaymentDate.setHours(12, 0, 0, 0); // Saat dilimi sorunlarını önle
+        
         const res = await fetch('/api/installments/pay', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -209,8 +236,8 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
             installment_id: installment.id,
             payment_method: method,
             amount_paid: payAmount,
-            payment_date: new Date().toISOString(),
-            note: note + (penaltyAmount > 0 ? ` (Gecikme Cezası Dahil: ${penaltyAmount})` : ''),
+            payment_date: selectedPaymentDate.toISOString(),
+            note: note + (isBackdatedPayment ? ' [Geçmiş tarihli ödeme]' : '') + (penaltyAmount > 0 ? ` (Gecikme Cezası Dahil: ${penaltyAmount})` : ''),
             student_id: installment.student_id,
           }),
         });
@@ -220,21 +247,21 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
         if (data.success) {
           showToast('success', 'Ödeme başarıyla alındı.');
           
-          // Print Receipt
+          // Print Receipt - Seçilen tarihle
           if (printReceipt && data.data) {
             printReceiptDocument({
               id: data.data.payment_id || installment.id,
               studentName: studentName,
               amount: payAmount,
-              paymentDate: new Date(),
+              paymentDate: selectedPaymentDate,
               paymentMethod: method,
               installmentNo: installment.installment_no
             }, organizationName);
           }
 
-          // WhatsApp ile makbuz gönder
+          // WhatsApp ile makbuz gönder - Seçilen tarihle
           if (sendWhatsApp && parentPhone) {
-            handleSendWhatsApp(payAmount);
+            handleSendWhatsApp(payAmount, selectedPaymentDate);
           }
 
           setTimeout(() => {
@@ -307,6 +334,36 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
                </div>
             </div>
           )}
+
+          {/* Ödeme Tarihi */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <span className="flex items-center gap-2">
+                <Calendar size={16} />
+                Ödeme Tarihi
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className={`w-full px-4 py-3 text-base font-medium bg-white border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
+                  isBackdatedPayment 
+                    ? 'border-orange-400 bg-orange-50' 
+                    : 'border-gray-200 text-gray-900'
+                }`}
+              />
+            </div>
+            {isBackdatedPayment && (
+              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-xs text-orange-700 flex items-center gap-1.5">
+                  <Clock size={14} />
+                  <span><strong>Geçmiş tarihli ödeme:</strong> Bu ödeme {new Date(paymentDate).toLocaleDateString('tr-TR')} tarihine kaydedilecek.</span>
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Amount Input */}
           <div>
