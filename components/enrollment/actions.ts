@@ -53,6 +53,20 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       ? data.student.tcNo.trim() 
       : null;
     
+    // Güncelleme modunda önceki ödenmiş tutarı al
+    let previousPaidAmount = 0;
+    if (existingStudentId) {
+      const { data: existingPayments } = await supabase
+        .from('finance_installments')
+        .select('paid_amount, amount, is_paid')
+        .eq('student_id', existingStudentId)
+        .eq('is_paid', true);
+      
+      if (existingPayments) {
+        previousPaidAmount = existingPayments.reduce((sum, p) => sum + (p.paid_amount || p.amount || 0), 0);
+      }
+    }
+    
     // Students tablosuna uygun veri - sadece mevcut sütunlar
     const studentData: Record<string, any> = {
       tc_id: tcIdValue,
@@ -85,6 +99,10 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       // Veli bilgileri
       parent_name: primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}`.trim() : null,
       parent_phone: primaryGuardian?.phone || null,
+      // Finansal bilgiler - ÖNEMLİ!
+      total_amount: data.payment.netFee || 0,
+      paid_amount: previousPaidAmount,
+      balance: (data.payment.netFee || 0) - previousPaidAmount,
       // Durum
       status: 'active',
       updated_at: new Date().toISOString()
