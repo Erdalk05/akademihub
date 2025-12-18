@@ -360,7 +360,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <div id="print-content" ref={printContentRef} className="print-content" style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
-        <div className="print-page page-break-after" style={{ width: '794px', height: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '30px 35px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <div className="print-page page-break-after" style={{ width: '794px', minHeight: '1100px', maxHeight: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '25px 30px', boxSizing: 'border-box' }}>
           
           {/* Başlık - BEYAZ ARKA PLAN */}
           <div style={{ borderBottom: '3px solid #1a1a1a', paddingBottom: '15px', marginBottom: '15px' }}>
@@ -475,7 +475,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
 
           {/* TAKSİT PLANI - BEYAZ ARKA PLAN */}
           {payment.installments && payment.installments.length > 0 && (
-            <div style={{ marginBottom: '12px', flex: 1 }}>
+            <div style={{ marginBottom: '10px' }}>
               <div style={{ border: '2px solid #1a1a1a', borderBottom: 'none', padding: '6px 12px' }}>
                 <h3 style={{ fontWeight: 'bold', fontSize: '12px', margin: 0, color: '#1a1a1a' }}>TAKSİT PLANI ({payment.installments.length} Taksit)</h3>
               </div>
@@ -511,29 +511,27 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           )}
 
-          {/* İMZA ALANI */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: 'auto', paddingTop: '10px' }}>
-            <div style={{ border: '2px solid #1a1a1a', padding: '10px', height: '80px' }}>
-              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '11px', color: '#1a1a1a', margin: '0 0 30px 0' }}>VELİ İMZASI</p>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '6px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', color: '#1a1a1a', fontWeight: '600', margin: 0 }}>{primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
-                <p style={{ fontSize: '9px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
-              </div>
+          {/* İMZA ALANI - Sabit yükseklik, üst üste gelmeyi önle */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
+            <div style={{ border: '2px solid #1a1a1a', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 8px 0' }}>VELİ İMZASI</p>
+              <div style={{ height: '30px', borderBottom: '1px solid #1a1a1a', marginBottom: '5px' }}></div>
+              <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0, textAlign: 'center' }}>{primaryGuardian?.firstName} {primaryGuardian?.lastName}</p>
+              <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0', textAlign: 'center' }}>Tarih: {today}</p>
             </div>
-            <div style={{ border: '2px solid #1a1a1a', padding: '10px', height: '80px' }}>
-              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '11px', color: '#1a1a1a', margin: '0 0 30px 0' }}>KURUM YETKİLİSİ</p>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '6px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', color: '#1a1a1a', fontWeight: '600', margin: 0 }}>{contract.institutionOfficer || '________________________'}</p>
-                <p style={{ fontSize: '9px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
-              </div>
+            <div style={{ border: '2px solid #1a1a1a', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 8px 0' }}>KURUM YETKİLİSİ</p>
+              <div style={{ height: '30px', borderBottom: '1px solid #1a1a1a', marginBottom: '5px' }}></div>
+              <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0, textAlign: 'center' }}>{contract.institutionOfficer || '________________________'}</p>
+              <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0', textAlign: 'center' }}>Tarih: {today}</p>
             </div>
           </div>
 
-          <p style={{ textAlign: 'center', fontSize: '9px', color: '#666', marginTop: '10px', borderTop: '1px solid #ddd', paddingTop: '6px' }}>Sayfa 1/2 - Kayıt Formu | {organizationName}</p>
+          <p style={{ textAlign: 'center', fontSize: '8px', color: '#666', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '5px' }}>Sayfa 1/2 - Kayıt Formu | {organizationName}</p>
         </div>
 
         {/* =============== SAYFA 2 - SÖZLEŞME =============== */}
-        <div className="print-page" style={{ width: '794px', height: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '30px 35px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', pageBreakBefore: 'always' }}>
+        <div className="print-page" style={{ width: '794px', minHeight: '1100px', maxHeight: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '25px 30px', boxSizing: 'border-box', pageBreakBefore: 'always' }}>
 
           {/* Başlık - BEYAZ ARKA PLAN + İ LOGOSU */}
           <div style={{ borderBottom: '3px solid #1a1a1a', paddingBottom: '15px', marginBottom: '15px' }}>
@@ -574,7 +572,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           )}
 
           {/* Sözleşme Metni - BEYAZ ARKA PLAN */}
-          <div style={{ border: '2px solid #1a1a1a', padding: '15px', fontSize: '10px', lineHeight: '1.7', whiteSpace: 'pre-wrap', color: '#1a1a1a', display: isEditing ? 'none' : 'block', marginBottom: '15px', flex: 1 }}>
+          <div style={{ border: '2px solid #1a1a1a', padding: '12px', fontSize: '9px', lineHeight: '1.6', whiteSpace: 'pre-wrap', color: '#1a1a1a', display: isEditing ? 'none' : 'block', marginBottom: '12px' }}>
             {contractText}
           </div>
 
@@ -642,21 +640,19 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
 
-          {/* İMZA ALANI */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: 'auto', paddingTop: '10px' }}>
-            <div style={{ border: '2px solid #1a1a1a', padding: '10px', height: '70px' }}>
-              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 25px 0' }}>VELİ İMZASI</p>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '6px', textAlign: 'center' }}>
-                <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0 }}>{contract.guardianSignature || `${primaryGuardian?.firstName} ${primaryGuardian?.lastName}`}</p>
-                <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
-              </div>
+          {/* İMZA ALANI - Sabit yükseklik, üst üste gelmeyi önle */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
+            <div style={{ border: '2px solid #1a1a1a', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 8px 0' }}>VELİ İMZASI</p>
+              <div style={{ height: '30px', borderBottom: '1px solid #1a1a1a', marginBottom: '5px' }}></div>
+              <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0, textAlign: 'center' }}>{contract.guardianSignature || `${primaryGuardian?.firstName} ${primaryGuardian?.lastName}`}</p>
+              <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0', textAlign: 'center' }}>Tarih: {today}</p>
             </div>
-            <div style={{ border: '2px solid #1a1a1a', padding: '10px', height: '70px' }}>
-              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 25px 0' }}>KURUM YETKİLİSİ</p>
-              <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '6px', textAlign: 'center' }}>
-                <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0 }}>{contract.institutionOfficer || '________________________'}</p>
-                <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0' }}>Tarih: {today}</p>
-              </div>
+            <div style={{ border: '2px solid #1a1a1a', padding: '8px' }}>
+              <p style={{ fontWeight: 'bold', textAlign: 'center', fontSize: '10px', color: '#1a1a1a', margin: '0 0 8px 0' }}>KURUM YETKİLİSİ</p>
+              <div style={{ height: '30px', borderBottom: '1px solid #1a1a1a', marginBottom: '5px' }}></div>
+              <p style={{ fontSize: '9px', color: '#1a1a1a', fontWeight: '600', margin: 0, textAlign: 'center' }}>{contract.institutionOfficer || '________________________'}</p>
+              <p style={{ fontSize: '8px', color: '#666', margin: '2px 0 0 0', textAlign: 'center' }}>Tarih: {today}</p>
             </div>
           </div>
 
