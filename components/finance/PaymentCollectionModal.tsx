@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { X, CreditCard, Banknote, Building, Printer, MessageCircle, Calculator, AlertCircle, CheckCircle2, Calendar, Clock } from 'lucide-react';
+import { X, CreditCard, Banknote, Building, Printer, MessageCircle, Calculator, AlertCircle, CheckCircle2, Calendar, Clock, Sparkles, TrendingUp, Wallet } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { FinanceInstallment } from '@/lib/types/finance';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -283,213 +283,266 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
   const originalAmount = (Number(installment.amount) || 0) - (Number(installment.paid_amount) || 0);
   const isPartial = totalDue < originalAmount && totalDue > 0;
 
+  // Ödeme ilerleme yüzdesi
+  const totalInstallment = Number(installment.amount) || 0;
+  const alreadyPaid = Number(installment.paid_amount) || 0;
+  const progressPercent = totalInstallment > 0 ? Math.round((alreadyPaid / totalInstallment) * 100) : 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-emerald-900/50 backdrop-blur-md p-4">
       <ToastContainer />
       
-      <div className="w-full max-w-lg animate-in fade-in zoom-in duration-200 bg-white rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="relative bg-gray-900 p-6 text-white">
+      <div className="w-full max-w-lg animate-in fade-in zoom-in duration-300 bg-white rounded-3xl shadow-2xl overflow-hidden">
+        {/* Header - Gradyan */}
+        <div className="relative bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 p-6 text-white overflow-hidden">
+          {/* Dekoratif arka plan */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+          
           <button 
             onClick={onClose}
-            className="absolute right-4 top-4 text-gray-400 hover:text-white transition-colors"
+            className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md">
-               <CreditCard size={20} className="text-emerald-400" />
+          
+          <div className="relative flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+              <Wallet size={28} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Ödeme Tahsilatı</h2>
-              <p className="text-sm text-gray-400">{studentName}</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">Ödeme Tahsilatı</h2>
+                <Sparkles size={16} className="text-yellow-300 animate-pulse" />
+              </div>
+              <p className="text-emerald-100 text-sm font-medium">{studentName}</p>
             </div>
           </div>
-        </div>
 
-        <div className="p-6 space-y-6">
-          {/* Info Card */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-medium tracking-wider">Taksit No</p>
-                <p className="text-lg font-bold text-gray-900">#{installment.installment_no}</p>
-             </div>
-             <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase font-medium tracking-wider">Vade Tarihi</p>
-                <p className={`text-lg font-bold ${delayDays > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                  {installment.due_date ? new Date(installment.due_date).toLocaleDateString('tr-TR') : '-'}
+          {/* Taksit Bilgi Kartı */}
+          <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Taksit</p>
+                <p className="text-2xl font-bold">#{installment.installment_no}</p>
+              </div>
+              <div className="h-12 w-px bg-white/20" />
+              <div className="text-center">
+                <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Vade</p>
+                <p className={`text-lg font-bold ${delayDays > 0 ? 'text-red-300' : ''}`}>
+                  {installment.due_date ? new Date(installment.due_date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) : '-'}
                 </p>
-             </div>
-          </div>
-
-          {/* Delay Warning */}
-          {delayDays > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-               <AlertCircle size={18} className="shrink-0 mt-0.5" />
-               <div>
-                  <span className="font-bold">{delayDays} gün gecikme mevcut.</span>
-                  <p className="text-xs opacity-90 mt-0.5">
-                    Sistem tarafından hesaplanan gecikme cezası: <strong>₺{penaltyAmount.toLocaleString('tr-TR')}</strong>
-                  </p>
-               </div>
+              </div>
+              <div className="h-12 w-px bg-white/20" />
+              <div className="text-right">
+                <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Kalan</p>
+                <p className="text-lg font-bold">₺{originalAmount.toLocaleString('tr-TR')}</p>
+              </div>
             </div>
-          )}
-
-          {/* Ödeme Tarihi */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} />
-                Ödeme Tarihi
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className={`w-full px-4 py-3 text-base font-medium bg-white border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
-                  isBackdatedPayment 
-                    ? 'border-orange-400 bg-orange-50' 
-                    : 'border-gray-200 text-gray-900'
-                }`}
-              />
-            </div>
-            {isBackdatedPayment && (
-              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-xs text-orange-700 flex items-center gap-1.5">
-                  <Clock size={14} />
-                  <span><strong>Geçmiş tarihli ödeme:</strong> Bu ödeme {new Date(paymentDate).toLocaleDateString('tr-TR')} tarihine kaydedilecek.</span>
-                </p>
+            
+            {/* Progress Bar */}
+            {progressPercent > 0 && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-emerald-100 mb-1">
+                  <span>Ödeme İlerlemesi</span>
+                  <span className="font-bold">%{progressPercent}</span>
+                </div>
+                <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-yellow-300 to-yellow-400 rounded-full transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Amount Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tahsil Edilecek Tutar</label>
+        <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Delay Warning */}
+          {delayDays > 0 && (
+            <div className="flex items-start gap-3 p-4 bg-gradient-to-r from-red-50 to-orange-50 text-red-700 rounded-2xl border border-red-100">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <span className="font-bold text-red-800">{delayDays} gün gecikme!</span>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Gecikme cezası: <strong>₺{penaltyAmount.toLocaleString('tr-TR')}</strong>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Ana Tutar Alanı - Büyük ve Etkileyici */}
+          <div className="bg-gradient-to-br from-slate-50 to-emerald-50/50 rounded-2xl p-5 border border-slate-100">
+            <label className="block text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <TrendingUp size={16} className="text-emerald-600" />
+              Tahsil Edilecek Tutar
+            </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-bold text-emerald-600">₺</span>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full pl-8 pr-4 py-3 text-lg font-bold text-gray-900 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                placeholder="0.00"
+                className="w-full pl-14 pr-5 py-4 text-3xl font-bold text-slate-800 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                placeholder="0"
               />
             </div>
             {isPartial && (
-                <p className="mt-2 text-xs text-orange-600 flex items-center gap-1 font-medium">
-                    <Calculator size={14} />
-                    Kısmi ödeme yapılıyor. Kalan borç: ₺{(originalAmount - totalDue).toLocaleString('tr-TR')}
-                </p>
+              <div className="mt-3 flex items-center gap-2 text-orange-600 bg-orange-50 rounded-xl p-2">
+                <Calculator size={16} />
+                <span className="text-sm font-medium">Kısmi ödeme • Kalan: ₺{(originalAmount - totalDue).toLocaleString('tr-TR')}</span>
+              </div>
             )}
           </div>
 
-          {/* Payment Method */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Ödeme Yöntemi</label>
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setMethod('cash')}
-                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-                  method === 'cash' 
-                  ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-1 ring-emerald-500' 
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+          {/* Tarih ve Yöntem - Yan Yana */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Ödeme Tarihi */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <Calendar size={14} className="text-slate-500" />
+                Ödeme Tarihi
+              </label>
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className={`w-full px-4 py-3 text-sm font-medium border-2 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all ${
+                  isBackdatedPayment 
+                    ? 'border-orange-400 bg-orange-50 text-orange-800' 
+                    : 'border-slate-200 bg-white text-slate-800'
                 }`}
-              >
-                <Banknote size={24} />
-                <span className="text-xs font-medium">Nakit</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod('card')}
-                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-                  method === 'card' 
-                  ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500' 
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <CreditCard size={24} />
-                <span className="text-xs font-medium">Kredi Kartı</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod('bank')}
-                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
-                  method === 'bank' 
-                  ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' 
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Building size={24} />
-                <span className="text-xs font-medium">Havale/EFT</span>
-              </button>
+              />
+              {isBackdatedPayment && (
+                <p className="mt-1.5 text-xs text-orange-600 flex items-center gap-1">
+                  <Clock size={12} />
+                  Geçmiş tarihli ödeme
+                </p>
+              )}
+            </div>
+
+            {/* Ödeme Yöntemi Seçimi */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Ödeme Yöntemi</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMethod('cash')}
+                  className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-200 ${
+                    method === 'cash' 
+                    ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-500 text-emerald-700 shadow-md shadow-emerald-100' 
+                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Banknote size={20} />
+                  <span className="text-[10px] font-semibold">Nakit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod('card')}
+                  className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-200 ${
+                    method === 'card' 
+                    ? 'bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-500 text-indigo-700 shadow-md shadow-indigo-100' 
+                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <CreditCard size={20} />
+                  <span className="text-[10px] font-semibold">Kart</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod('bank')}
+                  className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-200 ${
+                    method === 'bank' 
+                    ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-500 text-blue-700 shadow-md shadow-blue-100' 
+                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Building size={20} />
+                  <span className="text-[10px] font-semibold">EFT</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Note */}
+          {/* Not Alanı */}
           <div>
-             <label className="block text-sm font-medium text-gray-700 mb-2">Açıklama / Not</label>
-             <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                className="w-full px-4 py-2 text-sm text-gray-900 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder="Varsa notunuzu buraya girin..."
-             />
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Açıklama (opsiyonel)</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-3 text-sm text-slate-800 bg-slate-50 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none resize-none transition-all"
+              placeholder="Ödeme ile ilgili not ekleyin..."
+            />
           </div>
 
-          {/* Toggles */}
-          <div className="flex items-center gap-6 pt-2">
-             <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${printReceipt ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 group-hover:border-emerald-400'}`}>
-                   {printReceipt && <CheckCircle2 size={14} className="text-white" />}
-                </div>
-                <input type="checkbox" className="hidden" checked={printReceipt} onChange={() => setPrintReceipt(!printReceipt)} />
-                <span className="text-sm text-gray-600 flex items-center gap-1.5">
-                    <Printer size={14} /> Makbuz Yazdır
-                </span>
-             </label>
+          {/* Modern Toggle Switches */}
+          <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div 
+                onClick={() => setPrintReceipt(!printReceipt)}
+                className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center ${
+                  printReceipt 
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' 
+                    : 'bg-slate-300'
+                }`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${
+                  printReceipt ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </div>
+              <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <Printer size={14} /> Makbuz
+              </span>
+            </label>
 
-             <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${sendWhatsApp ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 group-hover:border-emerald-400'}`}>
-                   {sendWhatsApp && <CheckCircle2 size={14} className="text-white" />}
-                </div>
-                <input type="checkbox" className="hidden" checked={sendWhatsApp} onChange={() => setSendWhatsApp(!sendWhatsApp)} />
-                <span className="text-sm text-gray-600 flex items-center gap-1.5">
-                    <MessageCircle size={14} /> WhatsApp Gönder
-                </span>
-             </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div 
+                onClick={() => setSendWhatsApp(!sendWhatsApp)}
+                className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center ${
+                  sendWhatsApp 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600' 
+                    : 'bg-slate-300'
+                }`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${
+                  sendWhatsApp ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </div>
+              <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <MessageCircle size={14} /> WhatsApp
+              </span>
+            </label>
           </div>
-
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
-           <button
-             onClick={onClose}
-             className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-           >
-             İptal
-           </button>
-           <button
-             onClick={handlePayment}
-             disabled={isSubmitting}
-             className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-           >
-             {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-             ) : (
-                <>
-                    <CheckCircle2 size={18} />
-                    Ödemeyi Onayla
-                </>
-             )}
-           </button>
+        <div className="p-5 bg-gradient-to-r from-slate-50 to-emerald-50/30 border-t border-slate-100 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-5 py-3.5 text-sm font-semibold text-slate-600 bg-white border-2 border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
+          >
+            İptal
+          </button>
+          <button
+            onClick={handlePayment}
+            disabled={isSubmitting || !amount || Number(amount) <= 0}
+            className="flex-[2] px-5 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-xl hover:from-emerald-700 hover:to-emerald-600 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 group"
+          >
+            {isSubmitting ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform" />
+                Ödemeyi Onayla
+              </>
+            )}
+          </button>
         </div>
-
       </div>
     </div>
   );
