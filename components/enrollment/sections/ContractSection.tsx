@@ -482,8 +482,8 @@ export const ContractSection = () => {
                   {/* Başlık */}
                   <div style={{ borderBottom: '2px solid #000', paddingBottom: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '40px', height: '40px', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '26px', fontWeight: '900' }}>İ</span>
+                      <div style={{ border: '2px solid #000', padding: '4px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '900', letterSpacing: '-0.5px' }}>AkademiHub</span>
                       </div>
                       <div>
                         <h1 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>{organizationName.toUpperCase()}</h1>
@@ -653,8 +653,8 @@ export const ContractSection = () => {
                         <p style={{ fontWeight: '800', fontSize: '14px', margin: 0 }}>{organizationName.toUpperCase()}</p>
                         <p style={{ fontSize: '10px', margin: 0 }}>{today}</p>
                       </div>
-                      <div style={{ width: '35px', height: '35px', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '22px', fontWeight: '900' }}>İ</span>
+                      <div style={{ border: '2px solid #000', padding: '4px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '-0.5px' }}>AkademiHub</span>
                       </div>
                     </div>
                   </div>

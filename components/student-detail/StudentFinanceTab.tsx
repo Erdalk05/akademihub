@@ -779,8 +779,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             <!-- Başlık -->
             <div style="border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border: 2px solid #000; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 26px; font-weight: 900;">İ</span>
+                <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 14px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
                 </div>
                 <div>
                   <h1 style="font-size: 18px; font-weight: 800; margin: 0;">${organizationName.toUpperCase()}</h1>
@@ -943,8 +943,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                   <p style="font-weight: 800; font-size: 14px; margin: 0;">${organizationName.toUpperCase()}</p>
                   <p style="font-size: 10px; margin: 0;">${today}</p>
                 </div>
-                <div style="width: 35px; height: 35px; border: 2px solid #000; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 22px; font-weight: 900;">İ</span>
+                <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 12px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
                 </div>
               </div>
             </div>

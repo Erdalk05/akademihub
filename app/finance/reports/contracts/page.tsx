@@ -205,7 +205,7 @@ export default function ContractsPage() {
     body { font-family: Arial, sans-serif; font-size: 10px; line-height: 1.4; background: #f3f4f6; }
     .page { width: 210mm; max-width: 794px; margin: 0 auto 10px; background: #fff; padding: 30px 40px; box-sizing: border-box; }
     .header { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .logo { width: 40px; height: 40px; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900; }
+    .logo { border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; letter-spacing: -0.5px; }
     .section { margin-bottom: 8px; }
     .section-title { border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5; font-weight: bold; font-size: 11px; }
     table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 10px; }
@@ -229,7 +229,7 @@ export default function ContractsPage() {
   <div class="page">
     <div class="header">
       <div style="display: flex; align-items: center; gap: 12px;">
-        <div class="logo">İ</div>
+        <div class="logo">AkademiHub</div>
         <div>
           <h1 style="font-size: 18px; font-weight: 800; margin: 0;">EĞİTİM KURUMU</h1>
           <p style="font-size: 10px; color: #666; margin: 0;">Akademik Yönetim</p>
@@ -343,7 +343,7 @@ export default function ContractsPage() {
           <p style="font-weight: 800; font-size: 14px; margin: 0;">EĞİTİM KURUMU</p>
           <p style="font-size: 10px; margin: 0;">${today}</p>
         </div>
-        <div class="logo">İ</div>
+        <div class="logo">AkademiHub</div>
       </div>
     </div>
 

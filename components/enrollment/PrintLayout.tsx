@@ -279,9 +279,9 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           {/* Başlık */}
           <div style={{ borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '35px', height: '35px', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '22px', fontWeight: '900' }}>İ</span>
-              </div>
+<div style={{ border: '2px solid #000', padding: '4px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '900', letterSpacing: '-0.5px' }}>AkademiHub</span>
+                      </div>
               <div>
                 <h1 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>{organizationName.toUpperCase()}</h1>
                 <p style={{ fontSize: '9px', color: '#666', margin: 0 }}>Eğitim Kurumu</p>
