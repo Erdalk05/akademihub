@@ -46,7 +46,7 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
   isOpen,
   onClose,
   onSelect,
-  currentAcademicYear = '2024-2025'
+  currentAcademicYear = '2025-2026'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [students, setStudents] = useState<Student[]>([]);

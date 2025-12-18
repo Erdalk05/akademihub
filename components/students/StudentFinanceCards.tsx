@@ -74,7 +74,7 @@ export default function StudentFinanceCards({ stats }: Props) {
       value: stats.newStudentsThisYear ?? 0,
       icon: Calendar,
       color: 'bg-cyan-50 text-cyan-600 border-cyan-200',
-      desc: '2024-2025 dönemi',
+      desc: '2025-2026 dönemi',
     },
     {
       label: 'Pasif/Ayrılan',

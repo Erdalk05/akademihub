@@ -999,7 +999,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             <div style="border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h1 style="font-size: 16px; font-weight: 800; margin: 0;">EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
-                <p style="font-size: 10px; margin: 4px 0 0 0;">${student.first_name || ''} ${student.last_name || ''} - ${student.academic_year || '2024-2025'}</p>
+                <p style="font-size: 10px; margin: 4px 0 0 0;">${student.first_name || ''} ${student.last_name || ''} - ${student.academic_year || '2025-2026'}</p>
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <div style="text-align: right;">

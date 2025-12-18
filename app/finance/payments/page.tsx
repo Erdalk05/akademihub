@@ -27,7 +27,7 @@ import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
 
 // Akademik Yıllar
-const ACADEMIC_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
+const ACADEMIC_YEARS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
 
 const getCurrentAcademicYear = () => {
   const now = new Date();

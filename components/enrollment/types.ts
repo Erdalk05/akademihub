@@ -168,8 +168,9 @@ export const GUARDIAN_TYPES = [
 // Çoklu Eğitim Yılları - Manuel olarak eklenebilir
 export const ACADEMIC_YEARS = [
   { id: '2023-2024', name: '2023-2024', status: 'past' },
-  { id: '2024-2025', name: '2024-2025', status: 'current' },
-  { id: '2025-2026', name: '2025-2026', status: 'future' },
+  { id: '2024-2025', name: '2024-2025', status: 'past' },
+  { id: '2025-2026', name: '2025-2026', status: 'current' },
+  { id: '2026-2027', name: '2026-2027', status: 'future' },
   { id: '2026-2027', name: '2026-2027', status: 'future' },
 ];
 
@@ -230,7 +231,7 @@ export const defaultEducation: Education = {
   gradeName: '',
   branchId: '',
   branchName: '',
-  academicYear: '2024-2025',
+  academicYear: '2025-2026',
   studentType: 'new',
 };
 

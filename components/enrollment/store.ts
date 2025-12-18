@@ -410,7 +410,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
           gradeName: studentData.enrolled_class || `${studentData.class}. Sınıf`,
           branchId: studentData.section || '',
           branchName: studentData.section || '',
-          academicYear: studentData.academic_year || '2024-2025',
+          academicYear: studentData.academic_year || '2025-2026',
           studentType: 'edit', // Düzenleme modu
         };
 

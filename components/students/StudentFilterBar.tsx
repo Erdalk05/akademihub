@@ -197,9 +197,9 @@ export default function StudentFilterBar({
             className="w-full rounded-lg border border-gray-200 py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
           >
             <option value="">Tümü</option>
+            <option value="2025-2026">2025-2026</option>
             <option value="2024-2025">2024-2025</option>
             <option value="2023-2024">2023-2024</option>
-            <option value="2022-2023">2022-2023</option>
           </select>
         </div>
 

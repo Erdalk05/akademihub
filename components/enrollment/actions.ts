@@ -93,7 +93,7 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       section: data.education.branchId || 'A',
       program_id: data.education.programId || null,
       program_name: data.education.programName || null,
-      academic_year: data.education.academicYear || '2024-2025',
+      academic_year: data.education.academicYear || '2025-2026',
       previous_school: data.student.previousSchool || null,
       health_notes: data.student.healthNotes || null,
       // Veli bilgileri
