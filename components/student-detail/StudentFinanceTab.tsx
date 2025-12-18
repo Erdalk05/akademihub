@@ -288,23 +288,45 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
 
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
+    console.log('[StudentFinanceTab] Taksitler çekiliyor... Student ID:', student.id);
+    
     try {
       // Aktif taksitleri çek
       const response = await fetch(`/api/installments?student_id=${student.id}`);
       const data = await response.json();
       
+      console.log('[StudentFinanceTab] API yanıtı:', {
+        success: data.success,
+        count: data.data?.length || 0,
+        error: data.error
+      });
+      
       if (data.success && data.data) {
         const allInstallments = data.data;
         
-        // Aktif taksitler (status = 'active' veya null)
+        console.log('[StudentFinanceTab] Tüm taksitler:', allInstallments.map((i: any) => ({
+          id: i.id?.substring(0, 8),
+          no: i.installment_no,
+          amount: i.amount,
+          db_status: i.db_status,
+          status: i.status
+        })));
+        
+        // Aktif taksitler (db_status = 'active' veya null/undefined)
+        // ÖNEMLİ: API'den gelen 'db_status' alanını kullan, 'status' değil!
         const activeInstallments = allInstallments.filter((i: any) => 
-          !i.status || i.status === 'active'
+          !i.db_status || i.db_status === 'active'
         );
         
-        // Arşivlenmiş ödenmiş taksitler (status = 'archived_paid')
+        // Arşivlenmiş ödenmiş taksitler (db_status = 'archived_paid')
         const archived = allInstallments.filter((i: any) => 
-          i.status === 'archived_paid'
+          i.db_status === 'archived_paid'
         );
+        
+        console.log('[StudentFinanceTab] Filtreleme sonucu:', {
+          aktif: activeInstallments.length,
+          arsivlenmis: archived.length
+        });
         
         if (activeInstallments.length > 20) {
           toast.error(`⚠️ DİKKAT: Bu öğrenci için ${activeInstallments.length} aktif taksit bulundu!`, {
@@ -314,9 +336,11 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         
         setInstallments(activeInstallments.slice(0, 20));
         setArchivedInstallments(archived);
+      } else {
+        console.warn('[StudentFinanceTab] Taksit verisi yok veya hata:', data.error);
       }
-    } catch {
-      // Error handled silently
+    } catch (err) {
+      console.error('[StudentFinanceTab] Taksit çekme hatası:', err);
     } finally {
       setLoading(false);
     }
