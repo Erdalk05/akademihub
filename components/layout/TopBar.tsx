@@ -10,7 +10,9 @@ import {
   Check,
   Calendar,
   AlertCircle,
+  LogOut,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import RoleSwitcher from '@/components/auth/RoleSwitcher';
@@ -25,6 +27,34 @@ const TopBar: React.FC = () => {
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const { isAdmin, isSuperAdmin, isLoading: permissionLoading } = usePermission();
+  const router = useRouter();
+  
+  // Çıkış yapma fonksiyonu
+  const handleLogout = useCallback(async () => {
+    try {
+      // Supabase oturumunu kapat
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      
+      if (response.ok) {
+        // Local storage'ı temizle
+        localStorage.removeItem('enrollment-store-v8');
+        localStorage.removeItem('organization-store-v3');
+        localStorage.removeItem('academic-year-store');
+        localStorage.removeItem('supabase.auth.token');
+        
+        toast.success('Çıkış yapıldı!');
+        
+        // Login sayfasına yönlendir
+        router.push('/login');
+      } else {
+        toast.error('Çıkış yapılırken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Hata olsa bile login'e yönlendir
+      router.push('/login');
+    }
+  }, [router]);
   
   const { 
     organizations, 
@@ -307,6 +337,17 @@ const TopBar: React.FC = () => {
 
         {/* Activity Logs - Sadece Admin görebilir */}
         {mounted && !permissionLoading && isAdmin && <ActivityLogButton />}
+
+        {/* Çıkış Butonu */}
+        {mounted && (
+          <button
+            onClick={handleLogout}
+            className="p-2.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl transition group"
+            title="Çıkış Yap"
+          >
+            <LogOut size={20} className="text-gray-500 group-hover:text-red-500 transition-colors" />
+          </button>
+        )}
       </div>
     </nav>
   );

@@ -179,17 +179,32 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
     // 3. Finance_Installments tablosuna taksitleri ekle/güncelle
     // ⚠️ GÜNCELLEME MODUNDA: Ödenmiş taksitleri KORU, ödenmemişleri sil ve yenilerini oluştur
     
+    // ⚠️ GÜNCELLEME MODUNDA: Eğer ödeme bilgileri 0 ise, mevcut öğrencinin total_amount değerini kullan
+    let effectiveNetFee = data.payment.netFee > 0 ? data.payment.netFee : data.payment.totalFee || 0;
+    let effectiveInstallmentCount = data.payment.installmentCount > 0 ? data.payment.installmentCount : 9;
+    
+    // Eğer hala 0 ise ve güncelleme modundaysa, students tablosundan al
+    if (effectiveNetFee === 0 && existingStudentId) {
+      const { data: existingStudent } = await supabase
+        .from('students')
+        .select('total_amount, balance')
+        .eq('id', existingStudentId)
+        .single();
+      
+      if (existingStudent) {
+        effectiveNetFee = existingStudent.total_amount || existingStudent.balance || 0;
+        console.log('[Taksit Kontrolü] Mevcut öğrenciden total_amount alındı:', effectiveNetFee);
+      }
+    }
+    
     console.log('[Taksit Kontrolü] Ödeme bilgileri:', {
       netFee: data.payment.netFee,
       installmentCount: data.payment.installmentCount,
       totalFee: data.payment.totalFee,
-      existingStudentId: existingStudentId
+      existingStudentId: existingStudentId,
+      effectiveNetFee,
+      effectiveInstallmentCount
     });
-    
-    // Taksit oluşturma koşulu: netFee > 0 VE installmentCount > 0
-    // Ayrıca: installmentCount tanımlı değilse varsayılan 9 kullan
-    const effectiveInstallmentCount = data.payment.installmentCount > 0 ? data.payment.installmentCount : 9;
-    const effectiveNetFee = data.payment.netFee > 0 ? data.payment.netFee : data.payment.totalFee || 0;
     
     if (effectiveNetFee > 0 && effectiveInstallmentCount > 0) {
       

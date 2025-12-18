@@ -1,68 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
-/**
- * POST /api/auth/logout
- * Kullanıcı çıkışı - httpOnly cookie'yi siler
- */
-export async function POST(request: NextRequest) {
+export const runtime = 'nodejs';
+
+export async function POST() {
   try {
-    const response = NextResponse.json(
+    const cookieStore = cookies();
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        success: true,
-        message: 'Başarıyla çıkış yapıldı',
-        timestamp: new Date(),
-      },
-      { status: 200 }
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
     );
 
-    // httpOnly cookie'yi sil
-    response.cookies.set('auth-token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0, // Hemen expire
-      path: '/',
-    });
+    // Supabase oturumunu kapat
+    await supabase.auth.signOut();
 
-    // Ek güvenlik: refresh-token varsa onu da sil
-    response.cookies.set('refresh-token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0,
-      path: '/',
-    });
-
+    // Response ile cookie'leri temizle
+    const response = NextResponse.json({ success: true, message: 'Çıkış yapıldı' });
+    
+    // Auth cookie'lerini temizle
+    response.cookies.delete('sb-access-token');
+    response.cookies.delete('sb-refresh-token');
+    
     return response;
   } catch (error: any) {
     console.error('Logout error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Çıkış sırasında bir hata oluştu',
-        timestamp: new Date(),
-      },
+      { success: false, error: error.message || 'Çıkış yapılırken hata oluştu' },
       { status: 500 }
     );
   }
 }
-
-/**
- * GET /api/auth/logout
- * GET ile de çıkış yapılabilir (link ile çıkış için)
- */
-export async function GET(request: NextRequest) {
-  const response = NextResponse.redirect(new URL('/login', request.url));
-  
-  // Cookie'leri sil
-  response.cookies.set('auth-token', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/',
-  });
-
-  return response;
-}
-
