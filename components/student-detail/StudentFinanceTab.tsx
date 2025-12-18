@@ -249,6 +249,10 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   // Eski Kayıt Formu Accordion
   const [showOldEnrollmentInfo, setShowOldEnrollmentInfo] = useState(false);
   
+  // Arşivlenmiş (eski ödenmiş) taksitler
+  const [archivedInstallments, setArchivedInstallments] = useState<Installment[]>([]);
+  const [showArchivedPayments, setShowArchivedPayments] = useState(false);
+  
   // Taksit silme
   const [deletingInstallmentId, setDeletingInstallmentId] = useState<string | null>(null);
   
@@ -285,19 +289,31 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
     try {
+      // Aktif taksitleri çek
       const response = await fetch(`/api/installments?student_id=${student.id}`);
       const data = await response.json();
       
       if (data.success && data.data) {
         const allInstallments = data.data;
         
-        if (allInstallments.length > 20) {
-          toast.error(`⚠️ DİKKAT: Bu öğrenci için ${allInstallments.length} taksit bulundu!\n\nBu normalin üzerinde. Veritabanında hata olabilir.\n\nSadece ilk 20 taksit gösteriliyor.`, {
+        // Aktif taksitler (status = 'active' veya null)
+        const activeInstallments = allInstallments.filter((i: any) => 
+          !i.status || i.status === 'active'
+        );
+        
+        // Arşivlenmiş ödenmiş taksitler (status = 'archived_paid')
+        const archived = allInstallments.filter((i: any) => 
+          i.status === 'archived_paid'
+        );
+        
+        if (activeInstallments.length > 20) {
+          toast.error(`⚠️ DİKKAT: Bu öğrenci için ${activeInstallments.length} aktif taksit bulundu!`, {
             duration: 8000,
           });
         }
         
-        setInstallments(allInstallments.slice(0, 20));
+        setInstallments(activeInstallments.slice(0, 20));
+        setArchivedInstallments(archived);
       }
     } catch {
       // Error handled silently
@@ -1156,6 +1172,86 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           </div>
         )}
       </div>
+
+      {/* ESKİ ÖDEMELER (ARŞİV) - Önceki taksitlerden alınan ödemeler */}
+      {archivedInstallments.length > 0 && (
+        <div className="rounded-xl border border-orange-200 bg-white shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowArchivedPayments(!showArchivedPayments)}
+            className="w-full p-4 border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 flex items-center justify-between hover:bg-orange-100 transition"
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-600" />
+              <h3 className="text-lg font-bold text-gray-900">
+                Eski Ödemeler (Arşiv)
+              </h3>
+              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                {archivedInstallments.length} kayıt
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-green-600 font-bold">
+                Toplam: ₺{archivedInstallments.reduce((sum, i) => sum + (i.paid_amount || i.amount), 0).toLocaleString('tr-TR')}
+              </span>
+              <span className={`transform transition-transform ${showArchivedPayments ? 'rotate-180' : ''}`}>▼</span>
+            </div>
+          </button>
+          
+          {showArchivedPayments && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-orange-50 text-gray-600 font-medium border-b border-orange-200">
+                  <tr>
+                    <th className="p-3 text-left">Taksit</th>
+                    <th className="p-3 text-left">Ödeme Tarihi</th>
+                    <th className="p-3 text-right">Tutar</th>
+                    <th className="p-3 text-center">Durum</th>
+                    <th className="p-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedInstallments.map((inst) => (
+                    <tr key={inst.id} className="border-b border-gray-100 bg-orange-50/30">
+                      <td className="p-3 font-medium text-gray-700">
+                        {inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}
+                        <span className="ml-2 text-xs text-orange-500">(Eski Plan)</span>
+                      </td>
+                      <td className="p-3 text-gray-600">
+                        {inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}
+                      </td>
+                      <td className="p-3 text-right font-bold text-green-600">
+                        ₺{(inst.paid_amount || inst.amount).toLocaleString('tr-TR')}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          Tahsil Edildi
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleDeleteInstallment(inst.id, true)}
+                          disabled={deletingInstallmentId === inst.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
+                          title="Arşivden Sil"
+                        >
+                          {deletingInstallmentId === inst.id ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-3 bg-orange-50 border-t border-orange-200 text-xs text-orange-700">
+                ⚠️ Bu ödemeler önceki taksit planından tahsil edilmiştir. Kayıt güncellendiğinde otomatik arşivlendi.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* TAKSİT LİSTESİ */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

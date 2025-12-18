@@ -157,12 +157,31 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       console.warn('Enrollments table insert skipped:', e);
     }
 
-    // 3. Finance_Installments tablosuna taksitleri ekle
-    // ⚠️ GÜNCELLEME MODUNDA: Taksitlere DOKUNMA! Sadece bilgiler güncellenir.
-    // Taksit değişikliği için "Yeniden Taksitlendir" butonu kullanılmalı.
+    // 3. Finance_Installments tablosuna taksitleri ekle/güncelle
+    // ⚠️ GÜNCELLEME MODUNDA: Ödenmiş taksitleri KORU, ödenmemişleri sil ve yenilerini oluştur
     
-    // Sadece YENİ KAYIT modunda taksit oluştur
-    if (!existingStudentId && data.payment.netFee > 0 && data.payment.installmentCount > 0) {
+    if (data.payment.netFee > 0 && data.payment.installmentCount > 0) {
+      
+      // GÜNCELLEME MODUNDA: Önce mevcut durumu kontrol et
+      if (existingStudentId) {
+        // Ödenmiş taksitleri arşivle (status: 'archived_paid' olarak işaretle - SİLİNMEZ)
+        await supabase
+          .from('finance_installments')
+          .update({ status: 'archived_paid' })
+          .eq('student_id', existingStudentId)
+          .eq('is_paid', true);
+        
+        // Ödenmemiş taksitleri sil (yeni planla değiştirilecek)
+        await supabase
+          .from('finance_installments')
+          .delete()
+          .eq('student_id', existingStudentId)
+          .eq('is_paid', false);
+        
+        console.log(`[Güncelleme] Öğrenci ${existingStudentId}: Ödenmemiş taksitler silindi, yeni plan oluşturuluyor...`);
+      }
+      
+      // Yeni taksitleri oluştur
       const installments = [];
       const today = new Date();
       const downPayment = data.payment.downPayment || 0;
