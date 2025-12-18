@@ -833,24 +833,26 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
                 <h3 style="font-weight: bold; font-size: 11px; margin: 0;">EĞİTİM TAKSİT PLANI (${installments.length} Taksit)</h3>
               </div>
-              <table style="width: 100%; border: 1px solid #000; font-size: 9px; border-collapse: collapse;">
+              <table style="width: 100%; border: 1px solid #000; font-size: 9px; border-collapse: collapse; table-layout: fixed;">
                 <thead>
                   <tr style="background: #f0f0f0;">
-                    <th style="padding: 4px; text-align: center; width: 30px; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">No</th>
-                    <th style="padding: 4px; text-align: left; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Açıklama</th>
-                    <th style="padding: 4px; text-align: center; width: 80px; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Vade</th>
-                    <th style="padding: 4px; text-align: right; width: 70px; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Tutar</th>
-                    <th style="padding: 4px; text-align: center; width: 50px; font-weight: bold; border-bottom: 1px solid #000;">İmza</th>
+                    <th style="padding: 4px 3px; text-align: center; width: 6%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">No</th>
+                    <th style="padding: 4px 3px; text-align: left; width: 28%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Açıklama</th>
+                    <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Vade Tarihi</th>
+                    <th style="padding: 4px 3px; text-align: right; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Tutar</th>
+                    <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Ödeme Tarihi</th>
+                    <th style="padding: 4px 3px; text-align: center; width: 24%; font-weight: bold; border-bottom: 1px solid #000;">Açıklama/İmza</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${installments.slice(0, 12).map((inst, i) => `
                     <tr style="border-bottom: 1px solid #ddd;">
-                      <td style="padding: 3px 4px; text-align: center; font-weight: bold; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'P' : i + 1}</td>
-                      <td style="padding: 3px 4px; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
-                      <td style="padding: 3px 4px; text-align: center; border-right: 1px solid #ddd;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-                      <td style="padding: 3px 4px; text-align: right; font-weight: bold; border-right: 1px solid #ddd;">${inst.amount.toLocaleString('tr-TR')} TL</td>
-                      <td style="padding: 3px 4px; text-align: center;">____</td>
+                      <td style="padding: 3px; text-align: center; font-weight: bold; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'P' : i + 1}</td>
+                      <td style="padding: 3px 4px; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'Peşinat Ödemesi' : inst.installment_no + '. Taksit Ödemesi'}</td>
+                      <td style="padding: 3px; text-align: center; border-right: 1px solid #ddd;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                      <td style="padding: 3px; text-align: right; font-weight: bold; border-right: 1px solid #ddd;">${inst.amount.toLocaleString('tr-TR')} TL</td>
+                      <td style="padding: 3px; text-align: center; border-right: 1px solid #ddd; color: #999;">${inst.status === 'paid' && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '__/__/____'}</td>
+                      <td style="padding: 3px; text-align: center;">________________</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -858,6 +860,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                   <tr style="background: #f0f0f0;">
                     <td colspan="3" style="padding: 5px; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">TOPLAM</td>
                     <td style="padding: 5px; text-align: right; font-size: 11px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">${totalAmount.toLocaleString('tr-TR')} TL</td>
+                    <td style="border-top: 1px solid #000; border-right: 1px solid #ccc;"></td>
                     <td style="border-top: 1px solid #000;"></td>
                   </tr>
                 </tfoot>

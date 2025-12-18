@@ -582,30 +582,32 @@ export const ContractSection = () => {
                     </div>
                   </div>
 
-                  {/* TAKSİT PLANI - KOMPAKT */}
+                  {/* TAKSİT PLANI - ESTETİK MODERN TASARIM */}
                   {payment.installments && payment.installments.length > 0 && (
                     <div style={{ marginBottom: '8px' }}>
                       <div style={{ border: '1px solid #000', borderBottom: 'none', padding: '4px 10px', backgroundColor: '#f5f5f5' }}>
                         <h3 style={{ fontWeight: 'bold', fontSize: '11px', margin: 0 }}>TAKSİT PLANI ({payment.installments.length} Taksit)</h3>
                       </div>
-                      <table style={{ width: '100%', border: '1px solid #000', fontSize: '9px', borderCollapse: 'collapse' }}>
+                      <table style={{ width: '100%', border: '1px solid #000', fontSize: '9px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f0f0f0' }}>
-                            <th style={{ padding: '4px', textAlign: 'center', width: '30px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>No</th>
-                            <th style={{ padding: '4px', textAlign: 'left', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Açıklama</th>
-                            <th style={{ padding: '4px', textAlign: 'center', width: '80px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Vade</th>
-                            <th style={{ padding: '4px', textAlign: 'right', width: '70px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Tutar</th>
-                            <th style={{ padding: '4px', textAlign: 'center', width: '50px', fontWeight: 'bold', borderBottom: '1px solid #000' }}>İmza</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'center', width: '6%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>No</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'left', width: '28%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Açıklama</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'center', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Vade Tarihi</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'right', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Tutar</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'center', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Ödeme Tarihi</th>
+                            <th style={{ padding: '4px 3px', textAlign: 'center', width: '24%', fontWeight: 'bold', borderBottom: '1px solid #000' }}>Açıklama/İmza</th>
                           </tr>
                         </thead>
                         <tbody>
                           {payment.installments.map((inst, i) => (
                             <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                              <td style={{ padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'P' : inst.no}</td>
-                              <td style={{ padding: '3px 4px', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'Peşinat' : `${inst.no}. Taksit`}</td>
-                              <td style={{ padding: '3px 4px', textAlign: 'center', borderRight: '1px solid #ddd' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__/__/____'}</td>
-                              <td style={{ padding: '3px 4px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
-                              <td style={{ padding: '3px 4px', textAlign: 'center' }}>____</td>
+                              <td style={{ padding: '3px', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'P' : inst.no}</td>
+                              <td style={{ padding: '3px 4px', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'Peşinat Ödemesi' : `${inst.no}. Taksit Ödemesi`}</td>
+                              <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ddd' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__/__/____'}</td>
+                              <td style={{ padding: '3px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
+                              <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ddd', color: '#999' }}>__/__/____</td>
+                              <td style={{ padding: '3px', textAlign: 'center' }}>________________</td>
                             </tr>
                           ))}
                         </tbody>
@@ -613,6 +615,7 @@ export const ContractSection = () => {
                           <tr style={{ backgroundColor: '#f0f0f0' }}>
                             <td style={{ padding: '5px', fontSize: '10px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }} colSpan={3}>TOPLAM</td>
                             <td style={{ padding: '5px', textAlign: 'right', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
+                            <td style={{ borderTop: '1px solid #000', borderRight: '1px solid #ccc' }}></td>
                             <td style={{ borderTop: '1px solid #000' }}></td>
                           </tr>
                         </tfoot>

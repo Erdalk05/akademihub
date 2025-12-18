@@ -271,24 +271,26 @@ export default function ContractsPage() {
 
     <div class="section">
       <div class="section-title">TAKSİT PLANI (${info.installments.length} Taksit)</div>
-      <table style="font-size: 9px;">
+      <table style="font-size: 9px; table-layout: fixed; width: 100%;">
         <thead>
           <tr>
-            <th style="width: 30px; text-align: center;">No</th>
-            <th>Açıklama</th>
-            <th style="width: 80px; text-align: center;">Vade</th>
-            <th style="width: 70px; text-align: right;">Tutar</th>
-            <th style="width: 50px; text-align: center;">İmza</th>
+            <th style="width: 6%; text-align: center;">No</th>
+            <th style="width: 28%; text-align: left;">Açıklama</th>
+            <th style="width: 14%; text-align: center;">Vade Tarihi</th>
+            <th style="width: 14%; text-align: right;">Tutar</th>
+            <th style="width: 14%; text-align: center;">Ödeme Tarihi</th>
+            <th style="width: 24%; text-align: center;">Açıklama/İmza</th>
           </tr>
         </thead>
         <tbody>
           ${info.installments.slice(0, 12).map((inst, i) => `
             <tr>
               <td style="text-align: center; font-weight: bold;">${inst.installment_no === 0 ? 'P' : i + 1}</td>
-              <td>${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
+              <td>${inst.installment_no === 0 ? 'Peşinat Ödemesi' : inst.installment_no + '. Taksit Ödemesi'}</td>
               <td style="text-align: center;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
               <td style="text-align: right; font-weight: bold;">${inst.amount.toLocaleString('tr-TR')} TL</td>
-              <td style="text-align: center;">____</td>
+              <td style="text-align: center; color: #999;">${inst.is_paid && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '__/__/____'}</td>
+              <td style="text-align: center;">________________</td>
             </tr>
           `).join('')}
         </tbody>
@@ -296,6 +298,7 @@ export default function ContractsPage() {
           <tr style="background: #f0f0f0;">
             <td colspan="3" style="font-size: 10px; font-weight: bold; border-top: 1px solid #000;">TOPLAM</td>
             <td style="text-align: right; font-size: 11px; font-weight: bold; border-top: 1px solid #000;">${info.total.toLocaleString('tr-TR')} TL</td>
+            <td style="border-top: 1px solid #000;"></td>
             <td style="border-top: 1px solid #000;"></td>
           </tr>
         </tfoot>
