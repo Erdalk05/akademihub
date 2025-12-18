@@ -273,29 +273,39 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         @media print {
           @page { 
             size: A4 portrait; 
-            margin: 10mm; 
+            margin: 8mm; 
           }
+          
+          /* GLOBAL RESET */
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
+            visibility: visible !important;
+            display: block;
           }
+          
           html, body { 
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            font-size: 10px !important;
             width: 100% !important;
             height: auto !important;
             overflow: visible !important;
+            font-size: 11px !important;
           }
+          
+          /* ANA CONTAINER */
           #enrollment-print-layout {
             background: white !important;
             min-height: auto !important;
             position: static !important;
             overflow: visible !important;
+            padding: 0 !important;
           }
-          .toolbar-hide, .no-print { 
+          
+          /* TOOLBAR GİZLE */
+          .toolbar-hide, .no-print, [class*="toolbar"] { 
             display: none !important; 
             visibility: hidden !important;
             height: 0 !important;
@@ -303,7 +313,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             overflow: hidden !important;
             position: absolute !important;
             left: -9999px !important;
+            opacity: 0 !important;
           }
+          
+          /* PRINT CONTENT */
           #print-content, .print-content { 
             padding: 0 !important;
             margin: 0 !important;
@@ -313,39 +326,65 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             position: static !important;
             overflow: visible !important;
             background: white !important;
+            width: 100% !important;
           }
+          
+          /* SAYFA */
           .print-page { 
             display: block !important;
             visibility: visible !important;
             box-shadow: none !important; 
             margin: 0 !important;
-            padding: 10mm !important;
+            padding: 8mm !important;
             background: white !important;
             page-break-inside: avoid !important;
-            max-width: 100% !important;
             width: 100% !important;
+            max-width: 100% !important;
             height: auto !important;
             min-height: auto !important;
             border-radius: 0 !important;
             position: static !important;
             overflow: visible !important;
+            box-sizing: border-box !important;
           }
+          
+          /* SAYFA SONU */
           .page-break-after {
             page-break-after: always !important;
             break-after: page !important;
           }
+          
+          /* TABLOLAR */
           table { 
             border-collapse: collapse !important; 
             width: 100% !important;
             page-break-inside: avoid !important;
+            display: table !important;
           }
+          thead { display: table-header-group !important; }
+          tbody { display: table-row-group !important; }
+          tr { display: table-row !important; }
           th, td {
+            display: table-cell !important;
             font-size: 10pt !important;
-            padding: 6px 8px !important;
-          }
-          /* Tüm içeriği görünür yap */
-          div, p, span, h1, h2, h3, h4, table, tr, td, th {
+            padding: 5px 8px !important;
             visibility: visible !important;
+          }
+          
+          /* TÜM İÇERİKLER */
+          div, p, span, h1, h2, h3, h4 {
+            visibility: visible !important;
+            color: #000 !important;
+          }
+          
+          /* GRID LAYOUT FIX */
+          [style*="grid"] {
+            display: block !important;
+          }
+          [style*="grid"] > * {
+            display: inline-block !important;
+            width: 48% !important;
+            vertical-align: top !important;
           }
         }
         @media screen { 
@@ -360,7 +399,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <div id="print-content" ref={printContentRef} className="print-content" style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
-        <div className="print-page page-break-after" style={{ width: '794px', minHeight: '1100px', maxHeight: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '25px 30px', boxSizing: 'border-box' }}>
+        <div className="print-page page-break-after" style={{ width: '210mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '20px 25px', boxSizing: 'border-box' }}>
           
           {/* Başlık - BEYAZ ARKA PLAN */}
           <div style={{ borderBottom: '3px solid #1a1a1a', paddingBottom: '15px', marginBottom: '15px' }}>
@@ -531,7 +570,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         </div>
 
         {/* =============== SAYFA 2 - SÖZLEŞME =============== */}
-        <div className="print-page" style={{ width: '794px', minHeight: '1100px', maxHeight: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '25px 30px', boxSizing: 'border-box', pageBreakBefore: 'always' }}>
+        <div className="print-page" style={{ width: '210mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '20px 25px', boxSizing: 'border-box', pageBreakBefore: 'always' }}>
 
           {/* Başlık - BEYAZ ARKA PLAN + İ LOGOSU */}
           <div style={{ borderBottom: '3px solid #1a1a1a', paddingBottom: '15px', marginBottom: '15px' }}>
