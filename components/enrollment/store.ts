@@ -37,6 +37,9 @@ interface EnrollmentStore extends EnrollmentData {
   // Payment Actions
   updatePayment: (data: Partial<Payment>) => void;
   calculateInstallments: () => void;
+  updateInstallment: (no: number, data: Partial<Installment>) => void;
+  addInstallment: () => void;
+  removeInstallment: (no: number) => void;
   
   // Contract Actions
   updateContract: (data: Partial<Contract>) => void;
@@ -183,6 +186,54 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
           }
         };
       }),
+
+      // Tek bir taksiti güncelle (manuel düzenleme için)
+      updateInstallment: (no, data) => set((state) => ({
+        payment: {
+          ...state.payment,
+          installments: state.payment.installments.map((inst) =>
+            inst.no === no ? { ...inst, ...data } : inst
+          )
+        }
+      })),
+
+      // Yeni taksit ekle
+      addInstallment: () => set((state) => {
+        const lastInst = state.payment.installments[state.payment.installments.length - 1];
+        const newNo = lastInst ? lastInst.no + 1 : 1;
+        const lastDate = lastInst ? new Date(lastInst.dueDate) : new Date();
+        lastDate.setMonth(lastDate.getMonth() + 1);
+        
+        return {
+          payment: {
+            ...state.payment,
+            installmentCount: state.payment.installmentCount + 1,
+            installments: [
+              ...state.payment.installments,
+              {
+                no: newNo,
+                amount: 0,
+                dueDate: lastDate.toISOString().split('T')[0],
+                status: 'pending' as const
+              }
+            ]
+          }
+        };
+      }),
+
+      // Taksit sil
+      removeInstallment: (no) => set((state) => ({
+        payment: {
+          ...state.payment,
+          installmentCount: Math.max(0, state.payment.installmentCount - 1),
+          installments: state.payment.installments
+            .filter((inst) => inst.no !== no)
+            .map((inst, idx) => ({
+              ...inst,
+              no: inst.no === 0 ? 0 : idx + (inst.no === 0 ? 0 : 1) // Peşinat hariç yeniden numarala
+            }))
+        }
+      })),
 
       // Contract Actions
       updateContract: (data) => set((state) => ({

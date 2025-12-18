@@ -13,6 +13,7 @@ interface ModernDatePickerProps {
   minYear?: number;
   maxYear?: number;
   className?: string;
+  dropdownPosition?: 'auto' | 'left' | 'right' | 'center';
 }
 
 const MONTHS_TR = [
@@ -32,10 +33,13 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
   minYear = 1950,
   maxYear = 2030,
   className = '',
+  dropdownPosition = 'auto',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days');
+  const [calculatedPosition, setCalculatedPosition] = useState<'left' | 'right' | 'center'>('left');
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Parse current value or use today
   const parseDate = (dateStr: string) => {
@@ -65,6 +69,24 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Dropdown pozisyonunu hesapla - ekranın dışına taşmasın
+  useEffect(() => {
+    if (isOpen && containerRef.current && dropdownPosition === 'auto') {
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const dropdownWidth = 288; // w-72 = 18rem = 288px
+      
+      // Sağda yeterli alan var mı?
+      if (rect.left + dropdownWidth > viewportWidth - 20) {
+        // Sağda alan yok, sola aç
+        setCalculatedPosition('right');
+      } else {
+        // Sola aç (varsayılan)
+        setCalculatedPosition('left');
+      }
+    }
+  }, [isOpen, dropdownPosition]);
 
   const formatDisplayDate = (date: Date | null) => {
     if (!date) return '';
@@ -262,7 +284,16 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
         </div>
 
         {isOpen && (
-          <div className="absolute z-[100] mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-in fade-in slide-in-from-top-2 duration-200 right-0 sm:right-auto sm:left-0">
+          <div 
+            ref={dropdownRef}
+            className={`absolute z-[100] mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-in fade-in slide-in-from-top-2 duration-200 ${
+              dropdownPosition === 'left' || (dropdownPosition === 'auto' && calculatedPosition === 'left')
+                ? 'left-0' 
+                : dropdownPosition === 'right' || (dropdownPosition === 'auto' && calculatedPosition === 'right')
+                  ? 'right-0'
+                  : 'left-1/2 -translate-x-1/2'
+            }`}
+          >
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               {viewMode === 'days' && (

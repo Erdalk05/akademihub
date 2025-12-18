@@ -1,21 +1,22 @@
 'use client';
 
-import React, { useEffect, useCallback } from 'react';
-import { CreditCard, Calculator, Percent, Coins, CalendarDays, CheckCircle, Sparkles } from 'lucide-react';
+import React, { useEffect, useCallback, useState } from 'react';
+import { CreditCard, Calculator, Percent, Coins, CalendarDays, CheckCircle, Sparkles, Edit3, Trash2, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useEnrollmentStore } from '../store';
 import { Section, InfoCard, Divider } from '../ui/Section';
 import { FormSelect } from '../ui/FormField';
 import { ModernDatePicker } from '@/components/ui/ModernDatePicker';
 
 export const PaymentSection = () => {
-  const { payment, updatePayment, calculateInstallments } = useEnrollmentStore();
+  const { payment, updatePayment, calculateInstallments, updateInstallment, addInstallment, removeInstallment } = useEnrollmentStore();
+  const [isManualMode, setIsManualMode] = useState(false);
 
-  // Taksit hesapla - otomatik güncelleme
+  // Taksit hesapla - otomatik güncelleme (sadece otomatik modda)
   const recalculate = useCallback(() => {
-    if (payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
+    if (!isManualMode && payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
       calculateInstallments();
     }
-  }, [payment.netFee, payment.downPayment, payment.installmentCount, payment.firstInstallmentDate, payment.downPaymentDate, calculateInstallments]);
+  }, [payment.netFee, payment.downPayment, payment.installmentCount, payment.firstInstallmentDate, payment.downPaymentDate, calculateInstallments, isManualMode]);
 
   useEffect(() => {
     recalculate();
@@ -124,12 +125,46 @@ export const PaymentSection = () => {
 
         <Divider label="Taksit Planı" />
 
-        {/* Otomatik Taksit Bilgi */}
-        <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-          <Sparkles className="w-5 h-5 text-indigo-500" />
-          <p className="text-sm text-indigo-700">
-            <span className="font-semibold">Otomatik Hesaplama:</span> Toplam ücret ve taksit sayısını girdiğinizde taksitler otomatik oluşturulur.
-          </p>
+        {/* Otomatik/Manuel Mod Seçimi */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-indigo-50 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-3">
+            {isManualMode ? (
+              <Edit3 className="w-5 h-5 text-orange-500" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-indigo-500" />
+            )}
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                {isManualMode ? 'Manuel Düzenleme Modu' : 'Otomatik Hesaplama Modu'}
+              </p>
+              <p className="text-xs text-slate-500">
+                {isManualMode 
+                  ? 'Her taksiti ayrı ayrı düzenleyebilirsiniz (kusuratlar için ideal)' 
+                  : 'Toplam ücret ve taksit sayısına göre otomatik hesaplanır'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsManualMode(!isManualMode)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              isManualMode 
+                ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+            }`}
+          >
+            {isManualMode ? (
+              <>
+                <ToggleRight className="w-5 h-5" />
+                Otomatiğe Geç
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-5 h-5" />
+                Manuale Geç
+              </>
+            )}
+          </button>
         </div>
 
         {/* Peşinat ve Tarih */}
@@ -231,6 +266,9 @@ export const PaymentSection = () => {
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Vade Tarihi</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600">Tutar</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600">Durum</th>
+                  {isManualMode && (
+                    <th className="px-4 py-3 text-center font-semibold text-slate-600">İşlem</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -245,17 +283,38 @@ export const PaymentSection = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="w-4 h-4 text-slate-400" />
-                        {new Date(inst.dueDate).toLocaleDateString('tr-TR', {
-                          day: '2-digit',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </div>
+                      {isManualMode ? (
+                        <input
+                          type="date"
+                          value={inst.dueDate}
+                          onChange={(e) => updateInstallment(inst.no, { dueDate: e.target.value })}
+                          className="w-full px-2 py-1 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="w-4 h-4 text-slate-400" />
+                          {new Date(inst.dueDate).toLocaleDateString('tr-TR', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
-                      {inst.amount.toLocaleString('tr-TR')} ₺
+                    <td className="px-4 py-3 text-right">
+                      {isManualMode ? (
+                        <input
+                          type="number"
+                          value={inst.amount || ''}
+                          onChange={(e) => updateInstallment(inst.no, { amount: Number(e.target.value) })}
+                          className="w-28 px-2 py-1 border border-slate-200 rounded-lg text-sm text-right font-semibold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                          placeholder="0"
+                        />
+                      ) : (
+                        <span className="font-semibold text-slate-800">
+                          {inst.amount.toLocaleString('tr-TR')} ₺
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`
@@ -271,19 +330,62 @@ export const PaymentSection = () => {
                         {inst.status === 'paid' ? 'Ödendi' : inst.status === 'overdue' ? 'Gecikmiş' : 'Bekliyor'}
                       </span>
                     </td>
+                    {isManualMode && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeInstallment(inst.no)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Taksiti Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
               <tfoot className="bg-slate-50">
                 <tr>
-                  <td colSpan={2} className="px-4 py-3 font-bold text-slate-700">TOPLAM</td>
-                  <td className="px-4 py-3 text-right font-bold text-indigo-600 text-lg">
-                    {payment.netFee.toLocaleString('tr-TR')} ₺
+                  <td colSpan={isManualMode ? 2 : 2} className="px-4 py-3 font-bold text-slate-700">
+                    TOPLAM
                   </td>
-                  <td></td>
+                  <td className="px-4 py-3 text-right font-bold text-indigo-600 text-lg">
+                    {payment.installments.reduce((sum, i) => sum + i.amount, 0).toLocaleString('tr-TR')} ₺
+                  </td>
+                  <td colSpan={isManualMode ? 2 : 1}></td>
                 </tr>
               </tfoot>
             </table>
+            
+            {/* Manuel modda taksit ekle butonu */}
+            {isManualMode && (
+              <div className="p-3 bg-slate-50 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={addInstallment}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-slate-300 rounded-lg text-slate-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Yeni Taksit Ekle
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Manuel modda taksit yoksa başlat butonu */}
+        {isManualMode && payment.installments.length === 0 && (
+          <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl text-center">
+            <p className="text-slate-500 mb-3">Henüz taksit eklenmedi</p>
+            <button
+              type="button"
+              onClick={addInstallment}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              İlk Taksiti Ekle
+            </button>
           </div>
         )}
       </div>
