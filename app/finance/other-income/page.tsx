@@ -33,6 +33,7 @@ import {
 import toast from 'react-hot-toast';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { usePermission } from '@/lib/hooks/usePermission';
+import { AdminPasswordModal } from '@/components/ui/AdminPasswordModal';
 
 // Kategoriler
 const CATEGORIES = [
@@ -120,6 +121,11 @@ export default function OtherIncomePage() {
   const [reportStartDate, setReportStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<OtherIncomeRow[]>([]);
+
+  // Silme States (Admin şifre doğrulamalı)
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'group'; id?: string; studentId?: string; category?: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch Data
   useEffect(() => {
@@ -437,17 +443,55 @@ export default function OtherIncomePage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
+  // Tek kayıt silme isteği (admin şifre doğrulaması için modal açar)
+  const handleRequestDelete = (id: string) => {
+    setDeleteTarget({ type: 'single', id });
+    setShowDeleteModal(true);
+  };
+
+  // Grup silme isteği (öğrenci + kategori bazında tüm kayıtları siler)
+  const handleRequestDeleteGroup = (studentId: string | null, category: string) => {
+    setDeleteTarget({ type: 'group', studentId: studentId || undefined, category });
+    setShowDeleteModal(true);
+  };
+
+  // Şifre doğrulandıktan sonra silme işlemini gerçekleştir
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeleteLoading(true);
     try {
-      const res = await fetch(`/api/finance/other-income?id=${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.success) {
-        toast.success('Kayıt silindi');
-        fetchData();
+      if (deleteTarget.type === 'single' && deleteTarget.id) {
+        // Tek kayıt sil
+        const res = await fetch(`/api/finance/other-income?id=${deleteTarget.id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          toast.success('Kayıt silindi');
+          fetchData();
+        } else {
+          toast.error(json.error || 'Silme başarısız');
+        }
+      } else if (deleteTarget.type === 'group') {
+        // Grup sil (öğrenci + kategori)
+        const params = new URLSearchParams();
+        if (deleteTarget.studentId) params.append('student_id', deleteTarget.studentId);
+        if (deleteTarget.category) params.append('category', deleteTarget.category);
+        
+        const res = await fetch(`/api/finance/other-income?${params.toString()}&delete_all=true`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          toast.success(`${json.deletedCount || 'Tüm'} kayıt silindi`);
+          fetchData();
+        } else {
+          toast.error(json.error || 'Silme başarısız');
+        }
       }
     } catch {
       toast.error('Silme işlemi başarısız');
+    } finally {
+      setDeleteLoading(false);
+      setDeleteTarget(null);
+      setShowDeleteModal(false);
     }
   };
 
@@ -844,19 +888,30 @@ export default function OtherIncomePage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            {group.studentId && (
-                              <Link
-                                href={`/students/${group.studentId}?tab=finance`}
-                                className="px-4 py-2 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition flex items-center gap-1.5"
-                              >
-                                <Users size={14} />
-                                Detay & Tahsilat
-                              </Link>
-                            )}
-                          </div>
-                        </td>
+<td className="px-4 py-4">
+                                          <div className="flex items-center justify-center gap-2">
+                                            {group.studentId && (
+                                              <Link
+                                                href={`/students/${group.studentId}?tab=finance`}
+                                                className="px-4 py-2 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition flex items-center gap-1.5"
+                                              >
+                                                <Users size={14} />
+                                                Detay & Tahsilat
+                                              </Link>
+                                            )}
+                                            {/* Sil Butonu - Sadece Admin */}
+                                            {isAdmin && (
+                                              <button
+                                                onClick={() => handleRequestDeleteGroup(group.studentId, group.category)}
+                                                className="px-3 py-2 bg-red-100 text-red-600 text-xs font-medium rounded-lg hover:bg-red-200 transition flex items-center gap-1.5"
+                                                title="Bu öğrencinin bu kategorideki tüm kayıtlarını sil"
+                                              >
+                                                <Trash2 size={14} />
+                                                Sil
+                                              </button>
+                                            )}
+                                          </div>
+                                        </td>
                       </tr>
                     );
                   })}
@@ -1201,6 +1256,24 @@ export default function OtherIncomePage() {
           </div>
         </div>
       )}
+
+      {/* ADMİN ŞİFRE DOĞRULAMA MODAL - SİLME İÇİN */}
+      <AdminPasswordModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Silme Onayı"
+        description={
+          deleteTarget?.type === 'group' 
+            ? 'Bu öğrencinin bu kategorideki TÜM kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz!'
+            : 'Bu kayıt kalıcı olarak silinecek. Bu işlem geri alınamaz!'
+        }
+        confirmText={deleteLoading ? 'Siliniyor...' : 'Sil'}
+        dangerAction={true}
+      />
 
       {/* TAHSİLAT MODAL */}
       {showPaymentModal && selectedIncome && (

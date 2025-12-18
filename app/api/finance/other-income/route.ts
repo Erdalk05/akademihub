@@ -126,13 +126,43 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Diğer gelir sil
+// DELETE - Diğer gelir sil (tek veya grup)
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
     
+    const id = searchParams.get('id');
+    const studentId = searchParams.get('student_id');
+    const category = searchParams.get('category');
+    const deleteAll = searchParams.get('delete_all') === 'true';
+    
+    // Grup silme (öğrenci + kategori bazında)
+    if (deleteAll && (studentId || category)) {
+      let query = supabase.from('other_income').delete();
+      
+      if (studentId) {
+        query = query.eq('student_id', studentId);
+      }
+      if (category) {
+        query = query.eq('category', category);
+      }
+      
+      const { data, error } = await query.select();
+      
+      if (error) {
+        console.error('Other income group delete error:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Kayıtlar silindi',
+        deletedCount: data?.length || 0
+      });
+    }
+    
+    // Tek kayıt silme
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'ID gerekli' },
