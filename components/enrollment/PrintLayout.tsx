@@ -272,50 +272,80 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <style>{`
         @media print {
           @page { 
-            size: A4; 
-            margin: 8mm; 
+            size: A4 portrait; 
+            margin: 10mm; 
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           html, body { 
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
             font-size: 10px !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
           }
           #enrollment-print-layout {
             background: white !important;
             min-height: auto !important;
+            position: static !important;
+            overflow: visible !important;
           }
-          .toolbar-hide { 
+          .toolbar-hide, .no-print { 
             display: none !important; 
             visibility: hidden !important;
             height: 0 !important;
+            width: 0 !important;
             overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
           }
-          #print-content { 
+          #print-content, .print-content { 
             padding: 0 !important;
             margin: 0 !important;
+            padding-top: 0 !important;
+            display: block !important;
+            visibility: visible !important;
+            position: static !important;
+            overflow: visible !important;
+            background: white !important;
           }
           .print-page { 
+            display: block !important;
+            visibility: visible !important;
             box-shadow: none !important; 
             margin: 0 !important;
-            padding: 8mm !important;
+            padding: 10mm !important;
             background: white !important;
             page-break-inside: avoid !important;
             max-width: 100% !important;
             width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
             border-radius: 0 !important;
+            position: static !important;
+            overflow: visible !important;
           }
           .page-break-after {
-            page-break-after: always;
+            page-break-after: always !important;
+            break-after: page !important;
           }
           table { 
             border-collapse: collapse !important; 
-            width: 100% !important; 
+            width: 100% !important;
+            page-break-inside: avoid !important;
           }
           th, td {
-            font-size: 11pt !important;
+            font-size: 10pt !important;
+            padding: 6px 8px !important;
+          }
+          /* Tüm içeriği görünür yap */
+          div, p, span, h1, h2, h3, h4, table, tr, td, th {
+            visibility: visible !important;
           }
         }
         @media screen { 
@@ -327,7 +357,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         }
       `}</style>
 
-      <div id="print-content" ref={printContentRef} style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
+      <div id="print-content" ref={printContentRef} className="print-content" style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
         <div className="print-page page-break-after" style={{ width: '794px', height: '1123px', margin: '0 auto', backgroundColor: '#fff', padding: '30px 35px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
