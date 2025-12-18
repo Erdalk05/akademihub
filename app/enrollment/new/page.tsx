@@ -154,6 +154,19 @@ function EnrollmentContent() {
         studentData.installment_count = regularInstallments.length;
         studentData.monthly_installment = regularInstallments.length > 0 ? regularInstallments[0].amount : 0;
         studentData.first_installment_date = regularInstallments.length > 0 ? regularInstallments[0].due_date : '';
+        
+        console.log('[Enrollment] Taksit bilgileri yüklendi:', { totalFee, paidAmount, installmentCount: regularInstallments.length });
+      } else {
+        // Taksit yoksa students tablosundaki değerleri kullan
+        console.log('[Enrollment] Taksit bulunamadı, students tablosundan değerler kullanılacak:', {
+          total_amount: studentData.total_amount,
+          balance: studentData.balance
+        });
+        
+        // Eğer students tablosunda da değer yoksa varsayılan değerler kullan
+        if (!studentData.total_amount && !studentData.balance) {
+          console.warn('[Enrollment] ⚠️ Öğrenci için ödeme bilgisi bulunamadı!');
+        }
       }
       
       // Store'a düzenleme için yükle

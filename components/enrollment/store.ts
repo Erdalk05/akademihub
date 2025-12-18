@@ -364,16 +364,27 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
         };
 
         // Ödeme bilgileri - mevcut taksit bilgilerinden yükle
+        // ÖNEMLİ: Eğer total_amount 0 ise varsayılan bir değer kullan
+        const totalAmount = studentData.total_amount || studentData.balance || 0;
+        const instCount = studentData.installment_count || 9;
+        const monthlyInst = totalAmount > 0 && instCount > 0 
+          ? Math.ceil(totalAmount / instCount) 
+          : studentData.monthly_installment || 0;
+        
         const payment = {
           ...defaultPayment,
-          totalFee: studentData.total_amount || 0,
-          netFee: studentData.total_amount || 0,
+          totalFee: totalAmount,
+          netFee: totalAmount,
+          discount: 0,
           downPayment: studentData.down_payment || 0,
           downPaymentDate: new Date().toISOString().split('T')[0],
-          installmentCount: studentData.installment_count || 9,
-          monthlyInstallment: studentData.monthly_installment || 0,
-          firstInstallmentDate: studentData.first_installment_date || '',
+          installmentCount: instCount,
+          monthlyInstallment: monthlyInst,
+          firstInstallmentDate: studentData.first_installment_date || new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+          installments: [], // Taksitler yeniden hesaplanacak
         };
+        
+        console.log('[Store] loadForEditing payment:', { totalAmount, instCount, monthlyInst });
 
         // Sözleşme bilgileri
         const contract = { ...defaultContract };

@@ -100,9 +100,10 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       parent_name: primaryGuardian ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}`.trim() : null,
       parent_phone: primaryGuardian?.phone || null,
       // Finansal bilgiler - ÖNEMLİ!
-      total_amount: data.payment.netFee || 0,
+      // effectiveNetFee henüz tanımlı değil, burada hesapla
+      total_amount: data.payment.netFee > 0 ? data.payment.netFee : (data.payment.totalFee || 0),
       paid_amount: previousPaidAmount,
-      balance: (data.payment.netFee || 0) - previousPaidAmount,
+      balance: (data.payment.netFee > 0 ? data.payment.netFee : (data.payment.totalFee || 0)) - previousPaidAmount,
       // Durum
       status: 'active',
       updated_at: new Date().toISOString()
@@ -178,7 +179,19 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
     // 3. Finance_Installments tablosuna taksitleri ekle/güncelle
     // ⚠️ GÜNCELLEME MODUNDA: Ödenmiş taksitleri KORU, ödenmemişleri sil ve yenilerini oluştur
     
-    if (data.payment.netFee > 0 && data.payment.installmentCount > 0) {
+    console.log('[Taksit Kontrolü] Ödeme bilgileri:', {
+      netFee: data.payment.netFee,
+      installmentCount: data.payment.installmentCount,
+      totalFee: data.payment.totalFee,
+      existingStudentId: existingStudentId
+    });
+    
+    // Taksit oluşturma koşulu: netFee > 0 VE installmentCount > 0
+    // Ayrıca: installmentCount tanımlı değilse varsayılan 9 kullan
+    const effectiveInstallmentCount = data.payment.installmentCount > 0 ? data.payment.installmentCount : 9;
+    const effectiveNetFee = data.payment.netFee > 0 ? data.payment.netFee : data.payment.totalFee || 0;
+    
+    if (effectiveNetFee > 0 && effectiveInstallmentCount > 0) {
       
       // GÜNCELLEME MODUNDA: Önce mevcut durumu kontrol et
       if (existingStudentId) {
@@ -204,8 +217,16 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       const today = new Date();
       const downPayment = data.payment.downPayment || 0;
       const downPaymentDate = data.payment.downPaymentDate ? new Date(data.payment.downPaymentDate) : today;
-      const remaining = data.payment.netFee - downPayment;
-      const monthlyAmount = Math.ceil(remaining / data.payment.installmentCount);
+      const remaining = effectiveNetFee - downPayment;
+      const monthlyAmount = Math.ceil(remaining / effectiveInstallmentCount);
+      
+      console.log('[Taksit Hesaplama]', {
+        effectiveNetFee,
+        effectiveInstallmentCount,
+        downPayment,
+        remaining,
+        monthlyAmount
+      });
       
       // Peşinat varsa ekle (kendi tarihi ile)
       if (downPayment > 0) {
@@ -230,13 +251,13 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
         : new Date(today.setMonth(today.getMonth() + 1));
       
       // Taksitleri ekle
-      for (let i = 1; i <= data.payment.installmentCount; i++) {
+      for (let i = 1; i <= effectiveInstallmentCount; i++) {
         const dueDate = new Date(firstInstallmentDate);
         dueDate.setMonth(firstInstallmentDate.getMonth() + (i - 1));
         
-        const isLast = i === data.payment.installmentCount;
+        const isLast = i === effectiveInstallmentCount;
         const amount = isLast 
-          ? remaining - (monthlyAmount * (data.payment.installmentCount - 1))
+          ? remaining - (monthlyAmount * (effectiveInstallmentCount - 1))
           : monthlyAmount;
         
         const installmentRecord: Record<string, any> = {
@@ -255,14 +276,36 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       }
 
       if (installments.length > 0) {
-        const { error: installmentsError } = await supabase
+        console.log(`[Taksit Oluşturma] ${installments.length} taksit oluşturuluyor...`, {
+          student_id: studentRecord.id,
+          netFee: data.payment.netFee,
+          installmentCount: data.payment.installmentCount
+        });
+        
+        const { data: insertedInstallments, error: installmentsError } = await supabase
           .from('finance_installments')
-          .insert(installments);
+          .insert(installments)
+          .select();
 
         if (installmentsError) {
-          console.error('Installments insert error:', installmentsError);
+          console.error('❌ Taksit oluşturma hatası:', installmentsError);
+          // Hata durumunda bile devam et ama kullanıcıya bildir
+          console.error('Taksit verileri:', JSON.stringify(installments, null, 2));
+        } else {
+          console.log(`✅ ${insertedInstallments?.length || 0} taksit başarıyla oluşturuldu`);
         }
+      } else {
+        console.warn('⚠️ Oluşturulacak taksit yok!', {
+          netFee: data.payment.netFee,
+          installmentCount: data.payment.installmentCount,
+          downPayment: data.payment.downPayment
+        });
       }
+    } else {
+      console.warn('⚠️ Taksit oluşturma koşulları sağlanmadı:', {
+        netFee: data.payment.netFee,
+        installmentCount: data.payment.installmentCount
+      });
     }
 
     // 4. Finance log kaydı
