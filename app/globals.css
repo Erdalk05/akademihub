@@ -158,3 +158,129 @@ button, a, [role="button"] {
     padding-bottom: 0.5rem;
   }
 }
+
+/* ===================== */
+/* 🖨️ KAYIT FORMU YAZDIRMA STİLLERİ */
+/* ===================== */
+
+@media print {
+  @page { 
+    size: A4 portrait; 
+    margin: 8mm; 
+  }
+  
+  /* GLOBAL RESET */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  html, body { 
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 11px !important;
+  }
+  
+  /* ANA CONTAINER */
+  #enrollment-print-layout {
+    background: white !important;
+    min-height: auto !important;
+    position: static !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  
+  /* TOOLBAR GİZLE */
+  .toolbar-hide, 
+  .no-print, 
+  [class*="toolbar"],
+  header,
+  nav,
+  aside,
+  .sidebar,
+  button:not(.print-visible) { 
+    display: none !important; 
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+    opacity: 0 !important;
+  }
+  
+  /* PRINT CONTENT */
+  #print-content, 
+  .print-content { 
+    padding: 0 !important;
+    margin: 0 !important;
+    padding-top: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    overflow: visible !important;
+    background: white !important;
+    width: 100% !important;
+  }
+  
+  /* SAYFA */
+  .print-page { 
+    display: block !important;
+    visibility: visible !important;
+    box-shadow: none !important; 
+    margin: 0 !important;
+    padding: 8mm !important;
+    background: white !important;
+    page-break-inside: avoid !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    border-radius: 0 !important;
+    position: static !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* SAYFA SONU */
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  
+  /* TABLOLAR */
+  table { 
+    border-collapse: collapse !important; 
+    width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+  thead { display: table-header-group !important; }
+  tbody { display: table-row-group !important; }
+  tr { display: table-row !important; }
+  th, td {
+    font-size: 10pt !important;
+    padding: 5px 8px !important;
+    border: 1px solid #ccc !important;
+  }
+  
+  /* TÜM İÇERİKLER GÖRÜNÜR */
+  .print-page div, 
+  .print-page p, 
+  .print-page span, 
+  .print-page h1, 
+  .print-page h2, 
+  .print-page h3, 
+  .print-page h4,
+  .print-page table,
+  .print-page tr,
+  .print-page td,
+  .print-page th {
+    visibility: visible !important;
+    color: #000 !important;
+  }
+}
