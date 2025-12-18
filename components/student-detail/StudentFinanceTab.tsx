@@ -121,6 +121,39 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   
   // Eski Kayıt Formu Accordion
   const [showOldEnrollmentInfo, setShowOldEnrollmentInfo] = useState(false);
+  
+  // Taksit silme
+  const [deletingInstallmentId, setDeletingInstallmentId] = useState<string | null>(null);
+  
+  // Taksit Sil Fonksiyonu
+  const handleDeleteInstallment = async (installmentId: string, isPaid: boolean) => {
+    const confirmMessage = isPaid 
+      ? '⚠️ DİKKAT: Bu taksit için ödeme yapılmış!\n\nYine de silmek istiyor musunuz? Ödeme tutarı bakiyeden düşülecektir.'
+      : 'Bu taksiti silmek istediğinizden emin misiniz?';
+    
+    if (!confirm(confirmMessage)) return;
+    
+    setDeletingInstallmentId(installmentId);
+    try {
+      const response = await fetch(`/api/installments/${installmentId}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Taksit silindi');
+        fetchInstallments();
+        onRefresh?.();
+      } else {
+        toast.error(data.error || 'Taksit silinemedi');
+      }
+    } catch (error: any) {
+      toast.error('Hata: ' + error.message);
+    } finally {
+      setDeletingInstallmentId(null);
+    }
+  };
 
   const fetchInstallments = useCallback(async () => {
     setLoading(true);
@@ -1184,6 +1217,19 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                               Tahsil Et
                             </button>
                           )}
+                          {/* SİL BUTONU */}
+                          <button
+                            onClick={() => handleDeleteInstallment(installment.id, installment.status === 'paid')}
+                            disabled={deletingInstallmentId === installment.id}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
+                            title="Taksiti Sil"
+                          >
+                            {deletingInstallmentId === installment.id ? (
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </button>
                         </div>
                       </td>
                     </tr>
