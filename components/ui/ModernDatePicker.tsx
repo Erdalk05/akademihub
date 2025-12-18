@@ -77,13 +77,25 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
       const viewportWidth = window.innerWidth;
       const dropdownWidth = 288; // w-72 = 18rem = 288px
       
-      // Sağda yeterli alan var mı?
-      if (rect.left + dropdownWidth > viewportWidth - 20) {
-        // Sağda alan yok, sola aç
+      // Container'ın sağ kenarı
+      const containerRight = rect.right;
+      // Container'ın sol kenarı
+      const containerLeft = rect.left;
+      
+      // Sağda yeterli alan var mı? (dropdown left-0 ile açılırsa)
+      const spaceOnRight = viewportWidth - containerLeft;
+      // Solda yeterli alan var mı? (dropdown right-0 ile açılırsa)
+      const spaceOnLeft = containerRight;
+      
+      if (spaceOnRight >= dropdownWidth + 20) {
+        // Soldan aç (left-0) - Sağda yeterli alan var
+        setCalculatedPosition('left');
+      } else if (spaceOnLeft >= dropdownWidth + 20) {
+        // Sağdan aç (right-0) - Solda yeterli alan var
         setCalculatedPosition('right');
       } else {
-        // Sola aç (varsayılan)
-        setCalculatedPosition('left');
+        // Her iki tarafta da yeterli alan yok, ortala ve ekranın içinde tut
+        setCalculatedPosition('center');
       }
     }
   }, [isOpen, dropdownPosition]);
@@ -286,6 +298,10 @@ export const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
         {isOpen && (
           <div 
             ref={dropdownRef}
+            style={{
+              // Ekran dışına taşmayı engellemek için max pozisyon
+              maxWidth: 'calc(100vw - 24px)',
+            }}
             className={`absolute z-[100] mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-in fade-in slide-in-from-top-2 duration-200 ${
               dropdownPosition === 'left' || (dropdownPosition === 'auto' && calculatedPosition === 'left')
                 ? 'left-0' 

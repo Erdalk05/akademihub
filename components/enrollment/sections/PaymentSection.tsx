@@ -239,6 +239,7 @@ export const PaymentSection = () => {
             required
             minYear={2024}
             maxYear={2030}
+            dropdownPosition="right"
           />
         </div>
 
