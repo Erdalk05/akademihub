@@ -15,7 +15,8 @@ import {
   Pencil,
   Package,
   Plus,
-  Trash2
+  Trash2,
+  Clock
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -1423,9 +1424,54 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600"></div>
           </div>
         ) : installments.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-8 text-center">
             <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>Henüz taksit planı oluşturulmamış.</p>
+            <p className="text-gray-500 mb-4">Henüz taksit planı oluşturulmamış.</p>
+            
+            {/* Debug bilgileri - Sorunu anlamak için */}
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left text-sm">
+              <p className="font-semibold text-yellow-800 mb-2">📊 Öğrenci Finans Durumu:</p>
+              <ul className="text-yellow-700 space-y-1">
+                <li>• Toplam Tutar (students.total_amount): <strong>₺{(student.total_amount || 0).toLocaleString('tr-TR')}</strong></li>
+                <li>• Ödenen (students.paid_amount): <strong>₺{(student.paid_amount || 0).toLocaleString('tr-TR')}</strong></li>
+                <li>• Kalan Borç (students.balance): <strong>₺{(student.balance || 0).toLocaleString('tr-TR')}</strong></li>
+                <li>• Öğrenci ID: <code className="bg-yellow-100 px-1 rounded">{student.id}</code></li>
+              </ul>
+              
+              {(student.total_amount || 0) > 0 ? (
+                <div className="mt-3 p-2 bg-green-100 border border-green-300 rounded">
+                  <p className="text-green-800">
+                    ✅ <strong>Çözüm:</strong> Toplam tutar mevcut. "Yeniden Taksitlendir" butonunu kullanarak taksit planı oluşturabilirsiniz.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded">
+                  <p className="text-red-800">
+                    ❌ <strong>Sorun:</strong> Öğrencinin toplam tutarı 0. Önce "Bilgileri Güncelle" ile ödeme bilgilerini girin.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Çözüm Butonları */}
+            <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              {(student.total_amount || 0) > 0 && (
+                <button
+                  onClick={() => setShowRestructureModal(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                  Taksit Planı Oluştur
+                </button>
+              )}
+              <button
+                onClick={() => window.location.href = `/enrollment/new?edit=${student.id}`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium border border-gray-300"
+              >
+                <Pencil className="h-5 w-5" />
+                Bilgileri Güncelle
+              </button>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
