@@ -11,61 +11,125 @@ const supabaseAdmin = createClient(
 /**
  * POST /api/migration/update-academic-year
  * Tüm 2024-2025 kayıtlarını 2025-2026 olarak günceller
+ * academic_year_id (UUID) kullanarak güncelleme yapar
  */
 export async function POST(request: NextRequest) {
   try {
     const { sourceYear = '2024-2025', targetYear = '2025-2026' } = await request.json().catch(() => ({}));
 
-    // 1. academic_years tablosunda aktif yılı güncelle
-    // Önce eski yılı pasif yap
+    // 1. Hedef yılın ID'sini bul
+    const { data: targetYearData, error: targetYearError } = await supabaseAdmin
+      .from('academic_years')
+      .select('id, name')
+      .eq('name', targetYear)
+      .single();
+
+    if (targetYearError || !targetYearData) {
+      // Hedef yıl yoksa oluştur
+      const { data: newYear, error: createError } = await supabaseAdmin
+        .from('academic_years')
+        .insert({
+          name: targetYear,
+          display_name: `Eğitim Öğretim Yılı ${targetYear}`,
+          start_date: `${targetYear.split('-')[0]}-09-01`,
+          end_date: `${targetYear.split('-')[1]}-08-31`,
+          is_active: true,
+          is_current: true,
+          is_closed: false
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.log('Year create warning:', createError.message);
+      }
+    }
+
+    // 2. Kaynak yılın ID'sini bul
+    const { data: sourceYearData } = await supabaseAdmin
+      .from('academic_years')
+      .select('id')
+      .eq('name', sourceYear)
+      .single();
+
+    const sourceYearId = sourceYearData?.id;
+
+    // 3. Hedef yılın ID'sini tekrar al
+    const { data: finalTargetYear } = await supabaseAdmin
+      .from('academic_years')
+      .select('id')
+      .eq('name', targetYear)
+      .single();
+
+    const targetYearId = finalTargetYear?.id;
+
+    if (!targetYearId) {
+      throw new Error('Hedef akademik yıl bulunamadı veya oluşturulamadı');
+    }
+
+    // 4. academic_years tablosunda aktif yılı güncelle
     await supabaseAdmin
       .from('academic_years')
       .update({ is_active: false, is_current: false })
       .eq('name', sourceYear);
 
-    // Yeni yılı aktif yap
-    const { error: yearError } = await supabaseAdmin
+    await supabaseAdmin
       .from('academic_years')
       .update({ is_active: true, is_current: true })
       .eq('name', targetYear);
 
-    if (yearError) {
-      console.log('Academic year update warning:', yearError.message);
+    // 5. Öğrencilerin academic_year_id'sini güncelle
+    let studentsUpdated = 0;
+    
+    if (sourceYearId) {
+      // Kaynak yıldaki öğrencileri hedef yıla taşı
+      const { data, error } = await supabaseAdmin
+        .from('students')
+        .update({ academic_year_id: targetYearId })
+        .eq('academic_year_id', sourceYearId)
+        .select('id');
+      
+      if (!error) studentsUpdated = data?.length || 0;
     }
-
-    // 2. Öğrencilerin academic_year alanını güncelle
-    const { data: studentsUpdated, error: studentsError } = await supabaseAdmin
+    
+    // NULL olanları da güncelle
+    const { data: nullStudents, error: nullError } = await supabaseAdmin
       .from('students')
-      .update({ academic_year: targetYear })
-      .or(`academic_year.eq.${sourceYear},academic_year.is.null`)
+      .update({ academic_year_id: targetYearId })
+      .is('academic_year_id', null)
       .select('id');
+    
+    if (!nullError) studentsUpdated += nullStudents?.length || 0;
 
-    if (studentsError) {
-      throw new Error(`Öğrenci güncellemesi başarısız: ${studentsError.message}`);
+    // 6. Taksitlerin academic_year_id'sini güncelle
+    let installmentsUpdated = 0;
+    
+    if (sourceYearId) {
+      const { data, error } = await supabaseAdmin
+        .from('finance_installments')
+        .update({ academic_year_id: targetYearId })
+        .eq('academic_year_id', sourceYearId)
+        .select('id');
+      
+      if (!error) installmentsUpdated = data?.length || 0;
     }
-
-    // 3. Taksitlerin academic_year alanını güncelle
-    const { data: installmentsUpdated, error: installmentsError } = await supabaseAdmin
+    
+    const { data: nullInstallments, error: nullInstError } = await supabaseAdmin
       .from('finance_installments')
-      .update({ academic_year: targetYear })
-      .or(`academic_year.eq.${sourceYear},academic_year.is.null`)
+      .update({ academic_year_id: targetYearId })
+      .is('academic_year_id', null)
       .select('id');
-
-    if (installmentsError) {
-      console.log('Installment update warning:', installmentsError.message);
-    }
-
-    // 4. Sonuç bilgisi
-    const studentCount = studentsUpdated?.length || 0;
-    const installmentCount = installmentsUpdated?.length || 0;
+    
+    if (!nullInstError) installmentsUpdated += nullInstallments?.length || 0;
 
     return NextResponse.json({
       success: true,
       message: `Akademik yıl ${sourceYear} → ${targetYear} olarak güncellendi`,
       details: {
-        studentsUpdated: studentCount,
-        installmentsUpdated: installmentCount,
-        activeYear: targetYear
+        studentsUpdated,
+        installmentsUpdated,
+        activeYear: targetYear,
+        targetYearId
       }
     });
 
