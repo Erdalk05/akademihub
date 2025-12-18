@@ -12,7 +12,9 @@ import {
   GraduationCap,
   Search,
   Check,
-  Loader2
+  Loader2,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -120,6 +122,8 @@ export default function UnifiedPaymentModal({
   const [title, setTitle] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [notes, setNotes] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isBackdatedPayment, setIsBackdatedPayment] = useState(false);
   
   // Loading
   const [loading, setLoading] = useState(false);
@@ -137,8 +141,20 @@ export default function UnifiedPaymentModal({
       setPaymentMethod('cash');
       setNotes('');
       setSelectedInstallment(null);
+      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setIsBackdatedPayment(false);
     }
   }, [isOpen, preSelectedCategory, preSelectedStudent]);
+  
+  // Tarih değişikliği kontrolü
+  const handleDateChange = (newDate: string) => {
+    setPaymentDate(newDate);
+    const selectedDate = new Date(newDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    setIsBackdatedPayment(selectedDate < today);
+  };
 
   // Fetch students
   useEffect(() => {
@@ -231,6 +247,11 @@ export default function UnifiedPaymentModal({
   const handleSubmit = async () => {
     setSaving(true);
     
+    // Seçilen tarihi hazırla
+    const selectedPaymentDate = new Date(paymentDate);
+    selectedPaymentDate.setHours(12, 0, 0, 0);
+    const paymentNotes = notes + (isBackdatedPayment ? ' [Geçmiş tarihli ödeme]' : '');
+    
     try {
       if (selectedCategory === 'tuition' && selectedInstallment) {
         // Pay tuition installment
@@ -241,7 +262,8 @@ export default function UnifiedPaymentModal({
             installmentId: selectedInstallment.id,
             amount: Number(amount),
             paymentMethod,
-            notes
+            notes: paymentNotes,
+            payment_date: selectedPaymentDate.toISOString()
           })
         });
         
@@ -264,7 +286,8 @@ export default function UnifiedPaymentModal({
             category: selectedCategory,
             amount: Number(amount),
             payment_type: paymentMethod,
-            notes
+            notes: paymentNotes,
+            date: selectedPaymentDate.toISOString()
           })
         });
         
@@ -503,6 +526,34 @@ export default function UnifiedPaymentModal({
                     <span className="text-xl font-bold text-emerald-600">₺{Number(amount).toLocaleString('tr-TR')}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Ödeme Tarihi */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <Calendar size={16} />
+                    Ödeme Tarihi
+                  </span>
+                </label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none ${
+                    isBackdatedPayment 
+                      ? 'border-orange-400 bg-orange-50' 
+                      : 'border-slate-200'
+                  }`}
+                />
+                {isBackdatedPayment && (
+                  <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                    <p className="text-xs text-orange-700 flex items-center gap-1.5">
+                      <Clock size={14} />
+                      <span><strong>Geçmiş tarihli ödeme:</strong> Bu ödeme {new Date(paymentDate).toLocaleDateString('tr-TR')} tarihine kaydedilecek.</span>
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Payment Method */}
