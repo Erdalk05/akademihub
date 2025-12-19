@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback, useState } from 'react';
-import { CreditCard, Calculator, Percent, Coins, CalendarDays, CheckCircle, Sparkles, Edit3, Trash2, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { CreditCard, Calculator, Percent, Coins, CalendarDays, CheckCircle, Sparkles, Edit3, Trash2, Plus, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { useEnrollmentStore } from '../store';
 import { Section, InfoCard, Divider } from '../ui/Section';
 import { FormSelect } from '../ui/FormField';
@@ -10,6 +10,8 @@ import { ModernDatePicker } from '@/components/ui/ModernDatePicker';
 export const PaymentSection = () => {
   const { payment, updatePayment, calculateInstallments, updateInstallment, addInstallment, removeInstallment } = useEnrollmentStore();
   const [isManualMode, setIsManualMode] = useState(false);
+  const [customFirstInstallment, setCustomFirstInstallment] = useState<number | null>(null);
+  const [useCustomFirst, setUseCustomFirst] = useState(false);
 
   // Taksit hesapla - otomatik güncelleme (sadece otomatik modda)
   const recalculate = useCallback(() => {
@@ -21,6 +23,42 @@ export const PaymentSection = () => {
   useEffect(() => {
     recalculate();
   }, [recalculate]);
+
+  // İlk taksit özelleştirildiğinde diğer taksitleri yeniden hesapla
+  const recalculateWithCustomFirst = useCallback(() => {
+    if (!useCustomFirst || customFirstInstallment === null || payment.installments.length === 0) return;
+    
+    const afterDownPayment = payment.netFee - payment.downPayment;
+    const remainingAfterFirst = afterDownPayment - customFirstInstallment;
+    const remainingInstallmentCount = payment.installmentCount - 1;
+    
+    if (remainingInstallmentCount <= 0 || remainingAfterFirst < 0) return;
+    
+    const eachRemaining = Math.floor(remainingAfterFirst / remainingInstallmentCount);
+    const lastInstallmentExtra = remainingAfterFirst - (eachRemaining * remainingInstallmentCount);
+    
+    // Taksitleri güncelle
+    payment.installments.forEach((inst, index) => {
+      if (inst.no === 0) return; // Peşinat
+      
+      if (index === 1) {
+        // İlk taksit (özelleştirilmiş)
+        updateInstallment(inst.no, { amount: customFirstInstallment });
+      } else if (index === payment.installments.length - 1) {
+        // Son taksit (kalan küsurat)
+        updateInstallment(inst.no, { amount: eachRemaining + lastInstallmentExtra });
+      } else {
+        // Diğer taksitler (eşit)
+        updateInstallment(inst.no, { amount: eachRemaining });
+      }
+    });
+  }, [useCustomFirst, customFirstInstallment, payment.netFee, payment.downPayment, payment.installmentCount, payment.installments, updateInstallment]);
+
+  useEffect(() => {
+    if (useCustomFirst && customFirstInstallment !== null) {
+      recalculateWithCustomFirst();
+    }
+  }, [useCustomFirst, customFirstInstallment]);
 
   // Varsayılan tarihler ayarla
   useEffect(() => {
@@ -125,6 +163,72 @@ export const PaymentSection = () => {
 
         <Divider label="Taksit Planı" />
 
+        {/* İlk Taksit Özelleştirme - Yeni Özellik */}
+        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <input
+                type="checkbox"
+                id="useCustomFirst"
+                checked={useCustomFirst}
+                onChange={(e) => {
+                  setUseCustomFirst(e.target.checked);
+                  if (!e.target.checked) {
+                    setCustomFirstInstallment(null);
+                    // Otomatik hesaplamaya geri dön
+                    if (!isManualMode) {
+                      calculateInstallments();
+                    }
+                  }
+                }}
+                className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+              />
+            </div>
+            <div className="flex-1">
+              <label htmlFor="useCustomFirst" className="block text-sm font-semibold text-amber-800 cursor-pointer">
+                İlk Taksiti Özelleştir
+              </label>
+              <p className="text-xs text-amber-600 mt-0.5">
+                İlk taksit tutarını farklı girin, kalan taksitler otomatik eşit dağılsın
+              </p>
+              
+              {useCustomFirst && (
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="relative flex-1 max-w-xs">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-semibold">₺</span>
+                    <input
+                      type="number"
+                      value={customFirstInstallment || ''}
+                      onChange={(e) => setCustomFirstInstallment(Number(e.target.value))}
+                      placeholder="İlk taksit tutarı"
+                      className="w-full pl-8 pr-3 py-2.5 border-2 border-amber-300 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-white"
+                    />
+                  </div>
+                  {customFirstInstallment && customFirstInstallment > 0 && (
+                    <div className="text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-lg">
+                      <span className="font-medium">Kalan taksitler:</span>{' '}
+                      {(() => {
+                        const afterDownPayment = payment.netFee - payment.downPayment;
+                        const remaining = afterDownPayment - customFirstInstallment;
+                        const count = payment.installmentCount - 1;
+                        if (count <= 0) return '—';
+                        return `${Math.floor(remaining / count).toLocaleString('tr-TR')} ₺ x ${count}`;
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {useCustomFirst && customFirstInstallment && customFirstInstallment > (payment.netFee - payment.downPayment) && (
+                <div className="mt-2 flex items-center gap-2 text-red-600 text-xs">
+                  <AlertCircle className="w-4 h-4" />
+                  İlk taksit, kalan toplam tutardan büyük olamaz!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Otomatik/Manuel Mod Seçimi */}
         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-indigo-50 rounded-xl border border-slate-200">
           <div className="flex items-center gap-3">
@@ -139,8 +243,8 @@ export const PaymentSection = () => {
               </p>
               <p className="text-xs text-slate-500">
                 {isManualMode 
-                  ? 'Her taksiti ayrı ayrı düzenleyebilirsiniz (kusuratlar için ideal)' 
-                  : 'Toplam ücret ve taksit sayısına göre otomatik hesaplanır'}
+                  ? 'Her taksiti ayrı ayrı düzenleyebilirsiniz' 
+                  : 'Taksit sayısına göre otomatik hesaplanır'}
               </p>
             </div>
           </div>
