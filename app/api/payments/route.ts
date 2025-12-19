@@ -70,14 +70,22 @@ export async function POST(req: NextRequest) {
     const isPaid = newPaidAmount >= installment.amount;
 
     // 4. Taksiti güncelle
+    const updateData: any = {
+      paid_amount: newPaidAmount,
+      is_paid: isPaid,
+      status: isPaid ? 'paid' : (newPaidAmount > 0 ? 'partial' : 'pending'),
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Tam ödeme yapıldıysa paid_at tarihini de ekle
+    if (isPaid) {
+      updateData.paid_at = new Date().toISOString();
+      updateData.payment_method = payment_method;
+    }
+    
     const { error: updateError } = await supabase
       .from('finance_installments')
-      .update({
-        paid_amount: newPaidAmount,
-        is_paid: isPaid,
-        status: isPaid ? 'paid' : 'pending',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', installment_id);
 
     if (updateError) {

@@ -572,11 +572,9 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       setShowPaymentModal(false);
       setSelectedInstallment(null);
       
-      // Listeyi yenile
-      setTimeout(() => {
-        fetchInstallments();
-        onRefresh?.();
-      }, 500);
+      // Listeyi hemen yenile
+      await fetchInstallments();
+      onRefresh?.();
     } catch (error: any) {
       toast.error(`❌ Ödeme hatası: ${error.message}`, { id: toastId });
     }
