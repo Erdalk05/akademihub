@@ -122,9 +122,9 @@ export async function POST(req: NextRequest) {
       };
 
       // other_income tablosuna negatif kayıt veya ayrı refunds tablosuna
-      await supabase.from('finance_refunds').insert(refundRecord).catch(() => {
-        // Tablo yoksa oluşturulmamış olabilir - kritik değil
-      });
+      try {
+        await supabase.from('finance_refunds').insert(refundRecord);
+      } catch { /* Tablo yoksa oluşturulmamış olabilir - kritik değil */ }
     }
 
     // Aktivite logu
@@ -140,7 +140,9 @@ export async function POST(req: NextRequest) {
       created_at: now,
     };
 
-    await supabase.from('activity_logs').insert(logEntry).catch(() => {});
+    try {
+      await supabase.from('activity_logs').insert(logEntry);
+    } catch { /* ignore */ }
 
     return NextResponse.json({
       success: true,

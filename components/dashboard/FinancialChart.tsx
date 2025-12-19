@@ -3,7 +3,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { RefreshCw, TrendingUp } from 'lucide-react';
 import { ChartProps, FinansAkisData } from '@/types/dashboard';
-import { formatCurrency } from '@/data/mockData';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 const FinancialChart: React.FC<ChartProps> = ({ data, loading = false }) => {
   // Özel tooltip bileşeni

@@ -196,7 +196,7 @@ export default function SalesManagementPage() {
   const derivedStats = useMemo(() => {
     if (stats) return stats;
     const totalSales = sales.length;
-    const totalNet = sales.reduce((sum, s) => sum + Number(s.netAmount || 0), 0);
+    const totalNet = sales.reduce((sum, s) => sum + Number(s.net_amount || 0), 0);
     return {
       totalSales,
       last30Net: totalNet,

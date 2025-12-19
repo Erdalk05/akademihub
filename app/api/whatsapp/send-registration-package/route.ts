@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// WhatsApp service - using direct API integration
+import { whatsappService } from '@/lib/services/whatsappService';
 
 /**
  * POST /api/whatsapp/send-registration-package

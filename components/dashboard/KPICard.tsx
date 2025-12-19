@@ -3,7 +3,7 @@
 import React, { memo } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { KPICardProps, TrendDirection } from '@/types/dashboard';
-import { getTrendColor, formatCurrency, formatPercentage } from '@/data/mockData';
+import { getTrendColor, formatCurrency, formatPercentage } from '@/lib/utils/formatters';
 
 const KPICard: React.FC<KPICardProps> = memo(({
   title,

@@ -14,6 +14,7 @@ type ExpenseRow = {
   amount: number;
   status: ExpenseStatusEnum | string;
   date: string;
+  expense_date?: string;
   description?: string | null;
 };
 

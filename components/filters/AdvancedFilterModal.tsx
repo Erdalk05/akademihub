@@ -65,12 +65,12 @@ export default function AdvancedFilterModal({
 
   const handleReset = () => {
     setFilters({});
-    toast.info('Filtreler sıfırlandı');
+    toast('Filtreler sıfırlandı', { icon: 'ℹ️' });
   };
 
   const applyPreset = (preset: typeof FILTER_PRESETS[0]) => {
     setFilters(preset.filters);
-    toast.info(`"${preset.label}" filtresi uygulandı`);
+    toast(`"${preset.label}" filtresi uygulandı`, { icon: 'ℹ️' });
   };
 
   return (

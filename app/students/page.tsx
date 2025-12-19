@@ -246,7 +246,6 @@ function StudentsContent() {
   // Refresh handler
   const handleRefresh = () => {
     setLoading(true);
-    setSelectedYear(prev => prev); // Trigger useEffect
     window.location.reload();
   };
 

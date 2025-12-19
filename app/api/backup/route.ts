@@ -52,16 +52,18 @@ export async function GET(req: NextRequest) {
       version: '1.0',
     };
 
-    // Aktivite logu
-    await supabase.from('activity_logs').insert({
-      action: 'backup_created',
-      entity_type: 'system',
-      details: {
-        tables: tables,
-        record_count: backupMeta.total_records,
-      },
-      created_at: new Date().toISOString(),
-    }).catch(() => {});
+    // Aktivite logu (hata olursa sessizce geç)
+    try {
+      await supabase.from('activity_logs').insert({
+        action: 'backup_created',
+        entity_type: 'system',
+        details: {
+          tables: tables,
+          record_count: backupMeta.total_records,
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch { /* ignore */ }
 
     return NextResponse.json({
       success: true,
@@ -161,16 +163,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Aktivite logu
-    await supabase.from('activity_logs').insert({
-      action: 'backup_restored',
-      entity_type: 'system',
-      details: {
-        results,
-        options,
-      },
-      created_at: new Date().toISOString(),
-    }).catch(() => {});
+    // Aktivite logu (hata olursa sessizce geç)
+    try {
+      await supabase.from('activity_logs').insert({
+        action: 'backup_restored',
+        entity_type: 'system',
+        details: {
+          results,
+          options,
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch { /* ignore */ }
 
     const successCount = Object.values(results).filter(r => r.success).length;
     const totalTables = Object.keys(results).length;

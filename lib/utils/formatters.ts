@@ -158,3 +158,18 @@ export const getDurationString = (minutes: number): string => {
   if (mins === 0) return `${hours} saat`;
   return `${hours} saat ${mins} dakika`;
 };
+
+/**
+ * Trend rengini belirle
+ */
+export const getTrendColor = (trend: 'up' | 'down' | 'same' | string): string => {
+  switch (trend) {
+    case 'up':
+      return 'text-green-600';
+    case 'down':
+      return 'text-red-600';
+    case 'same':
+    default:
+      return 'text-gray-600';
+  }
+};

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+
+// Supabase Admin Client
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+);
 
 /**
  * POST /api/auth/verify-password
@@ -11,7 +17,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { password } = await request.json();
+    const { password, email: providedEmail } = await request.json();
 
     if (!password) {
       return NextResponse.json(
@@ -20,31 +26,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Supabase client oluştur
-    const supabase = createServerComponentClient({ cookies });
+    // Cookie'den session token al
+    const cookieStore = cookies();
+    const accessToken = cookieStore.get('sb-access-token')?.value || 
+                        cookieStore.get('supabase-auth-token')?.value;
 
-    // Mevcut oturumu al
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    let email = providedEmail;
 
-    if (sessionError || !session) {
-      return NextResponse.json(
-        { success: false, error: 'Oturum bulunamadı' },
-        { status: 401 }
-      );
+    // Eğer email verilmediyse, token'dan kullanıcıyı bul
+    if (!email && accessToken) {
+      try {
+        const { data: { user } } = await supabaseAdmin.auth.getUser(accessToken);
+        email = user?.email;
+      } catch {
+        // Token geçersiz olabilir
+      }
     }
-
-    // Kullanıcının e-postasını al
-    const email = session.user.email;
 
     if (!email) {
       return NextResponse.json(
-        { success: false, error: 'Kullanıcı e-postası bulunamadı' },
+        { success: false, error: 'Kullanıcı e-postası bulunamadı. Lütfen tekrar giriş yapın.' },
         { status: 400 }
       );
     }
 
-    // Şifreyi doğrula - kullanıcıyı tekrar giriş yaptırarak
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    // Şifreyi doğrula - kullanıcıyı giriş yaptırarak
+    const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
       email,
       password,
     });
@@ -62,8 +69,9 @@ export async function POST(request: NextRequest) {
       message: 'Şifre doğrulandı'
     });
 
-  } catch (error: any) {
-    console.error('Password verification error:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Bilinmeyen hata';
+    console.error('Password verification error:', message);
     return NextResponse.json(
       { success: false, error: 'Doğrulama sırasında bir hata oluştu' },
       { status: 500 }

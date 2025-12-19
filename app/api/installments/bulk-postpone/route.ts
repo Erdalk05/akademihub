@@ -118,9 +118,9 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    await supabase.from('activity_logs').insert(logEntry).catch(() => {
-      // Log hatası kritik değil
-    });
+    try {
+      await supabase.from('activity_logs').insert(logEntry);
+    } catch { /* Log hatası kritik değil */ }
 
     return NextResponse.json({
       success: true,

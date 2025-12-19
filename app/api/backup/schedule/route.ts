@@ -115,41 +115,45 @@ export async function GET(req: NextRequest) {
     };
 
     // Yedek geçmişini kaydet (backup_history tablosu yoksa oluşturulmalı)
-    await supabase.from('backup_history').insert(backupRecord).catch(() => {
-      // Tablo yoksa hata vermez
-    });
+    try {
+      await supabase.from('backup_history').insert(backupRecord);
+    } catch { /* Tablo yoksa hata vermez */ }
 
     // Eski yedekleri temizle (30 günden eski daily, 90 günden eski weekly)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-    await supabase
-      .from('backup_history')
-      .delete()
-      .eq('type', 'daily')
-      .lt('created_at', thirtyDaysAgo)
-      .catch(() => {});
+    try {
+      await supabase
+        .from('backup_history')
+        .delete()
+        .eq('type', 'daily')
+        .lt('created_at', thirtyDaysAgo);
+    } catch { /* ignore */ }
 
-    await supabase
-      .from('backup_history')
-      .delete()
-      .eq('type', 'weekly')
-      .lt('created_at', ninetyDaysAgo)
-      .catch(() => {});
+    try {
+      await supabase
+        .from('backup_history')
+        .delete()
+        .eq('type', 'weekly')
+        .lt('created_at', ninetyDaysAgo);
+    } catch { /* ignore */ }
 
     // Aktivite logu
-    await supabase.from('activity_logs').insert({
-      action: 'scheduled_backup',
-      entity_type: 'system',
-      details: {
-        backup_id: backupId,
-        type: backupType,
-        tables_count: Object.keys(backup).length,
-        total_records: totalRecords,
-        errors: errors.length > 0 ? errors : undefined,
-      },
-      created_at: now.toISOString(),
-    }).catch(() => {});
+    try {
+      await supabase.from('activity_logs').insert({
+        action: 'scheduled_backup',
+        entity_type: 'system',
+        details: {
+          backup_id: backupId,
+          type: backupType,
+          tables_count: Object.keys(backup).length,
+          total_records: totalRecords,
+          errors: errors.length > 0 ? errors : undefined,
+        },
+        created_at: now.toISOString(),
+      });
+    } catch { /* ignore */ }
 
     return NextResponse.json({
       success: errors.length === 0,
