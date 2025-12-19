@@ -1245,11 +1245,12 @@ export default function FounderReportPage() {
                 { label: 'Gecikme Oranı', value: totals.totalStudents > 0 ? (totals.overdueStudents/totals.totalStudents)*100 : 0, target: 10, unit: '%', status: (totals.overdueStudents/Math.max(1,totals.totalStudents))*100 <= 10 ? 'excellent' : 'warning' },
                 { label: 'Ort. Ücret', value: totals.averageFeePerStudent, target: 100000, unit: '₺', status: totals.averageFeePerStudent >= 80000 ? 'excellent' : 'good' },
               ].map((metric, idx) => {
-                const colors = {
+                const colorMap = {
                   excellent: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' },
                   good: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', bar: 'bg-blue-500' },
                   warning: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' },
-                }[metric.status];
+                };
+                const colors = colorMap[metric.status as keyof typeof colorMap] || colorMap.good;
                 return (
                   <div key={idx} className={`${colors.bg} ${colors.border} border rounded-2xl p-5`}>
                     <p className={`text-2xl font-bold ${colors.text}`}>
@@ -1426,9 +1427,9 @@ export default function FounderReportPage() {
                 </div>
                 <div className="text-sm text-gray-500 flex items-center gap-1">
                   <FileText size={14} />
-                  {summaryModal.type === 'total' && `${allStudents.length} kayıt`}
-                  {summaryModal.type === 'paid' && `${allStudents.filter(s => s.isPaid).length} kayıt`}
-                  {summaryModal.type === 'free' && `${allStudents.filter(s => !s.isPaid).length} kayıt`}
+                  {(summaryModal.type as string) === 'total' && `${allStudents.length} kayıt`}
+                  {(summaryModal.type as string) === 'paid' && `${allStudents.filter(s => s.isPaid).length} kayıt`}
+                  {(summaryModal.type as string) === 'free' && `${allStudents.filter(s => !s.isPaid).length} kayıt`}
                 </div>
               </div>
             )}

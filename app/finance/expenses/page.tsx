@@ -6,6 +6,7 @@ import { Plus, Search, CheckCircle, BarChart3, X, Wallet, Building, Wrench, File
 import { ExpenseStatusEnum, ExpenseTypeEnum } from '@/types/finance.types';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { usePermission } from '@/lib/hooks/usePermission';
+import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
 
 type ExpenseRow = {
   id: string;
@@ -202,7 +203,14 @@ export default function ExpenseManagementPage() {
   const totalCount = expenses.length;
   const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-  const analytics = useMemo(() => {
+  const analytics = useMemo((): {
+    thisMonthTotal: number;
+    lastMonthTotal: number;
+    monthChange: number;
+    pendingTotal: number;
+    topCategory: { category: string; amount: number } | null;
+    monthlySeries: Array<{ key: string; year: number; month: number; amount: number }>;
+  } => {
     const now = new Date();
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
@@ -452,7 +460,7 @@ export default function ExpenseManagementPage() {
         <table>
           <thead><tr><th>Tarih</th><th>Başlık</th><th>Kategori</th><th>Tutar</th></tr></thead>
           <tbody>
-            ${expenses.map(e => `<tr><td>${new Date(e.expense_date).toLocaleDateString('tr-TR')}</td><td>${e.title}</td><td>${e.category}</td><td>₺${Number(e.amount).toLocaleString('tr-TR')}</td></tr>`).join('')}
+            ${expenses.map(e => `<tr><td>${new Date(e.expense_date || e.date).toLocaleDateString('tr-TR')}</td><td>${e.title}</td><td>${e.category}</td><td>₺${Number(e.amount).toLocaleString('tr-TR')}</td></tr>`).join('')}
           </tbody>
         </table>
         <script>window.onload = function() { window.print(); }</script>
@@ -932,42 +940,20 @@ export default function ExpenseManagementPage() {
         </div>
       )}
 
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Gideri Sil
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Bu gider kaydını silmek istediğinize emin misiniz? Bu işlem geri
-              alınamaz.
-            </p>
-            {deleteError && (
-              <div className="mb-3 text-sm text-rose-600 border border-rose-100 rounded-md px-3 py-2 bg-rose-50">
-                {deleteError}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={deleteLoading}
-                onClick={() => setDeleteId(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                disabled={deleteLoading}
-                onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-sm rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
-              >
-                {deleteLoading ? 'Siliniyor...' : 'Sil'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Admin Password Modal for Delete */}
+      <AdminPasswordModal
+        isOpen={!!deleteId}
+        onClose={() => {
+          setDeleteId(null);
+          setDeleteError(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Gider Silme Onayı"
+        description="Bu gider kaydını silmek için admin şifrenizi girin. Bu işlem geri alınamaz!"
+        confirmText="Gideri Sil"
+        loading={deleteLoading}
+        isDanger
+      />
 
       {/* Bütçe Duruşu – gerçek veriye dayalı kategori özetleri */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -1171,7 +1157,7 @@ export default function ExpenseManagementPage() {
                           Düzenle
                         </button>
                       )}
-                      {canDeleteExpense && (
+                      {canDeleteExpense && isAdmin && (
                         <button
                           type="button"
                           onClick={(e) => {

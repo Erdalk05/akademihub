@@ -42,6 +42,7 @@ interface Installment {
   status: 'paid' | 'pending' | 'overdue';
   paid_at?: string;
   payment_method?: string;
+  note?: string | null;
 }
 
 interface OtherIncome {

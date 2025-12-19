@@ -17,6 +17,7 @@ import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import OrganizationSettings from '@/components/settings/OrganizationSettings';
 import DataMigrationSection from '@/components/settings/DataMigrationSection';
+import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
 
 // Tab Types
 type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration';
@@ -223,6 +224,11 @@ function SettingsPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [userPassword, setUserPassword] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  
+  // Delete User Modal
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [deleteUserTargetId, setDeleteUserTargetId] = useState<string | null>(null);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
   
   // Kişi bazlı yetki yönetimi
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<User | null>(null);
@@ -817,11 +823,20 @@ function SettingsPageContent() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (!confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return;
+  const handleDeleteUser = (id: string) => {
+    if (!isAdmin) {
+      toast.error('Kullanıcı silme yetkisi sadece Admin\'e aittir');
+      return;
+    }
+    setDeleteUserTargetId(id);
+    setShowDeleteUserModal(true);
+  };
 
+  const executeDeleteUser = async () => {
+    if (!deleteUserTargetId) return;
+    setDeleteUserLoading(true);
     try {
-      const res = await fetch(`/api/settings/users?id=${id}`, {
+      const res = await fetch(`/api/settings/users?id=${deleteUserTargetId}`, {
         method: 'DELETE',
       });
 
@@ -835,10 +850,14 @@ function SettingsPageContent() {
       // Listeyi yeniden yükle
       await loadUsers();
       setSelectedUser(null);
+      setShowDeleteUserModal(false);
+      setDeleteUserTargetId(null);
       toast.success('Kullanıcı silindi');
     } catch (error) {
       console.error('Delete user error:', error);
       toast.error('Kullanıcı silinirken hata oluştu');
+    } finally {
+      setDeleteUserLoading(false);
     }
   };
 
@@ -2642,6 +2661,21 @@ function SettingsPageContent() {
         isOpen={showShortcutsModal} 
         onClose={() => setShowShortcutsModal(false)} 
         shortcuts={shortcuts}
+      />
+
+      {/* Admin Password Modal for User Delete */}
+      <AdminPasswordModal
+        isOpen={showDeleteUserModal}
+        onClose={() => {
+          setShowDeleteUserModal(false);
+          setDeleteUserTargetId(null);
+        }}
+        onConfirm={executeDeleteUser}
+        title="Kullanıcı Silme Onayı"
+        description="Bu kullanıcıyı silmek için admin şifrenizi girin. Bu işlem geri alınamaz!"
+        confirmText="Kullanıcıyı Sil"
+        loading={deleteUserLoading}
+        isDanger
       />
     </div>
   );

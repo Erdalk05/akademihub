@@ -16,6 +16,7 @@ export enum StudentStatus {
   INACTIVE = 'INACTIVE',
   GRADUATED = 'GRADUATED',
   LEFT_SCHOOL = 'LEFT_SCHOOL',
+  DELETED = 'DELETED',
 }
 
 export enum Gender {

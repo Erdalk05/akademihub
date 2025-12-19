@@ -30,14 +30,14 @@ const getMockStudents = () => [
 
 let studentsCache: any[] | null = null;
 
-const loadStudents = async () => {
+const loadStudents = async (): Promise<any[]> => {
   if (studentsCache) return studentsCache;
   try {
     const res = await fetch('/api/students', { cache: 'no-store' });
     const js = await res.json().catch(() => null);
     if (js?.success && Array.isArray(js.data)) {
       studentsCache = js.data;
-      return studentsCache;
+      return studentsCache || [];
     }
     studentsCache = getMockStudents();
     return studentsCache;

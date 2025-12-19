@@ -1,7 +1,25 @@
-import { Discount, Installment } from '@/types/enrollment';
 import { addMonths } from 'date-fns';
 
-export const AVAILABLE_DISCOUNTS: Discount[] = [
+// Local types for payment calculation
+interface PaymentDiscount {
+  id: string;
+  name: string;
+  rate: number;
+  type: 'percentage' | 'fixed';
+  amount?: number;
+}
+
+interface PaymentInstallment {
+  no: number;
+  date: Date;
+  amount: number;
+  label?: string;
+  isPaid?: boolean;
+  dueDate?: string;
+  status?: 'pending' | 'paid' | 'overdue';
+}
+
+export const AVAILABLE_DISCOUNTS: PaymentDiscount[] = [
   { id: 'sibling', name: 'Kardeş İndirimi', rate: 0.08, type: 'percentage' },
   { id: 'early', name: 'Erken Kayıt İndirimi', rate: 0.05, type: 'percentage' },
   { id: 'teacher', name: 'Öğretmen Çocuğu', rate: 0.10, type: 'percentage' },
@@ -15,7 +33,7 @@ export function calculateFinancials(
   paymentType: 'cash' | 'installment'
 ) {
   let totalDiscountAmount = 0;
-  const appliedDiscounts: Discount[] = [];
+  const appliedDiscounts: PaymentDiscount[] = [];
 
   // Peşin ödeme indirimi
   if (paymentType === 'cash') {
@@ -68,8 +86,8 @@ export function generatePaymentPlan(
   downPayment: number,
   installmentsCount: number,
   startDate: Date
-): Installment[] {
-  const plan: Installment[] = [];
+): PaymentInstallment[] {
+  const plan: PaymentInstallment[] = [];
   
   // Peşinat
   if (downPayment > 0) {

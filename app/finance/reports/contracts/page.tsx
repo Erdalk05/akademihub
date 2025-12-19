@@ -39,6 +39,7 @@ type Student = {
   tc_id: string | null;
   created_at: string;
   status?: string | null;
+  academic_year?: string | null;
 };
 
 type Installment = {
@@ -50,6 +51,7 @@ type Installment = {
   is_paid: boolean;
   paid_at: string | null;
   paid_amount: number | null;
+  note?: string | null;
 };
 
 

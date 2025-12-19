@@ -16,6 +16,8 @@ import {
 } from '@/lib/services/exportService';
 import AddSaleInstallmentModal from '@/components/finance/AddSaleInstallmentModal';
 import SalesRestructureModal from '@/components/finance/SalesRestructureModal';
+import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 type SaleItemRow = {
   id: string;
@@ -58,6 +60,9 @@ export default function SaleDetailPage() {
   const [selectedInstallment, setSelectedInstallment] = useState<FinanceInstallment | null>(null);
   const [addInstallmentOpen, setAddInstallmentOpen] = useState(false);
   const [restructureOpen, setRestructureOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const { isAdmin } = usePermission();
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -139,31 +144,29 @@ export default function SaleDetailPage() {
     if (id) fetchDetail();
   }, [id]);
 
-  const handleDeleteSale = async () => {
-    if (!sale) return;
-    // Kullanıcı onayı al
-    // eslint-disable-next-line no-alert
-    const ok = window.confirm(
-      'Bu satışı ve ona bağlı tüm taksitleri silmek istediğinize emin misiniz?',
-    );
-    if (!ok) return;
+  const handleDeleteSale = () => {
+    if (!sale || !isAdmin) return;
+    setShowDeleteModal(true);
+  };
 
+  const executeDeleteSale = async () => {
+    if (!sale) return;
+    setDeleteLoading(true);
     try {
       const res = await fetch(`/api/finance/sales/${sale.id}`, {
         method: 'DELETE',
       });
       const js = await res.json().catch(() => null);
       if (!res.ok || !js?.success) {
-        // eslint-disable-next-line no-alert
         alert(js?.error || 'Satış silinemedi.');
         return;
       }
-      // eslint-disable-next-line no-alert
-      alert('Satış ve bağlı taksitler başarıyla silindi.');
+      setShowDeleteModal(false);
       router.push('/finance/sales');
     } catch (e: any) {
-      // eslint-disable-next-line no-alert
       alert(e?.message || 'Satış silinirken bir hata oluştu.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -295,14 +298,16 @@ export default function SaleDetailPage() {
           </button>
           {sale && (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDeleteSale}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-              >
-                <Trash2 size={14} />
-                Satışı Sil
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSale}
+                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 size={14} />
+                  Satışı Sil
+                </button>
+              )}
               <Link
                 href={`/finance/sales/invoice/${sale.id}`}
                 className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
@@ -557,6 +562,18 @@ export default function SaleDetailPage() {
           />
         </>
       )}
+
+      {/* Admin Password Modal for Delete */}
+      <AdminPasswordModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={executeDeleteSale}
+        title="Satış Silme Onayı"
+        description="Bu satışı ve bağlı tüm taksitleri silmek için admin şifrenizi girin. Bu işlem geri alınamaz!"
+        confirmText="Satışı Sil"
+        loading={deleteLoading}
+        isDanger
+      />
     </div>
   );
 }

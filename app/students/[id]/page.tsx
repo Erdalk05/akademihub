@@ -27,6 +27,7 @@ import ImageUploadModal from '@/components/upload/ImageUploadModal';
 // Permission System
 import { useRole } from '@/lib/contexts/RoleContext';
 import { Permission } from '@/lib/types/role-types';
+import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
 
 interface StudentData {
   id: string;
@@ -62,6 +63,8 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState('finance');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteType, setDeleteType] = useState<'soft' | 'hard' | null>(null);
 
   useEffect(() => {
     if (studentId) {
@@ -141,23 +144,18 @@ export default function StudentDetailPage() {
     }
   };
 
-  // ⚠️ KAYDI SİL (SOFT DELETE) - Veriler korunur
-  const handleSoftDelete = async () => {
+  // ⚠️ KAYDI SİL (SOFT DELETE) - Modal aç
+  const handleSoftDelete = () => {
     if (!canDeleteStudent || !isAdmin) {
       toast.error('Bu işlem için yetkiniz yok. Sadece admin kullanıcılar öğrenci silebilir.');
       return;
     }
+    setDeleteType('soft');
+    setShowDeleteModal(true);
+  };
 
-    const confirmStep = confirm(
-      `📋 "${student?.first_name} ${student?.last_name}" öğrencisinin kaydını silmek üzeresiniz.\n\n` +
-      '✅ Tahsil edilen ödemeler korunacak (ciro etkilenmez)\n' +
-      '❌ Bekleyen taksitler iptal edilecek (cirodan düşecek)\n' +
-      '📁 Öğrenci "Kaydı Silinen Öğrenciler" bölümüne taşınacak\n\n' +
-      'Devam etmek istiyor musunuz?'
-    );
-
-    if (!confirmStep) return;
-
+  // Gerçek soft delete işlemi
+  const executeSoftDelete = async () => {
     setIsDeleting(true);
     const toastId = toast.loading('Öğrenci kaydı siliniyor...');
 
@@ -177,6 +175,7 @@ export default function StudentDetailPage() {
       }
 
       toast.success('Öğrenci kaydı silindi. Tahsil edilen ödemeler korundu.', { id: toastId });
+      setShowDeleteModal(false);
       router.push('/students');
     } catch (error: any) {
       toast.error(`Hata: ${error.message}`, { id: toastId });
@@ -337,7 +336,7 @@ export default function StudentDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 space-y-6">
       {/* ⚠️ KAYDI SİLİNEN ÖĞRENCİ UYARISI */}
-      {student.status === 'deleted' && (
+      {(student.status as string) === 'deleted' && (
         <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-center gap-4">
           <div className="p-3 bg-red-100 rounded-full">
             <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -441,7 +440,7 @@ export default function StudentDetailPage() {
                     </button>
           
           {/* ⚠️ SİL BUTONLARI - SADECE ADMİN İÇİN GÖRÜNÜR */}
-          {canDeleteStudent && isAdmin && student?.status !== 'deleted' && (
+          {canDeleteStudent && isAdmin && (student?.status as string) !== 'deleted' && (
             <>
               {/* Kaydı Sil (Soft Delete) */}
               <button
@@ -468,7 +467,7 @@ export default function StudentDetailPage() {
           )}
           
           {/* 🔄 GERİ YÜKLE - Silinen öğrenci için */}
-          {canDeleteStudent && isAdmin && student?.status === 'deleted' && (
+          {canDeleteStudent && isAdmin && (student?.status as string) === 'deleted' && (
             <>
               <button
                 onClick={handleRestore}
@@ -529,6 +528,25 @@ export default function StudentDetailPage() {
         onUploadComplete={handlePhotoUpload}
         studentId={student?.id}
         currentImageUrl={student?.photo_url}
+      />
+
+      {/* Admin Password Modal for Delete */}
+      <AdminPasswordModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteType(null);
+        }}
+        onConfirm={async () => {
+          if (deleteType === 'soft') {
+            await executeSoftDelete();
+          }
+        }}
+        title="Öğrenci Silme Onayı"
+        description={`"${student?.first_name} ${student?.last_name}" öğrencisini silmek için admin şifrenizi girin. Tahsil edilen ödemeler korunacak, bekleyen taksitler iptal edilecek.`}
+        confirmText="Öğrenciyi Sil"
+        loading={isDeleting}
+        isDanger
       />
     </div>
   );

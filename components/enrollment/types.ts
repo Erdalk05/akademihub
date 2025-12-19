@@ -57,7 +57,16 @@ export interface Installment {
   no: number;
   amount: number;
   dueDate: string;
+  date?: string;
   status: 'pending' | 'paid' | 'overdue';
+}
+
+export interface Discount {
+  id: string;
+  name: string;
+  rate: number;
+  type: 'percentage' | 'fixed';
+  amount?: number;
 }
 
 export interface Payment {

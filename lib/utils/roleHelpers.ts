@@ -34,6 +34,7 @@ export function getPermissionsForRole(role: UserRole): Permission[] {
  */
 export function getRoleLabel(role: UserRole): string {
   const labels: Record<UserRole, string> = {
+    [UserRole.SUPER_ADMIN]: 'Franchise Yöneticisi',
     [UserRole.ADMIN]: 'Yönetici',
     [UserRole.ACCOUNTING]: 'Muhasebe',
     [UserRole.TEACHER]: 'Öğretmen',

@@ -31,6 +31,7 @@ import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academ
 import { usePermission } from '@/lib/hooks/usePermission';
 import toast from 'react-hot-toast';
 import { Edit, Trash2 } from 'lucide-react';
+import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
 
 type StudentRow = {
   id: string;
@@ -82,6 +83,11 @@ function StudentsContent() {
   // UI
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Delete Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
@@ -679,22 +685,11 @@ function StudentsContent() {
                                 <Edit size={16} />
                               </button>
                             )}
-                            {canDeleteStudent && (
+                            {canDeleteStudent && isAdmin && (
                               <button
-                                onClick={async () => {
-                                  if (!confirm(`${fullName} öğrencisini silmek istediğinize emin misiniz?`)) return;
-                                  try {
-                                    const res = await fetch(`/api/students?id=${s.id}`, { method: 'DELETE' });
-                                    const json = await res.json();
-                                    if (json.success) {
-                                      toast.success('Öğrenci silindi');
-                                      window.location.reload();
-                                    } else {
-                                      toast.error(json.error || 'Silme işlemi başarısız');
-                                    }
-                                  } catch {
-                                    toast.error('Silme işlemi sırasında hata oluştu');
-                                  }
+                                onClick={() => {
+                                  setDeleteTargetId(s.id);
+                                  setShowDeleteModal(true);
                                 }}
                                 className="p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition shadow-sm"
                                 title="Sil"
@@ -797,6 +792,40 @@ function StudentsContent() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         student={selectedStudent}
+      />
+
+      {/* Admin Password Modal for Delete */}
+      <AdminPasswordModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteTargetId(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTargetId) return;
+          setDeleteLoading(true);
+          try {
+            const res = await fetch(`/api/students?id=${deleteTargetId}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+              toast.success('Öğrenci silindi');
+              setShowDeleteModal(false);
+              setDeleteTargetId(null);
+              window.location.reload();
+            } else {
+              toast.error(json.error || 'Silme işlemi başarısız');
+            }
+          } catch {
+            toast.error('Silme işlemi sırasında hata oluştu');
+          } finally {
+            setDeleteLoading(false);
+          }
+        }}
+        title="Öğrenci Silme Onayı"
+        description="Bu öğrenciyi silmek için admin şifrenizi girin. Bu işlem geri alınamaz!"
+        confirmText="Öğrenciyi Sil"
+        loading={deleteLoading}
+        isDanger
       />
     </div>
   );

@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 
 export const useSupabase = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const supabase = getSupabaseClient();
+  const supabase = createClient();
 
   // Fetch data
   const fetchData = useCallback(

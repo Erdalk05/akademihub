@@ -8,7 +8,7 @@ import {
   exportInstallmentPlanToPDF,
 } from '@/lib/services/exportService';
 import { printReceipt, shareReceiptViaWhatsApp, shareInstallmentPlanViaWhatsApp } from '@/lib/services/receiptService';
-import { MessageCircle, History, FileText, Send, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { MessageCircle, History, FileText, Send, Calendar, CheckCircle, XCircle, Clock, User } from 'lucide-react';
 
 // Components
 import FinanceSummaryCard from './components/FinanceSummaryCard';
@@ -294,12 +294,21 @@ export default function StudentPaymentsPage() {
       <div className="bg-white border-b">
         <div className="mx-auto flex w-full max-w-[95%] items-center justify-between px-4 py-4">
           <h1 className="text-xl font-semibold text-gray-900">Öğrenci Ödemeleri</h1>
-          <button
-            onClick={() => router.back()}
-            className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-800 hover:bg-gray-200 transition-colors"
-          >
-            Geri
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/students/${studentId}`)}
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700 transition-colors font-medium"
+            >
+              <User className="w-4 h-4" />
+              Öğrenci Profili
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-800 hover:bg-gray-200 transition-colors"
+            >
+              Geri
+            </button>
+          </div>
         </div>
       </div>
 

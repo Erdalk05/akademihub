@@ -1,6 +1,7 @@
 'use client';
 
-import { Phone, User } from 'lucide-react';
+import { Phone, User, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 type Props = {
   studentId: string;
@@ -40,7 +41,13 @@ export default function StudentInfoCard({
           <span className="md:hidden">{initials}</span>
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{fullName}</h2>
+          <Link 
+            href={`/students/${studentId}`}
+            className="group flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors"
+          >
+            {fullName}
+            <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </Link>
           <p className="text-xs text-gray-600">
             ID: <span className="font-mono">{studentId}</span>
           </p>
