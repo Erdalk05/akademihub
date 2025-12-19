@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Lock, AlertTriangle, Eye, EyeOff, Shield, Trash2 } from 'lucide-react';
+import { useRole } from '@/lib/contexts/RoleContext';
 
 interface AdminPasswordModalProps {
   isOpen: boolean;
@@ -32,6 +33,15 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { currentUser } = useRole();
+
+  // Modal kapatıldığında state'leri temizle
+  useEffect(() => {
+    if (!isOpen) {
+      setPassword('');
+      setError('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -47,11 +57,19 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
     setError('');
 
     try {
+      // Kullanıcı email'ini kontrol et
+      const userEmail = currentUser?.email;
+      if (!userEmail) {
+        setError('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+        setLoading(false);
+        return;
+      }
+
       // API'ye şifre doğrulama isteği gönder
       const res = await fetch('/api/auth/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, email: userEmail }),
       });
 
       const data = await res.json();
