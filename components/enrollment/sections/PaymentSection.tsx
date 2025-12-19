@@ -197,9 +197,14 @@ export const PaymentSection = () => {
                   <div className="relative flex-1 max-w-xs">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 font-semibold">₺</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={customFirstInstallment || ''}
-                      onChange={(e) => setCustomFirstInstallment(Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        setCustomFirstInstallment(Number(value) || 0);
+                      }}
                       placeholder="İlk taksit tutarı"
                       className="w-full pl-8 pr-3 py-2.5 border-2 border-amber-300 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none bg-white"
                     />
@@ -409,9 +414,14 @@ export const PaymentSection = () => {
                     <td className="px-4 py-3 text-right">
                       {isManualMode ? (
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={inst.amount || ''}
-                          onChange={(e) => updateInstallment(inst.no, { amount: Number(e.target.value) })}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '');
+                            updateInstallment(inst.no, { amount: Number(value) || 0 });
+                          }}
                           className="w-28 px-2 py-1 border border-slate-200 rounded-lg text-sm text-right font-semibold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                           placeholder="0"
                         />
