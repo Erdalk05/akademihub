@@ -17,7 +17,10 @@ const supabaseAdmin = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
-    const { password, email: providedEmail } = await request.json();
+    const body = await request.json();
+    const { password, email: providedEmail } = body;
+
+    console.log('Verify password request:', { email: providedEmail, hasPassword: !!password });
 
     if (!password) {
       return NextResponse.json(
@@ -26,29 +29,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Cookie'den session token al
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value || 
-                        cookieStore.get('supabase-auth-token')?.value;
-
     let email = providedEmail;
 
-    // Eğer email verilmediyse, token'dan kullanıcıyı bul
-    if (!email && accessToken) {
-      try {
-        const { data: { user } } = await supabaseAdmin.auth.getUser(accessToken);
-        email = user?.email;
-      } catch {
-        // Token geçersiz olabilir
+    // Eğer email verilmediyse, cookie'den almaya çalış
+    if (!email) {
+      const cookieStore = cookies();
+      const accessToken = cookieStore.get('sb-access-token')?.value || 
+                          cookieStore.get('supabase-auth-token')?.value;
+      
+      if (accessToken) {
+        try {
+          const { data: { user } } = await supabaseAdmin.auth.getUser(accessToken);
+          email = user?.email;
+        } catch {
+          // Token geçersiz olabilir
+        }
       }
     }
 
     if (!email) {
+      console.log('Email not found in request or cookies');
       return NextResponse.json(
         { success: false, error: 'Kullanıcı e-postası bulunamadı. Lütfen tekrar giriş yapın.' },
         { status: 400 }
       );
     }
+
+    console.log('Verifying password for email:', email);
 
     // Şifreyi doğrula - kullanıcıyı giriş yaptırarak
     const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
@@ -57,11 +64,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (signInError) {
+      console.log('Sign in error:', signInError.message);
       return NextResponse.json(
         { success: false, error: 'Şifre yanlış' },
         { status: 401 }
       );
     }
+
+    console.log('Password verified successfully for:', email);
 
     // Şifre doğru
     return NextResponse.json({

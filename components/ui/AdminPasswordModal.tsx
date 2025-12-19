@@ -59,7 +59,35 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
     try {
       // Kullanıcı email'ini kontrol et
       const userEmail = currentUser?.email;
+      console.log('AdminPasswordModal - Current user:', currentUser);
+      console.log('AdminPasswordModal - User email:', userEmail);
+      
       if (!userEmail) {
+        // localStorage'dan da kontrol et
+        const storedUser = localStorage.getItem('akademi_current_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.email) {
+            console.log('AdminPasswordModal - Email from localStorage:', parsed.email);
+            // localStorage'dan email al
+            const res = await fetch('/api/auth/verify-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password, email: parsed.email }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              setPassword('');
+              onConfirm();
+              onClose();
+            } else {
+              setError(data.error || 'Şifre yanlış');
+            }
+            setLoading(false);
+            return;
+          }
+        }
+        
         setError('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
         setLoading(false);
         return;
