@@ -39,18 +39,17 @@ export const PaymentSection = () => {
     if (!useCustomFirst || firstAmount <= 0) return;
     if (payment.installments.length === 0) return;
     
-    // Peşinat hariç taksitleri filtrele
-    const regularInstallments = payment.installments.filter(inst => inst.no > 0);
-    if (regularInstallments.length === 0) return;
-    
     // Peşinat düşüldükten sonraki toplam
     const afterDownPayment = payment.netFee - payment.downPayment;
     
     // İlk taksit çıkınca kalan tutar
     const remainingAfterFirst = afterDownPayment - firstAmount;
     
+    // Peşinat hariç taksit sayısı
+    const regularCount = payment.installments.filter(inst => inst.no > 0).length;
+    
     // Kalan taksit sayısı (ilk taksit hariç)
-    const remainingInstallmentCount = regularInstallments.length - 1;
+    const remainingInstallmentCount = regularCount - 1;
     
     if (remainingInstallmentCount <= 0 || remainingAfterFirst < 0) return;
     
@@ -58,20 +57,28 @@ export const PaymentSection = () => {
     const eachRemaining = Math.floor(remainingAfterFirst / remainingInstallmentCount);
     const lastInstallmentExtra = remainingAfterFirst - (eachRemaining * remainingInstallmentCount);
     
-    // Taksitleri güncelle
-    regularInstallments.forEach((inst, index) => {
-      if (index === 0) {
+    // Tüm taksitleri tek seferde güncelle
+    const updatedInstallments = payment.installments.map((inst, idx) => {
+      if (inst.no <= 0) return inst; // Peşinat olduğu gibi kalsın
+      
+      // Peşinat hariç sıralama
+      const regularIndex = payment.installments.filter(i => i.no > 0).findIndex(i => i.no === inst.no);
+      
+      if (regularIndex === 0) {
         // İlk taksit (kullanıcının girdiği)
-        updateInstallment(inst.no, { amount: firstAmount });
-      } else if (index === regularInstallments.length - 1) {
+        return { ...inst, amount: firstAmount };
+      } else if (regularIndex === regularCount - 1) {
         // Son taksit (küsurat dahil)
-        updateInstallment(inst.no, { amount: eachRemaining + lastInstallmentExtra });
+        return { ...inst, amount: eachRemaining + lastInstallmentExtra };
       } else {
         // Diğer taksitler (eşit)
-        updateInstallment(inst.no, { amount: eachRemaining });
+        return { ...inst, amount: eachRemaining };
       }
     });
-  }, [useCustomFirst, payment.netFee, payment.downPayment, payment.installments, updateInstallment]);
+    
+    // Tek seferde güncelle
+    updatePayment({ installments: updatedInstallments });
+  }, [useCustomFirst, payment.netFee, payment.downPayment, payment.installments, updatePayment]);
 
   // Varsayılan tarihler ayarla
   useEffect(() => {
