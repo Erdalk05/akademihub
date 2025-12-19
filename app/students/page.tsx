@@ -66,7 +66,7 @@ function StudentsContent() {
   const searchParams = useSearchParams();
   const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
   const { selectedYear } = useAcademicYearStore(); // Global akademik yıl store
-  const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents } = usePermission();
+  const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents, isAdmin } = usePermission();
   
   // Data
   const [students, setStudents] = useState<StudentRow[]>([]);
