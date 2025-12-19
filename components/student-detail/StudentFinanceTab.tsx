@@ -569,10 +569,23 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         { id: toastId, duration: 6000, icon: '💰' }
       );
       
+      // Local state'i anında güncelle (UI hemen değişsin)
+      setInstallments(prev => prev.map(inst => 
+        inst.id === selectedInstallment.id 
+          ? {
+              ...inst,
+              paid_amount: data.data.new_paid_amount,
+              status: data.data.is_fully_paid ? 'paid' : (data.data.new_paid_amount > 0 ? 'pending' : 'pending'),
+              paid_at: data.data.is_fully_paid ? new Date().toISOString() : inst.paid_at,
+              payment_method: paymentMethod || 'cash',
+            }
+          : inst
+      ));
+      
       setShowPaymentModal(false);
       setSelectedInstallment(null);
       
-      // Listeyi hemen yenile
+      // Listeyi de yenile (güncel veri çekmek için)
       await fetchInstallments();
       onRefresh?.();
     } catch (error: any) {
