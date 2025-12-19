@@ -7,7 +7,7 @@ import { useRole } from '@/lib/contexts/RoleContext';
 interface AdminPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title?: string;
   description?: string;
   confirmText?: string;
@@ -78,7 +78,7 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
             const data = await res.json();
             if (data.success) {
               setPassword('');
-              onConfirm();
+              await onConfirm();
               onClose();
             } else {
               setError(data.error || 'Şifre yanlış');
@@ -104,12 +104,13 @@ export const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({
 
       if (data.success) {
         setPassword('');
-        onConfirm();
+        await onConfirm();
         onClose();
       } else {
         setError(data.error || 'Şifre yanlış');
       }
     } catch (err) {
+      console.error('Password verification error:', err);
       setError('Doğrulama sırasında bir hata oluştu');
     } finally {
       setLoading(false);
