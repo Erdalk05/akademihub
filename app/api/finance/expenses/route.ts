@@ -42,7 +42,8 @@ function validateExpenseBody(body: any) {
   if (!body.category) errors.push('Category zorunludur.');
   if (body.amount === undefined || body.amount === null)
     errors.push('Amount zorunludur.');
-  if (!body.date) errors.push('Date zorunludur.');
+  // date veya expense_date kabul et
+  if (!body.date && !body.expense_date) errors.push('Date zorunludur.');
 
   if (errors.length > 0) return errors.join(' | ');
   return null;
@@ -150,13 +151,16 @@ export async function POST(req: NextRequest) {
       return response.fail(validationError, 400);
     }
 
+    // expense_date için fallback: body.expense_date > body.date > bugün
+    const expenseDate = body.expense_date || body.date || new Date().toISOString().split('T')[0];
+    
     const payload = {
       title: body.title,
       category: body.category,
       amount: body.amount,
       status: body.status || 'paid',
-      date: body.date,
-      expense_date: body.date, // Veritabanı expense_date bekliyor
+      date: expenseDate,
+      expense_date: expenseDate, // Veritabanı expense_date bekliyor
       description: body.description || null,
       organization_id: body.organization_id || null,
     };
