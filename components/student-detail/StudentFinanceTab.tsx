@@ -655,7 +655,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <div><strong>Öğrenci No:</strong> ${student.student_no || '-'}</div>
               <div><strong>Veli:</strong> ${student.parent_name || '-'}</div>
               <div><strong>Sınıf:</strong> ${student.class || student.section || '-'}</div>
-            </div>
+          </div>
           </div>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -671,7 +671,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <div style="font-size: 12px;">Kalan</div>
               <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
             </div>
-          </div>
+            </div>
           
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
             <thead>
@@ -702,8 +702,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           
           <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px;">
             ${organizationName} - Eğitim Yönetim Sistemi
-          </div>
-        </div>
+            </div>
+            </div>
       `;
 
       await downloadPDFFromHTML(htmlContent, {
@@ -765,11 +765,11 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
             <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
               <div style="font-size: 12px;">Ödenen</div>
               <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
-            </div>
+          </div>
             <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
               <div style="font-size: 12px;">Kalan</div>
               <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
-            </div>
+        </div>
           </div>
           
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -841,7 +841,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
               <div style="display: flex; align-items: center; gap: 12px;">
                 <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
                   <span style="font-size: 14px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
-                </div>
+              </div>
                 <div>
                   <h1 style="font-size: 18px; font-weight: 800; margin: 0;">${organizationName.toUpperCase()}</h1>
                   <p style="font-size: 10px; color: #666; margin: 0;">Eğitim Kurumu</p>
@@ -854,7 +854,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                 <p style="font-size: 10px; margin: 4px 0 0 0;">Tarih: ${today} | No: ${student.student_no || '____'}</p>
               </div>
             </div>
-
+            
             <!-- ÖĞRENCİ BİLGİLERİ -->
             <div style="margin-bottom: 8px;">
               <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
@@ -870,13 +870,13 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                   <td style="padding: 5px 8px;">${student.class || '-'}-${student.section || 'A'}</td>
                 </tr>
               </table>
-            </div>
+              </div>
 
             <!-- VELİ BİLGİLERİ -->
             <div style="margin-bottom: 8px;">
               <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
                 <h3 style="font-weight: bold; font-size: 11px; margin: 0;">VELİ BİLGİLERİ</h3>
-              </div>
+            </div>
               <table style="width: 100%; border: 1px solid #000; font-size: 10px; border-collapse: collapse;">
                 <tr>
                   <td style="padding: 5px 8px; width: 12%; font-weight: 600; border-right: 1px solid #ccc;">Veli Adı</td>
@@ -885,16 +885,16 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                   <td style="padding: 5px 8px; font-weight: bold;">${student.parent_phone || '-'}</td>
                 </tr>
               </table>
-            </div>
-
+          </div>
+          
             <!-- TAKSİT PLANI - KOMPAKT -->
             ${installments.length > 0 ? `
             <div style="margin-bottom: 8px;">
               <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
                 <h3 style="font-weight: bold; font-size: 11px; margin: 0;">EĞİTİM TAKSİT PLANI (${installments.length} Taksit)</h3>
-              </div>
+            </div>
               <table style="width: 100%; border: 1px solid #000; font-size: 9px; border-collapse: collapse; table-layout: fixed;">
-                <thead>
+              <thead>
                   <tr style="background: #f0f0f0;">
                     <th style="padding: 4px 3px; text-align: center; width: 8%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Taksit</th>
                     <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Vade Tarihi</th>
@@ -902,9 +902,9 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                     <th style="padding: 4px 3px; text-align: right; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Ödenen</th>
                     <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Ödeme Tarihi</th>
                     <th style="padding: 4px 3px; text-align: left; width: 36%; font-weight: bold; border-bottom: 1px solid #000;">Açıklama</th>
-                  </tr>
-                </thead>
-                <tbody>
+                </tr>
+              </thead>
+              <tbody>
                   ${installments.slice(0, 12).map((inst, i) => `
                     <tr style="border-bottom: 1px solid #ddd;">
                       <td style="padding: 3px; text-align: center; font-weight: bold; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
@@ -913,8 +913,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                       <td style="padding: 3px; text-align: right; border-right: 1px solid #ddd; ${inst.status === 'paid' ? 'color: #059669; font-weight: bold;' : 'color: #999;'}">${inst.status === 'paid' ? (inst.paid_amount || inst.amount).toLocaleString('tr-TR') + ' TL' : '—'}</td>
                       <td style="padding: 3px; text-align: center; border-right: 1px solid #ddd; ${inst.status === 'paid' ? 'color: #059669;' : 'color: #999;'}">${inst.status === 'paid' && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '—'}</td>
                       <td style="padding: 3px 4px;">${inst.note || ''}</td>
-                    </tr>
-                  `).join('')}
+                  </tr>
+                `).join('')}
                 </tbody>
                 <tfoot>
                   <tr style="background: #f0f0f0;">
@@ -923,7 +923,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                     <td style="padding: 5px; text-align: right; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000; color: #059669;">${paidAmount.toLocaleString('tr-TR')} TL</td>
                     <td style="border-top: 1px solid #000; border-right: 1px solid #ccc;"></td>
                     <td style="border-top: 1px solid #000;"></td>
-                  </tr>
+                </tr>
                 </tfoot>
               </table>
             </div>
@@ -951,15 +951,15 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                       <td style="padding: 3px 4px; text-align: right; font-weight: bold;">${inc.amount.toLocaleString('tr-TR')} TL</td>
                     </tr>
                   `).join('')}
-                </tbody>
+              </tbody>
                 <tfoot>
                   <tr style="background: #f0f0f0;">
                     <td colspan="2" style="padding: 5px; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">TOPLAM</td>
                     <td style="padding: 5px; text-align: right; font-size: 11px; font-weight: bold; border-top: 1px solid #000;">${otherTotalAmount.toLocaleString('tr-TR')} TL</td>
                   </tr>
                 </tfoot>
-              </table>
-            </div>
+            </table>
+          </div>
             ` : ''}
 
             <!-- GENEL ÖZET -->
@@ -987,8 +987,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                 <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
                 <p style="font-size: 9px; margin: 0;">________________</p>
                 <p style="font-size: 8px; color: #666; margin: 0;">Tarih: ${today}</p>
-              </div>
             </div>
+              </div>
 
             <p style="text-align: center; font-size: 8px; color: #666; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px;">Sayfa 1/2 - Kayıt Formu | ${organizationName}</p>
           </div>
@@ -1010,9 +1010,9 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
                 <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
                   <span style="font-size: 12px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
                 </div>
-              </div>
             </div>
-
+          </div>
+          
             <!-- Sözleşme Metni -->
             <div style="border: 1px solid #000; padding: 12px; font-size: 9px; line-height: 1.6; margin-bottom: 10px;">
 EĞİTİM HİZMETİ SÖZLEŞMESİ
@@ -1035,14 +1035,14 @@ MADDE 5 - KURUM BEYANI
 Kurum, eğitim hizmetini sunmayı ve öğrenci dosyasını gizlilik esaslarına uygun korumayı taahhüt eder.
 
 Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza altına alınmıştır.
-            </div>
+          </div>
 
             <!-- Taraf Bilgileri -->
             <div style="display: flex; gap: 12px; margin-bottom: 10px;">
               <div style="flex: 1; border: 1px solid #000;">
                 <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
                   <h4 style="font-weight: bold; font-size: 10px; margin: 0;">VELİ BİLGİLERİ</h4>
-                </div>
+        </div>
                 <div style="padding: 8px 10px; font-size: 9px;">
                   <p style="margin: 0 0 4px 0;"><strong>Ad Soyad:</strong> ${student.parent_name || '-'}</p>
                   <p style="margin: 0;"><strong>Telefon:</strong> ${student.parent_phone || '-'}</p>
@@ -1438,10 +1438,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-indigo-600" />
-              Ödeme Planı ve Hareketler
-            </h3>
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-indigo-600" />
+            Ödeme Planı ve Hareketler
+          </h3>
             {installments.length > 0 && (
               <button
                 onClick={downloadEducationSummaryPDF}
@@ -1801,12 +1801,12 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
               
-              <button 
-                onClick={() => setShowPaymentModal(false)}
+            <button
+              onClick={() => setShowPaymentModal(false)}
                 className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all"
-              >
+            >
                 <X size={18} />
-              </button>
+            </button>
               
               <div className="relative flex items-center gap-4">
                 <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
@@ -1819,7 +1819,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   </div>
                   <p className="text-emerald-100 text-sm font-medium">{student.first_name} {student.last_name}</p>
                 </div>
-              </div>
+          </div>
 
               {/* Taksit Bilgi Kartı */}
               <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
@@ -1840,8 +1840,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                     <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Kalan</p>
                     <p className="text-lg font-bold">₺{remainingAmount.toLocaleString('tr-TR')}</p>
                   </div>
-                </div>
-                
+            </div>
+
                 {/* Progress Bar */}
                 {progressPercent > 0 && (
                   <div className="mt-3">
@@ -1879,18 +1879,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               <div className="bg-gradient-to-br from-slate-50 to-emerald-50/50 rounded-2xl p-5 border border-slate-100">
                 <label className="block text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                   <TrendingUp size={16} className="text-emerald-600" />
-                  Tahsil Edilecek Tutar
-                </label>
-                <div className="relative">
+                Tahsil Edilecek Tutar
+              </label>
+              <div className="relative">
                   <span className="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-bold text-emerald-600">₺</span>
-                  <input
-                    type="number"
+                <input
+                  type="number"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     className="w-full pl-14 pr-5 py-4 text-3xl font-bold text-slate-800 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm"
                     placeholder="0"
-                  />
-                </div>
+                />
+              </div>
                 {isPartialPayment && (
                   <div className="mt-3 flex items-center gap-2 text-orange-600 bg-orange-50 rounded-xl p-2">
                     <span className="text-sm font-medium">Kısmi ödeme • Kalan: ₺{(remainingAmount - inputAmount).toLocaleString('tr-TR')}</span>
@@ -1922,7 +1922,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                       Geçmiş tarihli
                     </p>
                   )}
-                </div>
+            </div>
 
                 {/* Ödeme Yöntemi */}
                 <div>
@@ -1998,7 +1998,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                     <Printer size={14} /> Makbuz
                   </span>
-                </label>
+              </label>
 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <div 
@@ -2017,19 +2017,19 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                     <MessageCircle size={14} /> WhatsApp
                   </span>
                 </label>
-              </div>
             </div>
+          </div>
 
             {/* Footer */}
             <div className="p-5 bg-gradient-to-r from-slate-50 to-emerald-50/30 border-t border-slate-100 flex gap-3 shrink-0">
-              <button
-                onClick={() => setShowPaymentModal(false)}
+            <button
+              onClick={() => setShowPaymentModal(false)}
                 className="flex-1 px-5 py-3.5 text-sm font-semibold text-slate-600 bg-white border-2 border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
-              >
-                İptal
-              </button>
-              <button
-                onClick={() => {
+            >
+              İptal
+            </button>
+            <button
+              onClick={() => {
                   const amount = parseFloat(paymentAmount) || remainingAmount;
                   processPayment(amount, paymentMethod);
                 }}
@@ -2163,7 +2163,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <CreditCard className="h-4 w-4" />
+              <CreditCard className="h-4 w-4" />
                   Tahsil Et
                 </>
               )}

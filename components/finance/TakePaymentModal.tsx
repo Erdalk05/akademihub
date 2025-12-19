@@ -215,7 +215,7 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
           {installment && (
             <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
               <div className="flex items-center justify-between">
-                <div>
+            <div>
                   <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Taksit</p>
                   <p className="text-2xl font-bold">#{installment.installment_no}</p>
                 </div>
@@ -233,10 +233,10 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
                   <p className="text-xs text-emerald-100 uppercase tracking-wider font-medium">Kalan</p>
                   <p className="text-lg font-bold">₺{remainingAmount.toLocaleString('tr-TR')}</p>
                 </div>
-              </div>
+            </div>
             </div>
           )}
-        </div>
+          </div>
 
         {/* İçerik - Scroll edilebilir */}
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
@@ -247,19 +247,19 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
             <div className="text-center py-8">
               <div className="w-20 h-20 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
                 <CheckCircle2 size={40} className="text-emerald-600" />
-              </div>
+          </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">Ödeme Başarılı!</h3>
               <p className="text-slate-500 mb-6">₺{Number(amountPaid).toLocaleString('tr-TR')} tutarında ödeme alındı.</p>
               
               <div className="flex gap-3 justify-center">
                 {parentPhone && (
-                  <button
-                    onClick={handleSendWhatsApp}
+                <button
+                  onClick={handleSendWhatsApp}
                     className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
-                  >
-                    <MessageCircle size={18} />
-                    WhatsApp Gönder
-                  </button>
+                >
+                  <MessageCircle size={18} />
+                  WhatsApp Gönder
+                </button>
                 )}
                 <button
                   onClick={onClose}
@@ -448,8 +448,8 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
             >
               İptal
             </button>
-            <button
-              onClick={handleSubmit}
+              <button
+                onClick={handleSubmit}
               disabled={submitting || !amountPaid || Number(amountPaid) <= 0}
               className="flex-[2] px-5 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-xl hover:from-emerald-700 hover:to-emerald-600 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 group"
             >
@@ -461,10 +461,10 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
                   Ödemeyi Onayla
                 </>
               )}
-            </button>
-          </div>
-        )}
-      </div>
+              </button>
+            </div>
+          )}
+        </div>
     </div>
   );
 }

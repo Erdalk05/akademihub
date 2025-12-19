@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
       amount: body.amount,
       status: body.status || 'paid',
       date: body.date,
+      expense_date: body.date, // Veritabanı expense_date bekliyor
       description: body.description || null,
       organization_id: body.organization_id || null,
     };
