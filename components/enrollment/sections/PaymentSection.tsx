@@ -10,23 +10,33 @@ import { ModernDatePicker } from '@/components/ui/ModernDatePicker';
 export const PaymentSection = () => {
   const { payment, updatePayment, calculateInstallments, updateInstallment, addInstallment, removeInstallment } = useEnrollmentStore();
   const [isManualMode, setIsManualMode] = useState(false);
-  const [customFirstInstallment, setCustomFirstInstallment] = useState<number | null>(null);
+  const [customFirstInstallment, setCustomFirstInstallment] = useState<number>(0);
   const [useCustomFirst, setUseCustomFirst] = useState(false);
 
-  // Taksit hesapla - otomatik güncelleme (sadece otomatik modda)
+  // Taksit hesapla - otomatik güncelleme (sadece otomatik modda ve özel ilk taksit kapalıyken)
   const recalculate = useCallback(() => {
-    if (!isManualMode && payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
+    if (!isManualMode && !useCustomFirst && payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
       calculateInstallments();
     }
-  }, [payment.netFee, payment.downPayment, payment.installmentCount, payment.firstInstallmentDate, payment.downPaymentDate, calculateInstallments, isManualMode]);
+  }, [payment.netFee, payment.downPayment, payment.installmentCount, payment.firstInstallmentDate, payment.downPaymentDate, calculateInstallments, isManualMode, useCustomFirst]);
 
   useEffect(() => {
     recalculate();
   }, [recalculate]);
 
-  // İlk taksit özelleştirildiğinde diğer taksitleri yeniden hesapla
-  const recalculateWithCustomFirst = useCallback(() => {
-    if (!useCustomFirst || customFirstInstallment === null || customFirstInstallment <= 0) return;
+  // Toggle açıldığında mevcut ilk taksitin değerini al
+  useEffect(() => {
+    if (useCustomFirst && payment.installments.length > 0) {
+      const firstInstallment = payment.installments.find(inst => inst.no === 1);
+      if (firstInstallment && customFirstInstallment === 0) {
+        setCustomFirstInstallment(firstInstallment.amount);
+      }
+    }
+  }, [useCustomFirst, payment.installments]);
+
+  // İlk taksit değiştiğinde diğer taksitleri yeniden hesapla
+  const applyCustomFirstInstallment = useCallback((firstAmount: number) => {
+    if (!useCustomFirst || firstAmount <= 0) return;
     if (payment.installments.length === 0) return;
     
     // Peşinat hariç taksitleri filtrele
@@ -37,52 +47,31 @@ export const PaymentSection = () => {
     const afterDownPayment = payment.netFee - payment.downPayment;
     
     // İlk taksit çıkınca kalan tutar
-    const remainingAfterFirst = afterDownPayment - customFirstInstallment;
+    const remainingAfterFirst = afterDownPayment - firstAmount;
     
     // Kalan taksit sayısı (ilk taksit hariç)
     const remainingInstallmentCount = regularInstallments.length - 1;
     
     if (remainingInstallmentCount <= 0 || remainingAfterFirst < 0) return;
     
-    // Her kalan taksit için tutar
+    // Her kalan taksit için tutar (küsurat son taksitte)
     const eachRemaining = Math.floor(remainingAfterFirst / remainingInstallmentCount);
-    // Son taksit küsurat farkını alır
     const lastInstallmentExtra = remainingAfterFirst - (eachRemaining * remainingInstallmentCount);
-    
-    console.log('İlk taksit özelleştirme:', {
-      afterDownPayment,
-      customFirstInstallment,
-      remainingAfterFirst,
-      remainingInstallmentCount,
-      eachRemaining,
-      lastInstallmentExtra
-    });
     
     // Taksitleri güncelle
     regularInstallments.forEach((inst, index) => {
       if (index === 0) {
-        // İlk taksit (özelleştirilmiş)
-        updateInstallment(inst.no, { amount: customFirstInstallment });
+        // İlk taksit (kullanıcının girdiği)
+        updateInstallment(inst.no, { amount: firstAmount });
       } else if (index === regularInstallments.length - 1) {
-        // Son taksit (kalan küsurat dahil)
+        // Son taksit (küsurat dahil)
         updateInstallment(inst.no, { amount: eachRemaining + lastInstallmentExtra });
       } else {
         // Diğer taksitler (eşit)
         updateInstallment(inst.no, { amount: eachRemaining });
       }
     });
-  }, [useCustomFirst, customFirstInstallment, payment.netFee, payment.downPayment, payment.installments, updateInstallment]);
-
-  // customFirstInstallment veya useCustomFirst değiştiğinde taksitleri yeniden hesapla
-  useEffect(() => {
-    if (useCustomFirst && customFirstInstallment !== null && customFirstInstallment > 0) {
-      // Küçük bir gecikme ekle ki state güncellensin
-      const timer = setTimeout(() => {
-        recalculateWithCustomFirst();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [useCustomFirst, customFirstInstallment, recalculateWithCustomFirst]);
+  }, [useCustomFirst, payment.netFee, payment.downPayment, payment.installments, updateInstallment]);
 
   // Varsayılan tarihler ayarla
   useEffect(() => {
@@ -202,7 +191,7 @@ export const PaymentSection = () => {
                   const newValue = !useCustomFirst;
                   setUseCustomFirst(newValue);
                   if (!newValue) {
-                    setCustomFirstInstallment(null);
+                    setCustomFirstInstallment(0);
                     if (!isManualMode) calculateInstallments();
                   }
                 }}
@@ -230,16 +219,46 @@ export const PaymentSection = () => {
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      value={customFirstInstallment ? customFirstInstallment.toLocaleString('tr-TR') : ''}
+                      value={customFirstInstallment > 0 ? customFirstInstallment.toLocaleString('tr-TR') : ''}
                       onChange={(e) => {
                         const value = e.target.value.replace(/[^0-9]/g, '');
-                        setCustomFirstInstallment(Number(value) || 0);
+                        const numValue = Number(value) || 0;
+                        setCustomFirstInstallment(numValue);
                       }}
-                      placeholder="İlk taksit"
-                      className="w-32 pl-8 pr-3 py-2 text-sm font-semibold border-2 border-emerald-300 rounded-lg 
+                      onBlur={() => {
+                        // Blur olduğunda taksitleri güncelle
+                        if (customFirstInstallment > 0) {
+                          applyCustomFirstInstallment(customFirstInstallment);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Enter'a basınca da taksitleri güncelle
+                        if (e.key === 'Enter' && customFirstInstallment > 0) {
+                          applyCustomFirstInstallment(customFirstInstallment);
+                        }
+                      }}
+                      placeholder="İlk taksit tutarı"
+                      className="w-36 pl-8 pr-3 py-2 text-sm font-semibold border-2 border-emerald-300 rounded-lg 
                         focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none bg-white"
                     />
                   </div>
+                  {/* Uygula Butonu */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customFirstInstallment > 0) {
+                        applyCustomFirstInstallment(customFirstInstallment);
+                      }
+                    }}
+                    disabled={customFirstInstallment <= 0}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      customFirstInstallment > 0
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Uygula
+                  </button>
                 </div>
 
                 {/* Kalan Taksitler Özeti */}
