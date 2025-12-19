@@ -187,70 +187,45 @@ export const PaymentSection = () => {
 
         <Divider label="Taksit Planı" />
 
-        {/* Küsüratlı Satış / İlk Taksit Özelleştirme - Modern Tasarım */}
-        <div className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
+        {/* Küsüratlı Satış - Sade Tasarım */}
+        <div className={`p-4 rounded-xl border transition-all ${
           useCustomFirst 
-            ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 shadow-lg shadow-emerald-100' 
-            : 'border-slate-200 bg-gradient-to-br from-slate-50 to-gray-50 hover:border-slate-300'
+            ? 'border-emerald-300 bg-emerald-50' 
+            : 'border-slate-200 bg-slate-50'
         }`}>
-          {/* Üst Başlık Barı */}
-          <div className={`flex items-center justify-between px-5 py-4 border-b transition-colors ${
-            useCustomFirst ? 'border-emerald-200 bg-emerald-100/50' : 'border-slate-200 bg-white/50'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                useCustomFirst ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
-              }`}>
-                <Edit3 className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className={`font-semibold transition-colors ${useCustomFirst ? 'text-emerald-800' : 'text-slate-700'}`}>
-                  Küsüratlı Satış / Özel Taksit
-                </h4>
-                <p className={`text-xs transition-colors ${useCustomFirst ? 'text-emerald-600' : 'text-slate-500'}`}>
-                  İlk taksiti farklı tutarda belirleyin, kalan otomatik hesaplansın
-                </p>
-              </div>
-            </div>
-            
-            {/* Modern Toggle Switch */}
-            <button
-              type="button"
-              onClick={() => {
-                const newValue = !useCustomFirst;
-                setUseCustomFirst(newValue);
-                if (!newValue) {
-                  setCustomFirstInstallment(null);
-                  if (!isManualMode) {
-                    calculateInstallments();
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Toggle + Label */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => {
+                  const newValue = !useCustomFirst;
+                  setUseCustomFirst(newValue);
+                  if (!newValue) {
+                    setCustomFirstInstallment(null);
+                    if (!isManualMode) calculateInstallments();
                   }
-                }
-              }}
-              className={`relative w-14 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-4 ${
-                useCustomFirst 
-                  ? 'bg-emerald-500 focus:ring-emerald-200' 
-                  : 'bg-slate-300 focus:ring-slate-200'
-              }`}
-            >
-              <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                useCustomFirst ? 'translate-x-6' : 'translate-x-0'
-              }`} />
-            </button>
-          </div>
-          
-          {/* İçerik Alanı */}
-          <div className={`transition-all duration-300 overflow-hidden ${useCustomFirst ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="p-5 space-y-5">
-              {/* Girdi ve Önizleme Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Sol: İlk Taksit Girişi */}
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
-                    <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">1</span>
-                    İlk Taksit Tutarı
-                  </label>
+                }}
+                className={`relative w-12 h-7 rounded-full transition-colors ${
+                  useCustomFirst ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  useCustomFirst ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+              <span className={`text-sm font-medium ${useCustomFirst ? 'text-emerald-700' : 'text-slate-600'}`}>
+                Özel İlk Taksit
+              </span>
+            </label>
+
+            {/* Input - Sadece açıkken görünür */}
+            {useCustomFirst && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 text-sm">→</span>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-lg">₺</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-medium">₺</span>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -260,131 +235,42 @@ export const PaymentSection = () => {
                         const value = e.target.value.replace(/[^0-9]/g, '');
                         setCustomFirstInstallment(Number(value) || 0);
                       }}
-                      placeholder="Örn: 15.000"
-                      className="w-full pl-10 pr-4 py-4 text-xl font-bold border-2 border-emerald-300 rounded-xl 
-                        focus:ring-4 focus:ring-emerald-200 focus:border-emerald-500 outline-none 
-                        bg-white placeholder:text-slate-300 placeholder:font-normal text-emerald-700"
+                      placeholder="İlk taksit"
+                      className="w-32 pl-8 pr-3 py-2 text-sm font-semibold border-2 border-emerald-300 rounded-lg 
+                        focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none bg-white"
                     />
                   </div>
-                  <p className="text-xs text-emerald-600 flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    Küsüratlı veya farklı bir tutar girin
-                  </p>
-                  
-                  {/* Hata Mesajı */}
-                  {useCustomFirst && customFirstInstallment && customFirstInstallment > (payment.netFee - payment.downPayment) && (
-                    <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 p-3 rounded-lg border border-red-200">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <span>İlk taksit, toplam tutardan ({(payment.netFee - payment.downPayment).toLocaleString('tr-TR')} ₺) büyük olamaz!</span>
-                    </div>
-                  )}
                 </div>
-                
-                {/* Sağ: Canlı Önizleme */}
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-teal-700">
-                    <Calculator className="w-5 h-5" />
-                    Otomatik Hesaplama Önizleme
-                  </label>
-                  <div className="bg-white rounded-xl border-2 border-teal-200 p-4 space-y-3">
+
+                {/* Kalan Taksitler Özeti */}
+                {customFirstInstallment && customFirstInstallment > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-400">→</span>
                     {(() => {
                       const afterDownPayment = payment.netFee - payment.downPayment;
-                      const firstAmount = customFirstInstallment || 0;
-                      const remaining = afterDownPayment - firstAmount;
+                      const remaining = afterDownPayment - customFirstInstallment;
                       const count = payment.installmentCount - 1;
-                      const eachRemaining = count > 0 ? Math.floor(remaining / count) : 0;
-                      const lastExtra = count > 0 ? remaining - (eachRemaining * count) : 0;
-                      const isValid = firstAmount > 0 && firstAmount < afterDownPayment && remaining > 0;
+                      
+                      if (customFirstInstallment > afterDownPayment) {
+                        return <span className="text-red-500 font-medium">⚠️ Tutar çok yüksek!</span>;
+                      }
+                      if (count <= 0) return null;
+                      
+                      const eachRemaining = Math.floor(remaining / count);
+                      const lastExtra = remaining - (eachRemaining * count);
                       
                       return (
-                        <>
-                          <div className="flex items-center justify-between py-2 border-b border-teal-100">
-                            <span className="text-sm text-slate-600">Toplam Taksitlenecek:</span>
-                            <span className="font-bold text-slate-800">{afterDownPayment.toLocaleString('tr-TR')} ₺</span>
-                          </div>
-                          
-                          {isValid ? (
-                            <>
-                              <div className="flex items-center justify-between py-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">1</span>
-                                  <span className="text-sm text-slate-600">İlk Taksit:</span>
-                                </div>
-                                <span className="font-bold text-emerald-600 text-lg">{firstAmount.toLocaleString('tr-TR')} ₺</span>
-                              </div>
-                              
-                              <div className="flex items-center justify-between py-2 border-t border-teal-100">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-5 h-5 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold">{count}</span>
-                                  <span className="text-sm text-slate-600">Kalan Taksitler:</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="font-bold text-teal-600 text-lg">{eachRemaining.toLocaleString('tr-TR')} ₺</span>
-                                  <span className="text-xs text-slate-500 ml-1">x {count}</span>
-                                </div>
-                              </div>
-                              
-                              {lastExtra > 0 && (
-                                <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 flex items-center gap-2 border border-amber-200">
-                                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                  Son taksit küsurat içerir: +{lastExtra.toLocaleString('tr-TR')} ₺
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-center py-6 text-slate-400">
-                              <Calculator className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                              <p className="text-sm">İlk taksit tutarını girin</p>
-                              <p className="text-xs mt-1">Kalan otomatik hesaplanacak</p>
-                            </div>
-                          )}
-                        </>
+                        <span className="text-teal-600 font-medium bg-teal-100 px-3 py-1.5 rounded-lg">
+                          Kalan {count} taksit: {eachRemaining.toLocaleString('tr-TR')} ₺
+                          {lastExtra > 0 && <span className="text-xs text-teal-500 ml-1">(+{lastExtra} ₺ son)</span>}
+                        </span>
                       );
                     })()}
                   </div>
-                </div>
-              </div>
-              
-              {/* Alt Özet Kartları */}
-              {customFirstInstallment && customFirstInstallment > 0 && customFirstInstallment <= (payment.netFee - payment.downPayment) && (
-                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-emerald-200">
-                  <div className="bg-white/80 rounded-xl p-4 text-center border border-emerald-100">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
-                      <span className="font-bold text-sm">1</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-1">İlk Taksit</p>
-                    <p className="text-lg font-bold text-emerald-600">{customFirstInstallment.toLocaleString('tr-TR')} ₺</p>
-                  </div>
-                  <div className="bg-white/80 rounded-xl p-4 text-center border border-teal-100">
-                    <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto mb-2">
-                      <Coins className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs text-slate-500 mb-1">Kalan Tutar</p>
-                    <p className="text-lg font-bold text-teal-600">
-                      {(payment.netFee - payment.downPayment - customFirstInstallment).toLocaleString('tr-TR')} ₺
-                    </p>
-                  </div>
-                  <div className="bg-white/80 rounded-xl p-4 text-center border border-slate-200">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto mb-2">
-                      <CalendarDays className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs text-slate-500 mb-1">Toplam Taksit</p>
-                    <p className="text-lg font-bold text-slate-700">{payment.installmentCount} adet</p>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </>
+            )}
           </div>
-          
-          {/* Kapalı Durum - Özet Bilgi */}
-          {!useCustomFirst && (
-            <div className="px-5 py-4">
-              <p className="text-sm text-slate-500 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-slate-400" />
-                Aktifleştirin ve ilk taksit tutarını özelleştirin, kalan otomatik hesaplansın
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Otomatik/Manuel Mod Seçimi */}
