@@ -2343,24 +2343,17 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
 
       {/* DİĞER GELİRLER - Kitap, Üniforma, Yemek vb. */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Package className="h-5 w-5 text-purple-600" />
+              <Package className="h-5 w-5 text-teal-600" />
               Diğer Gelirler
-              <span className="text-xs font-normal text-gray-500">(Kitap, Üniforma, Yemek vb.)</span>
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-emerald-600 font-medium text-sm">
-                ₺{otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0).toLocaleString('tr-TR')} ödendi
-              </span>
-              <span className="text-orange-600 font-medium text-sm">
-                ₺{otherIncomes.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')} bekliyor
-              </span>
               {/* YENİ EKLE BUTONU */}
               <button
                 onClick={() => setShowAddOtherIncomeModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 text-sm font-medium transition shadow-md"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 text-white hover:from-teal-700 hover:to-emerald-700 text-sm font-medium transition shadow-md"
               >
                 <Plus className="h-4 w-4" />
                 Yeni Ekle
@@ -2368,10 +2361,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               {otherIncomes.length > 0 && (
                 <button
                   onClick={downloadOtherIncomeSummaryPDF}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-sm font-medium transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-medium transition"
                 >
                   <Download className="h-4 w-4" />
-                  PDF İndir
+                  PDF
                 </button>
               )}
             </div>
@@ -2380,7 +2373,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
 
         {loadingOtherIncomes ? (
           <div className="flex items-center justify-center p-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-teal-600"></div>
           </div>
         ) : otherIncomes.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
@@ -2391,15 +2384,17 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+              <thead className="bg-teal-50 text-gray-600 font-medium border-b-2 border-teal-200">
                 <tr>
-                  <th className="p-4 text-left">Başlık</th>
-                  <th className="p-4 text-center">Kategori</th>
-                  <th className="p-4 text-right">Tutar</th>
-                  <th className="p-4 text-right">Ödenen</th>
-                  <th className="p-4 text-right">Kalan</th>
-                  <th className="p-4 text-center">Durum</th>
-                  <th className="p-4 text-center">İşlem</th>
+                  <th className="p-3 text-left">Başlık</th>
+                  <th className="p-3 text-center">Kategori</th>
+                  <th className="p-3 text-left">Vade Tarihi</th>
+                  <th className="p-3 text-right">Tutar</th>
+                  <th className="p-3 text-right">Ödenen</th>
+                  <th className="p-3 text-center">Ödeme Tarihi</th>
+                  <th className="p-3 text-right">Kalan</th>
+                  <th className="p-3 text-center">Durum</th>
+                  <th className="p-3 text-center">İşlemler</th>
                 </tr>
               </thead>
               <tbody>
@@ -2407,43 +2402,71 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   const categoryInfo = CATEGORY_INFO[income.category] || CATEGORY_INFO.other;
                   const CategoryIcon = categoryInfo.icon;
                   const remaining = income.amount - income.paidAmount;
+                  const isOverdue = !income.isPaid && income.dueDate && new Date(income.dueDate) < new Date();
 
                   return (
                     <tr
                       key={income.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition ${!income.isPaid ? 'bg-orange-50/30' : ''}`}
+                      className={`border-b transition-all ${
+                        income.isPaid 
+                          ? 'bg-gradient-to-r from-teal-50/80 to-emerald-50/50 border-teal-200 hover:from-teal-100/80 hover:to-emerald-100/50' 
+                          : income.paidAmount > 0
+                            ? 'bg-gradient-to-r from-amber-50/50 to-yellow-50/30 border-amber-200 hover:from-amber-100/50'
+                            : isOverdue 
+                              ? 'bg-red-50/30 border-red-200 hover:bg-red-50/50' 
+                              : 'border-gray-100 hover:bg-gray-50'
+                      }`}
                     >
-                      <td className="p-4">
-                        <span className="font-medium text-gray-900">{income.title}</span>
-                        {income.notes && (
-                          <p className="text-xs text-gray-500 mt-0.5">{income.notes}</p>
-                        )}
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {income.dueDate ? new Date(income.dueDate).toLocaleDateString('tr-TR') : new Date(income.date).toLocaleDateString('tr-TR')}
-                        </p>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          {income.isPaid && <div className="w-1 h-8 bg-teal-500 rounded-full" />}
+                          {income.paidAmount > 0 && !income.isPaid && <div className="w-1 h-8 bg-amber-500 rounded-full" />}
+                          <div>
+                            <span className={`font-medium ${income.isPaid ? 'text-teal-700' : 'text-gray-900'}`}>
+                              {income.title}
+                            </span>
+                            {income.notes && (
+                              <p className="text-xs text-gray-500 mt-0.5">{income.notes}</p>
+                            )}
+                          </div>
+                        </div>
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-3 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white ${categoryInfo.color}`}>
                           <CategoryIcon className="h-3 w-3" />
                           {categoryInfo.label}
                         </span>
                       </td>
-                      <td className="p-4 text-right font-medium text-gray-900">
+                      <td className={`p-3 ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                        {income.dueDate ? new Date(income.dueDate).toLocaleDateString('tr-TR') : new Date(income.date).toLocaleDateString('tr-TR')}
+                        {isOverdue && <span className="ml-1 text-xs">(Gecikmiş)</span>}
+                      </td>
+                      <td className="p-3 text-right font-medium text-gray-900">
                         ₺{income.amount.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-right font-medium text-emerald-600">
+                      <td className={`p-3 text-right font-bold ${income.isPaid ? 'text-teal-600' : income.paidAmount > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                         ₺{income.paidAmount.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-right font-medium text-orange-600">
+                      <td className="p-3 text-center text-gray-600">
+                        {income.paidAt ? (
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            <CalendarCheck className="h-3 w-3 text-teal-500" />
+                            {new Date(income.paidAt).toLocaleDateString('tr-TR')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className={`p-3 text-right font-medium ${remaining === 0 ? 'text-teal-600' : 'text-orange-600'}`}>
                         ₺{remaining.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-3 text-center">
                         {income.isPaid ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-teal-100 text-teal-700 border-teal-300">
                             Ödendi
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-yellow-100 text-yellow-700 border-yellow-300">
                             Beklemede
                           </span>
                         )}
@@ -2520,6 +2543,33 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 })}
               </tbody>
             </table>
+            
+            {/* ÖZET ÇİZGİSİ */}
+            <div className="border-t-2 border-dashed border-teal-300 mt-2" />
+            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-teal-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Ödendi</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Kısmi Ödeme</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-300 rounded-full" />
+                  <span className="text-sm text-gray-600">Beklemede</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm font-medium">
+                <span className="text-teal-600">
+                  Ödenen: ₺{otherIncomes.reduce((s, i) => s + i.paidAmount, 0).toLocaleString('tr-TR')}
+                </span>
+                <span className="text-orange-600">
+                  Kalan: ₺{otherIncomes.reduce((s, i) => s + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')}
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>
