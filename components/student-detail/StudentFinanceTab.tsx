@@ -538,6 +538,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
 
     const amount = paymentAmount || selectedInstallment.amount;
     const toastId = toast.loading('Ödeme işleniyor...');
+    setPaymentSubmitting(true);
     
     try {
       // Gerçek API çağrısı
@@ -551,7 +552,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           student_id: student.id,
           amount,
           payment_method: paymentMethod || 'cash',
-          notes: `${selectedInstallment.installment_no}. taksit ödemesi`,
+          notes: paymentNote || `${selectedInstallment.installment_no}. taksit ödemesi`,
         }),
       });
 
@@ -569,20 +570,62 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
         { id: toastId, duration: 6000, icon: '💰' }
       );
       
+      // Güncellenmiş taksit bilgisi
+      const updatedInstallment: Installment = {
+        ...selectedInstallment,
+        paid_amount: data.data.new_paid_amount,
+        status: data.data.is_fully_paid ? 'paid' : 'pending',
+        paid_at: new Date().toISOString(),
+        payment_method: paymentMethod || 'cash',
+      };
+      
       // Local state'i anında güncelle (UI hemen değişsin)
       setInstallments(prev => prev.map(inst => 
-        inst.id === selectedInstallment.id 
-          ? {
-              ...inst,
-              paid_amount: data.data.new_paid_amount,
-              status: data.data.is_fully_paid ? 'paid' : (data.data.new_paid_amount > 0 ? 'pending' : 'pending'),
-              paid_at: data.data.is_fully_paid ? new Date().toISOString() : inst.paid_at,
-              payment_method: paymentMethod || 'cash',
-            }
-          : inst
+        inst.id === selectedInstallment.id ? updatedInstallment : inst
       ));
       
+      // Modal'ı kapat
       setShowPaymentModal(false);
+      
+      // Makbuz oluştur (toggle açıksa)
+      if (printReceipt) {
+        setTimeout(() => {
+          downloadReceipt(updatedInstallment);
+        }, 500);
+      }
+      
+      // WhatsApp gönder (toggle açıksa)
+      if (sendWhatsApp && student.parent_phone) {
+        const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+        const installmentLabel = selectedInstallment.installment_no === 0 ? 'Peşinat' : `${selectedInstallment.installment_no}. Taksit`;
+        const today = new Date().toLocaleDateString('tr-TR');
+        
+        let formattedPhone = student.parent_phone.replace(/\D/g, '');
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '90' + formattedPhone.slice(1);
+        } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
+          formattedPhone = '90' + formattedPhone;
+        }
+        
+        const message = `💰 *ÖDEME ALINDI*
+
+🏫 *${organizationName}*
+
+👤 Öğrenci: ${studentName}
+📋 ${installmentLabel}
+💵 Tutar: ${amount.toLocaleString('tr-TR')} TL
+📅 Tarih: ${today}
+${data.data.is_fully_paid ? '✅ Taksit tamamen ödendi!' : `⏳ Kalan: ${data.data.remaining.toLocaleString('tr-TR')} TL`}
+
+Teşekkür ederiz. 🙏`;
+        
+        const encodedMessage = encodeURIComponent(message);
+        
+        setTimeout(() => {
+          window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+        }, 1000);
+      }
+      
       setSelectedInstallment(null);
       
       // Listeyi de yenile (güncel veri çekmek için)
@@ -590,6 +633,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       onRefresh?.();
     } catch (error: any) {
       toast.error(`❌ Ödeme hatası: ${error.message}`, { id: toastId });
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
