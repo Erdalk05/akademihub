@@ -50,27 +50,56 @@ export const PaymentSection = () => {
     };
   }, [customFirstAmount, totalAfterDownPayment, payment.installmentCount]);
 
-  // Özel ilk taksit uygula
+  // Özel ilk taksit uygula - taksitleri sıfırdan oluştur
   const applyCustomFirst = useCallback(() => {
     if (!customCalculation) return;
+    if (!payment.firstInstallmentDate) return;
     
     const { firstAmount, each, lastAmount, count } = customCalculation;
+    const totalInstallments = payment.installmentCount;
     
-    // Mevcut taksitleri güncelle
-    const updatedInstallments = payment.installments.map((inst) => {
-      if (inst.no <= 0) return inst; // Peşinat
+    // Taksitleri sıfırdan oluştur
+    const newInstallments: typeof payment.installments = [];
+    
+    // Peşinat varsa ekle
+    if (payment.downPayment > 0 && payment.downPaymentDate) {
+      newInstallments.push({
+        no: 0,
+        dueDate: payment.downPaymentDate,
+        amount: payment.downPayment,
+        status: 'pending'
+      });
+    }
+    
+    // Taksitleri oluştur
+    const startDate = new Date(payment.firstInstallmentDate);
+    
+    for (let i = 1; i <= totalInstallments; i++) {
+      const dueDate = new Date(startDate);
+      dueDate.setMonth(startDate.getMonth() + (i - 1));
       
-      if (inst.no === 1) {
-        return { ...inst, amount: firstAmount };
-      } else if (inst.no === payment.installmentCount) {
-        return { ...inst, amount: lastAmount };
+      let amount: number;
+      if (i === 1) {
+        // İlk taksit: kullanıcının girdiği
+        amount = firstAmount;
+      } else if (i === totalInstallments) {
+        // Son taksit: küsurat dahil
+        amount = lastAmount;
       } else {
-        return { ...inst, amount: each };
+        // Diğer taksitler: eşit
+        amount = each;
       }
-    });
+      
+      newInstallments.push({
+        no: i,
+        dueDate: dueDate.toISOString().split('T')[0],
+        amount,
+        status: 'pending'
+      });
+    }
     
-    updatePayment({ installments: updatedInstallments });
-  }, [customCalculation, payment.installments, payment.installmentCount, updatePayment]);
+    updatePayment({ installments: newInstallments });
+  }, [customCalculation, payment.installmentCount, payment.firstInstallmentDate, payment.downPayment, payment.downPaymentDate, updatePayment]);
 
   // Varsayılan tarihler
   useEffect(() => {
