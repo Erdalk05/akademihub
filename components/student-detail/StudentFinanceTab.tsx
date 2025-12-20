@@ -313,6 +313,10 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [editOtherIncomeData, setEditOtherIncomeData] = useState({
     title: '',
     amount: '',
+    dueDate: '',
+    paidAmount: '',
+    paidAt: '',
+    paymentMethod: 'cash' as 'cash' | 'card' | 'bank' | 'eft' | 'manual',
     notes: ''
   });
   const [savingOtherIncome, setSavingOtherIncome] = useState(false);
@@ -713,6 +717,10 @@ Teşekkür ederiz. 🙏`;
     setEditOtherIncomeData({
       title: income.title,
       amount: String(income.amount),
+      dueDate: income.dueDate || income.date || new Date().toISOString().split('T')[0],
+      paidAmount: String(income.paidAmount || 0),
+      paidAt: income.paidAt ? income.paidAt.split('T')[0] : new Date().toISOString().split('T')[0],
+      paymentMethod: (income.paymentMethod as 'cash' | 'card' | 'bank' | 'eft' | 'manual') || 'cash',
       notes: income.notes || ''
     });
     setShowEditOtherIncomeModal(true);
@@ -726,23 +734,33 @@ Teşekkür ederiz. 🙏`;
     const toastId = toast.loading('Kaydediliyor...');
     
     try {
+      const paidAmount = parseFloat(editOtherIncomeData.paidAmount) || 0;
+      const amount = parseFloat(editOtherIncomeData.amount) || 0;
+      const isPaid = paidAmount >= amount;
+      
       await fetch('/api/finance/other-income', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingOtherIncome.id,
           title: editOtherIncomeData.title,
-          amount: parseFloat(editOtherIncomeData.amount),
+          amount: amount,
+          due_date: editOtherIncomeData.dueDate,
+          paid_amount: paidAmount,
+          paid_at: paidAmount > 0 ? editOtherIncomeData.paidAt : null,
+          payment_method: editOtherIncomeData.paymentMethod,
+          is_paid: isPaid,
           notes: editOtherIncomeData.notes
         })
       });
       
-      toast.success('✅ Güncellendi!', { id: toastId });
+      toast.success('Guncellendi!', { id: toastId });
       setShowEditOtherIncomeModal(false);
       setEditingOtherIncome(null);
       fetchOtherIncomes();
+      onRefresh?.();
     } catch (error: any) {
-      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+      toast.error('Hata: ' + error.message, { id: toastId });
     } finally {
       setSavingOtherIncome(false);
     }
@@ -2574,16 +2592,14 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                             </button>
                           )}
                           
-                          {/* DÜZENLE */}
-                          {income.paidAmount > 0 && (
-                            <button
-                              onClick={() => handleEditOtherIncome(income)}
-                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition"
-                              title="Düzenle"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                          {/* DÜZENLE - Her zaman görünür */}
+                          <button
+                            onClick={() => handleEditOtherIncome(income)}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-100 text-xs font-medium transition"
+                            title="Duzenle"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
                           
                           {/* SİL */}
                           <button
@@ -3628,20 +3644,20 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       </div>
     )}
 
-    {/* DİĞER GELİR DÜZENLEME MODAL */}
+    {/* DİĞER GELİR DÜZENLEME MODAL - Eğitim Taksitleri ile Aynı */}
     {showEditOtherIncomeModal && editingOtherIncome && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+          <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
-                  <Edit3 className="h-6 w-6" />
+                  <Pencil className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Kalem Düzenle</h3>
-                  <p className="text-blue-200 text-sm">{CATEGORY_INFO[editingOtherIncome.category]?.label || 'Diğer'}</p>
+                  <h3 className="text-lg font-bold">Odeme Duzenle</h3>
+                  <p className="text-teal-200 text-sm">{editingOtherIncome.title}</p>
                 </div>
               </div>
               <button 
@@ -3653,51 +3669,110 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
 
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Başlık</label>
-              <input
-                type="text"
-                value={editOtherIncomeData.title}
-                onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              />
+          <div className="p-6 space-y-5">
+            {/* KALEM BİLGİLERİ (Düzenlenebilir) */}
+            <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Pencil className="h-4 w-4 text-teal-600" />
+                <span className="text-sm font-bold text-teal-700">KALEM BILGILERI (Duzenlenebilir)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tutar</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₺</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={editOtherIncomeData.amount}
+                      onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                      className="w-full pl-8 pr-3 py-2.5 border-2 border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none font-semibold"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Vade Tarihi</label>
+                  <input
+                    type="date"
+                    value={editOtherIncomeData.dueDate}
+                    onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border-2 border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Ödenen Tutar */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Tutar</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Odenen Tutar</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={editOtherIncomeData.amount}
-                  onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
-                  className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  value={editOtherIncomeData.paidAmount}
+                  onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, paidAmount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                  className="w-full pl-10 pr-4 py-3 text-xl font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  placeholder="0"
                 />
               </div>
             </div>
+
+            {/* Ödeme Tarihi */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Not</label>
-              <textarea
-                value={editOtherIncomeData.notes}
-                onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, notes: e.target.value }))}
-                rows={2}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Odeme Tarihi</label>
+              <input
+                type="date"
+                value={editOtherIncomeData.paidAt}
+                onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, paidAt: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
               />
+            </div>
+
+            {/* Ödeme Yöntemi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Odeme Yontemi</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { value: 'cash', label: 'Nakit', icon: Banknote },
+                  { value: 'card', label: 'Kart', icon: CreditCard },
+                  { value: 'eft', label: 'EFT', icon: Building },
+                  { value: 'bank', label: 'Havale', icon: Building },
+                  { value: 'manual', label: 'Manuel', icon: FileText }
+                ].map((method) => {
+                  const Icon = method.icon;
+                  return (
+                    <button
+                      key={method.value}
+                      type="button"
+                      onClick={() => setEditOtherIncomeData(prev => ({ ...prev, paymentMethod: method.value as any }))}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                        editOtherIncomeData.paymentMethod === method.value
+                          ? 'bg-teal-100 text-teal-700 border-teal-500'
+                          : 'bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px] font-medium">{method.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
+          {/* Footer */}
           <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
             <button
               onClick={() => setShowEditOtherIncomeModal(false)}
               className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
             >
-              İptal
+              Iptal
             </button>
             <button
               onClick={handleSaveOtherIncome}
               disabled={savingOtherIncome}
-              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 transition-all shadow-lg flex items-center justify-center gap-2"
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 rounded-xl hover:from-teal-700 hover:to-emerald-700 disabled:opacity-60 transition-all shadow-lg flex items-center justify-center gap-2"
             >
               {savingOtherIncome ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />
