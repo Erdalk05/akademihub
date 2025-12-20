@@ -262,7 +262,7 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
 
                 {/* Taksit Planı */}
                 <Link
-                  href={`/students/${student.id}/payments`}
+                  href={`/students/${student.id}?tab=finance`}
                   className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
                 >
                   <Calendar size={18} />

@@ -37,6 +37,7 @@ import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { downloadPDFFromHTML } from '@/lib/utils/pdfGenerator';
+import { exportInstallmentPlanToExcel } from '@/lib/services/exportService';
 import toast from 'react-hot-toast';
 
 interface Installment {
@@ -292,6 +293,38 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
   const [bulkPaymentMethod, setBulkPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
   const [bulkPaymentLoading, setBulkPaymentLoading] = useState(false);
+  
+  // Diğer Gelir Ekleme State
+  const [showAddOtherIncomeModal, setShowAddOtherIncomeModal] = useState(false);
+  const [newOtherIncome, setNewOtherIncome] = useState({
+    title: '',
+    category: 'book' as 'book' | 'uniform' | 'meal' | 'stationery' | 'other',
+    amount: '',
+    dueDate: new Date().toISOString().split('T')[0],
+    notes: '',
+    installmentCount: 1
+  });
+  const [addingOtherIncome, setAddingOtherIncome] = useState(false);
+  
+  // Diğer Gelir Düzenleme State
+  const [showEditOtherIncomeModal, setShowEditOtherIncomeModal] = useState(false);
+  const [editingOtherIncome, setEditingOtherIncome] = useState<OtherIncome | null>(null);
+  const [editOtherIncomeData, setEditOtherIncomeData] = useState({
+    title: '',
+    amount: '',
+    notes: ''
+  });
+  const [savingOtherIncome, setSavingOtherIncome] = useState(false);
+  const [deletingOtherIncomeId, setDeletingOtherIncomeId] = useState<string | null>(null);
+  
+  // Taksit Ekleme State
+  const [showAddInstallmentModal, setShowAddInstallmentModal] = useState(false);
+  const [newInstallment, setNewInstallment] = useState({
+    amount: '',
+    dueDate: new Date().toISOString().split('T')[0],
+    note: ''
+  });
+  const [addingInstallment, setAddingInstallment] = useState(false);
   
   // Taksit Düzenle Modal Aç
   const handleEditInstallment = (installment: Installment) => {
@@ -611,6 +644,250 @@ Teşekkür ederiz. 🙏`;
   useEffect(() => {
     fetchOtherIncomes();
   }, [fetchOtherIncomes]);
+
+  // Diğer Gelir Ekleme Fonksiyonu
+  const handleAddOtherIncome = async () => {
+    const amount = parseFloat(newOtherIncome.amount);
+    if (!newOtherIncome.title.trim() || isNaN(amount) || amount <= 0) {
+      toast.error('Başlık ve geçerli tutar girin');
+      return;
+    }
+    
+    setAddingOtherIncome(true);
+    const toastId = toast.loading('Ekleniyor...');
+    
+    try {
+      // Taksit sayısına göre kayıt oluştur
+      const installmentCount = newOtherIncome.installmentCount || 1;
+      const installmentAmount = amount / installmentCount;
+      
+      for (let i = 0; i < installmentCount; i++) {
+        const dueDate = new Date(newOtherIncome.dueDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        
+        const title = installmentCount > 1 
+          ? `${newOtherIncome.title} (${i + 1}/${installmentCount})`
+          : newOtherIncome.title;
+        
+        await fetch('/api/finance/other-income', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_id: student.id,
+            organization_id: student.organization_id,
+            title,
+            category: newOtherIncome.category,
+            amount: installmentAmount,
+            due_date: dueDate.toISOString().split('T')[0],
+            notes: newOtherIncome.notes,
+            is_paid: false,
+            paid_amount: 0
+          })
+        });
+      }
+      
+      toast.success(`✅ ${installmentCount > 1 ? `${installmentCount} taksit olarak` : ''} eklendi!`, { id: toastId });
+      setShowAddOtherIncomeModal(false);
+      setNewOtherIncome({
+        title: '',
+        category: 'book',
+        amount: '',
+        dueDate: new Date().toISOString().split('T')[0],
+        notes: '',
+        installmentCount: 1
+      });
+      fetchOtherIncomes();
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setAddingOtherIncome(false);
+    }
+  };
+
+  // Diğer Gelir Düzenleme Fonksiyonu
+  const handleEditOtherIncome = (income: OtherIncome) => {
+    setEditingOtherIncome(income);
+    setEditOtherIncomeData({
+      title: income.title,
+      amount: String(income.amount),
+      notes: income.notes || ''
+    });
+    setShowEditOtherIncomeModal(true);
+  };
+
+  // Diğer Gelir Güncelleme
+  const handleSaveOtherIncome = async () => {
+    if (!editingOtherIncome) return;
+    
+    setSavingOtherIncome(true);
+    const toastId = toast.loading('Kaydediliyor...');
+    
+    try {
+      await fetch('/api/finance/other-income', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingOtherIncome.id,
+          title: editOtherIncomeData.title,
+          amount: parseFloat(editOtherIncomeData.amount),
+          notes: editOtherIncomeData.notes
+        })
+      });
+      
+      toast.success('✅ Güncellendi!', { id: toastId });
+      setShowEditOtherIncomeModal(false);
+      setEditingOtherIncome(null);
+      fetchOtherIncomes();
+    } catch (error: any) {
+      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setSavingOtherIncome(false);
+    }
+  };
+
+  // Diğer Gelir Silme
+  const handleDeleteOtherIncome = async (incomeId: string, isPaid: boolean) => {
+    const confirmMsg = isPaid 
+      ? '⚠️ Bu kalem ödenmiş! Silmek finansal kayıtları etkileyecek. Devam?'
+      : 'Bu kalemi silmek istediğinize emin misiniz?';
+    
+    if (!confirm(confirmMsg)) return;
+    
+    setDeletingOtherIncomeId(incomeId);
+    
+    try {
+      await fetch(`/api/finance/other-income?id=${incomeId}`, {
+        method: 'DELETE'
+      });
+      
+      toast.success('Silindi');
+      fetchOtherIncomes();
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error('Silinemedi: ' + error.message);
+    } finally {
+      setDeletingOtherIncomeId(null);
+    }
+  };
+
+  // Taksit Ekleme Fonksiyonu
+  const handleAddInstallment = async () => {
+    const amount = parseFloat(newInstallment.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Geçerli bir tutar girin');
+      return;
+    }
+    
+    setAddingInstallment(true);
+    const toastId = toast.loading('Taksit ekleniyor...');
+    
+    try {
+      // En son taksit numarasını bul
+      const maxInstallmentNo = installments.reduce((max, i) => Math.max(max, i.installment_no), 0);
+      
+      await fetch('/api/installments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: student.id,
+          organization_id: student.organization_id,
+          installment_no: maxInstallmentNo + 1,
+          amount,
+          due_date: newInstallment.dueDate,
+          note: newInstallment.note,
+          paid_amount: 0,
+          status: 'pending'
+        })
+      });
+      
+      toast.success('✅ Taksit eklendi!', { id: toastId });
+      setShowAddInstallmentModal(false);
+      setNewInstallment({
+        amount: '',
+        dueDate: new Date().toISOString().split('T')[0],
+        note: ''
+      });
+      fetchInstallments();
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setAddingInstallment(false);
+    }
+  };
+
+  // Excel'e Aktar Fonksiyonu
+  const handleExportExcel = () => {
+    try {
+      if (installments.length === 0) {
+        toast.error('Taksit planı bulunamadı');
+        return;
+      }
+      
+      const exportData = installments.map(i => ({
+        id: i.id,
+        installment_no: i.installment_no,
+        amount: i.amount,
+        paid_amount: i.paid_amount,
+        due_date: i.due_date,
+        is_paid: i.status === 'paid',
+        payment_method: i.payment_method,
+        student_id: student.id,
+        created_at: new Date().toISOString()
+      }));
+      
+      exportInstallmentPlanToExcel(exportData as any, {
+        studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+        className: student.class || null,
+        parentName: student.parent_name || null,
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        remainingAmount: balance
+      });
+      
+      toast.success('Excel dosyası indirildi!');
+    } catch (error: any) {
+      toast.error('Excel oluşturulamadı: ' + error.message);
+    }
+  };
+
+  // Taksit Planını WhatsApp ile Gönder
+  const handleWhatsAppPlan = () => {
+    if (!student.parent_phone) {
+      toast.error('Veli telefon numarası bulunamadı!');
+      return;
+    }
+    
+    const phone = student.parent_phone.replace(/\D/g, '');
+    const formattedPhone = phone.startsWith('0') ? '90' + phone.slice(1) : 
+                           phone.length === 10 ? '90' + phone : phone;
+    
+    const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+    
+    let planText = `📋 *TAKSİT PLANI*\n\n`;
+    planText += `👤 Öğrenci: ${studentName}\n`;
+    planText += `📊 Toplam: ₺${totalAmount.toLocaleString('tr-TR')}\n`;
+    planText += `✅ Ödenen: ₺${paidAmount.toLocaleString('tr-TR')}\n`;
+    planText += `⏳ Kalan: ₺${balance.toLocaleString('tr-TR')}\n\n`;
+    planText += `📅 *TAKSİTLER:*\n`;
+    
+    installments.slice(0, 10).forEach(inst => {
+      const status = inst.status === 'paid' ? '✅' : inst.status === 'overdue' ? '🔴' : '⏳';
+      const label = inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`;
+      const date = new Date(inst.due_date).toLocaleDateString('tr-TR');
+      planText += `${status} ${label}: ₺${inst.amount.toLocaleString('tr-TR')} (${date})\n`;
+    });
+    
+    if (installments.length > 10) {
+      planText += `\n... ve ${installments.length - 10} taksit daha\n`;
+    }
+    
+    planText += `\n💼 ${organizationName}`;
+    
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(planText)}`, '_blank');
+    toast.success('WhatsApp açılıyor...');
+  };
 
   // Diğer Gelir Tahsilat Fonksiyonları
   const handleOpenOtherPayment = (income: OtherIncome) => {
@@ -1764,7 +2041,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               <FileText className="h-5 w-5 text-indigo-600" />
               Ödeme Planı ve Hareketler
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Toplu Tahsilat Butonu */}
               {selectedInstallmentIds.size > 0 && (
                 <button
@@ -1775,13 +2052,41 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   {selectedInstallmentIds.size} Taksit Tahsil Et (₺{selectedTotalAmount.toLocaleString('tr-TR')})
                 </button>
               )}
+              {/* Taksit Ekle Butonu */}
+              <button
+                onClick={() => setShowAddInstallmentModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 text-sm font-medium transition shadow-md"
+              >
+                <Plus className="h-4 w-4" />
+                Taksit Ekle
+              </button>
               {installments.length > 0 && (
                 <button
                   onClick={downloadEducationSummaryPDF}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
                 >
                   <Download className="h-4 w-4" />
-                  PDF İndir
+                  PDF
+                </button>
+              )}
+              {/* Excel Export */}
+              {installments.length > 0 && (
+                <button
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium transition"
+                >
+                  <FileText className="h-4 w-4" />
+                  Excel
+                </button>
+              )}
+              {/* WhatsApp Plan Gönder */}
+              {installments.length > 0 && student.parent_phone && (
+                <button
+                  onClick={handleWhatsAppPlan}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 text-sm font-medium transition"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Plan Gönder
                 </button>
               )}
             </div>
@@ -2039,18 +2344,27 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       {/* DİĞER GELİRLER - Kitap, Üniforma, Yemek vb. */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <Package className="h-5 w-5 text-purple-600" />
               Diğer Gelirler
+              <span className="text-xs font-normal text-gray-500">(Kitap, Üniforma, Yemek vb.)</span>
             </h3>
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-emerald-600 font-medium">
-                Ödenen: ₺{otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0).toLocaleString('tr-TR')}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-emerald-600 font-medium text-sm">
+                ₺{otherIncomes.reduce((sum, i) => sum + i.paidAmount, 0).toLocaleString('tr-TR')} ödendi
               </span>
-              <span className="text-orange-600 font-medium">
-                Bekleyen: ₺{otherIncomes.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')}
+              <span className="text-orange-600 font-medium text-sm">
+                ₺{otherIncomes.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0).toLocaleString('tr-TR')} bekliyor
               </span>
+              {/* YENİ EKLE BUTONU */}
+              <button
+                onClick={() => setShowAddOtherIncomeModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 text-sm font-medium transition shadow-md"
+              >
+                <Plus className="h-4 w-4" />
+                Yeni Ekle
+              </button>
               {otherIncomes.length > 0 && (
                 <button
                   onClick={downloadOtherIncomeSummaryPDF}
@@ -2134,24 +2448,53 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           </span>
                         )}
                       </td>
-                      <td className="p-4 text-center">
-                        {!income.isPaid ? (
+                      <td className="p-4">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* TAHSİL ET */}
+                          {!income.isPaid && (
+                            <button
+                              onClick={() => handleOpenOtherPayment(income)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition"
+                              title="Tahsil Et"
+                            >
+                              <CreditCard className="h-3 w-3" />
+                            </button>
+                          )}
+                          
+                          {/* MAKBUZ */}
+                          {income.isPaid && (
+                            <button
+                              onClick={() => downloadOtherIncomeReceipt(income)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition"
+                              title="Makbuz İndir"
+                            >
+                              <Download className="h-3 w-3" />
+                            </button>
+                          )}
+                          
+                          {/* DÜZENLE */}
                           <button
-                            onClick={() => handleOpenOtherPayment(income)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition"
+                            onClick={() => handleEditOtherIncome(income)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition"
+                            title="Düzenle"
                           >
-                            <CreditCard className="h-3 w-3" />
-                            Tahsil Et
+                            <Edit3 className="h-3 w-3" />
                           </button>
-                        ) : (
+                          
+                          {/* SİL */}
                           <button
-                            onClick={() => downloadOtherIncomeReceipt(income)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition"
+                            onClick={() => handleDeleteOtherIncome(income.id, income.isPaid)}
+                            disabled={deletingOtherIncomeId === income.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
+                            title="Sil"
                           >
-                            <Download className="h-3 w-3" />
-                            Makbuz
+                            {deletingOtherIncomeId === income.id ? (
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2177,9 +2520,84 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             PDF İndir
           </button>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center text-gray-500">
-          <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-          <p>Dijital sözleşme önizlemesi yakında...</p>
+        {/* Sözleşme Önizleme Kartları */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Sol: Öğrenci & Veli Bilgileri */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
+            <h4 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-2">
+              👤 Taraf Bilgileri
+            </h4>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Öğrenci:</span>
+                <span className="font-bold text-gray-800">{student.first_name} {student.last_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Sınıf:</span>
+                <span className="font-medium text-gray-800">{student.class || '-'}-{student.section || 'A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Veli:</span>
+                <span className="font-bold text-gray-800">{student.parent_name || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Telefon:</span>
+                <span className="font-medium text-emerald-600">{student.parent_phone || '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sağ: Finansal Özet */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5">
+            <h4 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
+              💰 Finansal Özet
+            </h4>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Toplam Sözleşme:</span>
+                <span className="font-bold text-gray-800">₺{totalAmount.toLocaleString('tr-TR')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Tahsil Edilen:</span>
+                <span className="font-bold text-emerald-600">₺{paidAmount.toLocaleString('tr-TR')}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2">
+                <span className="text-gray-600">Kalan Borç:</span>
+                <span className={`font-bold text-lg ${balance > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                  ₺{balance.toLocaleString('tr-TR')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Taksit Sayısı:</span>
+                <span className="font-medium text-gray-800">{installments.length} adet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Onay Durumları */}
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <h4 className="text-sm font-bold text-gray-700 mb-3">📋 Sözleşme Onayları</h4>
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-2 rounded-lg">
+              <CheckCircle2 size={14} />
+              <span>KVKK Onayı</span>
+            </div>
+            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-2 rounded-lg">
+              <CheckCircle2 size={14} />
+              <span>Okul Kuralları</span>
+            </div>
+            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-2 rounded-lg">
+              <CheckCircle2 size={14} />
+              <span>Ödeme Planı</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Kayıt Tarihi */}
+        <div className="mt-4 text-center text-xs text-gray-500">
+          Kayıt Tarihi: {student.registration_date ? new Date(student.registration_date).toLocaleDateString('tr-TR') : new Date().toLocaleDateString('tr-TR')}
+          {' • '}Akademik Yıl: {student.academic_year || '2024-2025'}
         </div>
       </div>
     </div>
@@ -2918,6 +3336,343 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 <>
                   <Check className="h-5 w-5" />
                   Tümünü Tahsil Et
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* DİĞER GELİR EKLEME MODAL */}
+    {showAddOtherIncomeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Plus className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Yeni Satış Ekle</h3>
+                  <p className="text-purple-200 text-sm">Kitap, Üniforma, Yemek vb.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddOtherIncomeModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* Başlık */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Başlık *</label>
+              <input
+                type="text"
+                value={newOtherIncome.title}
+                onChange={(e) => setNewOtherIncome(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Örn: 11. Sınıf Kitap Seti"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+              />
+            </div>
+
+            {/* Kategori */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Kategori</label>
+              <div className="grid grid-cols-5 gap-2">
+                {Object.entries(CATEGORY_INFO).map(([key, info]) => {
+                  const Icon = info.icon;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setNewOtherIncome(prev => ({ ...prev, category: key as any }))}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                        newOtherIncome.category === key 
+                          ? `${info.color} text-white border-transparent` 
+                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon size={18} />
+                      <span className="text-[10px] font-medium">{info.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tutar ve Taksit */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Toplam Tutar *</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={newOtherIncome.amount}
+                    onChange={(e) => setNewOtherIncome(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                    placeholder="0"
+                    className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Taksit Sayısı</label>
+                <select
+                  value={newOtherIncome.installmentCount}
+                  onChange={(e) => setNewOtherIncome(prev => ({ ...prev, installmentCount: parseInt(e.target.value) }))}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                >
+                  {[1, 2, 3, 4, 5, 6].map(n => (
+                    <option key={n} value={n}>{n} Taksit</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Vade Tarihi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">İlk Vade Tarihi</label>
+              <input
+                type="date"
+                value={newOtherIncome.dueDate}
+                onChange={(e) => setNewOtherIncome(prev => ({ ...prev, dueDate: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+              />
+            </div>
+
+            {/* Not */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Not (Opsiyonel)</label>
+              <textarea
+                value={newOtherIncome.notes}
+                onChange={(e) => setNewOtherIncome(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Ek açıklama..."
+                rows={2}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none"
+              />
+            </div>
+
+            {/* Özet */}
+            {newOtherIncome.amount && parseFloat(newOtherIncome.amount) > 0 && newOtherIncome.installmentCount > 1 && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                <p className="text-sm text-purple-700">
+                  <strong>{newOtherIncome.installmentCount} taksit</strong> × ₺{(parseFloat(newOtherIncome.amount) / newOtherIncome.installmentCount).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} = <strong>₺{parseFloat(newOtherIncome.amount).toLocaleString('tr-TR')}</strong>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => setShowAddOtherIncomeModal(false)}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleAddOtherIncome}
+              disabled={addingOtherIncome || !newOtherIncome.title.trim() || !newOtherIncome.amount}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:opacity-60 transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2"
+            >
+              {addingOtherIncome ? (
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  Ekle
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* DİĞER GELİR DÜZENLEME MODAL */}
+    {showEditOtherIncomeModal && editingOtherIncome && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Edit3 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Kalem Düzenle</h3>
+                  <p className="text-blue-200 text-sm">{CATEGORY_INFO[editingOtherIncome.category]?.label || 'Diğer'}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowEditOtherIncomeModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Başlık</label>
+              <input
+                type="text"
+                value={editOtherIncomeData.title}
+                onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tutar</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editOtherIncomeData.amount}
+                  onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                  className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Not</label>
+              <textarea
+                value={editOtherIncomeData.notes}
+                onChange={(e) => setEditOtherIncomeData(prev => ({ ...prev, notes: e.target.value }))}
+                rows={2}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => setShowEditOtherIncomeModal(false)}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleSaveOtherIncome}
+              disabled={savingOtherIncome}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 transition-all shadow-lg flex items-center justify-center gap-2"
+            >
+              {savingOtherIncome ? (
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5" />
+                  Kaydet
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* TAKSİT EKLEME MODAL */}
+    {showAddInstallmentModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Plus className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Yeni Taksit Ekle</h3>
+                  <p className="text-indigo-200 text-sm">Manuel taksit oluşturma</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddInstallmentModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* Bilgi */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+              <p className="text-sm text-indigo-700">
+                Yeni taksit <strong>{installments.length > 0 ? Math.max(...installments.map(i => i.installment_no)) + 1 : 1}. Taksit</strong> olarak eklenecek.
+              </p>
+            </div>
+
+            {/* Tutar */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Taksit Tutarı *</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newInstallment.amount}
+                  onChange={(e) => setNewInstallment(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                  placeholder="0"
+                  className="w-full pl-10 pr-4 py-3 text-xl font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Vade Tarihi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Vade Tarihi *</label>
+              <input
+                type="date"
+                value={newInstallment.dueDate}
+                onChange={(e) => setNewInstallment(prev => ({ ...prev, dueDate: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              />
+            </div>
+
+            {/* Not */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Not (Opsiyonel)</label>
+              <input
+                type="text"
+                value={newInstallment.note}
+                onChange={(e) => setNewInstallment(prev => ({ ...prev, note: e.target.value }))}
+                placeholder="Ek açıklama..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => setShowAddInstallmentModal(false)}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleAddInstallment}
+              disabled={addingInstallment || !newInstallment.amount}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-60 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+            >
+              {addingInstallment ? (
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  Taksit Ekle
                 </>
               )}
             </button>

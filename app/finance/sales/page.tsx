@@ -411,7 +411,7 @@ export default function SalesManagementPage() {
                             </Link>
                             {sale.customer_type === 'student' && sale.student_id && (
                               <Link
-                                href={`/students/${sale.student_id}/payments?sale=${sale.id}`}
+                                href={`/students/${sale.student_id}?tab=finance`}
                                 onClick={(e) => e.stopPropagation()}
                                 className="rounded-full px-3 py-1 text-[11px] font-medium text-purple-700 bg-purple-50/70 hover:bg-purple-100 transition-colors"
                               >

@@ -669,7 +669,7 @@ function StudentsContent() {
                             </button>
                             {canCollectPayment && (
                               <button
-                                onClick={() => router.push(`/students/${s.id}/payments`)}
+                                onClick={() => router.push(`/students/${s.id}?tab=finance`)}
                                 className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition shadow-sm"
                                 title="Ödeme Al"
                               >

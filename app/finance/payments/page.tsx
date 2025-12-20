@@ -637,7 +637,7 @@ export default function CollectionsPage() {
                             <Users size={16} />
                           </Link>
                           <Link
-                            href={`/students/${row.studentId}/payments`}
+                            href={`/students/${row.studentId}?tab=finance`}
                             onClick={(e) => e.stopPropagation()}
                             className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-500"
                             title="Ödeme Detayları"
