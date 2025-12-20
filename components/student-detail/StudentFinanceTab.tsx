@@ -28,7 +28,10 @@ import {
   Printer,
   MessageCircle,
   Edit3,
-  FileEdit
+  FileEdit,
+  Percent,
+  BarChart3,
+  Check
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -258,6 +261,8 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [editInstallment, setEditInstallment] = useState<Installment | null>(null);
   const [editPaidAmount, setEditPaidAmount] = useState('');
   const [editPaymentDate, setEditPaymentDate] = useState('');
+  const [editInstallmentAmount, setEditInstallmentAmount] = useState(''); // Taksit tutarı düzenleme
+  const [editDueDate, setEditDueDate] = useState(''); // Vade tarihi düzenleme
   const [editPaymentMethod, setEditPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
   const [editSubmitting, setEditSubmitting] = useState(false);
   
@@ -282,11 +287,19 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   // Taksit silme
   const [deletingInstallmentId, setDeletingInstallmentId] = useState<string | null>(null);
   
+  // Toplu Tahsilat State
+  const [selectedInstallmentIds, setSelectedInstallmentIds] = useState<Set<string>>(new Set());
+  const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
+  const [bulkPaymentMethod, setBulkPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
+  const [bulkPaymentLoading, setBulkPaymentLoading] = useState(false);
+  
   // Taksit Düzenle Modal Aç
   const handleEditInstallment = (installment: Installment) => {
     setEditInstallment(installment);
     setEditPaidAmount(String(installment.paid_amount || 0));
     setEditPaymentDate(installment.paid_at ? installment.paid_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setEditInstallmentAmount(String(installment.amount || 0));
+    setEditDueDate(installment.due_date ? installment.due_date.split('T')[0] : '');
     setEditPaymentMethod((installment.payment_method as 'cash' | 'card' | 'bank') || 'cash');
     setShowEditModal(true);
   };
@@ -296,17 +309,20 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
     if (!editInstallment) return;
     
     const newPaidAmount = parseFloat(editPaidAmount) || 0;
+    const newInstallmentAmount = parseFloat(editInstallmentAmount) || editInstallment.amount;
     const toastId = toast.loading('Güncelleniyor...');
     setEditSubmitting(true);
     
     try {
-      const isPaid = newPaidAmount >= editInstallment.amount;
+      const isPaid = newPaidAmount >= newInstallmentAmount;
       
       const response = await fetch('/api/installments', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editInstallment.id,
+          amount: newInstallmentAmount, // Yeni: Taksit tutarı
+          due_date: editDueDate, // Yeni: Vade tarihi
           paid_amount: newPaidAmount,
           is_paid: isPaid,
           paid_at: editPaymentDate,
@@ -412,6 +428,69 @@ Teşekkür ederiz. 🙏`;
       toast.error('Hata: ' + error.message);
     } finally {
       setDeletingInstallmentId(null);
+    }
+  };
+
+  // Toplu Tahsilat Toggle
+  const toggleInstallmentSelection = (id: string) => {
+    const newSet = new Set(selectedInstallmentIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedInstallmentIds(newSet);
+  };
+
+  // Toplu Tahsilat - Tümünü Seç/Kaldır
+  const toggleSelectAll = () => {
+    const unpaidInstallments = installments.filter(i => i.status !== 'paid');
+    if (selectedInstallmentIds.size === unpaidInstallments.length) {
+      setSelectedInstallmentIds(new Set());
+    } else {
+      setSelectedInstallmentIds(new Set(unpaidInstallments.map(i => i.id)));
+    }
+  };
+
+  // Seçili Taksitlerin Toplam Borcu
+  const selectedTotalAmount = installments
+    .filter(i => selectedInstallmentIds.has(i.id))
+    .reduce((sum, i) => sum + (i.amount - i.paid_amount), 0);
+
+  // Toplu Tahsilat İşlemi
+  const handleBulkPayment = async () => {
+    if (selectedInstallmentIds.size === 0) return;
+    
+    const toastId = toast.loading(`${selectedInstallmentIds.size} taksit tahsil ediliyor...`);
+    setBulkPaymentLoading(true);
+    
+    try {
+      const selectedItems = installments.filter(i => selectedInstallmentIds.has(i.id));
+      
+      for (const installment of selectedItems) {
+        const fullAmount = installment.amount;
+        await fetch('/api/installments', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: installment.id,
+            paid_amount: fullAmount,
+            is_paid: true,
+            paid_at: new Date().toISOString().split('T')[0],
+            payment_method: bulkPaymentMethod,
+          }),
+        });
+      }
+      
+      toast.success(`✅ ${selectedInstallmentIds.size} taksit tahsil edildi!`, { id: toastId });
+      setShowBulkPaymentModal(false);
+      setSelectedInstallmentIds(new Set());
+      fetchInstallments();
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setBulkPaymentLoading(false);
     }
   };
 
@@ -1279,54 +1358,181 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
     <>
     <div className="space-y-6">
       {/* ÖZET KARTLARI */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-blue-700">Toplam Sözleşme</p>
-            <DollarSign className="h-5 w-5 text-blue-600" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-blue-700">Toplam Sözleşme</p>
+            <DollarSign className="h-4 w-4 text-blue-600" />
           </div>
-          <p className="text-3xl font-bold text-blue-900">₺{totalAmount.toLocaleString('tr-TR')}</p>
+          <p className="text-xl font-bold text-blue-900">₺{totalAmount.toLocaleString('tr-TR')}</p>
         </div>
 
-        <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-green-700">Tahsil Edilen</p>
-            <TrendingUp className="h-5 w-5 text-green-600" />
+        {/* İNDİRİM/BURS KARTI */}
+        <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-purple-700">İndirim/Burs</p>
+            <Percent className="h-4 w-4 text-purple-600" />
           </div>
-          <p className="text-3xl font-bold text-green-900">₺{paidAmount.toLocaleString('tr-TR')}</p>
-          <p className="text-xs text-green-600 mt-1">
+          <p className="text-xl font-bold text-purple-900">
+            ₺{(student.discount_amount || 0).toLocaleString('tr-TR')}
+          </p>
+          {student.discount_type && (
+            <p className="text-[10px] text-purple-600 mt-0.5 truncate">
+              {student.discount_type === 'scholarship' ? '🎓 Burs' : 
+               student.discount_type === 'sibling' ? '👨‍👩‍👧‍👦 Kardeş' : 
+               student.discount_type === 'early' ? '⏰ Erken Kayıt' : 
+               '🏷️ İndirim'}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-green-700">Tahsil Edilen</p>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </div>
+          <p className="text-xl font-bold text-green-900">₺{paidAmount.toLocaleString('tr-TR')}</p>
+          <p className="text-[10px] text-green-600 mt-0.5">
             %{totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0} ödendi
           </p>
         </div>
 
-        <div className="rounded-xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-orange-700">Kalan Borç</p>
-            <AlertTriangle className="h-5 w-5 text-orange-600" />
+        <div className="rounded-xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-orange-700">Kalan Borç</p>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
           </div>
-          <p className="text-3xl font-bold text-orange-900">₺{balance.toLocaleString('tr-TR')}</p>
-          <p className="text-xs text-orange-600 mt-1">
+          <p className="text-xl font-bold text-orange-900">₺{balance.toLocaleString('tr-TR')}</p>
+          <p className="text-[10px] text-orange-600 mt-0.5">
             {installments.filter(i => i.status !== 'paid').length} taksit bekliyor
           </p>
         </div>
 
-        <div className="rounded-xl border-2 border-gray-200 bg-white p-6 shadow-sm flex flex-col gap-3 justify-center">
+        <div className="rounded-xl border-2 border-gray-200 bg-white p-6 shadow-sm flex flex-col gap-2 justify-center">
           <button 
             onClick={handleQuickPayment}
-            className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 transition flex items-center justify-center gap-2"
+            className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm"
           >
-            <CreditCard className="h-5 w-5" />
+            <CreditCard className="h-4 w-4" />
             Hızlı Ödeme Al
           </button>
           <button 
             onClick={() => setShowRestructureModal(true)}
-            className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 transition flex items-center justify-center gap-2 shadow-md"
+            className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm shadow-md"
           >
-            <RefreshCw className="h-5 w-5" />
+            <RefreshCw className="h-4 w-4" />
             Yeniden Taksitlendir
           </button>
+          {/* WhatsApp Ödeme Hatırlatıcısı */}
+          {student.parent_phone && balance > 0 && (
+            <a
+              href={`https://wa.me/90${student.parent_phone?.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                `Sayın ${student.parent_name || 'Veli'},\n\n` +
+                `${student.first_name} ${student.last_name} için ödeme hatırlatmasıdır.\n\n` +
+                `📋 Kalan Borç: ₺${balance.toLocaleString('tr-TR')}\n` +
+                `📅 Bekleyen Taksit: ${installments.filter(i => i.status !== 'paid').length} adet\n\n` +
+                (installments.find(i => i.status === 'overdue') 
+                  ? `⚠️ Gecikmiş taksitiniz bulunmaktadır.\n\n` 
+                  : '') +
+                `Ödeme için bizimle iletişime geçebilirsiniz.\n\nSaygılarımızla`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp Hatırlatma
+            </a>
+          )}
         </div>
       </div>
+
+      {/* ÖDEME TRENDİ MİNİ GRAFİĞİ */}
+      {installments.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-indigo-600" />
+              Ödeme Durumu Grafiği
+            </h4>
+            <div className="flex items-center gap-3 text-[10px]">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Ödendi</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Beklemede</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Gecikmiş</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-1 h-20">
+            {installments.slice(0, 12).map((inst, idx) => {
+              const maxAmount = Math.max(...installments.map(i => i.amount));
+              const height = (inst.amount / maxAmount) * 100;
+              const paidPercent = inst.paid_amount / inst.amount * 100;
+              
+              return (
+                <div 
+                  key={inst.id} 
+                  className="flex-1 flex flex-col items-center group relative"
+                  title={`${inst.installment_no}. Taksit: ₺${inst.amount.toLocaleString('tr-TR')}`}
+                >
+                  <div 
+                    className={`w-full rounded-t transition-all cursor-pointer hover:opacity-80 ${
+                      inst.status === 'paid' ? 'bg-emerald-500' :
+                      inst.status === 'overdue' ? 'bg-red-500' :
+                      'bg-amber-400'
+                    }`}
+                    style={{ height: `${height}%`, minHeight: '8px' }}
+                  >
+                    {/* Kısmi ödeme göstergesi */}
+                    {inst.status !== 'paid' && paidPercent > 0 && (
+                      <div 
+                        className="w-full bg-emerald-500 rounded-t absolute bottom-0 left-0"
+                        style={{ height: `${(paidPercent / 100) * height}%` }}
+                      ></div>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-gray-400 mt-1">{inst.installment_no}</span>
+                  
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-[10px] rounded-lg px-2 py-1.5 whitespace-nowrap shadow-lg">
+                      <p className="font-bold">{inst.installment_no}. Taksit</p>
+                      <p>Tutar: ₺{inst.amount.toLocaleString('tr-TR')}</p>
+                      <p>Ödenen: ₺{inst.paid_amount.toLocaleString('tr-TR')}</p>
+                      <p className={inst.status === 'paid' ? 'text-emerald-400' : inst.status === 'overdue' ? 'text-red-400' : 'text-amber-400'}>
+                        {inst.status === 'paid' ? '✓ Ödendi' : inst.status === 'overdue' ? '⚠ Gecikmiş' : '⏳ Beklemede'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Özet İstatistik */}
+          <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-4">
+              <span className="text-emerald-600 font-medium">
+                ✓ {installments.filter(i => i.status === 'paid').length} Ödendi
+              </span>
+              <span className="text-amber-600 font-medium">
+                ⏳ {installments.filter(i => i.status === 'pending').length} Bekliyor
+              </span>
+              <span className="text-red-600 font-medium">
+                ⚠ {installments.filter(i => i.status === 'overdue').length} Gecikmiş
+              </span>
+            </div>
+            <span className={`font-bold ${
+              installments.filter(i => i.status === 'overdue').length > 0 ? 'text-red-600' :
+              installments.filter(i => i.status === 'paid').length === installments.length ? 'text-emerald-600' :
+              'text-gray-600'
+            }`}>
+              {installments.filter(i => i.status === 'paid').length === installments.length 
+                ? '🎉 Tüm Ödemeler Tamamlandı!' 
+                : installments.filter(i => i.status === 'overdue').length > 0
+                  ? '⚠️ Gecikmiş Ödeme Var!'
+                  : '📊 Ödemeler Düzenli'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ESKİ KAYIT FORMU ACCORDION */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -1553,20 +1759,32 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       {/* TAKSİT LİSTESİ */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-          <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-indigo-600" />
-            Ödeme Planı ve Hareketler
-          </h3>
-            {installments.length > 0 && (
-              <button
-                onClick={downloadEducationSummaryPDF}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
-              >
-                <Download className="h-4 w-4" />
-                PDF İndir
-              </button>
-            )}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-indigo-600" />
+              Ödeme Planı ve Hareketler
+            </h3>
+            <div className="flex items-center gap-2">
+              {/* Toplu Tahsilat Butonu */}
+              {selectedInstallmentIds.size > 0 && (
+                <button
+                  onClick={() => setShowBulkPaymentModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-bold transition shadow-lg animate-pulse"
+                >
+                  <Check className="h-4 w-4" />
+                  {selectedInstallmentIds.size} Taksit Tahsil Et (₺{selectedTotalAmount.toLocaleString('tr-TR')})
+                </button>
+              )}
+              {installments.length > 0 && (
+                <button
+                  onClick={downloadEducationSummaryPDF}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
+                >
+                  <Download className="h-4 w-4" />
+                  PDF İndir
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1629,6 +1847,16 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 font-medium border-b-2 border-gray-200">
                 <tr>
+                  {/* Toplu Seçim Checkbox */}
+                  <th className="p-3 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedInstallmentIds.size === installments.filter(i => i.status !== 'paid').length && installments.filter(i => i.status !== 'paid').length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      title="Tümünü Seç"
+                    />
+                  </th>
                   <th className="p-3 text-left">Taksit</th>
                   <th className="p-3 text-left">Vade Tarihi</th>
                   <th className="p-3 text-right">Tutar</th>
@@ -1651,6 +1879,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                     <tr
                       key={installment.id}
                       className={`border-b transition-all ${
+                        selectedInstallmentIds.has(installment.id) ? 'ring-2 ring-emerald-400 ring-inset' : ''
+                      } ${
                         isPaid 
                           ? 'bg-gradient-to-r from-emerald-50/80 to-green-50/50 border-emerald-200 hover:from-emerald-100/80 hover:to-green-100/50' 
                           : isPartial
@@ -1660,6 +1890,20 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                               : 'border-gray-100 hover:bg-gray-50'
                       }`}
                     >
+                      {/* Toplu Seçim Checkbox */}
+                      <td className="p-3 text-center">
+                        {!isPaid && (
+                          <input
+                            type="checkbox"
+                            checked={selectedInstallmentIds.has(installment.id)}
+                            onChange={() => toggleInstallmentSelection(installment.id)}
+                            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        )}
+                        {isPaid && (
+                          <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+                        )}
+                      </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           {isPaid && <div className="w-1 h-8 bg-emerald-500 rounded-full" />}
@@ -2284,16 +2528,33 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           </div>
 
           <div className="p-5 space-y-4">
-            {/* Taksit Bilgisi */}
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            {/* Taksit Bilgisi - Düzenlenebilir */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+              <p className="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-1">
+                <Edit3 size={12} /> TAKSİT BİLGİLERİ (Düzenlenebilir)
+              </p>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-gray-500">Taksit Tutarı</span>
-                  <p className="font-bold text-gray-900">₺{editInstallment.amount.toLocaleString('tr-TR')}</p>
+                  <label className="block text-xs text-gray-600 mb-1">Taksit Tutarı</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₺</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={editInstallmentAmount}
+                      onChange={(e) => setEditInstallmentAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                      className="w-full pl-8 pr-3 py-2 text-sm font-bold border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">Vade Tarihi</span>
-                  <p className="font-bold text-gray-900">{new Date(editInstallment.due_date).toLocaleDateString('tr-TR')}</p>
+                  <label className="block text-xs text-gray-600 mb-1">Vade Tarihi</label>
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm font-bold border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                  />
                 </div>
               </div>
             </div>
@@ -2522,6 +2783,141 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 <>
               <CreditCard className="h-4 w-4" />
                   Tahsil Et
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* TOPLU TAHSİLAT MODAL */}
+    {showBulkPaymentModal && selectedInstallmentIds.size > 0 && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Check className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Toplu Tahsilat</h3>
+                  <p className="text-emerald-200 text-sm">{selectedInstallmentIds.size} taksit seçildi</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowBulkPaymentModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* Seçili Taksitler Özeti */}
+            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+              <p className="text-xs font-semibold text-emerald-700 mb-3">SEÇİLİ TAKSİTLER</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {installments
+                  .filter(i => selectedInstallmentIds.has(i.id))
+                  .map(inst => (
+                    <div key={inst.id} className="flex justify-between items-center text-sm bg-white px-3 py-2 rounded-lg">
+                      <span className="font-medium text-gray-700">
+                        {inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`}
+                      </span>
+                      <span className="font-bold text-emerald-600">
+                        ₺{(inst.amount - inst.paid_amount).toLocaleString('tr-TR')}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-emerald-200 flex justify-between items-center">
+                <span className="font-bold text-emerald-800">Toplam Tahsilat</span>
+                <span className="text-xl font-bold text-emerald-700">₺{selectedTotalAmount.toLocaleString('tr-TR')}</span>
+              </div>
+            </div>
+
+            {/* Ödeme Yöntemi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkPaymentMethod('cash')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    bulkPaymentMethod === 'cash' 
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <Banknote size={20} />
+                  <span className="text-xs font-medium">Nakit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkPaymentMethod('card')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    bulkPaymentMethod === 'card' 
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <CreditCard size={20} />
+                  <span className="text-xs font-medium">Kart</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkPaymentMethod('bank')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    bulkPaymentMethod === 'bank' 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <Building size={20} />
+                  <span className="text-xs font-medium">EFT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkPaymentMethod('manual')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    bulkPaymentMethod === 'manual' 
+                      ? 'bg-orange-50 border-orange-500 text-orange-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <FileEdit size={20} />
+                  <span className="text-xs font-medium">Manual</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => {
+                setShowBulkPaymentModal(false);
+                setSelectedInstallmentIds(new Set());
+              }}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleBulkPayment}
+              disabled={bulkPaymentLoading}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
+            >
+              {bulkPaymentLoading ? (
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Check className="h-5 w-5" />
+                  Tümünü Tahsil Et
                 </>
               )}
             </button>
