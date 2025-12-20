@@ -333,16 +333,25 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
           status: i.status
         })));
         
-        // Aktif taksitler (db_status = 'active' veya null/undefined)
-        // ÖNEMLİ: API'den gelen 'db_status' alanını kullan, 'status' değil!
-        const activeInstallments = allInstallments.filter((i: any) => 
-          !i.db_status || i.db_status === 'active'
-        );
+        // Aktif taksitler: active, paid, partial, pending durumları
+        // Sadece 'archived_paid' ve 'deleted' olanları hariç tut
+        const activeInstallments = allInstallments.filter((i: any) => {
+          const dbStatus = i.db_status || 'active';
+          // Arşivlenmiş veya silinmiş değilse göster
+          return dbStatus !== 'archived_paid' && dbStatus !== 'deleted';
+        });
         
         // Arşivlenmiş ödenmiş taksitler (db_status = 'archived_paid')
         const archived = allInstallments.filter((i: any) => 
           i.db_status === 'archived_paid'
         );
+        
+        console.log('[StudentFinanceTab] Filtreleme:', {
+          toplam: allInstallments.length,
+          aktif: activeInstallments.length,
+          arsivlenmis: archived.length,
+          durumlar: allInstallments.map((i: any) => ({ no: i.installment_no, db_status: i.db_status, paid_amount: i.paid_amount }))
+        });
         
         console.log('[StudentFinanceTab] Filtreleme sonucu:', {
           aktif: activeInstallments.length,
