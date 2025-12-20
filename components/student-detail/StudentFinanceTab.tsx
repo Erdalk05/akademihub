@@ -27,7 +27,8 @@ import {
   CheckCircle2,
   Printer,
   MessageCircle,
-  Edit3
+  Edit3,
+  FileEdit
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -245,7 +246,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   // Ödeme Modal State
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
   const [paymentNote, setPaymentNote] = useState('');
   const [isBackdatedPayment, setIsBackdatedPayment] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(true);
@@ -257,7 +258,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [editInstallment, setEditInstallment] = useState<Installment | null>(null);
   const [editPaidAmount, setEditPaidAmount] = useState('');
   const [editPaymentDate, setEditPaymentDate] = useState('');
-  const [editPaymentMethod, setEditPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [editPaymentMethod, setEditPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
   const [editSubmitting, setEditSubmitting] = useState(false);
   
   // Diğer Gelirler State
@@ -268,7 +269,7 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [showOtherPaymentModal, setShowOtherPaymentModal] = useState(false);
   const [selectedOtherIncome, setSelectedOtherIncome] = useState<OtherIncome | null>(null);
   const [otherPaymentAmount, setOtherPaymentAmount] = useState('');
-  const [otherPaymentMethod, setOtherPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [otherPaymentMethod, setOtherPaymentMethod] = useState<'cash' | 'card' | 'bank' | 'manual'>('cash');
   const [otherPaymentLoading, setOtherPaymentLoading] = useState(false);
   
   // Eski Kayıt Formu Accordion
@@ -2119,7 +2120,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 {/* Ödeme Yöntemi */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Ödeme Yöntemi</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('cash')}
@@ -2155,6 +2156,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                     >
                       <Building size={20} />
                       <span className="text-[10px] font-semibold">EFT</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('manual')}
+                      className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-200 ${
+                        paymentMethod === 'manual' 
+                        ? 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-500 text-orange-700 shadow-md shadow-orange-100' 
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <FileEdit size={20} />
+                      <span className="text-[10px] font-semibold">Manual</span>
                     </button>
                   </div>
                 </div>
@@ -2314,42 +2327,54 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             {/* Ödeme Yöntemi */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setEditPaymentMethod('cash')}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition ${
                     editPaymentMethod === 'cash' 
-                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
                       : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
-                  <Banknote size={20} />
-                  <span className="text-xs font-medium">Nakit</span>
+                  <Banknote size={18} />
+                  <span className="text-[10px] font-medium">Nakit</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditPaymentMethod('card')}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition ${
                     editPaymentMethod === 'card' 
-                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700' 
                       : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
-                  <CreditCard size={20} />
-                  <span className="text-xs font-medium">Kart</span>
+                  <CreditCard size={18} />
+                  <span className="text-[10px] font-medium">Kart</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditPaymentMethod('bank')}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition ${
                     editPaymentMethod === 'bank' 
                       ? 'bg-blue-50 border-blue-500 text-blue-700' 
                       : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                 >
-                  <Building size={20} />
-                  <span className="text-xs font-medium">EFT</span>
+                  <Building size={18} />
+                  <span className="text-[10px] font-medium">EFT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditPaymentMethod('manual')}
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition ${
+                    editPaymentMethod === 'manual' 
+                      ? 'bg-orange-50 border-orange-500 text-orange-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <FileEdit size={18} />
+                  <span className="text-[10px] font-medium">Manual</span>
                 </button>
               </div>
             </div>
@@ -2454,17 +2479,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             {/* Ödeme Yöntemi */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { value: 'cash', label: '💵 Nakit' },
                   { value: 'card', label: '💳 Kart' },
                   { value: 'bank', label: '🏦 Banka' },
+                  { value: 'manual', label: '📝 Manual' },
                 ].map((method) => (
                   <button
                     key={method.value}
                     type="button"
-                    onClick={() => setOtherPaymentMethod(method.value as 'cash' | 'card' | 'bank')}
-                    className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                    onClick={() => setOtherPaymentMethod(method.value as 'cash' | 'card' | 'bank' | 'manual')}
+                    className={`py-2.5 rounded-xl text-xs font-medium transition-all ${
                       otherPaymentMethod === method.value
                         ? 'bg-purple-100 text-purple-700 border-2 border-purple-500'
                         : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'

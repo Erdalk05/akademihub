@@ -347,16 +347,6 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         ))}
       </nav>
 
-      {/* Footer - Çıkış Butonu */}
-      <div className="p-4 border-t border-white/10">
-        <button 
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/20 text-white/80 hover:text-red-300 transition-all"
-        >
-          <LogOut size={20} />
-          {!collapsed && <span className="text-sm font-medium">Çıkış Yap</span>}
-        </button>
-      </div>
     </div>
   );
 };
