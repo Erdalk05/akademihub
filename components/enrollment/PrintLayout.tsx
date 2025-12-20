@@ -274,7 +274,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <div id="print-content" ref={printContentRef} className="print-content" style={{ paddingTop: '72px', paddingBottom: '32px', paddingLeft: '16px', paddingRight: '16px' }}>
         
         {/* =============== SAYFA 1 - KAYIT FORMU =============== */}
-        <div className="print-page page-break-after" style={{ width: '210mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '15px 20px', boxSizing: 'border-box' }}>
+        <div className="print-page page-break-after" style={{ width: '210mm', minHeight: '297mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', position: 'relative' }}>
           
           {/* Başlık */}
           <div style={{ borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -379,41 +379,38 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
 
-          {/* TAKSİT PLANI - YENİ SIRALAMA */}
+          {/* TAKSİT PLANI - KOMPAKT */}
           {payment.installments && payment.installments.length > 0 && (
-            <div style={{ marginBottom: '6px' }}>
-              <div style={{ border: '1px solid #000', borderBottom: 'none', padding: '4px 10px', backgroundColor: '#f5f5f5' }}>
-                <h3 style={{ fontWeight: 'bold', fontSize: '10px', margin: 0 }}>TAKSİT PLANI ({payment.installments.length} Taksit)</h3>
+            <div style={{ marginBottom: '4px' }}>
+              <div style={{ border: '1px solid #000', borderBottom: 'none', padding: '2px 8px', backgroundColor: '#f5f5f5' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '9px', margin: 0 }}>TAKSİT PLANI ({payment.installments.length} Taksit)</h3>
               </div>
-              <table style={{ width: '100%', border: '1px solid #000', fontSize: '8px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <table style={{ width: '100%', border: '1px solid #000', fontSize: '7px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f0f0f0' }}>
-                    <th style={{ padding: '4px 3px', textAlign: 'center', width: '8%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Taksit</th>
-                    <th style={{ padding: '4px 3px', textAlign: 'center', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Vade Tarihi</th>
-                    <th style={{ padding: '4px 3px', textAlign: 'right', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Tutar</th>
-                    <th style={{ padding: '4px 3px', textAlign: 'right', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Ödenen</th>
-                    <th style={{ padding: '4px 3px', textAlign: 'center', width: '14%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Ödeme Tarihi</th>
-                    <th style={{ padding: '4px 3px', textAlign: 'left', width: '36%', fontWeight: 'bold', borderBottom: '1px solid #000' }}>Açıklama</th>
+                    <th style={{ padding: '2px', textAlign: 'center', width: '10%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>#</th>
+                    <th style={{ padding: '2px', textAlign: 'center', width: '18%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Vade</th>
+                    <th style={{ padding: '2px', textAlign: 'right', width: '18%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Tutar</th>
+                    <th style={{ padding: '2px', textAlign: 'right', width: '18%', fontWeight: 'bold', borderRight: '1px solid #ccc', borderBottom: '1px solid #000' }}>Ödenen</th>
+                    <th style={{ padding: '2px', textAlign: 'left', width: '36%', fontWeight: 'bold', borderBottom: '1px solid #000' }}>İmza</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payment.installments.map((inst, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                      <td style={{ padding: '3px', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'Peşinat' : `${inst.no}. Taksit`}</td>
-                      <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ddd' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR') : '__/__/____'}</td>
-                      <td style={{ padding: '3px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
-                      <td style={{ padding: '3px', textAlign: 'right', borderRight: '1px solid #ddd', color: '#999' }}>—</td>
-                      <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ddd', color: '#999' }}>—</td>
-                      <td style={{ padding: '3px 4px' }}></td>
+                      <td style={{ padding: '2px', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.no === 0 ? 'P' : inst.no}</td>
+                      <td style={{ padding: '2px', textAlign: 'center', borderRight: '1px solid #ddd', fontSize: '6px' }}>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '__/__/____'}</td>
+                      <td style={{ padding: '2px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>{inst.amount.toLocaleString('tr-TR')} TL</td>
+                      <td style={{ padding: '2px', textAlign: 'right', borderRight: '1px solid #ddd', color: '#999' }}>—</td>
+                      <td style={{ padding: '2px' }}></td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr style={{ backgroundColor: '#f0f0f0' }}>
-                    <td style={{ padding: '5px', fontSize: '9px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }} colSpan={2}>TOPLAM</td>
-                    <td style={{ padding: '5px', textAlign: 'right', fontSize: '10px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
-                    <td style={{ padding: '5px', textAlign: 'right', fontSize: '9px', borderRight: '1px solid #ccc', borderTop: '1px solid #000', color: '#999' }}>—</td>
-                    <td style={{ borderTop: '1px solid #000', borderRight: '1px solid #ccc' }}></td>
+                    <td style={{ padding: '3px', fontSize: '8px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }} colSpan={2}>TOPLAM</td>
+                    <td style={{ padding: '3px', textAlign: 'right', fontSize: '9px', fontWeight: 'bold', borderRight: '1px solid #ccc', borderTop: '1px solid #000' }}>{payment.netFee.toLocaleString('tr-TR')} TL</td>
+                    <td style={{ padding: '3px', borderTop: '1px solid #000', borderRight: '1px solid #ccc' }}></td>
                     <td style={{ borderTop: '1px solid #000' }}></td>
                   </tr>
                 </tfoot>
@@ -437,11 +434,14 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
 
-          <p style={{ textAlign: 'center', fontSize: '7px', color: '#666', marginTop: '6px', borderTop: '1px solid #ddd', paddingTop: '4px' }}>Sayfa 1/2 - Kayıt Formu | {organizationName}</p>
+          {/* Sayfa Alt Bilgisi */}
+          <div style={{ position: 'absolute', bottom: '10mm', left: '15mm', right: '15mm', textAlign: 'center', fontSize: '7px', color: '#666', borderTop: '1px solid #ddd', paddingTop: '4px' }}>
+            Sayfa 1/2 - Kayıt Formu | {organizationName}
+          </div>
         </div>
 
         {/* =============== SAYFA 2 - SÖZLEŞME =============== */}
-        <div className="print-page" style={{ width: '210mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '15px 20px', boxSizing: 'border-box', pageBreakBefore: 'always' }}>
+        <div className="print-page" style={{ width: '210mm', minHeight: '297mm', maxWidth: '794px', margin: '0 auto', backgroundColor: '#fff', padding: '12mm 15mm', boxSizing: 'border-box', pageBreakBefore: 'always', position: 'relative' }}>
 
           {/* Başlık */}
           <div style={{ borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -562,9 +562,9 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
 
-          {/* Alt Bilgi */}
-          <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #ddd', textAlign: 'center', fontSize: '7px' }}>
-            <p style={{ fontWeight: '600', margin: 0 }}>Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
+          {/* Sayfa Alt Bilgisi */}
+          <div style={{ position: 'absolute', bottom: '10mm', left: '15mm', right: '15mm', textAlign: 'center', fontSize: '7px', borderTop: '1px solid #ddd', paddingTop: '4px' }}>
+            <p style={{ fontWeight: '600', margin: 0, color: '#333' }}>Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
             <p style={{ color: '#666', margin: '2px 0 0 0' }}>Bu sözleşme iki nüsha olarak düzenlenmiştir. | {organizationName} - {today}</p>
           </div>
         </div>
