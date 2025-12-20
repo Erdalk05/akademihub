@@ -132,103 +132,97 @@ const generateA4ReceiptHTML = (params: ReceiptParams): string => {
   const isEducation = params.type === 'education';
   const receiptTitle = isEducation ? 'EĞİTİM ÖDEMESİ TAHSİLAT MAKBUZU' : 'DİĞER GELİR TAHSİLAT MAKBUZU';
   
-  // TEK SAYFA A4 - KOMPAKT TASARIM - ZEMİN YOK
+  // TEK SAYFA A4 - KOMPAKT TASARIM
   return `
-    <div style="width: 794px; height: 1123px; margin: 0 auto; padding: 40px 50px; font-family: Arial, sans-serif; background: white; box-sizing: border-box;">
+    <div style="width: 794px; max-height: 1100px; margin: 0 auto; padding: 30px 40px; font-family: Arial, sans-serif; background: white; box-sizing: border-box;">
       
       <!-- HEADER -->
-      <div style="border-bottom: 3px solid #1a1a1a; padding-bottom: 20px; margin-bottom: 25px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="width: 50px; height: 50px; border: 3px solid #1a1a1a; display: flex; align-items: center; justify-content: center;">
-              <span style="font-size: 32px; font-weight: 900; color: #1a1a1a;">İ</span>
-            </div>
-            <div>
-              <h1 style="font-size: 22px; color: #1a1a1a; font-weight: 700; margin: 0;">${params.organizationName}</h1>
-              <p style="font-size: 12px; color: #666; margin: 3px 0 0 0;">Eğitim Yönetim Sistemi</p>
-            </div>
+      <div style="border-bottom: 2px solid #1a1a1a; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border: 2px solid #1a1a1a; display: flex; align-items: center; justify-content: center;">
+            <span style="font-size: 24px; font-weight: 900; color: #1a1a1a;">A</span>
           </div>
-          <div style="text-align: right;">
-            <p style="font-size: 11px; color: #666; margin: 0;">Belge No: <strong>${params.receiptNo}</strong></p>
-            <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">${params.currentDateTime}</p>
+          <div>
+            <h1 style="font-size: 18px; color: #1a1a1a; font-weight: 700; margin: 0;">${params.organizationName}</h1>
+            <p style="font-size: 10px; color: #666; margin: 2px 0 0 0;">Eğitim Yönetim Sistemi</p>
           </div>
+        </div>
+        <div style="text-align: right;">
+          <p style="font-size: 10px; color: #666; margin: 0;">Belge No: <strong>${params.receiptNo}</strong></p>
+          <p style="font-size: 10px; color: #666; margin: 3px 0 0 0;">${params.currentDateTime}</p>
         </div>
       </div>
       
       <!-- BAŞLIK -->
-      <div style="text-align: center; margin-bottom: 25px;">
-        <h2 style="font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0; padding: 12px 0; border: 2px solid #1a1a1a;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="font-size: 16px; font-weight: 700; color: #1a1a1a; margin: 0; padding: 10px 0; border: 2px solid #1a1a1a; background: #f8f8f8;">
           ${receiptTitle}
         </h2>
       </div>
       
-      <!-- ÖĞRENCİ VE VELİ BİLGİLERİ -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-        <div style="border: 1px solid #1a1a1a; padding: 15px;">
-          <h3 style="font-size: 12px; font-weight: 700; color: #1a1a1a; margin: 0 0 10px 0; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 8px;">Öğrenci Bilgileri</h3>
-          <p style="font-size: 11px; color: #666; margin: 0;">Adı Soyadı:</p>
-          <p style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 2px 0 8px 0;">${params.studentName}</p>
-          <p style="font-size: 11px; color: #666; margin: 0;">Öğrenci No:</p>
-          <p style="font-size: 12px; color: #1a1a1a; margin: 2px 0 0 0;">${params.studentNo}</p>
+      <!-- ÖĞRENCİ VE VELİ BİLGİLERİ - KOMPAKT -->
+      <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div style="flex: 1; border: 1px solid #ccc; padding: 12px;">
+          <h3 style="font-size: 11px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px 0; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 5px;">Öğrenci Bilgileri</h3>
+          <p style="font-size: 10px; color: #666; margin: 0;">Ad Soyad: <strong style="color: #1a1a1a; font-size: 12px;">${params.studentName}</strong></p>
+          <p style="font-size: 10px; color: #666; margin: 4px 0 0 0;">Öğrenci No: <strong style="color: #1a1a1a;">${params.studentNo}</strong></p>
         </div>
-        
-        <div style="border: 1px solid #1a1a1a; padding: 15px;">
-          <h3 style="font-size: 12px; font-weight: 700; color: #1a1a1a; margin: 0 0 10px 0; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 8px;">Ödeme Yapan</h3>
-          <p style="font-size: 11px; color: #666; margin: 0;">Veli Adı:</p>
-          <p style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 2px 0 8px 0;">${params.parentName}</p>
-          <p style="font-size: 11px; color: #666; margin: 0;">Ödeme Tarihi:</p>
-          <p style="font-size: 12px; color: #1a1a1a; margin: 2px 0 0 0;">${params.formattedDate}</p>
+        <div style="flex: 1; border: 1px solid #ccc; padding: 12px;">
+          <h3 style="font-size: 11px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px 0; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 5px;">Ödeme Yapan</h3>
+          <p style="font-size: 10px; color: #666; margin: 0;">Veli: <strong style="color: #1a1a1a; font-size: 12px;">${params.parentName}</strong></p>
+          <p style="font-size: 10px; color: #666; margin: 4px 0 0 0;">Tarih: <strong style="color: #1a1a1a;">${params.formattedDate}</strong></p>
         </div>
       </div>
       
-      <!-- ÖDEME DETAYLARI - ZEMİN YOK -->
-      <div style="border: 2px solid #1a1a1a; margin-bottom: 25px;">
-        <div style="border-bottom: 2px solid #1a1a1a; padding: 10px 15px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0;">ÖDEME DETAYLARI</h3>
+      <!-- ÖDEME DETAYLARI - KOMPAKT TABLO -->
+      <div style="border: 1px solid #1a1a1a; margin-bottom: 15px;">
+        <div style="background: #1a1a1a; color: white; padding: 8px 12px;">
+          <h3 style="font-size: 12px; font-weight: 700; margin: 0;">ÖDEME DETAYLARI</h3>
         </div>
-        <table style="width: 100%; border-collapse: collapse;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
           <tbody>
-            <tr style="border-bottom: 1px solid #ccc;">
-              <td style="padding: 10px 15px; font-size: 12px; color: #666; width: 35%;">Kategori</td>
-              <td style="padding: 10px 15px; font-size: 14px; font-weight: 600; color: #1a1a1a;">${params.category}</td>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 12px; color: #666; width: 30%;">Kategori</td>
+              <td style="padding: 8px 12px; font-weight: 600; color: #1a1a1a;">${params.category}</td>
             </tr>
-            <tr style="border-bottom: 1px solid #ccc;">
-              <td style="padding: 10px 15px; font-size: 12px; color: #666;">Açıklama</td>
-              <td style="padding: 10px 15px; font-size: 14px; font-weight: 600; color: #1a1a1a;">${params.description}</td>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 12px; color: #666;">Açıklama</td>
+              <td style="padding: 8px 12px; font-weight: 600; color: #1a1a1a;">${params.description}</td>
             </tr>
             <tr>
-              <td style="padding: 10px 15px; font-size: 12px; color: #666;">Ödeme Yöntemi</td>
-              <td style="padding: 10px 15px; font-size: 14px; font-weight: 500; color: #1a1a1a;">${params.paymentMethod}</td>
+              <td style="padding: 8px 12px; color: #666;">Ödeme Yöntemi</td>
+              <td style="padding: 8px 12px; font-weight: 500; color: #1a1a1a;">${params.paymentMethod}</td>
             </tr>
           </tbody>
         </table>
       </div>
       
-      <!-- TAHSİL EDİLEN TUTAR - ZEMİN YOK, SADECE KENARLK -->
-      <div style="border: 3px solid #1a1a1a; padding: 25px; text-align: center; margin-bottom: 30px;">
-        <p style="font-size: 14px; color: #666; margin: 0;">Tahsil Edilen Tutar</p>
-        <p style="font-size: 36px; font-weight: 700; color: #1a1a1a; margin: 10px 0 0 0;">₺${params.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+      <!-- TAHSİL EDİLEN TUTAR -->
+      <div style="border: 2px solid #1a1a1a; padding: 20px; text-align: center; margin-bottom: 20px; background: #f8f8f8;">
+        <p style="font-size: 12px; color: #666; margin: 0;">Tahsil Edilen Tutar</p>
+        <p style="font-size: 32px; font-weight: 700; color: #1a1a1a; margin: 8px 0 0 0;">₺${params.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
       </div>
       
-      <!-- İMZA ALANLARI -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 25px;">
-        <div style="text-align: center; border: 1px solid #1a1a1a; padding: 15px;">
-          <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">Teslim Alan</p>
-          <p style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 25px 0;">Muhasebe Birimi</p>
-          <div style="border-top: 1px solid #1a1a1a; padding-top: 8px;">
-            <p style="font-size: 10px; color: #666; margin: 0;">İmza / Kaşe</p>
+      <!-- İMZA ALANLARI - TEK SATIR -->
+      <div style="display: flex; gap: 30px; margin-bottom: 20px;">
+        <div style="flex: 1; text-align: center; border: 1px solid #ccc; padding: 12px;">
+          <p style="font-size: 10px; color: #666; margin: 0;">Teslim Alan</p>
+          <p style="font-size: 12px; font-weight: 600; color: #1a1a1a; margin: 3px 0 20px 0;">Muhasebe Birimi</p>
+          <div style="border-top: 1px solid #1a1a1a; padding-top: 5px;">
+            <p style="font-size: 9px; color: #666; margin: 0;">İmza / Kaşe</p>
           </div>
         </div>
-          <p style="font-size: 12px; color: #666; margin: 0 0 5px 0;">Teslim Eden</p>
-          <p style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 25px 0;">${params.parentName}</p>
-          <div style="border-top: 1px solid #1a1a1a; padding-top: 8px;">
-            <p style="font-size: 10px; color: #666; margin: 0;">İmza</p>
+        <div style="flex: 1; text-align: center; border: 1px solid #ccc; padding: 12px;">
+          <p style="font-size: 10px; color: #666; margin: 0;">Teslim Eden</p>
+          <p style="font-size: 12px; font-weight: 600; color: #1a1a1a; margin: 3px 0 20px 0;">${params.parentName}</p>
+          <div style="border-top: 1px solid #1a1a1a; padding-top: 5px;">
+            <p style="font-size: 9px; color: #666; margin: 0;">İmza</p>
           </div>
         </div>
       </div>
       
       <!-- FOOTER -->
-      <div style="border-top: 1px solid #1a1a1a; padding-top: 15px; text-align: center;">
+      <div style="border-top: 1px solid #ccc; padding-top: 12px; text-align: center;">
         <p style="font-size: 10px; color: #666; margin: 0;">Bu belge elektronik ortamda üretilmiştir ve geçerli bir tahsilat belgesi yerine geçer.</p>
         <p style="font-size: 11px; color: #1a1a1a; font-weight: 600; margin: 5px 0 0 0;">${params.organizationName} - Eğitim Yönetim Sistemi</p>
       </div>
