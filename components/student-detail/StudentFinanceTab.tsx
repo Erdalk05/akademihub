@@ -885,26 +885,52 @@ Teşekkür ederiz. 🙏`;
                            phone.length === 10 ? '90' + phone : phone;
     
     const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+    const today = new Date().toLocaleDateString('tr-TR');
     
-    let planText = `📋 *TAKSİT PLANI*\n\n`;
+    // Ödenmiş ve bekleyen taksitleri ayır
+    const paidInstallments = installments.filter(i => i.status === 'paid');
+    const pendingInstallments = installments.filter(i => i.status !== 'paid');
+    
+    let planText = `📋 *EĞİTİM TAKSİT PLANI*\n`;
+    planText += `📅 Tarih: ${today}\n\n`;
     planText += `👤 Öğrenci: ${studentName}\n`;
-    planText += `📊 Toplam: ₺${totalAmount.toLocaleString('tr-TR')}\n`;
-    planText += `✅ Ödenen: ₺${paidAmount.toLocaleString('tr-TR')}\n`;
-    planText += `⏳ Kalan: ₺${balance.toLocaleString('tr-TR')}\n\n`;
-    planText += `📅 *TAKSİTLER:*\n`;
+    planText += `📊 Toplam Sözleşme: ₺${totalAmount.toLocaleString('tr-TR')}\n`;
+    planText += `✅ Toplam Ödenen: ₺${paidAmount.toLocaleString('tr-TR')}\n`;
+    planText += `⏳ Kalan Borç: ₺${balance.toLocaleString('tr-TR')}\n`;
+    planText += `📈 Ödeme Oranı: %${totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0}\n\n`;
     
-    installments.slice(0, 10).forEach(inst => {
-      const status = inst.status === 'paid' ? '✅' : inst.status === 'overdue' ? '🔴' : '⏳';
-      const label = inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`;
-      const date = new Date(inst.due_date).toLocaleDateString('tr-TR');
-      planText += `${status} ${label}: ₺${inst.amount.toLocaleString('tr-TR')} (${date})\n`;
-    });
+    // Ödenmiş Taksitler
+    if (paidInstallments.length > 0) {
+      planText += `✅ *ÖDENEN TAKSİTLER (${paidInstallments.length} adet):*\n`;
+      paidInstallments.forEach(inst => {
+        const label = inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`;
+        const paidDate = inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-';
+        planText += `  ✓ ${label}: ₺${inst.paid_amount.toLocaleString('tr-TR')} (Ödendi: ${paidDate})\n`;
+      });
+      planText += `\n`;
+    }
     
-    if (installments.length > 10) {
-      planText += `\n... ve ${installments.length - 10} taksit daha\n`;
+    // Bekleyen Taksitler
+    if (pendingInstallments.length > 0) {
+      planText += `⏳ *BEKLEYEN TAKSİTLER (${pendingInstallments.length} adet):*\n`;
+      pendingInstallments.forEach(inst => {
+        const label = inst.installment_no === 0 ? 'Peşinat' : `${inst.installment_no}. Taksit`;
+        const dueDate = new Date(inst.due_date).toLocaleDateString('tr-TR');
+        const isOverdue = inst.status === 'overdue';
+        const remaining = inst.amount - inst.paid_amount;
+        const overdueText = isOverdue ? ' 🔴 GECİKMİŞ' : '';
+        
+        if (inst.paid_amount > 0) {
+          // Kısmi ödeme yapılmış
+          planText += `  ⚠️ ${label}: ₺${remaining.toLocaleString('tr-TR')} kalan (Vade: ${dueDate})${overdueText}\n`;
+        } else {
+          planText += `  ○ ${label}: ₺${inst.amount.toLocaleString('tr-TR')} (Vade: ${dueDate})${overdueText}\n`;
+        }
+      });
     }
     
     planText += `\n💼 ${organizationName}`;
+    planText += `\n📞 İletişim için bize ulaşabilirsiniz.`;
     
     window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(planText)}`, '_blank');
     toast.success('WhatsApp aciliyor...');
@@ -974,28 +1000,55 @@ Teşekkür ederiz. 🙏`;
                            phone.length === 10 ? '90' + phone : phone;
     
     const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+    const today = new Date().toLocaleDateString('tr-TR');
     const totalOther = otherIncomes.reduce((s, i) => s + i.amount, 0);
     const paidOther = otherIncomes.reduce((s, i) => s + i.paidAmount, 0);
     const remainingOther = totalOther - paidOther;
     
-    let planText = `📦 *DIGER GELIRLER*\n\n`;
-    planText += `👤 Ogrenci: ${studentName}\n`;
-    planText += `📊 Toplam: ₺${totalOther.toLocaleString('tr-TR')}\n`;
-    planText += `✅ Odenen: ₺${paidOther.toLocaleString('tr-TR')}\n`;
-    planText += `⏳ Kalan: ₺${remainingOther.toLocaleString('tr-TR')}\n\n`;
-    planText += `📋 *KALEMLER:*\n`;
+    // Ödenmiş ve bekleyen kalemleri ayır
+    const paidItems = otherIncomes.filter(i => i.isPaid);
+    const pendingItems = otherIncomes.filter(i => !i.isPaid);
     
-    otherIncomes.slice(0, 10).forEach(inc => {
-      const status = inc.isPaid ? '✅' : '⏳';
-      const category = CATEGORY_INFO[inc.category]?.label || 'Diger';
-      planText += `${status} ${inc.title} (${category}): ₺${inc.amount.toLocaleString('tr-TR')}\n`;
-    });
+    let planText = `📦 *DİĞER SATIŞLAR PLANI*\n`;
+    planText += `📅 Tarih: ${today}\n\n`;
+    planText += `👤 Öğrenci: ${studentName}\n`;
+    planText += `📊 Toplam Tutar: ₺${totalOther.toLocaleString('tr-TR')}\n`;
+    planText += `✅ Toplam Ödenen: ₺${paidOther.toLocaleString('tr-TR')}\n`;
+    planText += `⏳ Kalan Borç: ₺${remainingOther.toLocaleString('tr-TR')}\n`;
+    planText += `📈 Ödeme Oranı: %${totalOther > 0 ? Math.round((paidOther / totalOther) * 100) : 0}\n\n`;
     
-    if (otherIncomes.length > 10) {
-      planText += `\n... ve ${otherIncomes.length - 10} kalem daha\n`;
+    // Ödenmiş Kalemler
+    if (paidItems.length > 0) {
+      planText += `✅ *ÖDENEN KALEMLER (${paidItems.length} adet):*\n`;
+      paidItems.forEach(inc => {
+        const category = CATEGORY_INFO[inc.category]?.label || 'Diğer';
+        const paidDate = inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '-';
+        planText += `  ✓ ${inc.title} (${category}): ₺${inc.paidAmount.toLocaleString('tr-TR')} (Ödendi: ${paidDate})\n`;
+      });
+      planText += `\n`;
+    }
+    
+    // Bekleyen Kalemler
+    if (pendingItems.length > 0) {
+      planText += `⏳ *BEKLEYEN KALEMLER (${pendingItems.length} adet):*\n`;
+      pendingItems.forEach(inc => {
+        const category = CATEGORY_INFO[inc.category]?.label || 'Diğer';
+        const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : '-';
+        const remaining = inc.amount - inc.paidAmount;
+        const isOverdue = inc.dueDate && new Date(inc.dueDate) < new Date();
+        const overdueText = isOverdue ? ' 🔴 GECİKMİŞ' : '';
+        
+        if (inc.paidAmount > 0) {
+          // Kısmi ödeme yapılmış
+          planText += `  ⚠️ ${inc.title} (${category}): ₺${remaining.toLocaleString('tr-TR')} kalan (Vade: ${dueDate})${overdueText}\n`;
+        } else {
+          planText += `  ○ ${inc.title} (${category}): ₺${inc.amount.toLocaleString('tr-TR')} (Vade: ${dueDate})${overdueText}\n`;
+        }
+      });
     }
     
     planText += `\n💼 ${organizationName}`;
+    planText += `\n📞 İletişim için bize ulaşabilirsiniz.`;
     
     window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(planText)}`, '_blank');
     toast.success('WhatsApp aciliyor...');
