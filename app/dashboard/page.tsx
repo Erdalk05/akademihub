@@ -111,60 +111,60 @@ export default function DashboardPage() {
         {/* Hızlı Erişim */}
         <QuickAccessPanel />
 
-        {/* Özet Kartlar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Özet Kartlar - Mobil uyumlu */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
           {/* Toplam Öğrenci */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+          <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Aktif Öğrenci</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{kpi.activeStudents || 0}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">Aktif Öğrenci</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{kpi.activeStudents || 0}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-emerald-600" />
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg md:rounded-xl flex items-center justify-center flex-shrink-0 ml-2">
+                <Users className="w-4 h-4 md:w-6 md:h-6 text-emerald-600" />
               </div>
             </div>
           </div>
 
           {/* Borçlu Öğrenci */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-amber-100 hover:shadow-md transition-all">
+          <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-amber-100 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Borçlu Öğrenci</p>
-                <p className="text-3xl font-bold text-amber-600 mt-1">{kpi.debtorStudents || 0}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">Borçlu Öğrenci</p>
+                <p className="text-xl md:text-3xl font-bold text-amber-600 mt-1">{kpi.debtorStudents || 0}</p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg md:rounded-xl flex items-center justify-center flex-shrink-0 ml-2">
+                <AlertTriangle className="w-4 h-4 md:w-6 md:h-6 text-amber-600" />
               </div>
             </div>
           </div>
 
           {/* Toplam Alacak */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-red-100 hover:shadow-md transition-all">
+          <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-red-100 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Toplam Alacak</p>
-                <p className="text-3xl font-bold text-red-600 mt-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">Toplam Alacak</p>
+                <p className="text-lg md:text-3xl font-bold text-red-600 mt-1 truncate">
                   ₺{(kpi.totalDebt || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
-                <TrendingDown className="w-6 h-6 text-red-600" />
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-lg md:rounded-xl flex items-center justify-center flex-shrink-0 ml-2">
+                <TrendingDown className="w-4 h-4 md:w-6 md:h-6 text-red-600" />
               </div>
             </div>
           </div>
 
           {/* Bu Ay Tahsilat */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 hover:shadow-md transition-all">
+          <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-emerald-100 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Bu Ay Tahsilat</p>
-                <p className="text-3xl font-bold text-emerald-600 mt-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">Bu Ay Tahsilat</p>
+                <p className="text-lg md:text-3xl font-bold text-emerald-600 mt-1 truncate">
                   ₺{(kpi.monthlyCollection || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-emerald-600" />
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg md:rounded-xl flex items-center justify-center flex-shrink-0 ml-2">
+                <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-emerald-600" />
               </div>
             </div>
           </div>
