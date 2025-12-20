@@ -63,6 +63,7 @@ interface OtherIncome {
   paidAt: string | null;
   date: string;
   payment_type: string;
+  paymentMethod?: string;
   notes?: string;
 }
 
@@ -619,6 +620,7 @@ Teşekkür ederiz. 🙏`;
           paidAt: item.paid_at,
           date: item.date,
           payment_type: item.payment_type,
+          paymentMethod: item.payment_method,
           notes: item.notes
         }));
         // Önce kategoriye göre, sonra vade tarihine göre sırala (1. taksit üstte)
@@ -920,7 +922,8 @@ Teşekkür ederiz. 🙏`;
           paid_amount: newPaidAmount,
           is_paid: isFullyPaid,
           paid_at: new Date().toISOString(),
-          payment_type: otherPaymentMethod
+          payment_type: otherPaymentMethod,
+          payment_method: otherPaymentMethod
         })
       });
 
@@ -1204,30 +1207,39 @@ Teşekkür ederiz. 🙏`;
             </div>
             </div>
           
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <thead>
               <tr style="background: #f1f5f9;">
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Taksit</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Vade</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Tutar</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Ödenen</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Durum</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Taksit</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Vade</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">Tutar</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">Ödenen</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">Ödeme Tarihi</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">Ödeme Biçimi</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">Durum</th>
               </tr>
             </thead>
             <tbody>
-              ${installments.map(inst => `
-                <tr>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${inst.installment_no > 0 ? inst.installment_no + '. Taksit' : 'Peşinat'}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inst.status === 'paid' ? '#d1fae5' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : '#92400e'};">
-                      ${inst.status === 'paid' ? 'Ödendi' : 'Beklemede'}
+              ${installments.map(inst => {
+                const paymentMethodText = inst.payment_method === 'cash' ? '💵 Nakit' :
+                                          inst.payment_method === 'card' ? '💳 Kart' :
+                                          inst.payment_method === 'bank' ? '🏦 Havale' :
+                                          inst.payment_method === 'eft' ? '🏦 EFT' : '—';
+                return `
+                <tr style="background: ${inst.status === 'paid' ? '#f0fdf4' : 'white'};">
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inst.installment_no > 0 ? inst.installment_no + '. Taksit' : 'Peşinat'}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inst.paid_amount > 0 ? '#059669' : '#9ca3af'}; font-weight: 600;">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '—'}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inst.status === 'paid' ? '#d1fae5' : inst.status === 'overdue' ? '#fee2e2' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : inst.status === 'overdue' ? '#991b1b' : '#92400e'};">
+                      ${inst.status === 'paid' ? '✓ Ödendi' : inst.status === 'overdue' ? '⚠ Gecikmiş' : '⏳ Beklemede'}
                     </span>
                   </td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
           
@@ -1278,7 +1290,7 @@ Teşekkür ederiz. 🙏`;
           </div>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-            <div style="background: #9333ea; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+            <div style="background: #0d9488; color: white; padding: 15px; border-radius: 8px; text-align: center;">
               <div style="font-size: 12px;">Toplam</div>
               <div style="font-size: 20px; font-weight: bold;">₺${totalAmount.toLocaleString('tr-TR')}</div>
             </div>
@@ -1292,41 +1304,42 @@ Teşekkür ederiz. 🙏`;
             </div>
           </div>
           
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-            <div style="background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-              <div style="font-size: 12px;">Ödenen</div>
-              <div style="font-size: 20px; font-weight: bold;">₺${paidAmount.toLocaleString('tr-TR')}</div>
-          </div>
-            <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-              <div style="font-size: 12px;">Kalan</div>
-              <div style="font-size: 20px; font-weight: bold;">₺${remainingAmount.toLocaleString('tr-TR')}</div>
-        </div>
-          </div>
-          
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <thead>
-              <tr style="background: #f1f5f9;">
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Açıklama</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Kategori</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Tutar</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Ödenen</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">Durum</th>
+              <tr style="background: #ccfbf1;">
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Başlık</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Kategori</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Vade</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Tutar</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Ödenen</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Ödeme Tarihi</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Ödeme Biçimi</th>
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Durum</th>
               </tr>
             </thead>
             <tbody>
-              ${otherIncomes.map(inc => `
-                <tr>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${inc.title}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inc.isPaid ? '#d1fae5' : '#fef3c7'}; color: ${inc.isPaid ? '#065f46' : '#92400e'};">
-                      ${inc.isPaid ? 'Ödendi' : 'Beklemede'}
+              ${otherIncomes.map(inc => {
+                const paymentMethodText = inc.paymentMethod === 'cash' ? '💵 Nakit' :
+                                          inc.paymentMethod === 'card' ? '💳 Kart' :
+                                          inc.paymentMethod === 'bank' ? '🏦 Havale' :
+                                          inc.paymentMethod === 'eft' ? '🏦 EFT' : '—';
+                const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : new Date(inc.date).toLocaleDateString('tr-TR');
+                return `
+                <tr style="background: ${inc.isPaid ? '#f0fdfa' : 'white'};">
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inc.title}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px;">${dueDate}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inc.paidAmount > 0 ? '#0d9488' : '#9ca3af'}; font-weight: 600;">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '—'}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inc.isPaid ? '#ccfbf1' : '#fef3c7'}; color: ${inc.isPaid ? '#0d9488' : '#92400e'};">
+                      ${inc.isPaid ? '✓ Ödendi' : '⏳ Beklemede'}
                     </span>
                   </td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
           
@@ -2167,6 +2180,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   <th className="p-3 text-right">Tutar</th>
                   <th className="p-3 text-right">Ödenen</th>
                   <th className="p-3 text-center">Ödeme Tarihi</th>
+                  <th className="p-3 text-center">Ödeme Biçimi</th>
                   <th className="p-3 text-right">Kalan</th>
                   <th className="p-3 text-center">Durum</th>
                   <th className="p-3 text-center">İşlemler</th>
@@ -2233,6 +2247,29 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           <span className="inline-flex items-center gap-1 text-xs">
                             <CalendarCheck className="h-3 w-3 text-emerald-500" />
                             {new Date(installment.paid_at).toLocaleDateString('tr-TR')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      {/* ÖDEME BİÇİMİ */}
+                      <td className="p-3 text-center">
+                        {installment.payment_method ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            installment.payment_method === 'cash' ? 'bg-green-100 text-green-700' :
+                            installment.payment_method === 'card' ? 'bg-blue-100 text-blue-700' :
+                            installment.payment_method === 'bank' ? 'bg-purple-100 text-purple-700' :
+                            installment.payment_method === 'eft' ? 'bg-indigo-100 text-indigo-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {installment.payment_method === 'cash' && <Banknote className="h-3 w-3" />}
+                            {installment.payment_method === 'card' && <CreditCard className="h-3 w-3" />}
+                            {installment.payment_method === 'bank' && <Building className="h-3 w-3" />}
+                            {installment.payment_method === 'eft' && <Building className="h-3 w-3" />}
+                            {installment.payment_method === 'cash' ? 'Nakit' :
+                             installment.payment_method === 'card' ? 'Kart' :
+                             installment.payment_method === 'bank' ? 'Havale' :
+                             installment.payment_method === 'eft' ? 'EFT' : '—'}
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -2392,6 +2429,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   <th className="p-3 text-right">Tutar</th>
                   <th className="p-3 text-right">Ödenen</th>
                   <th className="p-3 text-center">Ödeme Tarihi</th>
+                  <th className="p-3 text-center">Ödeme Biçimi</th>
                   <th className="p-3 text-right">Kalan</th>
                   <th className="p-3 text-center">Durum</th>
                   <th className="p-3 text-center">İşlemler</th>
@@ -2452,6 +2490,29 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           <span className="inline-flex items-center gap-1 text-xs">
                             <CalendarCheck className="h-3 w-3 text-teal-500" />
                             {new Date(income.paidAt).toLocaleDateString('tr-TR')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      {/* ÖDEME BİÇİMİ */}
+                      <td className="p-3 text-center">
+                        {income.paymentMethod ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            income.paymentMethod === 'cash' ? 'bg-green-100 text-green-700' :
+                            income.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' :
+                            income.paymentMethod === 'bank' ? 'bg-purple-100 text-purple-700' :
+                            income.paymentMethod === 'eft' ? 'bg-indigo-100 text-indigo-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {income.paymentMethod === 'cash' && <Banknote className="h-3 w-3" />}
+                            {income.paymentMethod === 'card' && <CreditCard className="h-3 w-3" />}
+                            {income.paymentMethod === 'bank' && <Building className="h-3 w-3" />}
+                            {income.paymentMethod === 'eft' && <Building className="h-3 w-3" />}
+                            {income.paymentMethod === 'cash' ? 'Nakit' :
+                             income.paymentMethod === 'card' ? 'Kart' :
+                             income.paymentMethod === 'bank' ? 'Havale' :
+                             income.paymentMethod === 'eft' ? 'EFT' : '—'}
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -2536,6 +2597,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                             ) : (
                               <Trash2 className="h-3.5 w-3.5" />
                             )}
+                          </button>
                         </div>
                       </td>
                     </tr>
