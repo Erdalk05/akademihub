@@ -840,192 +840,141 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
       const grandTotal = totalAmount + otherTotalAmount;
       const grandPaid = paidAmount + otherPaidAmount;
       
+      // Taksit sayısına göre font boyutu
+      const instCount = installments.length;
+      const instFontSize = instCount <= 6 ? '12px' : instCount <= 9 ? '11px' : instCount <= 12 ? '10px' : '9px';
+      const instPadding = instCount <= 6 ? '8px 10px' : instCount <= 9 ? '6px 8px' : '5px 6px';
+
       // STANDART 2 SAYFA A4 FORMAT - PrintLayout.tsx ile AYNI
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; width: 794px;">
           
           <!-- ===== SAYFA 1 - KAYIT FORMU ===== -->
-          <div style="width: 794px; padding: 30px 40px; box-sizing: border-box; background: #fff;">
+          <div style="width: 794px; height: 1123px; padding: 45px 55px; box-sizing: border-box; background: #fff; position: relative;">
             
             <!-- Başlık -->
-            <div style="border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 14px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
+            <div style="border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="border: 2px solid #000; padding: 8px 16px;">
+                  <span style="font-size: 18px; font-weight: 900;">AkademiHub</span>
               </div>
                 <div>
-                  <h1 style="font-size: 18px; font-weight: 800; margin: 0;">${organizationName.toUpperCase()}</h1>
-                  <p style="font-size: 10px; color: #666; margin: 0;">Eğitim Kurumu</p>
+                  <h1 style="font-size: 22px; font-weight: 800; margin: 0;">${organizationName.toUpperCase()}</h1>
+                  <p style="font-size: 12px; color: #666; margin: 0;">Eğitim Kurumu</p>
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="border: 1px solid #000; padding: 5px 15px; display: inline-block;">
-                  <h2 style="font-size: 13px; font-weight: 800; margin: 0;">KAYIT FORMU</h2>
+                <div style="border: 2px solid #000; padding: 8px 20px; background: #f5f5f5;">
+                  <h2 style="font-size: 16px; font-weight: 800; margin: 0;">KAYIT FORMU</h2>
                 </div>
-                <p style="font-size: 10px; margin: 4px 0 0 0;">Tarih: ${today} | No: ${student.student_no || '____'}</p>
+                <p style="font-size: 12px; margin: 6px 0 0 0;">Tarih: ${today}</p>
               </div>
             </div>
             
             <!-- ÖĞRENCİ BİLGİLERİ -->
-            <div style="margin-bottom: 8px;">
-              <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
-                <h3 style="font-weight: bold; font-size: 11px; margin: 0;">ÖĞRENCİ BİLGİLERİ</h3>
-              </div>
-              <table style="width: 100%; border: 1px solid #000; font-size: 10px; border-collapse: collapse;">
+            <div style="margin-bottom: 15px;">
+              <div style="background: #1a1a1a; color: #fff; padding: 8px 15px; font-size: 13px; font-weight: bold;">ÖĞRENCİ BİLGİLERİ</div>
+              <table style="width: 100%; border: 2px solid #000; border-top: none; font-size: 13px; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 5px 8px; width: 12%; font-weight: 600; border-right: 1px solid #ccc;">Ad Soyad</td>
-                  <td style="padding: 5px 8px; width: 28%; font-weight: bold; border-right: 1px solid #ccc;">${student.first_name || ''} ${student.last_name || ''}</td>
-                  <td style="padding: 5px 8px; width: 12%; font-weight: 600; border-right: 1px solid #ccc;">TC Kimlik</td>
-                  <td style="padding: 5px 8px; width: 20%; font-family: monospace; border-right: 1px solid #ccc;">${student.tc_no || '_____________'}</td>
-                  <td style="padding: 5px 8px; width: 10%; font-weight: 600; border-right: 1px solid #ccc;">Sınıf</td>
-                  <td style="padding: 5px 8px;">${student.class || '-'}-${student.section || 'A'}</td>
+                  <td style="padding: 10px 12px; width: 15%; font-weight: 600; border-right: 1px solid #ccc; background: #f9f9f9;">Ad Soyad</td>
+                  <td style="padding: 10px 12px; width: 35%; font-weight: bold; font-size: 14px; border-right: 1px solid #ccc;">${student.first_name || ''} ${student.last_name || ''}</td>
+                  <td style="padding: 10px 12px; width: 15%; font-weight: 600; border-right: 1px solid #ccc; background: #f9f9f9;">TC Kimlik</td>
+                  <td style="padding: 10px 12px; font-family: monospace; font-size: 13px;">${student.tc_no || '_____________'}</td>
                 </tr>
               </table>
-              </div>
+            </div>
 
             <!-- VELİ BİLGİLERİ -->
-            <div style="margin-bottom: 8px;">
-              <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
-                <h3 style="font-weight: bold; font-size: 11px; margin: 0;">VELİ BİLGİLERİ</h3>
-            </div>
-              <table style="width: 100%; border: 1px solid #000; font-size: 10px; border-collapse: collapse;">
+            <div style="margin-bottom: 15px;">
+              <div style="background: #1a1a1a; color: #fff; padding: 8px 15px; font-size: 13px; font-weight: bold;">VELİ BİLGİLERİ</div>
+              <table style="width: 100%; border: 2px solid #000; border-top: none; font-size: 13px; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 5px 8px; width: 12%; font-weight: 600; border-right: 1px solid #ccc;">Veli Adı</td>
-                  <td style="padding: 5px 8px; width: 30%; font-weight: bold; border-right: 1px solid #ccc;">${student.parent_name || '-'}</td>
-                  <td style="padding: 5px 8px; width: 10%; font-weight: 600; border-right: 1px solid #ccc;">Telefon</td>
-                  <td style="padding: 5px 8px; font-weight: bold;">${student.parent_phone || '-'}</td>
+                  <td style="padding: 10px 12px; width: 15%; font-weight: 600; border-right: 1px solid #ccc; background: #f9f9f9;">Veli Adı</td>
+                  <td style="padding: 10px 12px; width: 35%; font-weight: bold; font-size: 14px; border-right: 1px solid #ccc;">${student.parent_name || '-'}</td>
+                  <td style="padding: 10px 12px; width: 15%; font-weight: 600; border-right: 1px solid #ccc; background: #f9f9f9;">Telefon</td>
+                  <td style="padding: 10px 12px; font-weight: bold;">${student.parent_phone || '-'}</td>
                 </tr>
               </table>
-          </div>
-          
-            <!-- TAKSİT PLANI - KOMPAKT -->
-            ${installments.length > 0 ? `
-            <div style="margin-bottom: 8px;">
-              <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
-                <h3 style="font-weight: bold; font-size: 11px; margin: 0;">EĞİTİM TAKSİT PLANI (${installments.length} Taksit)</h3>
             </div>
-              <table style="width: 100%; border: 1px solid #000; font-size: 9px; border-collapse: collapse; table-layout: fixed;">
+          
+            <!-- TAKSİT PLANI -->
+            ${installments.length > 0 ? `
+            <div style="margin-bottom: 15px;">
+              <div style="background: #1a1a1a; color: #fff; padding: 8px 15px; font-size: 13px; font-weight: bold;">TAKSİT PLANI (${installments.length} Taksit)</div>
+              <table style="width: 100%; border: 2px solid #000; border-top: none; font-size: ${instFontSize}; border-collapse: collapse;">
               <thead>
                   <tr style="background: #f0f0f0;">
-                    <th style="padding: 4px 3px; text-align: center; width: 8%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Taksit</th>
-                    <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Vade Tarihi</th>
-                    <th style="padding: 4px 3px; text-align: right; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Tutar</th>
-                    <th style="padding: 4px 3px; text-align: right; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Ödenen</th>
-                    <th style="padding: 4px 3px; text-align: center; width: 14%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Ödeme Tarihi</th>
-                    <th style="padding: 4px 3px; text-align: left; width: 36%; font-weight: bold; border-bottom: 1px solid #000;">Açıklama</th>
+                    <th style="padding: ${instPadding}; text-align: center; width: 8%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 2px solid #000;">#</th>
+                    <th style="padding: ${instPadding}; text-align: center; width: 22%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 2px solid #000;">Vade Tarihi</th>
+                    <th style="padding: ${instPadding}; text-align: right; width: 20%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 2px solid #000;">Tutar</th>
+                    <th style="padding: ${instPadding}; text-align: right; width: 20%; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 2px solid #000;">Ödenen</th>
+                    <th style="padding: ${instPadding}; text-align: center; width: 30%; font-weight: bold; border-bottom: 2px solid #000;">İmza</th>
                 </tr>
               </thead>
               <tbody>
-                  ${installments.slice(0, 12).map((inst, i) => `
+                  ${installments.map((inst, i) => `
                     <tr style="border-bottom: 1px solid #ddd;">
-                      <td style="padding: 3px; text-align: center; font-weight: bold; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'Peşinat' : inst.installment_no + '. Taksit'}</td>
-                      <td style="padding: 3px; text-align: center; border-right: 1px solid #ddd;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-                      <td style="padding: 3px; text-align: right; font-weight: bold; border-right: 1px solid #ddd;">${inst.amount.toLocaleString('tr-TR')} TL</td>
-                      <td style="padding: 3px; text-align: right; border-right: 1px solid #ddd; ${inst.status === 'paid' ? 'color: #059669; font-weight: bold;' : 'color: #999;'}">${inst.status === 'paid' ? (inst.paid_amount || inst.amount).toLocaleString('tr-TR') + ' TL' : '—'}</td>
-                      <td style="padding: 3px; text-align: center; border-right: 1px solid #ddd; ${inst.status === 'paid' ? 'color: #059669;' : 'color: #999;'}">${inst.status === 'paid' && inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '—'}</td>
-                      <td style="padding: 3px 4px;">${inst.note || ''}</td>
+                      <td style="padding: ${instPadding}; text-align: center; font-weight: bold; border-right: 1px solid #ddd;">${inst.installment_no === 0 ? 'P' : inst.installment_no}</td>
+                      <td style="padding: ${instPadding}; text-align: center; border-right: 1px solid #ddd;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                      <td style="padding: ${instPadding}; text-align: right; font-weight: bold; border-right: 1px solid #ddd;">${inst.amount.toLocaleString('tr-TR')} TL</td>
+                      <td style="padding: ${instPadding}; text-align: right; border-right: 1px solid #ddd; ${inst.status === 'paid' ? 'color: #059669; font-weight: bold;' : 'color: #999;'}">${inst.status === 'paid' ? (inst.paid_amount || inst.amount).toLocaleString('tr-TR') + ' TL' : '—'}</td>
+                      <td style="padding: ${instPadding}; text-align: center;"></td>
                   </tr>
                 `).join('')}
                 </tbody>
                 <tfoot>
                   <tr style="background: #f0f0f0;">
-                    <td colspan="2" style="padding: 5px; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">TOPLAM</td>
-                    <td style="padding: 5px; text-align: right; font-size: 11px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">${totalAmount.toLocaleString('tr-TR')} TL</td>
-                    <td style="padding: 5px; text-align: right; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000; color: #059669;">${paidAmount.toLocaleString('tr-TR')} TL</td>
-                    <td style="border-top: 1px solid #000; border-right: 1px solid #ccc;"></td>
-                    <td style="border-top: 1px solid #000;"></td>
+                    <td colspan="2" style="padding: 10px 12px; font-size: 13px; font-weight: bold; border-top: 2px solid #000;">TOPLAM</td>
+                    <td style="padding: 10px 12px; text-align: right; font-size: 14px; font-weight: bold; border-top: 2px solid #000;">${totalAmount.toLocaleString('tr-TR')} TL</td>
+                    <td style="padding: 10px 12px; text-align: right; font-size: 13px; font-weight: bold; border-top: 2px solid #000; color: #059669;">${paidAmount.toLocaleString('tr-TR')} TL</td>
+                    <td style="border-top: 2px solid #000;"></td>
                 </tr>
                 </tfoot>
               </table>
             </div>
             ` : ''}
 
-            <!-- DİĞER SATIŞLAR -->
-            ${otherIncomes.length > 0 ? `
-            <div style="margin-bottom: 8px;">
-              <div style="border: 1px solid #000; border-bottom: none; padding: 4px 10px; background: #f5f5f5;">
-                <h3 style="font-weight: bold; font-size: 11px; margin: 0;">DİĞER SATIŞLAR</h3>
-              </div>
-              <table style="width: 100%; border: 1px solid #000; font-size: 9px; border-collapse: collapse;">
-                <thead>
-                  <tr style="background: #f0f0f0;">
-                    <th style="padding: 4px; text-align: left; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Açıklama</th>
-                    <th style="padding: 4px; text-align: center; font-weight: bold; border-right: 1px solid #ccc; border-bottom: 1px solid #000;">Kategori</th>
-                    <th style="padding: 4px; text-align: right; width: 70px; font-weight: bold; border-bottom: 1px solid #000;">Tutar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${otherIncomes.map(inc => `
-                    <tr style="border-bottom: 1px solid #ddd;">
-                      <td style="padding: 3px 4px; border-right: 1px solid #ddd;">${inc.title}</td>
-                      <td style="padding: 3px 4px; text-align: center; border-right: 1px solid #ddd;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
-                      <td style="padding: 3px 4px; text-align: right; font-weight: bold;">${inc.amount.toLocaleString('tr-TR')} TL</td>
-                    </tr>
-                  `).join('')}
-              </tbody>
-                <tfoot>
-                  <tr style="background: #f0f0f0;">
-                    <td colspan="2" style="padding: 5px; font-size: 10px; font-weight: bold; border-right: 1px solid #ccc; border-top: 1px solid #000;">TOPLAM</td>
-                    <td style="padding: 5px; text-align: right; font-size: 11px; font-weight: bold; border-top: 1px solid #000;">${otherTotalAmount.toLocaleString('tr-TR')} TL</td>
-                  </tr>
-                </tfoot>
-            </table>
-          </div>
-            ` : ''}
-
-            <!-- GENEL ÖZET -->
-            <div style="border: 1px solid #000; margin-bottom: 10px;">
-              <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
-                <h4 style="font-weight: bold; font-size: 10px; margin: 0;">ÖDEME ÖZETİ</h4>
-              </div>
-              <div style="display: flex; padding: 8px 10px; font-size: 9px;">
-                <div style="flex: 1;"><strong>Genel Toplam:</strong> ${grandTotal.toLocaleString('tr-TR')} TL</div>
-                <div style="flex: 1;"><strong>Ödenen:</strong> ${grandPaid.toLocaleString('tr-TR')} TL</div>
-                <div style="flex: 1;"><strong>Kalan:</strong> <span style="font-weight: bold; font-size: 11px;">${(grandTotal - grandPaid).toLocaleString('tr-TR')} TL</span></div>
-              </div>
-            </div>
-
             <!-- İMZA ALANI -->
-            <div style="display: flex; gap: 20px; margin-top: 15px;">
-              <div style="flex: 1; border: 1px solid #000; padding: 8px; text-align: center;">
-                <p style="font-weight: bold; font-size: 10px; margin: 0 0 25px 0;">VELİ İMZASI</p>
-                <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
-                <p style="font-size: 9px; margin: 0;">${student.parent_name || '________________'}</p>
-                <p style="font-size: 8px; color: #666; margin: 0;">Tarih: ${today}</p>
+            <div style="display: flex; gap: 25px; margin-top: auto;">
+              <div style="flex: 1; border: 2px solid #000; padding: 15px; text-align: center;">
+                <p style="font-weight: bold; font-size: 13px; margin: 0 0 35px 0;">VELİ İMZASI</p>
+                <div style="border-bottom: 1px solid #000; margin-bottom: 8px;"></div>
+                <p style="font-size: 12px; font-weight: bold; margin: 0;">${student.parent_name || '________________'}</p>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
               </div>
-              <div style="flex: 1; border: 1px solid #000; padding: 8px; text-align: center;">
-                <p style="font-weight: bold; font-size: 10px; margin: 0 0 25px 0;">KURUM YETKİLİSİ</p>
-                <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
-                <p style="font-size: 9px; margin: 0;">________________</p>
-                <p style="font-size: 8px; color: #666; margin: 0;">Tarih: ${today}</p>
+              <div style="flex: 1; border: 2px solid #000; padding: 15px; text-align: center;">
+                <p style="font-weight: bold; font-size: 13px; margin: 0 0 35px 0;">KURUM YETKİLİSİ</p>
+                <div style="border-bottom: 1px solid #000; margin-bottom: 8px;"></div>
+                <p style="font-size: 12px; margin: 0;">________________</p>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
             </div>
               </div>
 
-            <p style="text-align: center; font-size: 8px; color: #666; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px;">Sayfa 1/2 - Kayıt Formu | ${organizationName}</p>
+            <p style="position: absolute; bottom: 40px; left: 55px; right: 55px; text-align: center; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 8px;">Sayfa 1/2 - Kayıt Formu | ${organizationName}</p>
           </div>
 
           <!-- ===== SAYFA 2 - SÖZLEŞME ===== -->
-          <div style="width: 794px; padding: 30px 40px; box-sizing: border-box; background: #fff; border-top: 2px dashed #ccc;">
+          <div style="width: 794px; height: 1123px; padding: 45px 55px; box-sizing: border-box; background: #fff; position: relative; page-break-before: always;">
             
             <!-- Başlık -->
-            <div style="border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <h1 style="font-size: 16px; font-weight: 800; margin: 0;">EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
-                <p style="font-size: 10px; margin: 4px 0 0 0;">${student.first_name || ''} ${student.last_name || ''} - ${student.academic_year || '2025-2026'}</p>
+                <h1 style="font-size: 20px; font-weight: 800; margin: 0;">EĞİTİM HİZMETİ SÖZLEŞMESİ</h1>
+                <p style="font-size: 13px; margin: 5px 0 0 0;">${student.first_name || ''} ${student.last_name || ''} - ${student.academic_year || '2025-2026'}</p>
               </div>
-              <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 15px;">
                 <div style="text-align: right;">
-                  <p style="font-weight: 800; font-size: 14px; margin: 0;">${organizationName.toUpperCase()}</p>
-                  <p style="font-size: 10px; margin: 0;">${today}</p>
+                  <p style="font-weight: 800; font-size: 16px; margin: 0;">${organizationName.toUpperCase()}</p>
+                  <p style="font-size: 12px; margin: 3px 0 0 0;">${today}</p>
                 </div>
-                <div style="border: 2px solid #000; padding: 4px 10px; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 12px; font-weight: 900; letter-spacing: -0.5px;">AkademiHub</span>
+                <div style="border: 2px solid #000; padding: 8px 14px;">
+                  <span style="font-size: 15px; font-weight: 900;">AkademiHub</span>
                 </div>
             </div>
           </div>
           
             <!-- Sözleşme Metni -->
-            <div style="border: 1px solid #000; padding: 12px; font-size: 9px; line-height: 1.6; margin-bottom: 10px;">
+            <div style="border: 2px solid #000; padding: 20px; font-size: 12px; line-height: 1.8; margin-bottom: 20px; background: #fafafa;">
 EĞİTİM HİZMETİ SÖZLEŞMESİ
 
 İşbu sözleşme, ${organizationName} ("Kurum") ile aşağıda bilgileri bulunan veli arasında karşılıklı olarak düzenlenmiştir.
@@ -1049,80 +998,72 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           </div>
 
             <!-- Taraf Bilgileri -->
-            <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-              <div style="flex: 1; border: 1px solid #000;">
-                <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
-                  <h4 style="font-weight: bold; font-size: 10px; margin: 0;">VELİ BİLGİLERİ</h4>
-        </div>
-                <div style="padding: 8px 10px; font-size: 9px;">
-                  <p style="margin: 0 0 4px 0;"><strong>Ad Soyad:</strong> ${student.parent_name || '-'}</p>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+              <div style="flex: 1; border: 2px solid #000;">
+                <div style="background: #1a1a1a; color: #fff; padding: 8px 12px; font-size: 12px; font-weight: bold;">VELİ BİLGİLERİ</div>
+                <div style="padding: 12px 15px; font-size: 12px;">
+                  <p style="margin: 0 0 6px 0;"><strong>Ad Soyad:</strong> ${student.parent_name || '-'}</p>
                   <p style="margin: 0;"><strong>Telefon:</strong> ${student.parent_phone || '-'}</p>
                 </div>
               </div>
-              <div style="flex: 1; border: 1px solid #000;">
-                <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
-                  <h4 style="font-weight: bold; font-size: 10px; margin: 0;">ÖĞRENCİ BİLGİLERİ</h4>
-                </div>
-                <div style="padding: 8px 10px; font-size: 9px;">
-                  <p style="margin: 0 0 4px 0;"><strong>Ad Soyad:</strong> ${student.first_name || ''} ${student.last_name || ''}</p>
+              <div style="flex: 1; border: 2px solid #000;">
+                <div style="background: #1a1a1a; color: #fff; padding: 8px 12px; font-size: 12px; font-weight: bold;">ÖĞRENCİ BİLGİLERİ</div>
+                <div style="padding: 12px 15px; font-size: 12px;">
+                  <p style="margin: 0 0 6px 0;"><strong>Ad Soyad:</strong> ${student.first_name || ''} ${student.last_name || ''}</p>
                   <p style="margin: 0;"><strong>Sınıf:</strong> ${student.class || '-'}-${student.section || 'A'}</p>
                 </div>
               </div>
             </div>
 
             <!-- Ödeme Özeti -->
-            <div style="border: 1px solid #000; margin-bottom: 10px;">
-              <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
-                <h4 style="font-weight: bold; font-size: 10px; margin: 0;">ÖDEME PLANI ÖZETİ</h4>
-              </div>
-              <div style="display: flex; padding: 8px 10px; font-size: 9px;">
+            <div style="border: 2px solid #000; margin-bottom: 20px;">
+              <div style="background: #1a1a1a; color: #fff; padding: 8px 12px; font-size: 12px; font-weight: bold;">ÖDEME PLANI ÖZETİ</div>
+              <div style="display: flex; padding: 12px 15px; font-size: 12px;">
                 <div style="flex: 1;"><strong>Toplam:</strong> ${grandTotal.toLocaleString('tr-TR')} TL</div>
                 <div style="flex: 1;"><strong>Ödenen:</strong> ${grandPaid.toLocaleString('tr-TR')} TL</div>
-                <div style="flex: 1;"><strong>Kalan:</strong> <span style="font-weight: bold; font-size: 11px;">${(grandTotal - grandPaid).toLocaleString('tr-TR')} TL</span></div>
+                <div style="flex: 1;"><strong>Kalan:</strong> <span style="font-weight: bold; font-size: 14px;">${(grandTotal - grandPaid).toLocaleString('tr-TR')} TL</span></div>
               </div>
             </div>
 
             <!-- Onaylar -->
-            <div style="border: 1px solid #000; margin-bottom: 10px;">
-              <div style="border-bottom: 1px solid #000; padding: 4px 10px; background: #f5f5f5;">
-                <h4 style="font-weight: bold; font-size: 10px; margin: 0;">ONAYLAR</h4>
-              </div>
-              <div style="display: flex; padding: 8px 10px; font-size: 8px; gap: 15px;">
-                <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
-                  <span style="width: 12px; height: 12px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold;">✓</span>
+            <div style="border: 2px solid #000; margin-bottom: 20px;">
+              <div style="background: #1a1a1a; color: #fff; padding: 8px 12px; font-size: 12px; font-weight: bold;">ONAYLAR</div>
+              <div style="display: flex; padding: 12px 15px; font-size: 12px; gap: 20px;">
+                <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 16px; height: 16px; border: 2px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">✓</span>
                   <span>KVKK kabul edildi</span>
                 </div>
-                <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
-                  <span style="width: 12px; height: 12px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold;">✓</span>
+                <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 16px; height: 16px; border: 2px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">✓</span>
                   <span>Okul kuralları kabul edildi</span>
                 </div>
-                <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
-                  <span style="width: 12px; height: 12px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold;">✓</span>
+                <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 16px; height: 16px; border: 2px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">✓</span>
                   <span>Ödeme planı kabul edildi</span>
                 </div>
               </div>
             </div>
 
             <!-- İMZA ALANI -->
-            <div style="display: flex; gap: 20px; margin-top: 15px;">
-              <div style="flex: 1; border: 1px solid #000; padding: 8px; text-align: center;">
-                <p style="font-weight: bold; font-size: 10px; margin: 0 0 25px 0;">VELİ İMZASI</p>
-                <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
-                <p style="font-size: 9px; margin: 0;">${student.parent_name || '________________'}</p>
-                <p style="font-size: 8px; color: #666; margin: 0;">Tarih: ${today}</p>
+            <div style="display: flex; gap: 25px;">
+              <div style="flex: 1; border: 2px solid #000; padding: 15px; text-align: center;">
+                <p style="font-weight: bold; font-size: 13px; margin: 0 0 35px 0;">VELİ İMZASI</p>
+                <div style="border-bottom: 1px solid #000; margin-bottom: 8px;"></div>
+                <p style="font-size: 12px; font-weight: bold; margin: 0;">${student.parent_name || '________________'}</p>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
               </div>
-              <div style="flex: 1; border: 1px solid #000; padding: 8px; text-align: center;">
-                <p style="font-weight: bold; font-size: 10px; margin: 0 0 25px 0;">KURUM YETKİLİSİ</p>
-                <div style="border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
-                <p style="font-size: 9px; margin: 0;">________________</p>
-                <p style="font-size: 8px; color: #666; margin: 0;">Tarih: ${today}</p>
+              <div style="flex: 1; border: 2px solid #000; padding: 15px; text-align: center;">
+                <p style="font-weight: bold; font-size: 13px; margin: 0 0 35px 0;">KURUM YETKİLİSİ</p>
+                <div style="border-bottom: 1px solid #000; margin-bottom: 8px;"></div>
+                <p style="font-size: 12px; margin: 0;">________________</p>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
               </div>
             </div>
 
             <!-- Alt Bilgi -->
-            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd; text-align: center; font-size: 8px;">
+            <div style="position: absolute; bottom: 40px; left: 55px; right: 55px; text-align: center; font-size: 10px; border-top: 1px solid #ddd; padding-top: 8px;">
               <p style="font-weight: 600; margin: 0;">Sayfa 2/2 - Eğitim Hizmeti Sözleşmesi</p>
-              <p style="color: #666; margin: 3px 0 0 0;">Bu sözleşme iki nüsha olarak düzenlenmiştir. | ${organizationName} - ${today}</p>
+              <p style="color: #666; margin: 4px 0 0 0;">Bu sözleşme iki nüsha olarak düzenlenmiştir. | ${organizationName} - ${today}</p>
             </div>
           </div>
         </div>
