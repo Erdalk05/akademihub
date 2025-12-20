@@ -353,6 +353,24 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
                 onChange={handleChange}
               />
               <EditableField 
+                label="Sınıf" 
+                value={formData?.class} 
+                field="class"
+                icon={GraduationCap} 
+                isEditing={isEditing}
+                onChange={handleChange}
+                placeholder="Örn: 11. Sınıf"
+              />
+              <EditableField 
+                label="Şube" 
+                value={formData?.section} 
+                field="section"
+                icon={GraduationCap} 
+                isEditing={isEditing}
+                onChange={handleChange}
+                placeholder="Örn: A"
+              />
+              <EditableField 
                 label="Doğum Tarihi" 
                 value={formData?.birth_date?.split('T')[0]} 
                 field="birth_date"
