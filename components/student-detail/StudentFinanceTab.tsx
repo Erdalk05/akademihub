@@ -1024,156 +1024,113 @@ Teşekkür ederiz. 🙏`;
       const grandRemaining = grandTotal - grandPaid;
       
       const htmlContent = `
-        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif; background: white;">
-          <div style="text-align: center; margin-bottom: 20px; border-bottom: 3px solid #059669; padding-bottom: 15px;">
-            <h1 style="color: #059669; margin: 0; font-size: 24px;">OGRENCI FINANS RAPORU</h1>
-            <p style="color: #666; margin: 5px 0 0 0;">Egitim + Diger Gelirler</p>
-            <p style="color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
-          </div>
-          
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <div><strong>Ogrenci:</strong> ${studentName}</div>
-              <div><strong>Ogrenci No:</strong> ${student.student_no || '-'}</div>
-              <div><strong>Veli:</strong> ${student.parent_name || '-'}</div>
-              <div><strong>Sinif:</strong> ${student.class || student.section || '-'}</div>
+        <div style="width: 800px; padding: 15px; font-family: Arial, sans-serif; background: white; font-size: 9px;">
+          <!-- HEADER -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #059669; padding-bottom: 8px; margin-bottom: 10px;">
+            <div>
+              <h1 style="color: #059669; margin: 0; font-size: 16px;">OGRENCI FINANS RAPORU</h1>
+              <span style="color: #666; font-size: 9px;">${studentName} | ${student.student_no || '-'} | ${student.class || '-'}</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 8px; color: #666;">${today}</div>
+              <div style="font-size: 8px; color: #666;">${organizationName}</div>
             </div>
           </div>
           
-          <!-- GENEL OZET -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-            <div style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-              <div style="font-size: 12px; opacity: 0.9;">GENEL TOPLAM</div>
-              <div style="font-size: 24px; font-weight: bold;">₺${grandTotal.toLocaleString('tr-TR')}</div>
+          <!-- GENEL OZET - Kompakt -->
+          <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <div style="flex: 1; background: #059669; color: white; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 8px;">TOPLAM</div>
+              <div style="font-size: 14px; font-weight: bold;">₺${grandTotal.toLocaleString('tr-TR')}</div>
             </div>
-            <div style="background: linear-gradient(135deg, #10b981, #34d399); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-              <div style="font-size: 12px; opacity: 0.9;">TOPLAM ODENEN</div>
-              <div style="font-size: 24px; font-weight: bold;">₺${grandPaid.toLocaleString('tr-TR')}</div>
+            <div style="flex: 1; background: #10b981; color: white; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 8px;">ODENEN</div>
+              <div style="font-size: 14px; font-weight: bold;">₺${grandPaid.toLocaleString('tr-TR')}</div>
             </div>
-            <div style="background: linear-gradient(135deg, #f97316, #fb923c); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-              <div style="font-size: 12px; opacity: 0.9;">TOPLAM KALAN</div>
-              <div style="font-size: 24px; font-weight: bold;">₺${grandRemaining.toLocaleString('tr-TR')}</div>
+            <div style="flex: 1; background: #f97316; color: white; padding: 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 8px;">KALAN</div>
+              <div style="font-size: 14px; font-weight: bold;">₺${grandRemaining.toLocaleString('tr-TR')}</div>
             </div>
           </div>
           
           <!-- EGITIM TAKSITLERI -->
-          <div style="margin-bottom: 25px;">
-            <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 15px;">
-              📚 EGITIM TAKSITLERI
-            </h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-              <div style="background: #eef2ff; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #6366f1;">Toplam</div>
-                <div style="font-size: 16px; font-weight: bold; color: #4f46e5;">₺${eduTotal.toLocaleString('tr-TR')}</div>
-              </div>
-              <div style="background: #ecfdf5; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #10b981;">Odenen</div>
-                <div style="font-size: 16px; font-weight: bold; color: #059669;">₺${eduPaid.toLocaleString('tr-TR')}</div>
-              </div>
-              <div style="background: #fff7ed; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #f97316;">Kalan</div>
-                <div style="font-size: 16px; font-weight: bold; color: #ea580c;">₺${eduRemaining.toLocaleString('tr-TR')}</div>
-              </div>
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #4f46e5; color: white; padding: 4px 8px; border-radius: 4px 4px 0 0;">
+              <span style="font-weight: bold; font-size: 10px;">EGITIM TAKSITLERI</span>
+              <span style="font-size: 8px;">T: ₺${eduTotal.toLocaleString('tr-TR')} | O: ₺${eduPaid.toLocaleString('tr-TR')} | K: ₺${eduRemaining.toLocaleString('tr-TR')}</span>
             </div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 8px;">
               <thead>
                 <tr style="background: #eef2ff;">
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: left;">Taksit</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: left;">Vade</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: right;">Tutar</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: right;">Odenen</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Odeme Tarihi</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Bicim</th>
-                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Durum</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe; text-align: left;">Taksit</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe;">Vade</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe; text-align: right;">Tutar</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe; text-align: right;">Odenen</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe;">Od.Tarihi</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe;">Bicim</th>
+                  <th style="padding: 3px 4px; border: 1px solid #c7d2fe;">Durum</th>
                 </tr>
               </thead>
               <tbody>
                 ${installments.map(inst => {
-                  const paymentMethodText = inst.payment_method === 'cash' ? 'Nakit' :
-                                            inst.payment_method === 'card' ? 'Kart' :
-                                            inst.payment_method === 'bank' ? 'Havale' :
-                                            inst.payment_method === 'eft' ? 'EFT' : '-';
-                  return `
-                  <tr style="background: ${inst.status === 'paid' ? '#f0fdf4' : 'white'};">
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inst.installment_no > 0 ? inst.installment_no + '. Taksit' : 'Pesinat'}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inst.paid_amount > 0 ? '#059669' : '#9ca3af'}; font-weight: 600;">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
-                      <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inst.status === 'paid' ? '#d1fae5' : inst.status === 'overdue' ? '#fee2e2' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : inst.status === 'overdue' ? '#991b1b' : '#92400e'};">
-                        ${inst.status === 'paid' ? 'Odendi' : inst.status === 'overdue' ? 'Gecikmis' : 'Beklemede'}
-                      </span>
-                    </td>
-                  </tr>
-                `}).join('')}
+                  const pm = inst.payment_method === 'cash' ? 'Nakit' : inst.payment_method === 'card' ? 'Kart' : inst.payment_method === 'bank' ? 'Havale' : inst.payment_method === 'eft' ? 'EFT' : '-';
+                  const st = inst.status === 'paid' ? 'Odendi' : inst.status === 'overdue' ? 'Gecik' : 'Bekle';
+                  const bg = inst.status === 'paid' ? '#f0fdf4' : 'white';
+                  return `<tr style="background: ${bg};">
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${inst.installment_no > 0 ? inst.installment_no + '.T' : 'Pes'}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: right; color: ${inst.paid_amount > 0 ? '#059669' : '#9ca3af'};">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${pm}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: center;"><span style="padding: 1px 4px; border-radius: 4px; font-size: 7px; background: ${inst.status === 'paid' ? '#d1fae5' : inst.status === 'overdue' ? '#fee2e2' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : inst.status === 'overdue' ? '#991b1b' : '#92400e'};">${st}</span></td>
+                  </tr>`}).join('')}
               </tbody>
             </table>
           </div>
           
           <!-- DIGER GELIRLER -->
-          <div style="margin-bottom: 25px;">
-            <h2 style="color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 8px; margin-bottom: 15px;">
-              📦 DIGER GELIRLER
-            </h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-              <div style="background: #f0fdfa; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #14b8a6;">Toplam</div>
-                <div style="font-size: 16px; font-weight: bold; color: #0d9488;">₺${otherTotal.toLocaleString('tr-TR')}</div>
-              </div>
-              <div style="background: #ecfdf5; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #10b981;">Odenen</div>
-                <div style="font-size: 16px; font-weight: bold; color: #059669;">₺${otherPaid.toLocaleString('tr-TR')}</div>
-              </div>
-              <div style="background: #fff7ed; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 11px; color: #f97316;">Kalan</div>
-                <div style="font-size: 16px; font-weight: bold; color: #ea580c;">₺${otherRemaining.toLocaleString('tr-TR')}</div>
-              </div>
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #0d9488; color: white; padding: 4px 8px; border-radius: 4px 4px 0 0;">
+              <span style="font-weight: bold; font-size: 10px;">DIGER GELIRLER</span>
+              <span style="font-size: 8px;">T: ₺${otherTotal.toLocaleString('tr-TR')} | O: ₺${otherPaid.toLocaleString('tr-TR')} | K: ₺${otherRemaining.toLocaleString('tr-TR')}</span>
             </div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 8px;">
               <thead>
                 <tr style="background: #ccfbf1;">
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Baslik</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Kategori</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Vade</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Tutar</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Odenen</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Odeme Tarihi</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Bicim</th>
-                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Durum</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4; text-align: left;">Baslik</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4;">Kat.</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4;">Vade</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4; text-align: right;">Tutar</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4; text-align: right;">Odenen</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4;">Od.Tarihi</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4;">Bicim</th>
+                  <th style="padding: 3px 4px; border: 1px solid #99f6e4;">Durum</th>
                 </tr>
               </thead>
               <tbody>
                 ${otherIncomes.map(inc => {
-                  const paymentMethodText = inc.paymentMethod === 'cash' ? 'Nakit' :
-                                            inc.paymentMethod === 'card' ? 'Kart' :
-                                            inc.paymentMethod === 'bank' ? 'Havale' :
-                                            inc.paymentMethod === 'eft' ? 'EFT' : '-';
+                  const pm = inc.paymentMethod === 'cash' ? 'Nakit' : inc.paymentMethod === 'card' ? 'Kart' : inc.paymentMethod === 'bank' ? 'Havale' : inc.paymentMethod === 'eft' ? 'EFT' : '-';
+                  const cat = CATEGORY_INFO[inc.category]?.label?.substring(0, 5) || 'Diger';
                   const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : new Date(inc.date).toLocaleDateString('tr-TR');
-                  return `
-                  <tr style="background: ${inc.isPaid ? '#f0fdfa' : 'white'};">
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inc.title}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${CATEGORY_INFO[inc.category]?.label || 'Diger'}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px;">${dueDate}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inc.paidAmount > 0 ? '#0d9488' : '#9ca3af'}; font-weight: 600;">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '-'}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
-                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
-                      <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inc.isPaid ? '#ccfbf1' : '#fef3c7'}; color: ${inc.isPaid ? '#0d9488' : '#92400e'};">
-                        ${inc.isPaid ? 'Odendi' : 'Beklemede'}
-                      </span>
-                    </td>
-                  </tr>
-                `}).join('')}
+                  const bg = inc.isPaid ? '#f0fdfa' : 'white';
+                  return `<tr style="background: ${bg};">
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${inc.title.substring(0, 25)}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${cat}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${dueDate}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: right; color: ${inc.paidAmount > 0 ? '#0d9488' : '#9ca3af'};">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '-'}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0;">${pm}</td>
+                    <td style="padding: 2px 4px; border: 1px solid #e2e8f0; text-align: center;"><span style="padding: 1px 4px; border-radius: 4px; font-size: 7px; background: ${inc.isPaid ? '#ccfbf1' : '#fef3c7'}; color: ${inc.isPaid ? '#0d9488' : '#92400e'};">${inc.isPaid ? 'Odendi' : 'Bekle'}</span></td>
+                  </tr>`}).join('')}
               </tbody>
             </table>
           </div>
           
-          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
-            ${organizationName} - Egitim Yonetim Sistemi<br/>
-            Bu belge ${today} tarihinde olusturulmustur.
+          <!-- FOOTER -->
+          <div style="text-align: center; color: #999; font-size: 7px; border-top: 1px solid #e5e7eb; padding-top: 5px; margin-top: 5px;">
+            ${organizationName} | ${today}
           </div>
         </div>
       `;
