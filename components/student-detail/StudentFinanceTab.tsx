@@ -1564,6 +1564,7 @@ Teşekkür ederiz. 🙏`;
           <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <thead>
               <tr style="background: #ccfbf1;">
+                <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center; width: 50px;">Taksit</th>
                 <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Başlık</th>
                 <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Kategori</th>
                 <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Vade</th>
@@ -1575,14 +1576,17 @@ Teşekkür ederiz. 🙏`;
               </tr>
             </thead>
             <tbody>
-              ${otherIncomes.map(inc => {
+              ${otherIncomes.map((inc, idx) => {
                 const paymentMethodText = inc.paymentMethod === 'cash' ? '💵 Nakit' :
                                           inc.paymentMethod === 'card' ? '💳 Kart' :
                                           inc.paymentMethod === 'bank' ? '🏦 Havale' :
                                           inc.paymentMethod === 'eft' ? '🏦 EFT' : '—';
                 const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : new Date(inc.date).toLocaleDateString('tr-TR');
+                const taksitMatch = inc.title.match(/(\d+)\.\s*Taksit/i) || inc.title.match(/Taksit\s*(\d+)/i);
+                const taksitNo = taksitMatch ? taksitMatch[1] : (inc.title.toLowerCase().includes('peşinat') ? 'P' : (idx + 1).toString());
                 return `
                 <tr style="background: ${inc.isPaid ? '#f0fdfa' : 'white'};">
+                  <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${taksitNo}</td>
                   <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inc.title}</td>
                   <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${CATEGORY_INFO[inc.category]?.label || 'Diğer'}</td>
                   <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px;">${dueDate}</td>
@@ -2705,6 +2709,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             <table className="w-full text-sm">
               <thead className="bg-teal-50 text-gray-600 font-medium border-b-2 border-teal-200">
                 <tr>
+                  <th className="p-3 text-center w-16">Taksit</th>
                   <th className="p-3 text-left">Başlık</th>
                   <th className="p-3 text-center">Kategori</th>
                   <th className="p-3 text-left">Vade Tarihi</th>
@@ -2718,11 +2723,15 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 </tr>
               </thead>
               <tbody>
-                {otherIncomes.map((income) => {
+                {otherIncomes.map((income, index) => {
                   const categoryInfo = CATEGORY_INFO[income.category] || CATEGORY_INFO.other;
                   const CategoryIcon = categoryInfo.icon;
                   const remaining = income.amount - income.paidAmount;
                   const isOverdue = !income.isPaid && income.dueDate && new Date(income.dueDate) < new Date();
+                  
+                  // Taksit numarasını title'dan çıkar veya index kullan
+                  const taksitMatch = income.title.match(/(\d+)\.\s*Taksit/i) || income.title.match(/Taksit\s*(\d+)/i);
+                  const taksitNo = taksitMatch ? taksitMatch[1] : (income.title.toLowerCase().includes('peşinat') ? 'P' : (index + 1).toString());
 
                   return (
                     <tr
@@ -2737,6 +2746,21 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                               : 'border-gray-100 hover:bg-gray-50'
                       }`}
                     >
+                      {/* Taksit No */}
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
+                          income.isPaid 
+                            ? 'bg-teal-100 text-teal-700' 
+                            : income.paidAmount > 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : isOverdue
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {taksitNo}
+                        </span>
+                      </td>
+                      {/* Başlık */}
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           {income.isPaid && <div className="w-1 h-8 bg-teal-500 rounded-full" />}
