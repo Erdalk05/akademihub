@@ -19,10 +19,15 @@ export const PaymentSection = () => {
     return payment.netFee - payment.downPayment;
   }, [payment.netFee, payment.downPayment]);
 
-  // Otomatik mod: taksitleri hesapla
+  // Peşinat veya temel değerler değiştiğinde taksitleri yeniden hesapla
+  // Manuel mod hariç tüm modlarda çalışır
   useEffect(() => {
-    if (mode === 'auto' && payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
+    if (mode !== 'manual' && payment.netFee > 0 && payment.installmentCount > 0 && payment.firstInstallmentDate) {
       calculateInstallments();
+      // Custom modda ise özel ilk taksit alanını sıfırla (peşinat değiştiği için)
+      if (mode === 'custom') {
+        setCustomFirstAmount('');
+      }
     }
   }, [mode, payment.netFee, payment.downPayment, payment.installmentCount, payment.firstInstallmentDate, payment.downPaymentDate, calculateInstallments]);
 
