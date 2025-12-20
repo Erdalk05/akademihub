@@ -221,17 +221,17 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
   if (isLoading) {
     return (
       <div className="h-full flex flex-col bg-gradient-to-b from-[#075E54] via-[#128C7E] to-[#075E54]">
-        <div className="p-6 border-b border-white/10">
+        <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-[#075E54] text-sm shadow-lg">
               {orgShortName}
             </div>
-            {!collapsed && <span className="font-bold text-lg text-white">{orgDisplayName}</span>}
+            {!collapsed && <span className="font-bold text-base text-white truncate">{orgDisplayName}</span>}
           </div>
         </div>
         <div className="flex-1 p-4 animate-pulse">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 bg-white/10 rounded-xl mb-2" />
+            <div key={i} className="h-11 bg-white/10 rounded-xl mb-2" />
           ))}
         </div>
       </div>
@@ -240,43 +240,36 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-[#075E54] via-[#128C7E] to-[#075E54]">
-      {/* Logo - WhatsApp Style - Dashboard'a yönlendir */}
-      <div className="p-6 border-b border-white/10">
+      {/* Logo - Kompakt */}
+      <div className="p-4 border-b border-white/10">
         <Link href="/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
-          <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-bold text-[#075E54] text-lg shadow-lg">
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-[#075E54] text-sm shadow-lg">
             {orgShortName}
           </div>
-          {!collapsed && <span className="font-bold text-lg text-white">{orgDisplayName}</span>}
-        </Link>
-        
-        {/* Aktif Kurum Bilgisi */}
-        {mounted && orgHasHydrated && currentOrganization && !collapsed && (
-          <div className="mt-3 px-2 py-2 bg-white/10 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Building2 size={14} className="text-[#25D366]" />
-              <span className="text-xs text-white/80 truncate">{currentOrganization.name}</span>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <span className="font-bold text-base text-white block truncate">{orgDisplayName}</span>
             </div>
-          </div>
-        )}
+          )}
+        </Link>
       </div>
 
-      {/* Kullanıcı Bilgisi & Rol Göstergesi */}
+      {/* Kullanıcı Bilgisi - Kompakt ve Temiz */}
       {!collapsed && currentUser && (
         <div className="px-4 py-3 border-b border-white/10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
               isAdmin ? 'bg-purple-500' : isAccounting ? 'bg-emerald-500' : 'bg-sky-500'
             }`}>
               {currentUser.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium text-sm truncate">{currentUser.name}</p>
-              <p className="text-white/50 text-xs truncate">{currentUser.email}</p>
+              <p className="text-white/50 text-[11px] truncate">{currentUser.email}</p>
             </div>
-          </div>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${roleBadge?.bg || 'bg-sky-500/20'} ${roleBadge?.text || 'text-sky-300'}`}>
-            <Shield size={14} />
-            <span>{roleBadge?.label || 'Personel'}</span>
+            <div className={`px-2 py-1 rounded-md text-[10px] font-bold ${roleBadge?.bg || 'bg-sky-500/20'} ${roleBadge?.text || 'text-sky-300'}`}>
+              {roleBadge?.label || 'Personel'}
+            </div>
           </div>
         </div>
       )}
