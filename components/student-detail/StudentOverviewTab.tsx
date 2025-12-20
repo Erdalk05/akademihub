@@ -6,7 +6,8 @@ import {
   Phone, Mail, MapPin, Calendar, Hash, Heart, Globe,
   Building, Briefcase, Wallet, CheckCircle,
   BookOpen, Award, Save, X, Edit3, Loader2,
-  CreditCard, PiggyBank, Percent
+  CreditCard, PiggyBank, Percent, MessageCircle,
+  AlertCircle, Clock, TrendingUp, StickyNote, Send
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -111,6 +112,8 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [newNote, setNewNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
   // Student verisi değiştiğinde form datasını güncelle
   useEffect(() => {
@@ -285,6 +288,197 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
             </p>
           </div>
         )}
+      </div>
+
+      {/* 📊 Hızlı Özet Kartları */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Durum Göstergesi */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Kayıt Durumu</p>
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold ${
+            formData?.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+            formData?.status === 'suspended' ? 'bg-amber-100 text-amber-700' :
+            formData?.status === 'graduated' ? 'bg-blue-100 text-blue-700' :
+            formData?.status === 'deleted' ? 'bg-red-100 text-red-700' :
+            'bg-gray-100 text-gray-600'
+          }`}>
+            {formData?.status === 'active' ? '✅ Aktif' :
+             formData?.status === 'suspended' ? '⏸️ Donduruldu' :
+             formData?.status === 'graduated' ? '🎓 Mezun' :
+             formData?.status === 'deleted' ? '🗑️ Silindi' :
+             '❓ Belirsiz'}
+          </div>
+        </div>
+
+        {/* Borç Özeti */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Finansal Durum</p>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Toplam:</span>
+              <span className="text-sm font-bold text-gray-800">₺{(formData?.total_amount || 0).toLocaleString('tr-TR')}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Ödenen:</span>
+              <span className="text-sm font-bold text-emerald-600">₺{(formData?.paid_amount || 0).toLocaleString('tr-TR')}</span>
+            </div>
+            <div className="flex items-center justify-between border-t pt-1 mt-1">
+              <span className="text-xs text-gray-500">Kalan:</span>
+              <span className={`text-sm font-bold ${(formData?.balance || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                ₺{(formData?.balance || 0).toLocaleString('tr-TR')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Son Ödeme */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Son Ödeme</p>
+          {formData?.last_payment_date ? (
+            <div>
+              <p className="text-sm font-bold text-gray-800">
+                {new Date(formData.last_payment_date).toLocaleDateString('tr-TR')}
+              </p>
+              <p className="text-xs text-emerald-600 mt-1">
+                ₺{(formData?.last_payment_amount || 0).toLocaleString('tr-TR')}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Henüz ödeme yok</p>
+          )}
+        </div>
+
+        {/* Veli İletişim */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Hızlı İletişim</p>
+          <div className="flex gap-2">
+            {formData?.parent_phone && (
+              <>
+                <a
+                  href={`tel:${formData.parent_phone}`}
+                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200 transition"
+                >
+                  <Phone size={14} />
+                  Ara
+                </a>
+                <a
+                  href={`https://wa.me/90${formData.parent_phone.replace(/\D/g, '').slice(-10)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition"
+                >
+                  <MessageCircle size={14} />
+                  WA
+                </a>
+              </>
+            )}
+            {!formData?.parent_phone && (
+              <p className="text-xs text-gray-400">Telefon yok</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 📋 Son İşlemler & Notlar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Son 3 Ödeme */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <Clock size={16} className="text-emerald-600" />
+              Son Ödemeler
+            </h4>
+            <a href={`/students/${student?.id}?tab=finance`} className="text-xs text-emerald-600 hover:underline">
+              Tümünü Gör →
+            </a>
+          </div>
+          <div className="space-y-2">
+            {(formData?.recent_payments || []).length > 0 ? (
+              formData.recent_payments.slice(0, 3).map((payment: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">{payment.description || `${payment.installment_no}. Taksit`}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('tr-TR') : '-'}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-emerald-600">
+                    +₺{(payment.amount || 0).toLocaleString('tr-TR')}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6 text-gray-400">
+                <TrendingUp size={24} className="mx-auto mb-2 opacity-50" />
+                <p className="text-xs">Henüz ödeme kaydı yok</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notlar Alanı */}
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <StickyNote size={16} className="text-amber-500" />
+              Öğrenci Notları
+            </h4>
+          </div>
+          
+          {/* Mevcut Not */}
+          <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg min-h-[60px]">
+            {formData?.notes ? (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{formData.notes}</p>
+            ) : (
+              <p className="text-xs text-gray-400 italic">Henüz not eklenmemiş</p>
+            )}
+          </div>
+          
+          {/* Not Ekleme */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Yeni not ekle..."
+              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+            />
+            <button
+              onClick={async () => {
+                if (!newNote.trim()) return;
+                setSavingNote(true);
+                try {
+                  const updatedNotes = formData?.notes 
+                    ? `${formData.notes}\n[${new Date().toLocaleDateString('tr-TR')}] ${newNote}`
+                    : `[${new Date().toLocaleDateString('tr-TR')}] ${newNote}`;
+                  
+                  const response = await fetch(`/api/students/${student.id}`, {
+                    method: 'PUT',
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'X-User-Role': currentUser?.role || '',
+                    },
+                    body: JSON.stringify({ notes: updatedNotes }),
+                  });
+                  
+                  if (response.ok) {
+                    setFormData((prev: any) => ({ ...prev, notes: updatedNotes }));
+                    setNewNote('');
+                    toast.success('Not eklendi!');
+                  }
+                } catch {
+                  toast.error('Not eklenemedi');
+                } finally {
+                  setSavingNote(false);
+                }
+              }}
+              disabled={savingNote || !newNote.trim()}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
+            >
+              {savingNote ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Horizontal Tabs */}
