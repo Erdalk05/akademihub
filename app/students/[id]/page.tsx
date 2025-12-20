@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Phone, 
@@ -14,7 +14,9 @@ import {
   Camera,
   RefreshCw,
   AlertTriangle,
-  Clock
+  Clock,
+  ImagePlus,
+  Loader2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import toast from 'react-hot-toast';
@@ -65,6 +67,11 @@ export default function StudentDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<'soft' | 'hard' | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Kamera ve Galeri ref'leri
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (studentId) {
@@ -274,6 +281,51 @@ export default function StudentDetailPage() {
     toast.success('Fotoğraf güncellendi!');
   };
 
+  // Direkt fotoğraf yükleme (kamera/galeri)
+  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Fotoğraf 5MB\'dan küçük olmalıdır');
+      return;
+    }
+    
+    setUploadingPhoto(true);
+    const toastId = toast.loading('Fotoğraf yükleniyor...');
+    
+    try {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      
+      // API'ye kaydet
+      const response = await fetch(`/api/students/${studentId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Role': currentUser?.role || '',
+        },
+        body: JSON.stringify({ photo_url: base64 }),
+      });
+      
+      if (response.ok) {
+        setStudent(prev => prev ? { ...prev, photo_url: base64 } : null);
+        toast.success('Fotoğraf güncellendi!', { id: toastId });
+      } else {
+        throw new Error('Yükleme başarısız');
+      }
+    } catch (error) {
+      toast.error('Fotoğraf yüklenemedi', { id: toastId });
+    } finally {
+      setUploadingPhoto(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; className: string }> = {
       active: { label: '✅ Aktif Kayıt', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -348,41 +400,78 @@ export default function StudentDetailPage() {
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-purple-100/20 to-indigo-100/20 rounded-full translate-y-1/2 -translate-x-1/2" />
         
         <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-          <div className="flex gap-5 items-center">
-            {/* Avatar / Photo - Geliştirilmiş */}
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity" />
-              <div className="relative">
-                {student.photo_url ? (
-                  <img
-                    src={student.photo_url}
-                    alt={displayName}
-                    className="h-24 w-24 rounded-2xl object-cover shadow-xl border-4 border-white ring-2 ring-emerald-200"
-                  />
-                ) : (
-                  <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-3xl font-bold text-white shadow-xl border-4 border-white">
-                    {initials}
-                  </div>
-                )}
-                {/* Upload Button Overlay */}
+          <div className="flex gap-5 items-start">
+            {/* Avatar / Photo - Kamera & Galeri */}
+            <div className="flex flex-col items-center">
+              <div className="relative group mb-3">
+                <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity" />
+                <div className="relative">
+                  {uploadingPhoto ? (
+                    <div className="h-28 w-28 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center shadow-xl border-4 border-white">
+                      <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                    </div>
+                  ) : student.photo_url ? (
+                    <img
+                      src={student.photo_url}
+                      alt={displayName}
+                      className="h-28 w-28 rounded-2xl object-cover shadow-xl border-4 border-white ring-2 ring-emerald-200"
+                    />
+                  ) : (
+                    <div className="h-28 w-28 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-4xl font-bold text-white shadow-xl border-4 border-white">
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                {/* Online/Status indicator */}
+                <div className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-3 border-white shadow-md flex items-center justify-center text-xs ${
+                  student.status === 'active' ? 'bg-emerald-500' : 
+                  student.status === 'inactive' ? 'bg-gray-400' : 
+                  student.status === 'graduated' ? 'bg-blue-500' : 'bg-red-400'
+                }`}>
+                  {student.status === 'active' ? '✓' : student.status === 'graduated' ? '🎓' : ''}
+                </div>
+              </div>
+              
+              {/* Kamera & Galeri Butonları */}
+              <div className="flex gap-1.5">
                 <button
-                  onClick={() => setShowPhotoModal(true)}
-                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black/60 to-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[11px] font-bold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50"
+                  title="Kamera ile çek"
                 >
-                  <div className="flex flex-col items-center">
-                    <Camera className="w-6 h-6 text-white mb-1" />
-                    <span className="text-[10px] text-white font-medium">Değiştir</span>
-                  </div>
+                  <Camera size={14} />
+                  Kamera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-[11px] font-bold rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md disabled:opacity-50"
+                  title="Galeriden seç"
+                >
+                  <ImagePlus size={14} />
+                  Galeri
                 </button>
               </div>
-              {/* Online/Status indicator */}
-              <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-3 border-white shadow-md flex items-center justify-center text-[10px] ${
-                student.status === 'active' ? 'bg-emerald-500' : 
-                student.status === 'inactive' ? 'bg-gray-400' : 
-                student.status === 'graduated' ? 'bg-blue-500' : 'bg-red-400'
-              }`}>
-                {student.status === 'active' ? '✓' : student.status === 'graduated' ? '🎓' : ''}
-              </div>
+              
+              {/* Hidden Inputs */}
+              <input 
+                ref={cameraInputRef} 
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                onChange={handleDirectPhotoUpload} 
+                className="hidden" 
+              />
+              <input 
+                ref={galleryInputRef} 
+                type="file" 
+                accept="image/*" 
+                onChange={handleDirectPhotoUpload} 
+                className="hidden" 
+              />
             </div>
 
             {/* Info - Geliştirilmiş */}

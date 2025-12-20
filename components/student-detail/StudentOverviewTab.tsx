@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, Users, GraduationCap, FileText, 
   Phone, Mail, MapPin, Calendar, Hash, Heart, Globe,
   Building, Briefcase, Wallet, CheckCircle,
   BookOpen, Award, Save, X, Edit3, Loader2,
-  CreditCard, PiggyBank, Percent, Camera, ImagePlus, Trash2
+  CreditCard, PiggyBank, Percent
 } from 'lucide-react';
-import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { useRole } from '@/lib/contexts/RoleContext';
 
@@ -112,81 +111,13 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<any>({});
-  
-  // Fotoğraf yükleme
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Student verisi değiştiğinde form datasını güncelle
   useEffect(() => {
     if (student) {
       setFormData({ ...student });
-      setPhotoPreview(student.photo_url || null);
     }
   }, [student]);
-
-  // Fotoğraf yükleme fonksiyonu
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Dosya boyutu kontrolü (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Fotoğraf 5MB\'dan küçük olmalıdır');
-      return;
-    }
-    
-    setUploadingPhoto(true);
-    
-    try {
-      // Base64'e çevir ve önizleme göster
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      
-      setPhotoPreview(base64);
-      
-      // Supabase'e yükle
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-      formDataUpload.append('studentId', student.id);
-      
-      const response = await fetch('/api/upload/student-photo', {
-        method: 'POST',
-        body: formDataUpload,
-      });
-      
-      if (!response.ok) {
-        // Eğer upload API yoksa, base64 olarak kaydet
-        handleChange('photo_url', base64);
-        toast.success('Fotoğraf güncellendi!');
-      } else {
-        const data = await response.json();
-        if (data.url) {
-          handleChange('photo_url', data.url);
-          setPhotoPreview(data.url);
-          toast.success('Fotoğraf yüklendi!');
-        }
-      }
-    } catch (error) {
-      // API yoksa base64 olarak kaydet
-      toast.success('Fotoğraf eklendi - kaydetmeyi unutmayın!');
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  // Fotoğrafı kaldır
-  const handleRemovePhoto = () => {
-    setPhotoPreview(null);
-    handleChange('photo_url', '');
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (galleryInputRef.current) galleryInputRef.current.value = '';
-  };
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
@@ -378,144 +309,16 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
         {/* ÖĞRENCİ BİLGİLERİ */}
         {activeTab === 'student' && (
           <div className="space-y-6">
-            {/* Fotoğraf ve Başlık Bölümü */}
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
-              {/* Fotoğraf Alanı */}
-              <div className="flex flex-col items-center p-6 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border-2 border-emerald-200 min-w-[200px]">
-                <div className="relative group mb-4">
-                  {photoPreview ? (
-                    <div className="relative">
-                      <Image 
-                        src={photoPreview} 
-                        alt="Öğrenci"
-                        width={140}
-                        height={140}
-                        className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-xl"
-                      />
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={handleRemovePhoto}
-                          className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg transition-transform hover:scale-110"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 border-3 border-dashed border-emerald-300 flex flex-col items-center justify-center">
-                      {uploadingPhoto ? (
-                        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-                      ) : (
-                        <>
-                          <Camera className="w-12 h-12 text-emerald-400 mb-1" />
-                          <span className="text-xs text-emerald-600 font-medium">Fotoğraf Yok</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                <p className="text-sm font-bold text-emerald-800 mb-3">Öğrenci Fotoğrafı</p>
-                
-                {/* Kamera ve Galeri Butonları - Düzenleme modunda görünür */}
-                {isEditing && (
-                  <div className="flex flex-col gap-2 w-full">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                      className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-bold rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-                    >
-                      <Camera size={18} />
-                      {uploadingPhoto ? 'Yükleniyor...' : 'Kamera ile Çek'}
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                      className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-bold rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-                    >
-                      <ImagePlus size={18} />
-                      Galeriden Seç
-                    </button>
-                    
-                    {photoPreview && (
-                      <button
-                        type="button"
-                        onClick={handleRemovePhoto}
-                        className="flex items-center justify-center gap-2 w-full px-4 py-2 text-red-600 text-sm font-medium hover:bg-red-50 rounded-xl transition-all"
-                      >
-                        <Trash2 size={16} />
-                        Fotoğrafı Kaldır
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                {/* Düzenleme modunda değilse ve fotoğraf varsa bilgi */}
-                {!isEditing && photoPreview && (
-                  <p className="text-xs text-emerald-600 text-center">Düzenleme modunda fotoğrafı değiştirebilirsiniz</p>
-                )}
-                
-                {/* Hidden Inputs */}
-                <input 
-                  ref={cameraInputRef} 
-                  type="file" 
-                  accept="image/*" 
-                  capture="environment"
-                  onChange={handlePhotoUpload} 
-                  className="hidden" 
-                />
-                <input 
-                  ref={galleryInputRef} 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handlePhotoUpload} 
-                  className="hidden" 
-                />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <User className="w-5 h-5 text-emerald-600" />
               </div>
-              
-              {/* Başlık ve Durum */}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                    <User className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">Öğrenci Bilgileri</h3>
-                    <p className="text-sm text-gray-500">Kişisel ve iletişim bilgileri</p>
-                  </div>
-                </div>
-                
-                {/* Hızlı Bilgi Kartları */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                    <p className="text-xs text-emerald-600 font-medium">Ad Soyad</p>
-                    <p className="text-sm font-bold text-emerald-800">{formData?.first_name} {formData?.last_name}</p>
-                  </div>
-                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-                    <p className="text-xs text-blue-600 font-medium">Öğrenci No</p>
-                    <p className="text-sm font-bold text-blue-800">{formData?.student_no || '-'}</p>
-                  </div>
-                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
-                    <p className="text-xs text-purple-600 font-medium">Sınıf</p>
-                    <p className="text-sm font-bold text-purple-800">{formData?.class || '-'} {formData?.section ? `/ ${formData.section}` : ''}</p>
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                    <p className="text-xs text-amber-600 font-medium">Durum</p>
-                    <p className="text-sm font-bold text-amber-800">
-                      {formData?.status === 'active' ? '✅ Aktif' : 
-                       formData?.status === 'inactive' ? '⏸️ Pasif' : 
-                       formData?.status === 'graduated' ? '🎓 Mezun' : formData?.status || '-'}
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Öğrenci Bilgileri</h3>
+                <p className="text-sm text-gray-500">Kişisel ve iletişim bilgileri</p>
               </div>
             </div>
             
-            {/* Detaylı Bilgiler Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <EditableField 
                 label="Ad" 
