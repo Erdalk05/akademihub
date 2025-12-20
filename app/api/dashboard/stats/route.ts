@@ -304,7 +304,8 @@ export async function GET(req: NextRequest) {
           totalExpenses,
           // Toplam ciro = Eğitim ödemeleri + Diğer gelirler
           totalCiro: totalRevenue + otherIncomeTotal,
-          cashBalance: totalRevenue + otherIncomeTotal - totalExpenses // Net kasa durumu
+          cashBalance: totalRevenue + otherIncomeTotal - totalExpenses, // Net kasa durumu
+          dailyIncome: todayCollected // Günlük gelir (bugünkü tahsilat)
         },
         todayCollection: {
           totalCollected: todayCollected,

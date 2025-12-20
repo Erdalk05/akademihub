@@ -142,7 +142,7 @@ export default function LayoutWrapper({
       </aside>
 
       {/* Desktop Top Bar (NAVIGATION_GUIDE uyumlu) */}
-      <TopBar />
+      <TopBar onSearchClick={() => setShowSearch(true)} />
 
       {/* Content */}
       <main className={`min-h-[calc(100vh-56px)] lg:pt-16 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>

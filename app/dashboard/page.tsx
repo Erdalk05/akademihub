@@ -105,6 +105,8 @@ export default function DashboardPage() {
             totalSales: dashboardData.kpi.otherIncomeContract || 0,
             activeStudents: dashboardData.kpi.activeStudents || 0,
             paymentRate: dashboardData.kpi.paymentRate || 0,
+            cashBalance: dashboardData.kpi.cashBalance || 0,
+            dailyIncome: dashboardData.kpi.dailyIncome || 0,
           } : undefined}
         />
 

@@ -11,6 +11,7 @@ import {
   Calendar,
   AlertCircle,
   LogOut,
+  Search,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -21,7 +22,11 @@ import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
 
-const TopBar: React.FC = () => {
+interface TopBarProps {
+  onSearchClick?: () => void;
+}
+
+const TopBar: React.FC<TopBarProps> = ({ onSearchClick }) => {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
@@ -153,9 +158,22 @@ const TopBar: React.FC = () => {
   }, [selectedYear, currentAcademicYear, setSelectedYear]);
 
   return (
-    <nav className="hidden lg:flex fixed top-0 right-0 left-64 h-16 bg-white dark:bg-[#075E54] border-b border-[#25D366]/20 dark:border-[#25D366]/30 items-center justify-between px-4 md:px-8 z-30 shadow-sm">
-      {/* Left Side - Organization Selector */}
-      <div className="hidden md:flex flex-1 max-w-md">
+    <nav className="hidden lg:flex fixed top-0 right-0 left-16 h-16 bg-white dark:bg-[#075E54] border-b border-[#25D366]/20 dark:border-[#25D366]/30 items-center justify-between px-4 md:px-8 z-30 shadow-sm">
+      {/* Left Side - Öğrenci Arama + Organization Selector */}
+      <div className="flex items-center gap-3 flex-1">
+        {/* 🔍 Öğrenci Arama Butonu - SABİT */}
+        <button
+          onClick={onSearchClick}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-all group shadow-sm"
+          title="Öğrenci Ara (⌘/Ctrl + K)"
+        >
+          <Search size={18} className="text-[#075E54] group-hover:text-[#25D366] transition-colors" />
+          <span className="text-gray-600 text-sm font-medium">Öğrenci Ara</span>
+          <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border">⌘K</span>
+        </button>
+        
+        {/* Kurum Seçici */}
+        <div className="hidden md:flex">
         {/* Kurum seçici SADECE Franchise Yöneticisi için görünür */}
         {mounted && isSuperAdmin && safeOrganizations.length > 1 && (
           <div className="relative">
