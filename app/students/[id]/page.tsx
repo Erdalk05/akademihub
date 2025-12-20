@@ -512,7 +512,7 @@ export default function StudentDetailPage() {
         {/* TAB İÇERİKLERİ */}
         <div className="mt-6">
           <TabsContent value="overview">
-            <StudentOverviewTab student={student} />
+            <StudentOverviewTab student={student} onRefresh={fetchStudentData} />
           </TabsContent>
 
           <TabsContent value="finance">
