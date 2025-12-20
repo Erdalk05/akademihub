@@ -23,9 +23,11 @@ import {
   Banknote,
   Building,
   Calendar,
+  CalendarCheck,
   CheckCircle2,
   Printer,
-  MessageCircle
+  MessageCircle,
+  Edit3
 } from 'lucide-react';
 import RestructurePlanModal from '@/components/finance/RestructurePlanModal';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -256,6 +258,14 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   
+  // Düzenle Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editInstallment, setEditInstallment] = useState<Installment | null>(null);
+  const [editPaidAmount, setEditPaidAmount] = useState('');
+  const [editPaymentDate, setEditPaymentDate] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState<'cash' | 'card' | 'bank'>('cash');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  
   // Diğer Gelirler State
   const [otherIncomes, setOtherIncomes] = useState<OtherIncome[]>([]);
   const [loadingOtherIncomes, setLoadingOtherIncomes] = useState(false);
@@ -277,6 +287,109 @@ export default function StudentFinanceTab({ student, onRefresh }: Props) {
   // Taksit silme
   const [deletingInstallmentId, setDeletingInstallmentId] = useState<string | null>(null);
   
+  // Taksit Düzenle Modal Aç
+  const handleEditInstallment = (installment: Installment) => {
+    setEditInstallment(installment);
+    setEditPaidAmount(String(installment.paid_amount || 0));
+    setEditPaymentDate(installment.paid_at ? installment.paid_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setEditPaymentMethod((installment.payment_method as 'cash' | 'card' | 'bank') || 'cash');
+    setShowEditModal(true);
+  };
+
+  // Taksit Düzenle Kaydet
+  const saveEditInstallment = async () => {
+    if (!editInstallment) return;
+    
+    const newPaidAmount = parseFloat(editPaidAmount) || 0;
+    const toastId = toast.loading('Güncelleniyor...');
+    setEditSubmitting(true);
+    
+    try {
+      const isPaid = newPaidAmount >= editInstallment.amount;
+      
+      const response = await fetch('/api/installments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editInstallment.id,
+          paid_amount: newPaidAmount,
+          is_paid: isPaid,
+          paid_at: editPaymentDate,
+          payment_method: editPaymentMethod,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Güncelleme başarısız');
+      }
+      
+      toast.success('✅ Taksit güncellendi!', { id: toastId });
+      setShowEditModal(false);
+      setEditInstallment(null);
+      
+      // Listeyi yenile
+      setTimeout(() => fetchInstallments(), 300);
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error(`❌ Hata: ${error.message}`, { id: toastId });
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  // WhatsApp ile Ödeme Bildirimi Gönder
+  const sendPaymentWhatsApp = (installment: Installment) => {
+    if (!student.parent_phone) {
+      toast.error('Veli telefon numarası bulunamadı!');
+      return;
+    }
+    
+    const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+    const installmentLabel = installment.installment_no === 0 ? 'Peşinat' : `${installment.installment_no}. Taksit`;
+    const paymentDate = installment.paid_at 
+      ? new Date(installment.paid_at).toLocaleDateString('tr-TR')
+      : new Date().toLocaleDateString('tr-TR');
+    
+    let formattedPhone = student.parent_phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '90' + formattedPhone.slice(1);
+    } else if (!formattedPhone.startsWith('90') && formattedPhone.length === 10) {
+      formattedPhone = '90' + formattedPhone;
+    }
+    
+    const isPaid = installment.status === 'paid';
+    const paidAmount = installment.paid_amount || 0;
+    const remaining = installment.amount - paidAmount;
+    
+    const message = isPaid 
+      ? `💰 *ÖDEME BİLGİLENDİRME*
+
+🏫 *${organizationName}*
+
+👤 Öğrenci: ${studentName}
+📋 ${installmentLabel}
+💵 Ödenen: ${paidAmount.toLocaleString('tr-TR')} TL
+📅 Ödeme Tarihi: ${paymentDate}
+✅ Taksit tamamen ödendi!
+
+Teşekkür ederiz. 🙏`
+      : `💰 *ÖDEME BİLGİLENDİRME*
+
+🏫 *${organizationName}*
+
+👤 Öğrenci: ${studentName}
+📋 ${installmentLabel}
+💵 Ödenen: ${paidAmount.toLocaleString('tr-TR')} TL
+⏳ Kalan: ${remaining.toLocaleString('tr-TR')} TL
+📅 Tarih: ${paymentDate}
+
+Teşekkür ederiz. 🙏`;
+    
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
   // Taksit Sil Fonksiyonu
   const handleDeleteInstallment = async (installmentId: string, isPaid: boolean) => {
     const confirmMessage = isPaid 
@@ -1519,15 +1632,16 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+              <thead className="bg-gray-50 text-gray-600 font-medium border-b-2 border-gray-200">
                 <tr>
-                  <th className="p-4 text-left">Taksit</th>
-                  <th className="p-4 text-left">Vade Tarihi</th>
-                  <th className="p-4 text-right">Tutar</th>
-                  <th className="p-4 text-right">Ödenen</th>
-                  <th className="p-4 text-right">Kalan</th>
-                  <th className="p-4 text-center">Durum</th>
-                  <th className="p-4 text-right">İşlem</th>
+                  <th className="p-3 text-left">Taksit</th>
+                  <th className="p-3 text-left">Vade Tarihi</th>
+                  <th className="p-3 text-right">Tutar</th>
+                  <th className="p-3 text-right">Ödenen</th>
+                  <th className="p-3 text-center">Ödeme Tarihi</th>
+                  <th className="p-3 text-right">Kalan</th>
+                  <th className="p-3 text-center">Durum</th>
+                  <th className="p-3 text-center">İşlemler</th>
                 </tr>
               </thead>
               <tbody>
@@ -1535,65 +1649,114 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                   const remaining = installment.amount - installment.paid_amount;
                   const statusBadge = getStatusBadge(installment.status);
                   const isOverdue = installment.status === 'overdue';
+                  const isPaid = installment.status === 'paid';
+                  const isPartial = installment.paid_amount > 0 && !isPaid;
 
                   return (
                     <tr
                       key={installment.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition ${
-                        isOverdue ? 'bg-red-50/30' : ''
+                      className={`border-b transition-all ${
+                        isPaid 
+                          ? 'bg-gradient-to-r from-emerald-50/80 to-green-50/50 border-emerald-200 hover:from-emerald-100/80 hover:to-green-100/50' 
+                          : isPartial
+                            ? 'bg-gradient-to-r from-amber-50/50 to-yellow-50/30 border-amber-200 hover:from-amber-100/50'
+                            : isOverdue 
+                              ? 'bg-red-50/30 border-red-200 hover:bg-red-50/50' 
+                              : 'border-gray-100 hover:bg-gray-50'
                       }`}
                     >
-                      <td className="p-4">
-                        <span className="font-medium text-gray-900">{index + 1}. Taksit</span>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          {isPaid && <div className="w-1 h-8 bg-emerald-500 rounded-full" />}
+                          {isPartial && <div className="w-1 h-8 bg-amber-500 rounded-full" />}
+                          <span className={`font-medium ${isPaid ? 'text-emerald-700' : 'text-gray-900'}`}>
+                            {installment.installment_no === 0 ? 'Peşinat' : `${installment.installment_no}. Taksit`}
+                          </span>
+                        </div>
                       </td>
-                      <td className={`p-4 ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                      <td className={`p-3 ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
                         {new Date(installment.due_date).toLocaleDateString('tr-TR')}
-                        {isOverdue && <span className="ml-2 text-xs">(Gecikmede)</span>}
+                        {isOverdue && <span className="ml-1 text-xs">(Gecikmiş)</span>}
                       </td>
-                      <td className="p-4 text-right font-medium text-gray-900">
+                      <td className="p-3 text-right font-medium text-gray-900">
                         ₺{installment.amount.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-right text-green-600 font-medium">
+                      <td className={`p-3 text-right font-bold ${isPaid ? 'text-emerald-600' : isPartial ? 'text-amber-600' : 'text-gray-400'}`}>
                         ₺{installment.paid_amount.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-right font-medium text-gray-900">
+                      <td className="p-3 text-center text-gray-600">
+                        {installment.paid_at ? (
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            <CalendarCheck className="h-3 w-3 text-emerald-500" />
+                            {new Date(installment.paid_at).toLocaleDateString('tr-TR')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className={`p-3 text-right font-medium ${remaining === 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
                         ₺{remaining.toLocaleString('tr-TR')}
                       </td>
-                      <td className="p-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge.className}`}>
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusBadge.className}`}>
                           {statusBadge.label}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {installment.status === 'paid' ? (
+                      <td className="p-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* TAHSİL ET / MAKBUZ */}
+                          {isPaid ? (
                             <button
                               onClick={() => downloadReceipt(installment)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium transition"
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium transition"
+                              title="Makbuz İndir"
                             >
-                              <Download className="h-3 w-3" />
-                              Makbuz
+                              <Download className="h-3.5 w-3.5" />
                             </button>
                           ) : (
                             <button
                               onClick={() => handlePayment(installment)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-medium transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-medium transition shadow-sm"
+                              title="Tahsil Et"
                             >
-                              <CreditCard className="h-3 w-3" />
-                              Tahsil Et
+                              <CreditCard className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Tahsil</span>
                             </button>
                           )}
-                          {/* SİL BUTONU */}
+                          
+                          {/* WHATSAPP */}
+                          {installment.paid_amount > 0 && (
+                            <button
+                              onClick={() => sendPaymentWhatsApp(installment)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 text-xs font-medium transition shadow-sm"
+                              title="WhatsApp ile Bildir"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          
+                          {/* DÜZENLE */}
+                          {installment.paid_amount > 0 && (
+                            <button
+                              onClick={() => handleEditInstallment(installment)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition"
+                              title="Ödemeyi Düzenle"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          
+                          {/* SİL */}
                           <button
-                            onClick={() => handleDeleteInstallment(installment.id, installment.status === 'paid')}
+                            onClick={() => handleDeleteInstallment(installment.id, isPaid)}
                             disabled={deletingInstallmentId === installment.id}
-                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
                             title="Taksiti Sil"
                           >
                             {deletingInstallmentId === installment.id ? (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             )}
                           </button>
                         </div>
@@ -1603,6 +1766,33 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 })}
               </tbody>
             </table>
+            
+            {/* ÖZET ÇİZGİSİ */}
+            <div className="border-t-2 border-dashed border-gray-300 mt-2" />
+            <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Ödendi</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Kısmi Ödeme</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-300 rounded-full" />
+                  <span className="text-sm text-gray-600">Beklemede</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm font-medium">
+                <span className="text-emerald-600">
+                  Ödenen: ₺{installments.reduce((s, i) => s + i.paid_amount, 0).toLocaleString('tr-TR')}
+                </span>
+                <span className="text-orange-600">
+                  Kalan: ₺{installments.reduce((s, i) => s + (i.amount - i.paid_amount), 0).toLocaleString('tr-TR')}
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -2058,6 +2248,145 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         </div>
       );
     })()}
+
+    {/* TAKSİT DÜZENLE MODAL */}
+    {showEditModal && editInstallment && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Edit3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Ödeme Düzenle</h3>
+                  <p className="text-blue-200 text-sm">
+                    {editInstallment.installment_no === 0 ? 'Peşinat' : `${editInstallment.installment_no}. Taksit`}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="text-white/70 hover:text-white transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Taksit Bilgisi */}
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-500">Taksit Tutarı</span>
+                  <p className="font-bold text-gray-900">₺{editInstallment.amount.toLocaleString('tr-TR')}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Vade Tarihi</span>
+                  <p className="font-bold text-gray-900">{new Date(editInstallment.due_date).toLocaleDateString('tr-TR')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ödenen Tutar */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ödenen Tutar</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editPaidAmount}
+                  onChange={(e) => setEditPaidAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                  className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Ödeme Tarihi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Tarihi</label>
+              <input
+                type="date"
+                value={editPaymentDate}
+                onChange={(e) => setEditPaymentDate(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+            </div>
+
+            {/* Ödeme Yöntemi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ödeme Yöntemi</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditPaymentMethod('cash')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    editPaymentMethod === 'cash' 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <Banknote size={20} />
+                  <span className="text-xs font-medium">Nakit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditPaymentMethod('card')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    editPaymentMethod === 'card' 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <CreditCard size={20} />
+                  <span className="text-xs font-medium">Kart</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditPaymentMethod('bank')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition ${
+                    editPaymentMethod === 'bank' 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  <Building size={20} />
+                  <span className="text-xs font-medium">EFT</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-5 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <button
+              onClick={() => setShowEditModal(false)}
+              className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            >
+              İptal
+            </button>
+            <button
+              onClick={saveEditInstallment}
+              disabled={editSubmitting}
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {editSubmitting ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Kaydet
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* DİĞER GELİRLER TAHSİLAT MODAL */}
     {showOtherPaymentModal && selectedOtherIncome && (
