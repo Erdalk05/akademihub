@@ -2448,52 +2448,71 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           </span>
                         )}
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* TAHSİL ET */}
-                          {!income.isPaid && (
+                      <td className="p-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* TAHSİL ET / MAKBUZ */}
+                          {income.isPaid ? (
+                            <button
+                              onClick={() => downloadOtherIncomeReceipt(income)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs font-medium transition"
+                              title="Makbuz İndir"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
                             <button
                               onClick={() => handleOpenOtherPayment(income)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-medium transition shadow-sm"
                               title="Tahsil Et"
                             >
-                              <CreditCard className="h-3 w-3" />
+                              <CreditCard className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Tahsil</span>
                             </button>
                           )}
                           
-                          {/* MAKBUZ */}
-                          {income.isPaid && (
+                          {/* WHATSAPP */}
+                          {income.paidAmount > 0 && (
                             <button
-                              onClick={() => downloadOtherIncomeReceipt(income)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-medium transition"
-                              title="Makbuz İndir"
+                              onClick={() => {
+                                if (!student.parent_phone) {
+                                  toast.error('Veli telefon numarası bulunamadı!');
+                                  return;
+                                }
+                                const phone = student.parent_phone.replace(/\D/g, '');
+                                const formattedPhone = phone.startsWith('0') ? '90' + phone.slice(1) : phone.length === 10 ? '90' + phone : phone;
+                                const message = `💰 *ÖDEME BİLGİLENDİRME*\n\n🏫 *${organizationName}*\n\n👤 Öğrenci: ${student.first_name} ${student.last_name}\n📋 ${income.title}\n💵 Ödenen: ${income.paidAmount.toLocaleString('tr-TR')} TL\n${income.isPaid ? '✅ Tamamen ödendi!' : `⏳ Kalan: ${remaining.toLocaleString('tr-TR')} TL`}\n\nTeşekkür ederiz. 🙏`;
+                                window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 text-xs font-medium transition shadow-sm"
+                              title="WhatsApp ile Bildir"
                             >
-                              <Download className="h-3 w-3" />
+                              <MessageCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
                           
                           {/* DÜZENLE */}
-                          <button
-                            onClick={() => handleEditOtherIncome(income)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition"
-                            title="Düzenle"
-                          >
-                            <Edit3 className="h-3 w-3" />
-                          </button>
+                          {income.paidAmount > 0 && (
+                            <button
+                              onClick={() => handleEditOtherIncome(income)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition"
+                              title="Düzenle"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           
                           {/* SİL */}
                           <button
                             onClick={() => handleDeleteOtherIncome(income.id, income.isPaid)}
                             disabled={deletingOtherIncomeId === income.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 text-xs font-medium transition disabled:opacity-50"
                             title="Sil"
                           >
                             {deletingOtherIncomeId === income.id ? (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             )}
-                          </button>
                         </div>
                       </td>
                     </tr>
