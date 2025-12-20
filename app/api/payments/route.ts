@@ -75,26 +75,39 @@ export async function POST(req: NextRequest) {
       is_paid: isPaid,
       status: isPaid ? 'paid' : (newPaidAmount > 0 ? 'partial' : 'pending'),
       updated_at: new Date().toISOString(),
+      // Her ödeme için payment_method ve paid_at güncelle
+      payment_method: payment_method,
+      paid_at: new Date().toISOString(),
     };
     
-    // Tam ödeme yapıldıysa paid_at tarihini de ekle
-    if (isPaid) {
-      updateData.paid_at = new Date().toISOString();
-      updateData.payment_method = payment_method;
-    }
+    console.log('[Payments API] Güncelleme yapılıyor:', {
+      installment_id,
+      updateData,
+      previousPaidAmount: installment.paid_amount || 0,
+      newPaidAmount,
+      isPaid
+    });
     
-    const { error: updateError } = await supabase
+    const { data: updatedInstallment, error: updateError } = await supabase
       .from('finance_installments')
       .update(updateData)
-      .eq('id', installment_id);
+      .eq('id', installment_id)
+      .select('*')
+      .single();
 
     if (updateError) {
-      console.error('Taksit güncelleme hatası:', updateError);
+      console.error('[Payments API] Taksit güncelleme hatası:', updateError);
       return NextResponse.json(
         { success: false, error: `Taksit güncellenemedi: ${updateError.message}` },
         { status: 500 }
       );
     }
+    
+    console.log('[Payments API] Güncelleme başarılı:', {
+      installment_id,
+      new_paid_amount: updatedInstallment?.paid_amount,
+      status: updatedInstallment?.status
+    });
 
     // 5. Ödeme kaydı oluştur (isteğe bağlı - eğer payments tablosu varsa)
     try {
