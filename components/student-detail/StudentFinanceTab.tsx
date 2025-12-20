@@ -906,7 +906,288 @@ Teşekkür ederiz. 🙏`;
     planText += `\n💼 ${organizationName}`;
     
     window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(planText)}`, '_blank');
-    toast.success('WhatsApp açılıyor...');
+    toast.success('WhatsApp aciliyor...');
+  };
+
+  // Diger Gelirler Excel Export
+  const handleExportOtherIncomeExcel = () => {
+    try {
+      if (otherIncomes.length === 0) {
+        toast.error('Diger gelir kaydi bulunamadi');
+        return;
+      }
+      
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      const today = new Date().toLocaleDateString('tr-TR');
+      const totalOther = otherIncomes.reduce((s, i) => s + i.amount, 0);
+      const paidOther = otherIncomes.reduce((s, i) => s + i.paidAmount, 0);
+      const remainingOther = totalOther - paidOther;
+      
+      // Excel icin CSV olustur
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += 'DIGER GELIRLER RAPORU\n';
+      csvContent += `Ogrenci:,${studentName}\n`;
+      csvContent += `Tarih:,${today}\n`;
+      csvContent += `Toplam:,${totalOther}\n`;
+      csvContent += `Odenen:,${paidOther}\n`;
+      csvContent += `Kalan:,${remainingOther}\n\n`;
+      csvContent += 'Baslik,Kategori,Vade Tarihi,Tutar,Odenen,Odeme Tarihi,Odeme Bicimi,Kalan,Durum\n';
+      
+      otherIncomes.forEach(inc => {
+        const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : '-';
+        const paidAt = inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '-';
+        const paymentMethod = inc.paymentMethod === 'cash' ? 'Nakit' :
+                             inc.paymentMethod === 'card' ? 'Kart' :
+                             inc.paymentMethod === 'bank' ? 'Havale' :
+                             inc.paymentMethod === 'eft' ? 'EFT' : '-';
+        const remaining = inc.amount - inc.paidAmount;
+        const status = inc.isPaid ? 'Odendi' : 'Beklemede';
+        const category = CATEGORY_INFO[inc.category]?.label || 'Diger';
+        
+        csvContent += `${inc.title},${category},${dueDate},${inc.amount},${inc.paidAmount},${paidAt},${paymentMethod},${remaining},${status}\n`;
+      });
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Diger_Gelirler_${studentName.replace(/\s/g, '_')}_${today.replace(/\./g, '-')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Excel dosyasi indirildi!');
+    } catch (error: any) {
+      toast.error('Excel olusturulamadi: ' + error.message);
+    }
+  };
+
+  // Diger Gelirler WhatsApp Plan Gonder
+  const handleWhatsAppOtherIncomePlan = () => {
+    if (!student.parent_phone) {
+      toast.error('Veli telefon numarasi bulunamadi!');
+      return;
+    }
+    
+    const phone = student.parent_phone.replace(/\D/g, '');
+    const formattedPhone = phone.startsWith('0') ? '90' + phone.slice(1) : 
+                           phone.length === 10 ? '90' + phone : phone;
+    
+    const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+    const totalOther = otherIncomes.reduce((s, i) => s + i.amount, 0);
+    const paidOther = otherIncomes.reduce((s, i) => s + i.paidAmount, 0);
+    const remainingOther = totalOther - paidOther;
+    
+    let planText = `📦 *DIGER GELIRLER*\n\n`;
+    planText += `👤 Ogrenci: ${studentName}\n`;
+    planText += `📊 Toplam: ₺${totalOther.toLocaleString('tr-TR')}\n`;
+    planText += `✅ Odenen: ₺${paidOther.toLocaleString('tr-TR')}\n`;
+    planText += `⏳ Kalan: ₺${remainingOther.toLocaleString('tr-TR')}\n\n`;
+    planText += `📋 *KALEMLER:*\n`;
+    
+    otherIncomes.slice(0, 10).forEach(inc => {
+      const status = inc.isPaid ? '✅' : '⏳';
+      const category = CATEGORY_INFO[inc.category]?.label || 'Diger';
+      planText += `${status} ${inc.title} (${category}): ₺${inc.amount.toLocaleString('tr-TR')}\n`;
+    });
+    
+    if (otherIncomes.length > 10) {
+      planText += `\n... ve ${otherIncomes.length - 10} kalem daha\n`;
+    }
+    
+    planText += `\n💼 ${organizationName}`;
+    
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(planText)}`, '_blank');
+    toast.success('WhatsApp aciliyor...');
+  };
+
+  // BIRLESIK PDF - Egitim + Diger Gelirler
+  const downloadCombinedPDF = async () => {
+    const toastId = toast.loading('Birlesik PDF hazirlaniyor...');
+    
+    try {
+      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      const today = new Date().toLocaleDateString('tr-TR');
+      
+      // Egitim toplam
+      const eduTotal = installments.reduce((s, i) => s + i.amount, 0);
+      const eduPaid = installments.reduce((s, i) => s + i.paid_amount, 0);
+      const eduRemaining = eduTotal - eduPaid;
+      
+      // Diger Gelirler toplam
+      const otherTotal = otherIncomes.reduce((s, i) => s + i.amount, 0);
+      const otherPaid = otherIncomes.reduce((s, i) => s + i.paidAmount, 0);
+      const otherRemaining = otherTotal - otherPaid;
+      
+      // Genel toplam
+      const grandTotal = eduTotal + otherTotal;
+      const grandPaid = eduPaid + otherPaid;
+      const grandRemaining = grandTotal - grandPaid;
+      
+      const htmlContent = `
+        <div style="width: 700px; padding: 30px; font-family: Arial, sans-serif; background: white;">
+          <div style="text-align: center; margin-bottom: 20px; border-bottom: 3px solid #059669; padding-bottom: 15px;">
+            <h1 style="color: #059669; margin: 0; font-size: 24px;">OGRENCI FINANS RAPORU</h1>
+            <p style="color: #666; margin: 5px 0 0 0;">Egitim + Diger Gelirler</p>
+            <p style="color: #666; margin: 5px 0 0 0;">Tarih: ${today}</p>
+          </div>
+          
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div><strong>Ogrenci:</strong> ${studentName}</div>
+              <div><strong>Ogrenci No:</strong> ${student.student_no || '-'}</div>
+              <div><strong>Veli:</strong> ${student.parent_name || '-'}</div>
+              <div><strong>Sinif:</strong> ${student.class || student.section || '-'}</div>
+            </div>
+          </div>
+          
+          <!-- GENEL OZET -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+            <div style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; opacity: 0.9;">GENEL TOPLAM</div>
+              <div style="font-size: 24px; font-weight: bold;">₺${grandTotal.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #10b981, #34d399); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; opacity: 0.9;">TOPLAM ODENEN</div>
+              <div style="font-size: 24px; font-weight: bold;">₺${grandPaid.toLocaleString('tr-TR')}</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #f97316, #fb923c); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; opacity: 0.9;">TOPLAM KALAN</div>
+              <div style="font-size: 24px; font-weight: bold;">₺${grandRemaining.toLocaleString('tr-TR')}</div>
+            </div>
+          </div>
+          
+          <!-- EGITIM TAKSITLERI -->
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 15px;">
+              📚 EGITIM TAKSITLERI
+            </h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+              <div style="background: #eef2ff; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #6366f1;">Toplam</div>
+                <div style="font-size: 16px; font-weight: bold; color: #4f46e5;">₺${eduTotal.toLocaleString('tr-TR')}</div>
+              </div>
+              <div style="background: #ecfdf5; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #10b981;">Odenen</div>
+                <div style="font-size: 16px; font-weight: bold; color: #059669;">₺${eduPaid.toLocaleString('tr-TR')}</div>
+              </div>
+              <div style="background: #fff7ed; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #f97316;">Kalan</div>
+                <div style="font-size: 16px; font-weight: bold; color: #ea580c;">₺${eduRemaining.toLocaleString('tr-TR')}</div>
+              </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <thead>
+                <tr style="background: #eef2ff;">
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: left;">Taksit</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: left;">Vade</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: right;">Tutar</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: right;">Odenen</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Odeme Tarihi</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Bicim</th>
+                  <th style="padding: 8px; border: 1px solid #c7d2fe; text-align: center;">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${installments.map(inst => {
+                  const paymentMethodText = inst.payment_method === 'cash' ? 'Nakit' :
+                                            inst.payment_method === 'card' ? 'Kart' :
+                                            inst.payment_method === 'bank' ? 'Havale' :
+                                            inst.payment_method === 'eft' ? 'EFT' : '-';
+                  return `
+                  <tr style="background: ${inst.status === 'paid' ? '#f0fdf4' : 'white'};">
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inst.installment_no > 0 ? inst.installment_no + '. Taksit' : 'Pesinat'}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${new Date(inst.due_date).toLocaleDateString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inst.amount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inst.paid_amount > 0 ? '#059669' : '#9ca3af'}; font-weight: 600;">₺${(inst.paid_amount || 0).toLocaleString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inst.paid_at ? new Date(inst.paid_at).toLocaleDateString('tr-TR') : '-'}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
+                      <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inst.status === 'paid' ? '#d1fae5' : inst.status === 'overdue' ? '#fee2e2' : '#fef3c7'}; color: ${inst.status === 'paid' ? '#065f46' : inst.status === 'overdue' ? '#991b1b' : '#92400e'};">
+                        ${inst.status === 'paid' ? 'Odendi' : inst.status === 'overdue' ? 'Gecikmis' : 'Beklemede'}
+                      </span>
+                    </td>
+                  </tr>
+                `}).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- DIGER GELIRLER -->
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 8px; margin-bottom: 15px;">
+              📦 DIGER GELIRLER
+            </h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+              <div style="background: #f0fdfa; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #14b8a6;">Toplam</div>
+                <div style="font-size: 16px; font-weight: bold; color: #0d9488;">₺${otherTotal.toLocaleString('tr-TR')}</div>
+              </div>
+              <div style="background: #ecfdf5; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #10b981;">Odenen</div>
+                <div style="font-size: 16px; font-weight: bold; color: #059669;">₺${otherPaid.toLocaleString('tr-TR')}</div>
+              </div>
+              <div style="background: #fff7ed; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #f97316;">Kalan</div>
+                <div style="font-size: 16px; font-weight: bold; color: #ea580c;">₺${otherRemaining.toLocaleString('tr-TR')}</div>
+              </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <thead>
+                <tr style="background: #ccfbf1;">
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Baslik</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Kategori</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: left;">Vade</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Tutar</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: right;">Odenen</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Odeme Tarihi</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Bicim</th>
+                  <th style="padding: 8px; border: 1px solid #99f6e4; text-align: center;">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${otherIncomes.map(inc => {
+                  const paymentMethodText = inc.paymentMethod === 'cash' ? 'Nakit' :
+                                            inc.paymentMethod === 'card' ? 'Kart' :
+                                            inc.paymentMethod === 'bank' ? 'Havale' :
+                                            inc.paymentMethod === 'eft' ? 'EFT' : '-';
+                  const dueDate = inc.dueDate ? new Date(inc.dueDate).toLocaleDateString('tr-TR') : new Date(inc.date).toLocaleDateString('tr-TR');
+                  return `
+                  <tr style="background: ${inc.isPaid ? '#f0fdfa' : 'white'};">
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 500;">${inc.title}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${CATEGORY_INFO[inc.category]?.label || 'Diger'}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px;">${dueDate}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right;">₺${inc.amount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: right; color: ${inc.paidAmount > 0 ? '#0d9488' : '#9ca3af'}; font-weight: 600;">₺${inc.paidAmount.toLocaleString('tr-TR')}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${inc.paidAt ? new Date(inc.paidAt).toLocaleDateString('tr-TR') : '-'}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px;">${paymentMethodText}</td>
+                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">
+                      <span style="padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ${inc.isPaid ? '#ccfbf1' : '#fef3c7'}; color: ${inc.isPaid ? '#0d9488' : '#92400e'};">
+                        ${inc.isPaid ? 'Odendi' : 'Beklemede'}
+                      </span>
+                    </td>
+                  </tr>
+                `}).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 10px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+            ${organizationName} - Egitim Yonetim Sistemi<br/>
+            Bu belge ${today} tarihinde olusturulmustur.
+          </div>
+        </div>
+      `;
+
+      await downloadPDFFromHTML(htmlContent, {
+        filename: `Finans_Raporu_${studentName.replace(/\s/g, '_')}_${today.replace(/\./g, '-')}.pdf`,
+        format: 'a4',
+        margin: 10,
+      });
+      
+      toast.success('Birlesik PDF indirildi!', { id: toastId });
+    } catch (error: any) {
+      toast.error('PDF olusturulamadi: ' + error.message, { id: toastId });
+    }
   };
 
   // Diğer Gelir Tahsilat Fonksiyonları
@@ -2414,13 +2695,31 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 Yeni Ekle
               </button>
               {otherIncomes.length > 0 && (
-                <button
-                  onClick={downloadOtherIncomeSummaryPDF}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-medium transition"
-                >
-                  <Download className="h-4 w-4" />
-                  PDF
-                </button>
+                <>
+                  <button
+                    onClick={downloadOtherIncomeSummaryPDF}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-medium transition"
+                  >
+                    <Download className="h-4 w-4" />
+                    PDF
+                  </button>
+                  <button
+                    onClick={handleExportOtherIncomeExcel}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium transition"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Excel
+                  </button>
+                  {student.parent_phone && (
+                    <button
+                      onClick={handleWhatsAppOtherIncomePlan}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 text-sm font-medium transition"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Plan Gonder
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -2650,6 +2949,52 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
         )}
+      </div>
+
+      {/* BİRLEŞİK RAPOR BÖLÜMÜ */}
+      <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 shadow-sm">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-600" />
+              Birlesik Finans Raporu
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Egitim Taksitleri + Diger Gelirler (Tek Sayfa)
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Özet Bilgiler */}
+            <div className="hidden sm:flex items-center gap-4 text-sm">
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Toplam</p>
+                <p className="font-bold text-emerald-700">
+                  ₺{(installments.reduce((s, i) => s + i.amount, 0) + otherIncomes.reduce((s, i) => s + i.amount, 0)).toLocaleString('tr-TR')}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Odenen</p>
+                <p className="font-bold text-green-600">
+                  ₺{(installments.reduce((s, i) => s + i.paid_amount, 0) + otherIncomes.reduce((s, i) => s + i.paidAmount, 0)).toLocaleString('tr-TR')}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Kalan</p>
+                <p className="font-bold text-orange-600">
+                  ₺{((installments.reduce((s, i) => s + i.amount, 0) - installments.reduce((s, i) => s + i.paid_amount, 0)) + (otherIncomes.reduce((s, i) => s + i.amount, 0) - otherIncomes.reduce((s, i) => s + i.paidAmount, 0))).toLocaleString('tr-TR')}
+                </p>
+              </div>
+            </div>
+            {/* PDF Butonu */}
+            <button
+              onClick={downloadCombinedPDF}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700 text-sm font-bold transition shadow-lg"
+            >
+              <Download className="h-5 w-5" />
+              Birlesik PDF Indir
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* SÖZLEŞME ÖNİZLEMESİ */}
