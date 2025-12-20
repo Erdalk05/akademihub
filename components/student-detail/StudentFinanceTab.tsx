@@ -79,6 +79,7 @@ const CATEGORY_INFO: Record<string, { label: string; icon: any; color: string }>
 interface Props {
   student: any;
   onRefresh?: () => void;
+  tabMode?: 'education' | 'other' | 'all';
 }
 
 // Türkçe karakterleri PDF için düzgün göster
@@ -237,7 +238,7 @@ const generateA4ReceiptHTML = (params: ReceiptParams): string => {
   `;
 };
 
-export default function StudentFinanceTab({ student, onRefresh }: Props) {
+export default function StudentFinanceTab({ student, onRefresh, tabMode = 'all' }: Props) {
   const { canCollectPayment, canEditInstallment, canAddInstallment, canExportPdf } = usePermission();
   const { currentOrganization } = useOrganizationStore();
   const organizationName = currentOrganization?.name || 'Eğitim Kurumu';
@@ -1903,7 +1904,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
   return (
     <>
     <div className="space-y-6">
-      {/* ÖZET KARTLARI */}
+      {/* EĞİTİM TAB - ÖZET KARTLARI */}
+      {(tabMode === 'education' || tabMode === 'all') && (
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-1">
@@ -1992,9 +1994,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           )}
         </div>
       </div>
+      )}
 
       {/* ÖDEME TRENDİ MİNİ GRAFİĞİ */}
-      {installments.length > 0 && (
+      {(tabMode === 'education' || tabMode === 'all') && installments.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -2080,7 +2083,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         </div>
       )}
 
-      {/* ESKİ KAYIT FORMU ACCORDION */}
+      {/* ESKİ KAYIT FORMU ACCORDION - Sadece Eğitim Tab */}
+      {(tabMode === 'education' || tabMode === 'all') && (
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <button
           onClick={() => setShowOldEnrollmentInfo(!showOldEnrollmentInfo)}
@@ -2221,9 +2225,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           </div>
         )}
       </div>
+      )}
 
       {/* ESKİ ÖDEMELER (ARŞİV) - Önceki taksitlerden alınan ödemeler */}
-      {archivedInstallments.length > 0 && (
+      {(tabMode === 'education' || tabMode === 'all') && archivedInstallments.length > 0 && (
         <div className="rounded-xl border border-orange-200 bg-white shadow-sm overflow-hidden">
           <button
             onClick={() => setShowArchivedPayments(!showArchivedPayments)}
@@ -2302,8 +2307,9 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         </div>
       )}
 
-      {/* TAKSİT LİSTESİ */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      {/* TAKSİT LİSTESİ - Sadece Eğitim Tab */}
+      {(tabMode === 'education' || tabMode === 'all') && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2632,16 +2638,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
-      {/* DİĞER GELİRLER - Kitap, Üniforma, Yemek vb. */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Package className="h-5 w-5 text-teal-600" />
-              Diğer Gelirler
-            </h3>
+      {/* DİĞER GELİRLER - Sadece Diğer Satışlar Tab */}
+      {(tabMode === 'other' || tabMode === 'all') && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Package className="h-5 w-5 text-teal-600" />
+                Diğer Gelirler
+              </h3>
             <div className="flex items-center gap-2 flex-wrap">
               {/* YENİ EKLE BUTONU */}
               <button
@@ -2906,10 +2914,12 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
-      {/* BİRLEŞİK RAPOR BÖLÜMÜ */}
-      <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 shadow-sm">
+      {/* BİRLEŞİK RAPOR BÖLÜMÜ - Sadece All modunda (artık ana sayfada özet var) */}
+      {tabMode === 'all' && (
+        <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2952,10 +2962,12 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
-      {/* SÖZLEŞME ÖNİZLEMESİ */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      {/* SÖZLEŞME ÖNİZLEMESİ - Sadece Eğitim Tab */}
+      {(tabMode === 'education' || tabMode === 'all') && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <FileText className="h-5 w-5 text-indigo-600" />
@@ -3048,7 +3060,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           Kayıt Tarihi: {student.registration_date ? new Date(student.registration_date).toLocaleDateString('tr-TR') : new Date().toLocaleDateString('tr-TR')}
           {' • '}Akademik Yıl: {student.academic_year || '2024-2025'}
         </div>
-      </div>
+        </div>
+      )}
     </div>
 
     {/* YENİDEN TAKSİTLENDİRME MODAL */}

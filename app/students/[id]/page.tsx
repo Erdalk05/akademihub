@@ -16,7 +16,12 @@ import {
   AlertTriangle,
   Clock,
   ImagePlus,
-  Loader2
+  Loader2,
+  Package,
+  GraduationCap,
+  TrendingUp,
+  CreditCard,
+  DollarSign
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import toast from 'react-hot-toast';
@@ -591,20 +596,79 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* TAB MENÜSÜ */}
+      {/* GENEL FİNANS ÖZETİ - Her Zaman Görünür */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-5 shadow-lg mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Genel Finans Ozeti
+          </h3>
+          <span className="text-emerald-100 text-sm">Tum Kategoriler</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
+            <div className="text-emerald-100 text-xs mb-1 flex items-center justify-center gap-1">
+              <DollarSign className="w-3 h-3" />
+              Toplam Sozlesme
+            </div>
+            <div className="text-white text-xl font-bold">
+              ₺{((student?.total_amount || 0)).toLocaleString('tr-TR')}
+            </div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
+            <div className="text-emerald-100 text-xs mb-1 flex items-center justify-center gap-1">
+              <CreditCard className="w-3 h-3" />
+              Tahsil Edilen
+            </div>
+            <div className="text-white text-xl font-bold">
+              ₺{((student?.paid_amount || 0)).toLocaleString('tr-TR')}
+            </div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
+            <div className="text-orange-200 text-xs mb-1 flex items-center justify-center gap-1">
+              <Clock className="w-3 h-3" />
+              Kalan Borc
+            </div>
+            <div className="text-orange-200 text-xl font-bold">
+              ₺{((student?.balance || 0)).toLocaleString('tr-TR')}
+            </div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
+            <div className="text-emerald-100 text-xs mb-1">Odeme Orani</div>
+            <div className="text-white text-xl font-bold">
+              %{student?.total_amount ? Math.round(((student?.paid_amount || 0) / student.total_amount) * 100) : 0}
+            </div>
+            <div className="w-full bg-white/30 rounded-full h-1.5 mt-2">
+              <div 
+                className="bg-white rounded-full h-1.5 transition-all" 
+                style={{ width: `${student?.total_amount ? Math.min(100, ((student?.paid_amount || 0) / student.total_amount) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TAB MENÜSÜ - 3 Tab */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-lg p-1">
-            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-white">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg p-1">
+            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <User className="w-4 h-4" />
-              <span>Öğrenci Kartı</span>
+              <span className="hidden sm:inline">Ogrenci Karti</span>
+              <span className="sm:hidden">Kart</span>
             </TabsTrigger>
-            <TabsTrigger value="finance" className="flex items-center gap-2 data-[state=active]:bg-white">
-              <Wallet className="w-4 h-4" />
-              <span>Finans & Ödeme</span>
+            <TabsTrigger value="education" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600">
+              <GraduationCap className="w-4 h-4" />
+              <span className="hidden sm:inline">Egitim Odemeleri</span>
+              <span className="sm:hidden">Egitim</span>
+            </TabsTrigger>
+            <TabsTrigger value="other" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-teal-600">
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">Diger Satislar</span>
+              <span className="sm:hidden">Diger</span>
             </TabsTrigger>
           </TabsList>
-            </div>
+        </div>
 
         {/* TAB İÇERİKLERİ */}
         <div className="mt-6">
@@ -612,8 +676,12 @@ export default function StudentDetailPage() {
             <StudentOverviewTab student={student} onRefresh={fetchStudentData} />
           </TabsContent>
 
-          <TabsContent value="finance">
-            <StudentFinanceTab student={student} onRefresh={fetchStudentData} />
+          <TabsContent value="education">
+            <StudentFinanceTab student={student} onRefresh={fetchStudentData} tabMode="education" />
+          </TabsContent>
+
+          <TabsContent value="other">
+            <StudentFinanceTab student={student} onRefresh={fetchStudentData} tabMode="other" />
           </TabsContent>
         </div>
       </Tabs>
