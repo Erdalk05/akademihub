@@ -628,9 +628,11 @@ Teşekkür ederiz. 🙏`;
       
       setSelectedInstallment(null);
       
-      // Listeyi de yenile (güncel veri çekmek için)
-      await fetchInstallments();
-      onRefresh?.();
+      // Veritabanı güncellemesi yansısın diye kısa bekle, sonra listeyi yenile
+      setTimeout(async () => {
+        await fetchInstallments();
+        onRefresh?.();
+      }, 500);
     } catch (error: any) {
       toast.error(`❌ Ödeme hatası: ${error.message}`, { id: toastId });
     } finally {
