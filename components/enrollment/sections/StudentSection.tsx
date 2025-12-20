@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { User, Shield, Phone, Mail, MapPin, School, Camera, X, Hash, AlertCircle, CheckCircle, Droplet, RefreshCw } from 'lucide-react';
+import { User, Shield, Phone, Mail, MapPin, School, Camera, X, Hash, AlertCircle, CheckCircle, Droplet, RefreshCw, ImagePlus } from 'lucide-react';
 import Image from 'next/image';
 import { useEnrollmentStore } from '../store';
 import { BLOOD_GROUPS, NATIONALITIES, CITIES, GRADES } from '../types';
@@ -35,7 +35,8 @@ export const StudentSection = () => {
   const { student, updateStudent, regenerateStudentNo } = useEnrollmentStore();
   const [photoPreview, setPhotoPreview] = useState<string | null>(student.photoUrl || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const tcValid = student.tcNo.length === 11 && validateTCKimlik(student.tcNo);
   const emailValid = student.email ? validateEmail(student.email) : true;
@@ -63,7 +64,8 @@ export const StudentSection = () => {
   const handleRemovePhoto = () => {
     setPhotoPreview(null);
     updateStudent({ photoUrl: '' });
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   // Input stili
@@ -89,41 +91,107 @@ export const StudentSection = () => {
         </h3>
         
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Fotoğraf Alanı */}
+          {/* Fotoğraf Alanı - Kamera ve Galeri */}
           <div className="flex flex-col items-center">
-            <div className="relative group mb-2">
+            <div className="relative group mb-3">
               {photoPreview ? (
                 <div className="relative">
                   <Image 
                     src={photoPreview} 
                     alt="Ogrenci"
-                    width={100}
-                    height={100}
-                    className="w-24 h-24 rounded-2xl object-cover border-3 border-[#25D366] shadow-lg"
+                    width={120}
+                    height={120}
+                    className="w-28 h-28 rounded-2xl object-cover border-3 border-[#25D366] shadow-lg"
                   />
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
-                    className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg"
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg transition-transform hover:scale-110"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 </div>
               ) : (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-24 h-24 rounded-2xl bg-[#DCF8C6] border-2 border-dashed border-[#25D366] flex flex-col items-center justify-center cursor-pointer hover:bg-[#25D366]/20 transition-all"
-                >
+                <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-[#DCF8C6] to-[#E7FFDB] border-2 border-dashed border-[#25D366] flex flex-col items-center justify-center">
                   {uploadingPhoto ? (
-                    <div className="w-6 h-6 border-2 border-[#25D366] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-3 border-[#25D366] border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Camera className="w-8 h-8 text-[#25D366]" />
+                    <>
+                      <Camera className="w-10 h-10 text-[#25D366] mb-1" />
+                      <span className="text-[10px] text-[#128C7E] font-medium">Fotoğraf</span>
+                    </>
                   )}
                 </div>
               )}
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
             </div>
-            <span className="text-[10px] text-gray-400 font-medium">Vesikalık</span>
+            
+            {/* Kamera ve Galeri Butonları */}
+            {!photoPreview && (
+              <div className="flex gap-2">
+                {/* Kamera Butonu */}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366] text-white text-xs font-bold rounded-xl hover:bg-[#128C7E] transition-all shadow-md hover:shadow-lg"
+                >
+                  <Camera size={14} />
+                  Kamera
+                </button>
+                
+                {/* Galeri Butonu */}
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#075E54] text-white text-xs font-bold rounded-xl hover:bg-[#064940] transition-all shadow-md hover:shadow-lg"
+                >
+                  <ImagePlus size={14} />
+                  Galeri
+                </button>
+              </div>
+            )}
+            
+            {/* Fotoğraf varsa değiştir butonu */}
+            {photoPreview && (
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#25D366] font-medium hover:bg-[#DCF8C6] rounded-lg transition-all"
+                >
+                  <Camera size={12} />
+                  Yeniden Çek
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#075E54] font-medium hover:bg-[#DCF8C6] rounded-lg transition-all"
+                >
+                  <ImagePlus size={12} />
+                  Galeriden
+                </button>
+              </div>
+            )}
+            
+            {/* Hidden Inputs */}
+            {/* Kamera Input - capture ile direkt kamera açılır */}
+            <input 
+              ref={cameraInputRef} 
+              type="file" 
+              accept="image/*" 
+              capture="environment"
+              onChange={handlePhotoUpload} 
+              className="hidden" 
+            />
+            {/* Galeri Input - capture olmadan galeri açılır */}
+            <input 
+              ref={galleryInputRef} 
+              type="file" 
+              accept="image/*" 
+              onChange={handlePhotoUpload} 
+              className="hidden" 
+            />
+            
+            <span className="text-[9px] text-gray-400 mt-1">Vesikalık Fotoğraf</span>
           </div>
 
           {/* Kimlik Alanları */}
