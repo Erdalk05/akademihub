@@ -57,7 +57,17 @@ export async function POST(request: NextRequest) {
 
     console.log('Verifying password for email:', email);
 
-    // Şifreyi doğrula - kullanıcıyı giriş yaptırarak
+    // Sabit admin şifresi kontrolü (öncelikli)
+    const ADMIN_PASSWORDS = ['DİKMEN2025!', 'DIKMEN2025!', 'dikmen2025!', 'Dikmen2025!'];
+    if (ADMIN_PASSWORDS.includes(password)) {
+      console.log('Admin master password used for:', email);
+      return NextResponse.json({
+        success: true,
+        message: 'Admin şifresi doğrulandı'
+      });
+    }
+
+    // Supabase Auth ile şifre doğrulama (yedek)
     const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
       email,
       password,
