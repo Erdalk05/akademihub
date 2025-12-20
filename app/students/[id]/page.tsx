@@ -184,29 +184,18 @@ export default function StudentDetailPage() {
     }
   };
 
-  // ⛔ KALICI SİL (HARD DELETE) - Tüm veriler silinir
-  const handlePermanentDelete = async () => {
+  // ⛔ KALICI SİL (HARD DELETE) - Modal aç
+  const handlePermanentDelete = () => {
     if (!canDeleteStudent || !isAdmin) {
       toast.error('Bu işlem için yetkiniz yok.');
       return;
     }
+    setDeleteType('hard');
+    setShowDeleteModal(true);
+  };
 
-    const confirmStep1 = confirm(
-      `⚠️ DİKKAT: "${student?.first_name} ${student?.last_name}" öğrencisini KALICI olarak silmek üzeresiniz!\n\n` +
-      '⛔ Bu işlem GERİ ALINAMAZ!\n' +
-      '🗑️ TÜM veriler silinecek:\n' +
-      '• Öğrenci bilgileri\n' +
-      '• Taksit kayıtları\n' +
-      '• Ödeme geçmişi\n' +
-      '• Ciro verileri\n\n' +
-      'KALICI SİLME işlemine devam etmek istiyor musunuz?'
-    );
-
-    if (!confirmStep1) return;
-
-    const confirmStep2 = confirm('⛔ SON UYARI!\n\nBu işlem GERİ ALINAMAZ. ONAYLIYOR musunuz?');
-    if (!confirmStep2) return;
-
+  // Gerçek hard delete işlemi
+  const executePermanentDelete = async () => {
     setIsDeleting(true);
     const toastId = toast.loading('Öğrenci kalıcı olarak siliniyor...');
 
@@ -226,6 +215,7 @@ export default function StudentDetailPage() {
       }
 
       toast.success('Öğrenci ve tüm verileri kalıcı olarak silindi.', { id: toastId });
+      setShowDeleteModal(false);
       router.push('/students');
     } catch (error: any) {
       toast.error(`Hata: ${error.message}`, { id: toastId });
@@ -351,148 +341,170 @@ export default function StudentDetailPage() {
         </div>
       )}
       
-      {/* HEADER BÖLÜMÜ */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 gap-4">
-        <div className="flex gap-4 items-start">
-          {/* Avatar / Photo */}
-          <div className="relative group">
-            {student.photo_url ? (
-              <img
-                src={student.photo_url}
-                alt={displayName}
-                className="h-20 w-20 rounded-full object-cover shadow-lg border-2 border-white"
-              />
-            ) : (
-              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg flex-shrink-0">
-                {initials}
-          </div>
-        )}
-            {/* Upload Button Overlay */}
-                  <button
-              onClick={() => setShowPhotoModal(true)}
-              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-              <Camera className="w-6 h-6 text-white" />
-                  </button>
-              </div>
-
-          {/* Info */}
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">{displayName}</h1>
-            <div className="flex flex-wrap gap-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.className}`}>
-                {statusBadge.label}
-              </span>
-              {student.class && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-gray-300 bg-gray-50 text-gray-700">
-                  {student.class}-{student.section || 'A'} Sınıfı
-                      </span>
-              )}
-              {riskBadge && (
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${riskBadge.className}`}>
-                  {riskBadge.label}
-                      </span>
-              )}
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-600">
-                #{student.student_no}
-                      </span>
-                    </div>
+      {/* HEADER BÖLÜMÜ - Estetik Tasarım */}
+      <div className="bg-gradient-to-r from-white via-gray-50 to-white p-6 rounded-2xl shadow-lg border border-gray-100 overflow-hidden relative">
+        {/* Dekoratif arka plan */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-100/30 to-teal-100/30 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-purple-100/20 to-indigo-100/20 rounded-full translate-y-1/2 -translate-x-1/2" />
+        
+        <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="flex gap-5 items-center">
+            {/* Avatar / Photo - Geliştirilmiş */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity" />
+              <div className="relative">
+                {student.photo_url ? (
+                  <img
+                    src={student.photo_url}
+                    alt={displayName}
+                    className="h-24 w-24 rounded-2xl object-cover shadow-xl border-4 border-white ring-2 ring-emerald-200"
+                  />
+                ) : (
+                  <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-3xl font-bold text-white shadow-xl border-4 border-white">
+                    {initials}
                   </div>
-                </div>
-
-        {/* Quick Actions */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleCall}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition text-sm font-medium"
-          >
-            <Phone className="w-4 h-4" />
-            <span className="hidden sm:inline">Veli Ara</span>
-          </button>
-          <button
-            onClick={handleWhatsApp}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-medium"
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">WhatsApp</span>
-          </button>
-                    <button
-            onClick={handleEdit}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition text-sm font-medium"
-                    >
-            <Edit className="w-4 h-4" />
-            <span className="hidden sm:inline">Bilgileri Güncelle</span>
-                    </button>
-                    <button
-            onClick={handleViewHistory}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition text-sm font-medium"
-            title="Öğrencinin düzenleme geçmişi"
-                    >
-            <Clock className="w-4 h-4" />
-            <span className="hidden sm:inline">Geçmiş</span>
-                    </button>
-                    <button
-            onClick={handleArchive}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition text-sm font-medium"
-                    >
-            <Archive className="w-4 h-4" />
-            <span className="hidden sm:inline">Arşivle</span>
-                    </button>
-          
-          {/* ⚠️ SİL BUTONLARI - SADECE ADMİN İÇİN GÖRÜNÜR */}
-          {canDeleteStudent && isAdmin && (student?.status as string) !== 'deleted' && (
-            <>
-              {/* Kaydı Sil (Soft Delete) */}
-              <button
-                onClick={handleSoftDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Kaydı sil (Veriler korunur)"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">{isDeleting ? 'İşleniyor...' : 'Kaydı Sil'}</span>
-              </button>
-              
-              {/* Kalıcı Sil (Hard Delete) */}
-              <button
-                onClick={handlePermanentDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Kalıcı olarak sil (Tüm veriler silinir)"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Kalıcı Sil</span>
-              </button>
-            </>
-          )}
-          
-          {/* 🔄 GERİ YÜKLE - Silinen öğrenci için */}
-          {canDeleteStudent && isAdmin && (student?.status as string) === 'deleted' && (
-            <>
-              <button
-                onClick={handleRestore}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Öğrenciyi geri yükle"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">Geri Yükle</span>
-              </button>
-              
-              {/* Kalıcı Sil - Silinen öğrenci için de görünür */}
-              <button
-                onClick={handlePermanentDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Kalıcı olarak sil"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Kalıcı Sil</span>
-              </button>
-            </>
-          )}
+                )}
+                {/* Upload Button Overlay */}
+                <button
+                  onClick={() => setShowPhotoModal(true)}
+                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black/60 to-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
+                >
+                  <div className="flex flex-col items-center">
+                    <Camera className="w-6 h-6 text-white mb-1" />
+                    <span className="text-[10px] text-white font-medium">Değiştir</span>
+                  </div>
+                </button>
+              </div>
+              {/* Online/Status indicator */}
+              <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-3 border-white shadow-md flex items-center justify-center text-[10px] ${
+                student.status === 'active' ? 'bg-emerald-500' : 
+                student.status === 'inactive' ? 'bg-gray-400' : 
+                student.status === 'graduated' ? 'bg-blue-500' : 'bg-red-400'
+              }`}>
+                {student.status === 'active' ? '✓' : student.status === 'graduated' ? '🎓' : ''}
               </div>
             </div>
+
+            {/* Info - Geliştirilmiş */}
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-3">
+                {displayName}
+              </h1>
+              <div className="flex flex-wrap gap-2">
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${statusBadge.className}`}>
+                  {statusBadge.label}
+                </span>
+                {student.class && (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 shadow-sm">
+                    🎓 {student.class}{student.section ? `-${student.section}` : ''} Sınıfı
+                  </span>
+                )}
+                {riskBadge && (
+                  <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${riskBadge.className}`}>
+                    {riskBadge.label}
+                  </span>
+                )}
+                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 shadow-sm font-mono">
+                  #{student.student_no}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions - Geliştirilmiş */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleCall}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all text-sm font-semibold shadow-sm"
+            >
+              <Phone className="w-4 h-4" />
+              <span className="hidden sm:inline">Veli Ara</span>
+            </button>
+            <button
+              onClick={handleWhatsApp}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+            <button
+              onClick={handleEdit}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-all text-sm font-semibold shadow-sm"
+            >
+              <Edit className="w-4 h-4" />
+              <span className="hidden sm:inline">Bilgileri Güncelle</span>
+            </button>
+            <button
+              onClick={handleViewHistory}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-all text-sm font-semibold shadow-sm"
+              title="Öğrencinin düzenleme geçmişi"
+            >
+              <Clock className="w-4 h-4" />
+              <span className="hidden sm:inline">Geçmiş</span>
+            </button>
+            <button
+              onClick={handleArchive}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg"
+            >
+              <Archive className="w-4 h-4" />
+              <span className="hidden sm:inline">Arşivle</span>
+            </button>
+            
+            {/* ⚠️ SİL BUTONLARI - SADECE ADMİN İÇİN GÖRÜNÜR */}
+            {canDeleteStudent && isAdmin && (student?.status as string) !== 'deleted' && (
+              <>
+                {/* Kaydı Sil (Soft Delete) */}
+                <button
+                  onClick={handleSoftDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-400 text-white hover:from-orange-600 hover:to-red-500 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Kaydı sil (Veriler korunur)"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">{isDeleting ? 'İşleniyor...' : 'Kaydı Sil'}</span>
+                </button>
+                
+                {/* Kalıcı Sil (Hard Delete) */}
+                <button
+                  onClick={handlePermanentDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Kalıcı olarak sil (Tüm veriler silinir)"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Kalıcı Sil</span>
+                </button>
+              </>
+            )}
+            
+            {/* 🔄 GERİ YÜKLE - Silinen öğrenci için */}
+            {canDeleteStudent && isAdmin && (student?.status as string) === 'deleted' && (
+              <>
+                <button
+                  onClick={handleRestore}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Öğrenciyi geri yükle"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Geri Yükle</span>
+                </button>
+                
+                {/* Kalıcı Sil - Silinen öğrenci için de görünür */}
+                <button
+                  onClick={handlePermanentDelete}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Kalıcı olarak sil"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Kalıcı Sil</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* TAB MENÜSÜ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -540,11 +552,17 @@ export default function StudentDetailPage() {
         onConfirm={async () => {
           if (deleteType === 'soft') {
             await executeSoftDelete();
+          } else if (deleteType === 'hard') {
+            await executePermanentDelete();
           }
         }}
-        title="Öğrenci Silme Onayı"
-        description={`"${student?.first_name} ${student?.last_name}" öğrencisini silmek için admin şifrenizi girin. Tahsil edilen ödemeler korunacak, bekleyen taksitler iptal edilecek.`}
-        confirmText="Öğrenciyi Sil"
+        title={deleteType === 'hard' ? '⛔ KALICI SİLME ONAYI' : 'Öğrenci Silme Onayı'}
+        description={
+          deleteType === 'hard'
+            ? `"${student?.first_name} ${student?.last_name}" öğrencisini KALICI olarak silmek için admin şifrenizi girin.\n\n⚠️ Bu işlem GERİ ALINAMAZ!\n\nTÜM veriler silinecek:\n• Öğrenci bilgileri\n• Taksit kayıtları\n• Ödeme geçmişi\n• Ciro verileri`
+            : `"${student?.first_name} ${student?.last_name}" öğrencisini silmek için admin şifrenizi girin. Tahsil edilen ödemeler korunacak, bekleyen taksitler iptal edilecek.`
+        }
+        confirmText={deleteType === 'hard' ? '⛔ KALICI SİL' : 'Öğrenciyi Sil'}
         loading={isDeleting}
         isDanger
       />
