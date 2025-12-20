@@ -500,93 +500,89 @@ export default function StudentDetailPage() {
             </div>
           </div>
 
-          {/* Quick Actions - Geliştirilmiş */}
-          <div className="flex flex-wrap gap-2">
+          {/* Quick Actions - Kompakt Tek Satır */}
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={handleCall}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all text-sm font-semibold shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-all text-xs font-semibold"
             >
-              <Phone className="w-4 h-4" />
+              <Phone className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Veli Ara</span>
             </button>
             <button
               onClick={handleWhatsApp}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-all text-xs font-semibold"
             >
-              <MessageCircle className="w-4 h-4" />
+              <MessageCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">WhatsApp</span>
             </button>
             <button
               onClick={handleEdit}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-all text-sm font-semibold shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all text-xs font-semibold"
             >
-              <Edit className="w-4 h-4" />
-              <span className="hidden sm:inline">Bilgileri Güncelle</span>
+              <Edit className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Güncelle</span>
             </button>
             <button
               onClick={handleViewHistory}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-all text-sm font-semibold shadow-sm"
-              title="Öğrencinin düzenleme geçmişi"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all text-xs font-semibold"
+              title="Geçmiş"
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Geçmiş</span>
             </button>
             <button
               onClick={handleArchive}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all text-xs font-semibold"
             >
-              <Archive className="w-4 h-4" />
+              <Archive className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Arşivle</span>
             </button>
             
             {/* ⚠️ SİL BUTONLARI - SADECE ADMİN İÇİN GÖRÜNÜR */}
             {canDeleteStudent && isAdmin && (student?.status as string) !== 'deleted' && (
               <>
-                {/* Kaydı Sil (Soft Delete) */}
                 <button
                   onClick={handleSoftDelete}
                   disabled={isDeleting}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-400 text-white hover:from-orange-600 hover:to-red-500 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Kaydı sil (Veriler korunur)"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-all text-xs font-semibold disabled:opacity-50"
+                  title="Kaydı sil"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">{isDeleting ? 'İşleniyor...' : 'Kaydı Sil'}</span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Kaydı Sil</span>
                 </button>
-                
-                {/* Kalıcı Sil (Hard Delete) */}
                 <button
                   onClick={handlePermanentDelete}
                   disabled={isDeleting}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Kalıcı olarak sil (Tüm veriler silinir)"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all text-xs font-semibold disabled:opacity-50"
+                  title="Kalıcı sil"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Kalıcı Sil</span>
                 </button>
               </>
             )}
             
-            {/* 🔄 GERİ YÜKLE - Silinen öğrenci için */}
+            {/* 🔄 GERİ YÜKLE */}
             {canDeleteStudent && isAdmin && (student?.status as string) === 'deleted' && (
               <>
                 <button
                   onClick={handleRestore}
                   disabled={isDeleting}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Öğrenciyi geri yükle"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-all text-xs font-semibold disabled:opacity-50"
+                  title="Geri Yükle"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Geri Yükle</span>
                 </button>
                 
-                {/* Kalıcı Sil - Silinen öğrenci için de görünür */}
                 <button
                   onClick={handlePermanentDelete}
                   disabled={isDeleting}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 transition-all text-sm font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Kalıcı olarak sil"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all text-xs font-semibold disabled:opacity-50"
+                  title="Kalıcı sil"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Kalıcı Sil</span>
                 </button>
               </>

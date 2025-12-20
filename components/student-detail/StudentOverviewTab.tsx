@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, Users, GraduationCap, FileText, 
   Phone, Mail, MapPin, Calendar, Hash, Heart, Globe,
   Building, Briefcase, Wallet, CheckCircle,
   BookOpen, Award, Save, X, Edit3, Loader2,
-  CreditCard, PiggyBank, Percent
+  CreditCard, PiggyBank, Percent, Camera, ImagePlus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -111,6 +111,11 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Kamera ref
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Student verisi değiştiğinde form datasını güncelle
   useEffect(() => {
@@ -118,6 +123,51 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
       setFormData({ ...student });
     }
   }, [student]);
+
+  // Direkt fotoğraf yükleme
+  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Fotoğraf 5MB\'dan küçük olmalıdır');
+      return;
+    }
+    
+    setUploadingPhoto(true);
+    const toastId = toast.loading('Fotoğraf yükleniyor...');
+    
+    try {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      
+      const response = await fetch(`/api/students/${student.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Role': currentUser?.role || '',
+        },
+        body: JSON.stringify({ photo_url: base64 }),
+      });
+      
+      if (response.ok) {
+        setFormData((prev: any) => ({ ...prev, photo_url: base64 }));
+        toast.success('Fotoğraf güncellendi!', { id: toastId });
+        onRefresh?.();
+      } else {
+        throw new Error('Yükleme başarısız');
+      }
+    } catch {
+      toast.error('Fotoğraf yüklenemedi', { id: toastId });
+    } finally {
+      setUploadingPhoto(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
@@ -309,13 +359,89 @@ export default function StudentOverviewTab({ student, onRefresh }: Props) {
         {/* ÖĞRENCİ BİLGİLERİ */}
         {activeTab === 'student' && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <User className="w-5 h-5 text-emerald-600" />
+            {/* Fotoğraf ve Başlık */}
+            <div className="flex gap-6 items-start">
+              {/* Fotoğraf Kartı - Tıklayınca Kamera Açılır */}
+              <div 
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex flex-col items-center p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border-2 border-emerald-200 cursor-pointer hover:border-emerald-400 hover:shadow-lg transition-all group min-w-[140px]"
+              >
+                <div className="relative mb-2">
+                  {uploadingPhoto ? (
+                    <div className="w-20 h-20 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                    </div>
+                  ) : formData?.photo_url ? (
+                    <img 
+                      src={formData.photo_url} 
+                      alt="Öğrenci"
+                      className="w-20 h-20 rounded-xl object-cover border-2 border-white shadow-md"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 border-2 border-dashed border-emerald-300 flex flex-col items-center justify-center group-hover:border-emerald-400">
+                      <Camera className="w-8 h-8 text-emerald-400 group-hover:text-emerald-600 transition-colors" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs font-bold text-emerald-700">
+                  {formData?.photo_url ? 'Fotoğraf Değiştir' : 'Fotoğraf Yok'}
+                </p>
+                <p className="text-[10px] text-emerald-600 mt-0.5">Tıkla - Kamera Aç</p>
+                
+                {/* Galeri butonu */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    galleryInputRef.current?.click();
+                  }}
+                  className="mt-2 flex items-center gap-1 px-2 py-1 text-[10px] text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                >
+                  <ImagePlus size={12} />
+                  Galeriden
+                </button>
+                
+                {/* Hidden Inputs */}
+                <input 
+                  ref={cameraInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment"
+                  onChange={handleDirectPhotoUpload} 
+                  className="hidden" 
+                />
+                <input 
+                  ref={galleryInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleDirectPhotoUpload} 
+                  className="hidden" 
+                />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Öğrenci Bilgileri</h3>
-                <p className="text-sm text-gray-500">Kişisel ve iletişim bilgileri</p>
+              
+              {/* Başlık */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <User className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Öğrenci Bilgileri</h3>
+                    <p className="text-sm text-gray-500">Kişisel ve iletişim bilgileri</p>
+                  </div>
+                </div>
+                
+                {/* Hızlı Bilgi */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 bg-emerald-50 rounded-lg">
+                    <p className="text-[10px] text-emerald-600">Ad Soyad</p>
+                    <p className="text-xs font-bold text-emerald-800">{formData?.first_name} {formData?.last_name}</p>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <p className="text-[10px] text-blue-600">Sınıf</p>
+                    <p className="text-xs font-bold text-blue-800">{formData?.class || '-'} {formData?.section ? `/ ${formData.section}` : ''}</p>
+                  </div>
+                </div>
               </div>
             </div>
             
