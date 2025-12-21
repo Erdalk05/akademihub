@@ -94,87 +94,145 @@ function StudentsContent() {
   const [sortField, setSortField] = useState<'name' | 'debt' | 'risk'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const pageSize = 25;
+  
+  // ✅ YENİ: Server-side pagination için state
+  const [serverPagination, setServerPagination] = useState<{ total: number; totalPages: number } | null>(null);
+  const [serverStats, setServerStats] = useState<{ totalActive: number; withDebt: number; paid: number; critical: number; deleted: number } | null>(null);
+  const [useServerMode, setUseServerMode] = useState(true);
+
+  // ✅ OPTİMİZE: Yeni RPC tabanlı API (tüm hesaplamalar SQL'de)
+  const fetchDataOptimized = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (!isAllOrganizations && currentOrganization?.id) {
+        params.set('organization_id', currentOrganization.id);
+      }
+      if (selectedYear) params.set('academic_year', selectedYear);
+      if (search) params.set('search', search);
+      params.set('status_filter', statusFilter);
+      if (classFilter) params.set('class_filter', classFilter);
+      params.set('sort_field', sortField);
+      params.set('sort_dir', sortDir);
+      params.set('page', currentPage.toString());
+      params.set('page_size', pageSize.toString());
+      
+      console.log('[STUDENTS] 🔄 API çağrılıyor:', `/api/students/list?${params.toString()}`);
+      const fetchStart = performance.now();
+      
+      const res = await fetch(`/api/students/list?${params.toString()}`);
+      const json = await res.json();
+      
+      console.log('[STUDENTS] 📊 API yanıtı:', {
+        success: json.success,
+        fallback: json.fallback,
+        studentCount: json.data?.length,
+        duration: `${Math.round(performance.now() - fetchStart)}ms`,
+        error: json.error
+      });
+      
+      if (json.success && !json.fallback) {
+        // RPC başarılı - server-side pagination aktif
+        setStudents(json.data || []);
+        setServerPagination(json.pagination);
+        setServerStats(json.stats);
+        setUseServerMode(true);
+        setLoading(false);
+        return true;
+      }
+      
+      return false; // Fallback gerekli
+    } catch {
+      return false;
+    }
+  };
+
+  // Fallback: Eski yöntem (RPC yoksa)
+  const fetchDataFallback = async () => {
+    try {
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+      const yearParam = `academic_year=${selectedYear}`;
+      const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
+      
+      const [studentsRes, installmentsRes] = await Promise.all([
+        fetch(`/api/students?${studentsQuery}`),
+        fetch(`/api/installments?summary=true${orgParam ? `&${orgParam}` : ''}`)
+      ]);
+      
+      const studentsJson = await studentsRes.json();
+      const installmentsJson = await installmentsRes.json();
+      
+      if (!studentsJson.success) throw new Error(studentsJson.error);
+      
+      const studentData = studentsJson.data || [];
+      const summaryData = installmentsJson.data || {};
+      
+      const debtMap: Record<string, number> = {};
+      Object.entries(summaryData).forEach(([studentId, summary]: [string, any]) => {
+        const remaining = (summary.total || 0) - (summary.paid || 0);
+        if (remaining > 0) {
+          debtMap[studentId] = remaining;
+        }
+      });
+      
+      const result: StudentRow[] = studentData.map((s: any) => {
+        const debt = debtMap[s.id] || 0;
+        let risk: StudentRow['risk'] = 'Yok';
+        if (debt > 10000) risk = 'Yüksek';
+        else if (debt > 5000) risk = 'Orta';
+        else if (debt > 0) risk = 'Düşük';
+        
+        return {
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          full_name: s.full_name,
+          parent_name: s.parent_name,
+          class: s.class,
+          section: s.section,
+          debt,
+          risk,
+          student_no: s.student_no || s.ogrenciNo || '',
+          photo_url: s.photo_url,
+          avgDelay: debt > 0 ? Math.floor(Math.random() * 20) : 0,
+          status: s.status || 'active',
+        };
+      });
+      
+      setStudents(result);
+      setUseServerMode(false);
+      setServerPagination(null);
+      setServerStats(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Veriler yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch Data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      try {
-        // Çoklu kurum desteği: organization_id ve academic_year filtresi
-        const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
-        const yearParam = `academic_year=${selectedYear}`;
-        
-        // ✅ Students API'sine academic_year parametresi eklendi
-        const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
-        
-        // ✅ HIZLI: summary=true ile sadece öğrenci başına özet borç bilgisi çek
-        const [studentsRes, installmentsRes] = await Promise.all([
-          fetch(`/api/students?${studentsQuery}`),
-          fetch(`/api/installments?summary=true${orgParam ? `&${orgParam}` : ''}`)
-        ]);
-        
-        const studentsJson = await studentsRes.json();
-        const installmentsJson = await installmentsRes.json();
-        
-        if (!studentsJson.success) throw new Error(studentsJson.error);
-        
-        const studentData = studentsJson.data || [];
-        // summary=true olduğunda API { student_id: { total, paid } } formatında döner
-        const summaryData = installmentsJson.data || {};
-        
-        // Özet veriden borç hesapla
-        const debtMap: Record<string, number> = {};
-        Object.entries(summaryData).forEach(([studentId, summary]: [string, any]) => {
-          const remaining = (summary.total || 0) - (summary.paid || 0);
-          if (remaining > 0) {
-            debtMap[studentId] = remaining;
-          }
-        });
-        
-        const lastPaymentMap: Record<string, { date: string; amount: number }> = {};
-        
-        const result: StudentRow[] = studentData.map((s: any) => {
-          const debt = debtMap[s.id] || 0;
-          const lastPayment = lastPaymentMap[s.id];
-          let risk: StudentRow['risk'] = 'Yok';
-          if (debt > 10000) risk = 'Yüksek';
-          else if (debt > 5000) risk = 'Orta';
-          else if (debt > 0) risk = 'Düşük';
-          
-          return {
-            id: s.id,
-            first_name: s.first_name,
-            last_name: s.last_name,
-            full_name: s.full_name,
-            parent_name: s.parent_name,
-            class: s.class,
-            section: s.section,
-            debt,
-            risk,
-            student_no: s.student_no || s.ogrenciNo || '',
-            lastPaymentDate: lastPayment ? new Date(lastPayment.date).toLocaleDateString('tr-TR') : undefined,
-            lastPaymentAmount: lastPayment?.amount,
-            photo_url: s.photo_url,
-            avgDelay: debt > 0 ? Math.floor(Math.random() * 20) : 0,
-            status: s.status || 'active',
-          };
-        });
-        
-        setStudents(result);
-      } catch (err: any) {
-        toast.error(err.message || 'Veriler yüklenemedi');
-      } finally {
-        setLoading(false);
+      const optimizedSuccess = await fetchDataOptimized();
+      if (!optimizedSuccess) {
+        console.warn('[STUDENTS] RPC failed, using fallback');
+        await fetchDataFallback();
       }
     };
     
     fetchData();
-  }, [selectedYear, currentOrganization?.id, isAllOrganizations]);
+  }, [selectedYear, currentOrganization?.id, isAllOrganizations, search, statusFilter, classFilter, sortField, sortDir, currentPage]);
 
-  // Filtered & Sorted
+  // ✅ Filtered & Sorted - Server mode'da API zaten filtrelenmiş/sıralanmış veri döner
   const filteredStudents = useMemo(() => {
+    // Server mode: API zaten filtreleme ve sıralama yaptı
+    if (useServerMode) {
+      return students;
+    }
+    
+    // Fallback mode: Client-side filtreleme
     const filtered = students.filter((s) => {
-      // İsim öncelik: full_name > first_name+last_name > parent_name'den parse
       const firstLast = `${s.first_name || ''} ${s.last_name || ''}`.trim();
       const fromParent = s.parent_name ? s.parent_name.split(' - ')[0].trim() : '';
       const fullName = (s.full_name || firstLast || fromParent || '').toLowerCase();
@@ -183,11 +241,9 @@ function StudentsContent() {
       
       if (searchTerm && !fullName.includes(searchTerm) && !studentNo.includes(searchTerm)) return false;
       
-      // Status filtreleme - kaydı silinen öğrenciler sadece 'deleted' filtresi seçildiğinde görünsün
       if (statusFilter === 'deleted') {
         if (s.status !== 'deleted') return false;
       } else {
-        // Diğer filtrelerde kaydı silinen öğrencileri gizle
         if (s.status === 'deleted') return false;
       }
       
@@ -199,7 +255,6 @@ function StudentsContent() {
       return true;
     });
     
-    // Sıralama
     return filtered.sort((a, b) => {
       let cmp = 0;
       if (sortField === 'name') {
@@ -208,9 +263,7 @@ function StudentsContent() {
           const fromParent = s.parent_name ? s.parent_name.split(' - ')[0].trim() : '';
           return s.full_name || firstLast || fromParent || '';
         };
-        const nameA = getFullName(a);
-        const nameB = getFullName(b);
-        cmp = nameA.localeCompare(nameB, 'tr');
+        cmp = getFullName(a).localeCompare(getFullName(b), 'tr');
       } else if (sortField === 'debt') {
         cmp = a.debt - b.debt;
       } else if (sortField === 'risk') {
@@ -219,19 +272,29 @@ function StudentsContent() {
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [students, search, statusFilter, classFilter, sortField, sortDir]);
+  }, [students, search, statusFilter, classFilter, sortField, sortDir, useServerMode]);
   
-  // Pagination
-  const totalPages = Math.ceil(filteredStudents.length / pageSize);
+  // ✅ Pagination - Server mode'da API pagination bilgisini kullan
+  const totalPages = useServerMode && serverPagination 
+    ? serverPagination.totalPages 
+    : Math.ceil(filteredStudents.length / pageSize);
+    
   const paginatedStudents = useMemo(() => {
+    // Server mode: API zaten pagination yaptı, direkt students döner
+    if (useServerMode) {
+      return students;
+    }
+    // Fallback mode: Client-side pagination
     const start = (currentPage - 1) * pageSize;
     return filteredStudents.slice(start, start + pageSize);
-  }, [filteredStudents, currentPage, pageSize]);
+  }, [filteredStudents, currentPage, pageSize, useServerMode, students]);
   
-  // Reset page when filters change
+  // Reset page when filters change (sadece fallback mode'da)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [search, statusFilter, classFilter]);
+    if (!useServerMode) {
+      setCurrentPage(1);
+    }
+  }, [search, statusFilter, classFilter, useServerMode]);
   
   // Sort handler
   const handleSort = (field: 'name' | 'debt' | 'risk') => {
@@ -249,14 +312,28 @@ function StudentsContent() {
     window.location.reload();
   };
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: students.filter(s => s.status !== 'deleted').length,
-    withDebt: students.filter(s => s.debt > 0 && s.status !== 'deleted').length,
-    critical: students.filter(s => s.risk === 'Yüksek' && s.status !== 'deleted').length,
-    totalDebt: students.filter(s => s.status !== 'deleted').reduce((sum, s) => sum + s.debt, 0),
-    deleted: students.filter(s => s.status === 'deleted').length,
-  }), [students]);
+  // ✅ Stats - Server mode'da API'den gelen stats kullanılır
+  const stats = useMemo(() => {
+    // Server mode: API'den gelen aggregated stats
+    if (useServerMode && serverStats) {
+      return {
+        total: serverStats.totalActive,
+        withDebt: serverStats.withDebt,
+        critical: serverStats.critical,
+        totalDebt: students.reduce((sum, s) => sum + s.debt, 0), // Sadece mevcut sayfadaki toplam
+        deleted: serverStats.deleted,
+      };
+    }
+    
+    // Fallback mode: Client-side hesaplama
+    return {
+      total: students.filter(s => s.status !== 'deleted').length,
+      withDebt: students.filter(s => s.debt > 0 && s.status !== 'deleted').length,
+      critical: students.filter(s => s.risk === 'Yüksek' && s.status !== 'deleted').length,
+      totalDebt: students.filter(s => s.status !== 'deleted').reduce((sum, s) => sum + s.debt, 0),
+      deleted: students.filter(s => s.status === 'deleted').length,
+    };
+  }, [students, useServerMode, serverStats]);
 
   // Unique classes
   const classes = useMemo(() => {

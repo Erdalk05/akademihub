@@ -22,7 +22,7 @@ function getAcademicYearDates(academicYear: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// GET /api/installments?studentId=UUID&academicYear=2024-2025&organization_id=UUID&summary=true
+// GET /api/installments?studentId=UUID&academicYear=2024-2025&organization_id=UUID&summary=true&withStudent=true&raw=true
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
     const academicYear = searchParams.get('academicYear');
     const organizationId = searchParams.get('organization_id');
     const summaryOnly = searchParams.get('summary') === 'true';
+    // ✅ YENİ: withStudent=true ise students tablosunu da çeker (reports için)
+    const withStudent = searchParams.get('withStudent') === 'true';
+    // ✅ YENİ: raw=true ise students join yapmaz (founder gibi sayfalar için - zaten students çekiyor)
+    const rawMode = searchParams.get('raw') === 'true';
     
     const supabase = getServiceRoleClient();
     
@@ -74,17 +78,49 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2. Normal mod: Öğrenci bilgilerini paralel çek
+    // ✅ raw=true ise students join yapmadan sadece taksitleri döndür (hız için)
+    if (rawMode) {
+      const today = new Date();
+      const rawList = (installments || []).map((r: any) => {
+        let calculatedStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+        if (r.is_paid) calculatedStatus = 'paid';
+        else if (r.status === 'cancelled') calculatedStatus = 'pending';
+        else if (r.due_date && new Date(r.due_date) < today) calculatedStatus = 'overdue';
+        
+        return {
+          id: r.id,
+          student_id: r.student_id,
+          installment_no: r.installment_no,
+          amount: Number(r.amount),
+          paid_amount: r.paid_amount !== null && r.paid_amount !== undefined ? Number(r.paid_amount) : 0,
+          due_date: r.due_date,
+          is_paid: r.is_paid,
+          paid_at: r.paid_at || null,
+          status: calculatedStatus,
+        };
+      });
+      return NextResponse.json({ success: true, data: rawList }, { status: 200 });
+    }
+
+    // 2. Normal mod: Öğrenci bilgilerini çek (sadece ihtiyaç varsa)
     const studentIds = [...new Set((installments || []).map((i: any) => i.student_id).filter(Boolean))];
     
     let studentsMap: Record<string, any> = {};
+    let allStudents: any[] = [];
+    
     if (studentIds.length > 0) {
+      // ✅ withStudent=true ise tüm öğrenci bilgilerini çek (reports için)
+      const selectFields = withStudent 
+        ? 'id, first_name, last_name, student_no, class, section, status, parent_name, parent_phone, tc_id, created_at, academic_year'
+        : 'id, first_name, last_name, student_no, class, section';
+      
       const { data: studentsData } = await supabase
         .from('students')
-        .select('id, first_name, last_name, student_no, class, section')
+        .select(selectFields)
         .in('id', studentIds);
       
-      (studentsData || []).forEach((s: any) => {
+      allStudents = studentsData || [];
+      allStudents.forEach((s: any) => {
         studentsMap[s.id] = s;
       });
     }
@@ -131,6 +167,15 @@ export async function GET(req: NextRequest) {
         is_new: typeof r.is_new === 'boolean' ? r.is_new : undefined,
       };
     });
+
+    // ✅ withStudent=true ise students array'ini de döndür
+    if (withStudent) {
+      return NextResponse.json({ 
+        success: true, 
+        data: list,
+        students: allStudents 
+      }, { status: 200 });
+    }
 
     return NextResponse.json({ success: true, data: list }, { status: 200 });
   } catch (e: any) {

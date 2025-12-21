@@ -111,11 +111,45 @@ export default function FounderReportPage() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // ✅ Organization filtresi ile sadece mevcut kurumun verileri
-      const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
+      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
+      
+      // ✅ OPTİMİZE: Tek RPC çağrısı ile tüm aggregation'lar SQL'de yapılır
+      const res = await fetch(`/api/finance/reports/founder${orgParam ? '?' + orgParam : ''}`);
+      const result = await res.json();
+      
+      // RPC başarılı ise direkt kullan
+      if (result.success && result.data) {
+        const data = result.data;
+        setTotals(data.totals);
+        setClassStats(data.classStats);
+        setMonthlyData(data.monthlyData);
+        setRiskStudents(data.riskStudents);
+        setFreeStudents(data.freeStudents);
+        setDeletedStudents(data.deletedStudents);
+        setAllStudents(data.allStudents);
+        setAiInsights(data.aiInsights);
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ FALLBACK: RPC yoksa eski yöntem (migration yapılmamışsa)
+      console.warn('[FOUNDER] RPC failed, using fallback method');
+      await fetchAllDataFallback();
+      
+    } catch (error) {
+      console.error('Veri yükleme hatası:', error);
+      // Fallback
+      await fetchAllDataFallback();
+    } finally { setLoading(false); }
+  };
+  
+  // Fallback method (RPC yoksa kullanılır)
+  const fetchAllDataFallback = async () => {
+    try {
+      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       const [studentsRes, installmentsRes] = await Promise.all([
-        fetch(`/api/students${orgParam}`), 
-        fetch(`/api/installments${orgParam}`)
+        fetch(`/api/students${orgParam ? '?' + orgParam : ''}`), 
+        fetch(`/api/installments?${orgParam}${orgParam ? '&' : ''}raw=true`)
       ]);
       const studentsData = await studentsRes.json();
       const installmentsData = await installmentsRes.json();
@@ -287,8 +321,8 @@ export default function FounderReportPage() {
       
       setAiInsights(insights);
     } catch (error) {
-      console.error('Veri yükleme hatası:', error);
-    } finally { setLoading(false); }
+      console.error('Fallback veri yükleme hatası:', error);
+    }
   };
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);

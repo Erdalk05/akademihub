@@ -70,29 +70,20 @@ export default function ContractsPage() {
   // Organization context
   const { currentOrganization } = useOrganizationStore();
 
-  // Fetch data - ✅ PARALEL + Organization filtresi
+  // ✅ OPTİMİZE: Tek API çağrısı ile hem taksit hem öğrenci verisi
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
+        const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}&` : '';
         
-        const [studentsRes, installmentsRes] = await Promise.all([
-          fetch(`/api/students${orgParam}`),
-          fetch(`/api/installments${orgParam}`)
-        ]);
+        // ✅ Tek çağrı: withStudent=true ile hem taksitler hem öğrenciler
+        const res = await fetch(`/api/installments?${orgParam}withStudent=true`);
+        const data = await res.json();
         
-        const [studentsData, installmentsData] = await Promise.all([
-          studentsRes.json(),
-          installmentsRes.json()
-        ]);
-        
-        if (studentsData.success && studentsData.data) {
-          setStudents(studentsData.data);
-        }
-        
-        if (installmentsData.success && installmentsData.data) {
-          setInstallments(installmentsData.data);
+        if (data.success) {
+          setInstallments(data.data || []);
+          setStudents(data.students || []);
         }
 
       } catch (err: any) {
