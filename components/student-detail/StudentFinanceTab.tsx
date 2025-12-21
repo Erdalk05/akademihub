@@ -1961,94 +1961,60 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
   return (
     <>
     <div className="space-y-6">
-      {/* EĞİTİM TAB - ÖZET KARTLARI */}
+      {/* EĞİTİM TAB - HIZLI İŞLEMLER */}
       {(tabMode === 'education' || tabMode === 'all') && (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium text-blue-700">Toplam Sözleşme</p>
-            <DollarSign className="h-4 w-4 text-blue-600" />
+      <div className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 shadow-sm">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-800">Hızlı İşlemler</h4>
+              <p className="text-xs text-gray-500">
+                {installments.filter(i => i.status !== 'paid').length} bekleyen taksit • 
+                {installments.filter(i => i.status === 'overdue').length > 0 
+                  ? ` ⚠️ ${installments.filter(i => i.status === 'overdue').length} gecikmiş` 
+                  : ' ✓ Gecikme yok'}
+              </p>
+            </div>
           </div>
-          <p className="text-xl font-bold text-blue-900">₺{totalAmount.toLocaleString('tr-TR')}</p>
-        </div>
-
-        {/* İNDİRİM/BURS KARTI */}
-        <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium text-purple-700">İndirim/Burs</p>
-            <Percent className="h-4 w-4 text-purple-600" />
-          </div>
-          <p className="text-xl font-bold text-purple-900">
-            ₺{(student.discount_amount || 0).toLocaleString('tr-TR')}
-          </p>
-          {student.discount_type && (
-            <p className="text-[10px] text-purple-600 mt-0.5 truncate">
-              {student.discount_type === 'scholarship' ? '🎓 Burs' : 
-               student.discount_type === 'sibling' ? '👨‍👩‍👧‍👦 Kardeş' : 
-               student.discount_type === 'early' ? '⏰ Erken Kayıt' : 
-               '🏷️ İndirim'}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium text-green-700">Tahsil Edilen</p>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </div>
-          <p className="text-xl font-bold text-green-900">₺{paidAmount.toLocaleString('tr-TR')}</p>
-          <p className="text-[10px] text-green-600 mt-0.5">
-            %{totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0} ödendi
-          </p>
-        </div>
-
-        <div className="rounded-xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium text-orange-700">Kalan Borç</p>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-          </div>
-          <p className="text-xl font-bold text-orange-900">₺{balance.toLocaleString('tr-TR')}</p>
-          <p className="text-[10px] text-orange-600 mt-0.5">
-            {installments.filter(i => i.status !== 'paid').length} taksit bekliyor
-          </p>
-        </div>
-
-        <div className="rounded-xl border-2 border-gray-200 bg-white p-6 shadow-sm flex flex-col gap-2 justify-center">
-          <button 
-            onClick={handleQuickPayment}
-            className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm"
-          >
-            <CreditCard className="h-4 w-4" />
-            Hızlı Ödeme Al
-          </button>
-          <button 
-            onClick={() => setShowRestructureModal(true)}
-            className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm shadow-md"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Yeniden Taksitlendir
-          </button>
-          {/* WhatsApp Ödeme Hatırlatıcısı */}
-          {student.parent_phone && balance > 0 && (
-            <a
-              href={`https://wa.me/90${student.parent_phone?.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
-                `Sayın ${student.parent_name || 'Veli'},\n\n` +
-                `${student.first_name} ${student.last_name} için ödeme hatırlatmasıdır.\n\n` +
-                `📋 Kalan Borç: ₺${balance.toLocaleString('tr-TR')}\n` +
-                `📅 Bekleyen Taksit: ${installments.filter(i => i.status !== 'paid').length} adet\n\n` +
-                (installments.find(i => i.status === 'overdue') 
-                  ? `⚠️ Gecikmiş taksitiniz bulunmaktadır.\n\n` 
-                  : '') +
-                `Ödeme için bizimle iletişime geçebilirsiniz.\n\nSaygılarımızla`
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 transition flex items-center justify-center gap-2 text-sm"
+          <div className="flex items-center gap-2 flex-wrap">
+            <button 
+              onClick={handleQuickPayment}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition shadow-md"
             >
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp Hatırlatma
-            </a>
-          )}
+              <CreditCard className="h-4 w-4" />
+              Hızlı Ödeme Al
+            </button>
+            <button 
+              onClick={() => setShowRestructureModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold text-sm transition shadow-md"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Yeniden Taksitlendir
+            </button>
+            {student.parent_phone && balance > 0 && (
+              <a
+                href={`https://wa.me/90${student.parent_phone?.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
+                  `Sayın ${student.parent_name || 'Veli'},\n\n` +
+                  `${student.first_name} ${student.last_name} için ödeme hatırlatmasıdır.\n\n` +
+                  `📋 Kalan Borç: ₺${balance.toLocaleString('tr-TR')}\n` +
+                  `📅 Bekleyen Taksit: ${installments.filter(i => i.status !== 'paid').length} adet\n\n` +
+                  (installments.find(i => i.status === 'overdue') 
+                    ? `⚠️ Gecikmiş taksitiniz bulunmaktadır.\n\n` 
+                    : '') +
+                  `Ödeme için bizimle iletişime geçebilirsiniz.\n\nSaygılarımızla`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold text-sm transition shadow-md"
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp Hatırlatma
+              </a>
+            )}
+          </div>
         </div>
       </div>
       )}
