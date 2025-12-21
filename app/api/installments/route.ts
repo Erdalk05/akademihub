@@ -64,7 +64,14 @@ export async function GET(req: NextRequest) {
         summaryMap[r.student_id].total += Number(r.amount) || 0;
         summaryMap[r.student_id].paid += Number(r.paid_amount) || 0;
       });
-      return NextResponse.json({ success: true, data: summaryMap }, { status: 200 });
+      // Cache for 30 seconds (summary data)
+      return NextResponse.json(
+        { success: true, data: summaryMap }, 
+        { 
+          status: 200,
+          headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' }
+        }
+      );
     }
 
     // 2. Normal mod: Öğrenci bilgilerini paralel çek

@@ -48,7 +48,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, data }, { status: 200 });
+    // Cache for 30 seconds
+    return NextResponse.json(
+      { success: true, data }, 
+      { 
+        status: 200,
+        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' }
+      }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { success: false, error: e.message || 'Bilinmeyen hata' },
