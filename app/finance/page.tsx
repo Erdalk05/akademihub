@@ -260,6 +260,190 @@ export default function FinancePage() {
     toast.success('PDF raporu hazırlandı');
   };
 
+  // Sınıf Bazında Detaylı PDF - Tablo formatı
+  const generateClassPDF = async () => {
+    try {
+      // Verileri çek
+      const [studentsRes, installmentsRes] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/installments?raw=true')
+      ]);
+
+      const studentsData = await studentsRes.json();
+      const installmentsData = await installmentsRes.json();
+
+      const students = studentsData.data || [];
+      const installments = installmentsData.data || [];
+
+      // Sınıf bazında grupla
+      const classMap = new Map<string, { 
+        ucretli: number; 
+        ucretsiz: number; 
+        totalAmount: number; 
+        paidAmount: number;
+        students: Set<string>;
+      }>();
+
+      students.forEach((student: any) => {
+        const className = student.class || 'Belirsiz';
+        if (!classMap.has(className)) {
+          classMap.set(className, { ucretli: 0, ucretsiz: 0, totalAmount: 0, paidAmount: 0, students: new Set() });
+        }
+        const classInfo = classMap.get(className)!;
+        classInfo.students.add(student.id);
+        
+        // Ücretli/Ücretsiz sayımı
+        const studentInstallments = installments.filter((i: any) => i.student_id === student.id);
+        const hasPayment = studentInstallments.some((i: any) => Number(i.amount) > 0);
+        if (hasPayment) {
+          classInfo.ucretli++;
+        } else {
+          classInfo.ucretsiz++;
+        }
+        
+        // Toplam ve ödenen tutarlar
+        studentInstallments.forEach((inst: any) => {
+          classInfo.totalAmount += Number(inst.amount) || 0;
+          if (inst.is_paid) {
+            classInfo.paidAmount += Number(inst.paid_amount || inst.amount) || 0;
+          }
+        });
+      });
+
+      // Tablo verisini hazırla
+      const tableData = Array.from(classMap.entries())
+        .map(([className, info]) => {
+          const total = info.ucretli + info.ucretsiz;
+          const avgFee = total > 0 ? info.totalAmount / total : 0;
+          const collectionRate = info.totalAmount > 0 ? (info.paidAmount / info.totalAmount) * 100 : 0;
+          return {
+            sinif: className,
+            ucretli: info.ucretli,
+            ucretsiz: info.ucretsiz,
+            toplam: total,
+            toplamGelir: info.totalAmount,
+            tahsilEdilen: info.paidAmount,
+            ortUcret: avgFee,
+            tahsilatOran: collectionRate
+          };
+        })
+        .sort((a, b) => {
+          const aNum = parseInt(a.sinif);
+          const bNum = parseInt(b.sinif);
+          if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+          if (!isNaN(aNum)) return -1;
+          if (!isNaN(bNum)) return 1;
+          return a.sinif.localeCompare(b.sinif);
+        });
+
+      // Toplamlar
+      const totals = tableData.reduce((acc, row) => ({
+        ucretli: acc.ucretli + row.ucretli,
+        ucretsiz: acc.ucretsiz + row.ucretsiz,
+        toplam: acc.toplam + row.toplam,
+        toplamGelir: acc.toplamGelir + row.toplamGelir,
+        tahsilEdilen: acc.tahsilEdilen + row.tahsilEdilen
+      }), { ucretli: 0, ucretsiz: 0, toplam: 0, toplamGelir: 0, tahsilEdilen: 0 });
+
+      const avgTotal = totals.toplam > 0 ? totals.toplamGelir / totals.toplam : 0;
+      const totalRate = totals.toplamGelir > 0 ? (totals.tahsilEdilen / totals.toplamGelir) * 100 : 0;
+
+      const today = new Date().toLocaleDateString('tr-TR');
+      
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Sınıf Bazlı Detaylı Analiz</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
+            .header { margin-bottom: 15px; }
+            .header h1 { font-size: 16px; font-weight: bold; margin-bottom: 3px; }
+            .header p { font-size: 10px; color: #666; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th { background: #10B981; color: white; padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 600; }
+            th.text-center { text-align: center; }
+            th.text-right { text-align: right; }
+            td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+            td.text-center { text-align: center; }
+            td.text-right { text-align: right; }
+            .green { color: #10B981; }
+            .red { color: #EF4444; }
+            .amber { color: #F59E0B; }
+            .total-row { background: #f0fdf4; font-weight: bold; }
+            .total-row td { border-top: 2px solid #10B981; }
+            .risk-bar { display: inline-block; width: 40px; height: 8px; background: #fee2e2; border-radius: 4px; overflow: hidden; }
+            .risk-fill { height: 100%; background: #ef4444; }
+            .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #9ca3af; }
+            @media print { body { padding: 10px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Sınıf Bazlı Detaylı Analiz</h1>
+            <p>Tarih: ${today} - Toplam: ${totals.toplam} öğrenci</p>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>SINIF</th>
+                <th class="text-center">ÜCRETLİ</th>
+                <th class="text-center">ÜCRETSİZ</th>
+                <th class="text-center">TOPLAM</th>
+                <th class="text-right">TOPLAM GELİR</th>
+                <th class="text-right">TAHSİL EDİLEN</th>
+                <th class="text-right">ORT. ÜCRET</th>
+                <th class="text-center">TAHSİLAT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableData.map(row => `
+                <tr>
+                  <td><strong>${row.sinif}. Sınıf</strong></td>
+                  <td class="text-center">${row.ucretli}</td>
+                  <td class="text-center green">${row.ucretsiz}</td>
+                  <td class="text-center"><strong>${row.toplam}</strong></td>
+                  <td class="text-right">₺${row.toplamGelir.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+                  <td class="text-right ${row.tahsilEdilen > 0 ? 'green' : 'red'}">₺${row.tahsilEdilen.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+                  <td class="text-right">₺${row.ortUcret.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+                  <td class="text-center ${row.tahsilatOran >= 50 ? 'green' : row.tahsilatOran > 0 ? 'amber' : 'red'}">%${row.tahsilatOran.toFixed(0)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td><strong>TOPLAM</strong></td>
+                <td class="text-center"><strong>${totals.ucretli}</strong></td>
+                <td class="text-center green"><strong>${totals.ucretsiz}</strong></td>
+                <td class="text-center"><strong>${totals.toplam}</strong></td>
+                <td class="text-right"><strong>₺${totals.toplamGelir.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong></td>
+                <td class="text-right green"><strong>₺${totals.tahsilEdilen.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong></td>
+                <td class="text-right"><strong>₺${avgTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong></td>
+                <td class="text-center ${totalRate >= 50 ? 'green' : 'amber'}"><strong>%${totalRate.toFixed(0)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            <p>${new Date().toLocaleString('tr-TR')} | AkademiHub - Sınıf Bazlı Analiz</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 500);
+      }
+      toast.success('Sınıf bazlı PDF hazırlandı');
+    } catch (error) {
+      console.error('PDF oluşturma hatası:', error);
+      toast.error('PDF oluşturulamadı');
+    }
+  };
+
   // Yetki kontrolü
   if (permissionLoading) {
     return (
@@ -461,7 +645,7 @@ export default function FinancePage() {
           {/* Sınıf Bazında Ortalama Ücretler */}
           <div className="relative">
             <button 
-              onClick={() => generatePDF('Sınıf Ücretleri')}
+              onClick={generateClassPDF}
               className="absolute top-4 right-4 z-10 px-3 py-2 bg-white/90 backdrop-blur rounded-lg shadow-sm hover:bg-white transition flex items-center gap-2 text-sm font-medium text-gray-700"
             >
               <Printer className="w-4 h-4" />
