@@ -602,10 +602,6 @@ Teşekkür ederiz. 🙏`;
     }
   }, [student.id]);
 
-  useEffect(() => {
-    fetchInstallments();
-  }, [fetchInstallments]);
-
   // Diğer gelirleri çek
   const fetchOtherIncomes = useCallback(async () => {
     setLoadingOtherIncomes(true);
@@ -648,9 +644,12 @@ Teşekkür ederiz. 🙏`;
     }
   }, [student.id]);
 
+  // ✅ TEK useEffect - HER İKİ VERİYİ PARALEL ÇEK
   useEffect(() => {
+    // Paralel çağrı - aynı anda başlat
+    fetchInstallments();
     fetchOtherIncomes();
-  }, [fetchOtherIncomes]);
+  }, [fetchInstallments, fetchOtherIncomes]);
 
   // Diğer Gelir Ekleme Fonksiyonu
   const handleAddOtherIncome = async () => {
