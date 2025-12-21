@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, TrendingUp, DollarSign, BarChart3, PieChart, Target, AlertTriangle, CheckCircle,
   Download, RefreshCw, Brain, GraduationCap, Wallet, Clock, Shield, Award, Gift, Calculator,
@@ -110,71 +110,8 @@ export default function FounderReportPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const fetchCountRef = useRef(0);
 
-  useEffect(() => {
-    // Org hazır değilse çağrı yapma
-    if (!currentOrganization?.id) {
-      console.log('[FOUNDER] ⏳ Org hazır değil, bekleniyor...');
-      return;
-    }
-    
-    // Önceki isteği iptal et
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    
-    const fetchId = ++fetchCountRef.current;
-    console.log(`[FOUNDER] 🔄 Fetch #${fetchId} başladı`);
-    
-    const fetchAllData = async () => {
-      setLoading(true);
-      try {
-        const orgParam = `organization_id=${currentOrganization.id}`;
-        
-        // ✅ OPTİMİZE: Tek RPC çağrısı
-        const res = await fetch(`/api/finance/reports/founder?${orgParam}`, { signal: controller.signal });
-        
-        if (controller.signal.aborted) return;
-        
-        const result = await res.json();
-        
-        console.log(`[FOUNDER] ✅ Fetch #${fetchId} tamamlandı`);
-        
-        // RPC başarılı ise direkt kullan
-        if (result.success && result.data) {
-          const data = result.data;
-          setTotals(data.totals);
-          setClassStats(data.classStats);
-          setMonthlyData(data.monthlyData);
-          setRiskStudents(data.riskStudents);
-          setFreeStudents(data.freeStudents);
-          setDeletedStudents(data.deletedStudents);
-          setAllStudents(data.allStudents);
-          setAiInsights(data.aiInsights);
-          setLoading(false);
-          return;
-        }
-        
-        // ✅ FALLBACK
-        console.warn('[FOUNDER] RPC failed, using fallback method');
-        await fetchAllDataFallback(controller.signal);
-        
-      } catch (error: any) {
-        if (error.name === 'AbortError') return;
-        console.error('Veri yükleme hatası:', error);
-        await fetchAllDataFallback(controller.signal);
-      } finally { setLoading(false); }
-    };
-    
-    fetchAllData();
-    
-    return () => controller.abort();
-  }, [currentOrganization?.id]);
-  
-  // Fallback method (RPC yoksa kullanılır)
-  const fetchAllDataFallback = async (signal?: AbortSignal) => {
+  // Fallback method (RPC yoksa kullanılır) - önce tanımla
+  const fetchAllDataFallback = useCallback(async (signal?: AbortSignal) => {
     try {
       const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       const [studentsRes, installmentsRes] = await Promise.all([
@@ -353,7 +290,74 @@ export default function FounderReportPage() {
     } catch (error) {
       console.error('Fallback veri yükleme hatası:', error);
     }
-  };
+  }, [currentOrganization?.id]);
+
+  // ✅ fetchAllData dışarıda tanımlanıyor ki buton da kullanabilsin
+  const fetchAllData = useCallback(async () => {
+    if (!currentOrganization?.id) {
+      console.log('[FOUNDER] ⏳ Org hazır değil, bekleniyor...');
+      return;
+    }
+    
+    // Önceki isteği iptal et
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    const fetchId = ++fetchCountRef.current;
+    console.log(`[FOUNDER] 🔄 Fetch #${fetchId} başladı`);
+    
+    setLoading(true);
+    try {
+      const orgParam = `organization_id=${currentOrganization.id}`;
+      
+      // ✅ OPTİMİZE: Tek RPC çağrısı
+      const res = await fetch(`/api/finance/reports/founder?${orgParam}`, { signal: controller.signal });
+      
+      if (controller.signal.aborted) return;
+      
+      const result = await res.json();
+      
+      console.log(`[FOUNDER] ✅ Fetch #${fetchId} tamamlandı`);
+      
+      // RPC başarılı ise direkt kullan
+      if (result.success && result.data) {
+        const data = result.data;
+        setTotals(data.totals);
+        setClassStats(data.classStats);
+        setMonthlyData(data.monthlyData);
+        setRiskStudents(data.riskStudents);
+        setFreeStudents(data.freeStudents);
+        setDeletedStudents(data.deletedStudents);
+        setAllStudents(data.allStudents);
+        setAiInsights(data.aiInsights);
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ FALLBACK
+      console.warn('[FOUNDER] RPC failed, using fallback method');
+      await fetchAllDataFallback(controller.signal);
+      
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      console.error('Veri yükleme hatası:', error);
+      await fetchAllDataFallback(controller.signal);
+    } finally { setLoading(false); }
+  }, [currentOrganization?.id, fetchAllDataFallback]);
+
+  // ✅ Sayfa yüklendiğinde fetch et
+  useEffect(() => {
+    fetchAllData();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchAllData]);
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
   const formatCurrencyShort = (amount: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
