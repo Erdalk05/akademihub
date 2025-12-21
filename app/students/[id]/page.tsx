@@ -27,7 +27,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import toast from 'react-hot-toast';
 
 // Tab Components
-import StudentOverviewTab from '@/components/student-detail/StudentOverviewTab';
 import StudentFinanceTab from '@/components/student-detail/StudentFinanceTab';
 import ImageUploadModal from '@/components/upload/ImageUploadModal';
 
@@ -67,7 +66,7 @@ export default function StudentDetailPage() {
 
   const [student, setStudent] = useState<StudentData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('finance');
+  const [activeTab, setActiveTab] = useState('education');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -742,16 +741,11 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* TAB MENÜSÜ - 3 Tab */}
+      {/* TAB MENÜSÜ - 2 Tab */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg p-1">
-            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">Ogrenci Karti</span>
-              <span className="sm:hidden">Kart</span>
-            </TabsTrigger>
-            <TabsTrigger value="education" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-lg p-1">
+            <TabsTrigger value="education" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-600">
               <GraduationCap className="w-4 h-4" />
               <span className="hidden sm:inline">Egitim Odemeleri</span>
               <span className="sm:hidden">Egitim</span>
@@ -766,10 +760,6 @@ export default function StudentDetailPage() {
 
         {/* TAB İÇERİKLERİ */}
         <div className="mt-6">
-          <TabsContent value="overview">
-            <StudentOverviewTab student={student} onRefresh={fetchStudentData} />
-          </TabsContent>
-
           <TabsContent value="education">
             <StudentFinanceTab student={student} onRefresh={fetchStudentData} tabMode="education" />
           </TabsContent>
