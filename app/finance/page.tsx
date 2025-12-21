@@ -115,97 +115,137 @@ export default function FinancePage() {
     }
   };
 
-  // PDF oluşturma fonksiyonu
+  // PDF oluşturma fonksiyonu - Sade tablo formatı
   const generatePDF = (section: string) => {
+    const today = new Date().toLocaleDateString('tr-TR');
+    const netDurum = summary.totalIncome - summary.totalExpense;
+    
     const printContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Finans Raporu - ${section}</title>
+        <title>Finans Raporu</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 40px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #10B981; padding-bottom: 20px; }
-          .header h1 { color: #10B981; margin: 0; }
-          .header p { color: #666; margin-top: 5px; }
-          .section { margin: 20px 0; padding: 20px; background: #f9fafb; border-radius: 8px; }
-          .section h2 { color: #374151; margin-bottom: 15px; font-size: 18px; }
-          .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-          .stat { padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; }
-          .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
-          .stat-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
+          .header { margin-bottom: 15px; }
+          .header h1 { font-size: 16px; font-weight: bold; margin-bottom: 3px; }
+          .header p { font-size: 10px; color: #666; }
+          .summary { display: flex; gap: 30px; margin: 15px 0; padding: 10px 0; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+          .summary-item { }
+          .summary-label { font-size: 9px; color: #666; }
+          .summary-value { font-size: 14px; font-weight: bold; }
+          .summary-value.green { color: #10B981; }
+          .summary-value.red { color: #EF4444; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #f3f4f6; padding: 8px 6px; text-align: left; font-size: 10px; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+          td { padding: 8px 6px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
           .green { color: #10B981; }
           .red { color: #EF4444; }
-          .blue { color: #3B82F6; }
-          .footer { margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px; }
+          .total-row { background: #f9fafb; font-weight: bold; }
+          .total-row td { border-top: 2px solid #374151; padding-top: 10px; }
+          .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #9ca3af; }
+          @media print { body { padding: 10px; } }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>📊 Finans Özet Raporu</h1>
-          <p>${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })} - ${section}</p>
+          <h1>Finansal Özet Raporu</h1>
+          <p>Tarih: ${today}</p>
         </div>
         
-        <div class="section">
-          <h2>💰 Genel Finansal Durum</h2>
-          <div class="grid">
-            <div class="stat">
-              <div class="stat-label">Toplam Gelir (Tahsilat)</div>
-              <div class="stat-value green">₺${summary.totalIncome.toLocaleString('tr-TR')}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Toplam Gider</div>
-              <div class="stat-value red">₺${summary.totalExpense.toLocaleString('tr-TR')}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Net Durum</div>
-              <div class="stat-value ${summary.netBalance >= 0 ? 'green' : 'red'}">₺${summary.netBalance.toLocaleString('tr-TR')}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Tahsilat Oranı</div>
-              <div class="stat-value blue">%${summary.collectionRate.toFixed(1)}</div>
-            </div>
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-label">Toplam Gelir</div>
+            <div class="summary-value green">₺${summary.totalIncome.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Toplam Gider</div>
+            <div class="summary-value red">₺${summary.totalExpense.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Net Durum</div>
+            <div class="summary-value ${netDurum >= 0 ? 'green' : 'red'}">₺${netDurum.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
           </div>
         </div>
         
-        <div class="section">
-          <h2>📅 Bu Ay Özeti</h2>
-          <div class="grid">
-            <div class="stat">
-              <div class="stat-label">Bu Ay Gelir</div>
-              <div class="stat-value green">₺${summary.thisMonthIncome.toLocaleString('tr-TR')}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Bu Ay Gider</div>
-              <div class="stat-value red">₺${summary.thisMonthExpense.toLocaleString('tr-TR')}</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="section">
-          <h2>📊 Taksit Durumu</h2>
-          <div class="grid">
-            <div class="stat">
-              <div class="stat-label">Ödenen Taksit</div>
-              <div class="stat-value green">${summary.paidCount}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Bekleyen Taksit</div>
-              <div class="stat-value blue">${summary.pendingCount}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Gecikmiş Taksit</div>
-              <div class="stat-value red">${summary.overdueCount}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Aktif Öğrenci</div>
-              <div class="stat-value blue">${summary.totalStudents}</div>
-            </div>
-          </div>
-        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Açıklama</th>
+              <th class="text-center">Durum</th>
+              <th class="text-right">Tutar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Eğitim Gelirleri (Tahsilat)</td>
+              <td class="text-center">Aktif</td>
+              <td class="text-right green">₺${summary.totalIncome.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Toplam Giderler</td>
+              <td class="text-center">Aktif</td>
+              <td class="text-right red">₺${summary.totalExpense.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Ödenen Taksit Sayısı</td>
+              <td class="text-center green">✓</td>
+              <td class="text-right">${summary.paidCount} adet</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>Bekleyen Taksit Sayısı</td>
+              <td class="text-center">Bekliyor</td>
+              <td class="text-right">${summary.pendingCount} adet</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>Gecikmiş Taksit Sayısı</td>
+              <td class="text-center red">Gecikmiş</td>
+              <td class="text-right red">${summary.overdueCount} adet</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td>Aktif Öğrenci Sayısı</td>
+              <td class="text-center">Aktif</td>
+              <td class="text-right">${summary.totalStudents} kişi</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>Tahsilat Oranı</td>
+              <td class="text-center">-</td>
+              <td class="text-right">%${summary.collectionRate.toFixed(1)}</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>Bu Ay Gelir</td>
+              <td class="text-center">Aktif</td>
+              <td class="text-right green">₺${summary.thisMonthIncome.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>Bu Ay Gider</td>
+              <td class="text-center">Aktif</td>
+              <td class="text-right red">₺${summary.thisMonthExpense.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr class="total-row">
+              <td></td>
+              <td><strong>NET DURUM</strong></td>
+              <td class="text-center"></td>
+              <td class="text-right ${netDurum >= 0 ? 'green' : 'red'}"><strong>₺${netDurum.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>
+          </tbody>
+        </table>
         
         <div class="footer">
-          <p>Bu rapor ${new Date().toLocaleString('tr-TR')} tarihinde oluşturulmuştur.</p>
-          <p>AkademiHub - Finansal Yönetim Sistemi</p>
+          <p>${new Date().toLocaleString('tr-TR')} | AkademiHub</p>
         </div>
       </body>
       </html>
