@@ -132,14 +132,12 @@ export function createServiceRoleClient(): SupabaseClient {
 }
 
 /**
- * @deprecated Use getAnonClient() instead
- * Creates RLS-compatible client. Now returns singleton.
- * Note: accessToken parameter is ignored - use proper auth middleware instead
+ * @deprecated Use getServiceRoleClient() instead
+ * For backward compatibility - returns service role client
  */
 export function createRlsServerClient(_accessToken?: string): SupabaseClient {
-  // For backward compatibility, return anon client
-  // In production, you should use proper Supabase Auth middleware
-  return getAnonClient();
+  // Service role client döndür - RLS bypass
+  return getServiceRoleClient();
 }
 
 // =============================================================================

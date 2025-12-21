@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 import type { FinanceInstallment, FinanceSummary } from '@/lib/types/finance';
 
 export const runtime = 'nodejs';
