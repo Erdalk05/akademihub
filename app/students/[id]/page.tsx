@@ -741,17 +741,27 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* TAB MENÜSÜ - 2 Tab */}
+      {/* TAB MENÜSÜ - 2 Tab Yeşil Tonları */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-lg p-1">
-            <TabsTrigger value="education" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-600">
-              <GraduationCap className="w-4 h-4" />
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-200 p-2">
+          <TabsList className="grid w-full grid-cols-2 bg-white/50 rounded-lg p-1 gap-2">
+            <TabsTrigger 
+              value="education" 
+              className="flex items-center gap-2 rounded-lg py-3 px-4 font-semibold transition-all
+                data-[state=inactive]:bg-emerald-100 data-[state=inactive]:text-emerald-700 data-[state=inactive]:hover:bg-emerald-200
+                data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+            >
+              <GraduationCap className="w-5 h-5" />
               <span className="hidden sm:inline">Egitim Odemeleri</span>
               <span className="sm:hidden">Egitim</span>
             </TabsTrigger>
-            <TabsTrigger value="other" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-teal-600">
-              <Package className="w-4 h-4" />
+            <TabsTrigger 
+              value="other" 
+              className="flex items-center gap-2 rounded-lg py-3 px-4 font-semibold transition-all
+                data-[state=inactive]:bg-teal-100 data-[state=inactive]:text-teal-700 data-[state=inactive]:hover:bg-teal-200
+                data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+            >
+              <Package className="w-5 h-5" />
               <span className="hidden sm:inline">Diger Satislar</span>
               <span className="sm:hidden">Diger</span>
             </TabsTrigger>

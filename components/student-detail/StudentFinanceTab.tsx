@@ -2246,10 +2246,10 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       {/* TAKSİT LİSTESİ - Sadece Eğitim Tab */}
       {(tabMode === 'education' || tabMode === 'all') && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="p-6 border-b border-emerald-200 bg-gradient-to-r from-emerald-50 via-green-50 to-emerald-50">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-600" />
               Ödeme Planı ve Hareketler
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
@@ -2266,7 +2266,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               {/* Taksit Ekle Butonu */}
               <button
                 onClick={() => setShowAddInstallmentModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 text-sm font-medium transition shadow-md"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 text-sm font-medium transition shadow-md"
               >
                 <Plus className="h-4 w-4" />
                 Taksit Ekle
@@ -2274,7 +2274,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               {installments.length > 0 && (
                 <button
                   onClick={downloadEducationSummaryPDF}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium transition"
                 >
                   <Download className="h-4 w-4" />
                   PDF
@@ -2343,7 +2343,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               {(student.total_amount || 0) > 0 && (
                 <button
                   onClick={() => setShowRestructureModal(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium"
                 >
                   <RefreshCw className="h-5 w-5" />
                   Taksit Planı Oluştur
@@ -2495,7 +2495,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           ) : (
                             <button
                               onClick={() => handlePayment(installment)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-medium transition shadow-sm"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition shadow-sm"
                               title="Tahsil Et"
                             >
                               <CreditCard className="h-3.5 w-3.5" />
@@ -2784,7 +2784,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                           ) : (
                             <button
                               onClick={() => handleOpenOtherPayment(income)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-medium transition shadow-sm"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition shadow-sm"
                               title="Tahsil Et"
                             >
                               <CreditCard className="h-3.5 w-3.5" />
@@ -2931,7 +2931,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
           </h3>
           <button 
             onClick={downloadContract}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium transition"
           >
             <Download className="h-4 w-4" />
             PDF İndir
@@ -2940,8 +2940,8 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
         {/* Sözleşme Önizleme Kartları */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Sol: Öğrenci & Veli Bilgileri */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
-            <h4 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-2">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-5">
+            <h4 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
               👤 Taraf Bilgileri
             </h4>
             <div className="space-y-3 text-sm">
@@ -4064,7 +4064,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+          <div className="bg-gradient-to-r from-emerald-600 to-green-600 p-6 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -4142,7 +4142,7 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
             <button
               onClick={handleAddInstallment}
               disabled={addingInstallment || !newInstallment.amount}
-              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-60 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+              className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl hover:from-emerald-700 hover:to-green-700 disabled:opacity-60 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
             >
               {addingInstallment ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />
