@@ -302,6 +302,8 @@ export default function StudentFinanceTab({ student, onRefresh, tabMode = 'all' 
     title: '',
     category: 'book' as 'book' | 'uniform' | 'meal' | 'stationery' | 'other',
     amount: '',
+    downPayment: '', // ✅ Peşinat tutarı
+    downPaymentDate: new Date().toISOString().split('T')[0], // ✅ Peşinat tarihi
     dueDate: new Date().toISOString().split('T')[0],
     notes: '',
     installmentCount: 1
@@ -653,8 +655,8 @@ Teşekkür ederiz. 🙏`;
 
   // Diğer Gelir Ekleme Fonksiyonu
   const handleAddOtherIncome = async () => {
-    const amount = parseFloat(newOtherIncome.amount);
-    if (!newOtherIncome.title.trim() || isNaN(amount) || amount <= 0) {
+    const totalAmount = parseFloat(newOtherIncome.amount.replace(',', '.'));
+    if (!newOtherIncome.title.trim() || isNaN(totalAmount) || totalAmount <= 0) {
       toast.error('Başlık ve geçerli tutar girin');
       return;
     }
@@ -663,41 +665,73 @@ Teşekkür ederiz. 🙏`;
     const toastId = toast.loading('Ekleniyor...');
     
     try {
-      // Taksit sayısına göre kayıt oluştur
+      const downPayment = parseFloat(newOtherIncome.downPayment.replace(',', '.') || '0');
       const installmentCount = newOtherIncome.installmentCount || 1;
-      const installmentAmount = amount / installmentCount;
       
-      for (let i = 0; i < installmentCount; i++) {
-        const dueDate = new Date(newOtherIncome.dueDate);
-        dueDate.setMonth(dueDate.getMonth() + i);
-        
-        const title = installmentCount > 1 
-          ? `${newOtherIncome.title} (${i + 1}/${installmentCount})`
-          : newOtherIncome.title;
-        
+      // ✅ Peşinat varsa önce peşinat kaydı oluştur (ödendi olarak)
+      if (downPayment > 0) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             student_id: student.id,
             organization_id: student.organization_id,
-            title,
+            title: `${newOtherIncome.title} (Peşinat)`,
             category: newOtherIncome.category,
-            amount: installmentAmount,
-            due_date: dueDate.toISOString().split('T')[0],
+            amount: downPayment,
+            due_date: newOtherIncome.downPaymentDate,
             notes: newOtherIncome.notes,
-            is_paid: false,
-            paid_amount: 0
+            is_paid: true,
+            paid_amount: downPayment,
+            paid_at: newOtherIncome.downPaymentDate
           })
         });
       }
       
-      toast.success(`✅ ${installmentCount > 1 ? `${installmentCount} taksit olarak` : ''} eklendi!`, { id: toastId });
+      // ✅ Kalan tutar taksitlere bölünür
+      const remainingAmount = totalAmount - downPayment;
+      
+      if (remainingAmount > 0) {
+        const installmentAmount = remainingAmount / installmentCount;
+        
+        for (let i = 0; i < installmentCount; i++) {
+          const dueDate = new Date(newOtherIncome.dueDate);
+          dueDate.setMonth(dueDate.getMonth() + i);
+          
+          const title = installmentCount > 1 
+            ? `${newOtherIncome.title} (Taksit ${i + 1}/${installmentCount})`
+            : newOtherIncome.title;
+          
+          await fetch('/api/finance/other-income', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              student_id: student.id,
+              organization_id: student.organization_id,
+              title,
+              category: newOtherIncome.category,
+              amount: installmentAmount,
+              due_date: dueDate.toISOString().split('T')[0],
+              notes: newOtherIncome.notes,
+              is_paid: false,
+              paid_amount: 0
+            })
+          });
+        }
+      }
+      
+      const message = downPayment > 0 
+        ? `✅ Peşinat + ${installmentCount} taksit eklendi!`
+        : `✅ ${installmentCount > 1 ? `${installmentCount} taksit olarak` : ''} eklendi!`;
+      
+      toast.success(message, { id: toastId });
       setShowAddOtherIncomeModal(false);
       setNewOtherIncome({
         title: '',
         category: 'book',
         amount: '',
+        downPayment: '',
+        downPaymentDate: new Date().toISOString().split('T')[0],
         dueDate: new Date().toISOString().split('T')[0],
         notes: '',
         installmentCount: 1
@@ -3824,45 +3858,90 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
               </div>
             </div>
 
-            {/* Tutar ve Taksit */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Toplam Tutar *</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={newOtherIncome.amount}
-                    onChange={(e) => setNewOtherIncome(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
-                    placeholder="0"
-                    className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Taksit Sayısı</label>
-                <select
-                  value={newOtherIncome.installmentCount}
-                  onChange={(e) => setNewOtherIncome(prev => ({ ...prev, installmentCount: parseInt(e.target.value) }))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
-                >
-                  {[1, 2, 3, 4, 5, 6].map(n => (
-                    <option key={n} value={n}>{n} Taksit</option>
-                  ))}
-                </select>
+            {/* Toplam Tutar */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Toplam Tutar *</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newOtherIncome.amount}
+                  onChange={(e) => setNewOtherIncome(prev => ({ ...prev, amount: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                  placeholder="0"
+                  className="w-full pl-10 pr-4 py-3 text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                />
               </div>
             </div>
 
-            {/* Vade Tarihi */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">İlk Vade Tarihi</label>
-              <input
-                type="date"
-                value={newOtherIncome.dueDate}
-                onChange={(e) => setNewOtherIncome(prev => ({ ...prev, dueDate: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
-              />
+            {/* Peşinat Bölümü */}
+            <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-200">
+              <label className="block text-sm font-semibold text-emerald-700 mb-3">💰 Peşinat (Opsiyonel)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-emerald-600 mb-1">Peşinat Tutarı</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">₺</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={newOtherIncome.downPayment}
+                      onChange={(e) => setNewOtherIncome(prev => ({ ...prev, downPayment: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                      placeholder="0"
+                      className="w-full pl-8 pr-3 py-2.5 font-semibold border-2 border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-emerald-600 mb-1">Peşinat Tarihi</label>
+                  <input
+                    type="date"
+                    value={newOtherIncome.downPaymentDate}
+                    onChange={(e) => setNewOtherIncome(prev => ({ ...prev, downPaymentDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border-2 border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
+                  />
+                </div>
+              </div>
+              {newOtherIncome.downPayment && parseFloat(newOtherIncome.downPayment.replace(',', '.')) > 0 && (
+                <p className="text-xs text-emerald-600 mt-2">
+                  Kalan tutar: ₺{((parseFloat(newOtherIncome.amount.replace(',', '.') || '0') - parseFloat(newOtherIncome.downPayment.replace(',', '.') || '0'))).toLocaleString('tr-TR')} taksitlere bölünecek
+                </p>
+              )}
+            </div>
+
+            {/* Taksit Bölümü */}
+            <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+              <label className="block text-sm font-semibold text-purple-700 mb-3">📅 Taksit Ayarları</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-purple-600 mb-1">Taksit Sayısı</label>
+                  <select
+                    value={newOtherIncome.installmentCount}
+                    onChange={(e) => setNewOtherIncome(prev => ({ ...prev, installmentCount: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2.5 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white font-semibold"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                      <option key={n} value={n}>{n} Taksit</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-purple-600 mb-1">İlk Taksit Tarihi</label>
+                  <input
+                    type="date"
+                    value={newOtherIncome.dueDate}
+                    onChange={(e) => setNewOtherIncome(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white"
+                  />
+                </div>
+              </div>
+              {newOtherIncome.installmentCount > 1 && (
+                <p className="text-xs text-purple-600 mt-2">
+                  {newOtherIncome.installmentCount} taksit, aylık ₺{(
+                    (parseFloat(newOtherIncome.amount.replace(',', '.') || '0') - parseFloat(newOtherIncome.downPayment.replace(',', '.') || '0')) / newOtherIncome.installmentCount
+                  ).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </p>
+              )}
             </div>
 
             {/* Not */}
