@@ -93,19 +93,22 @@ export default function StudentDetailPage() {
 
   const fetchFinanceSummary = async () => {
     try {
-      // Diğer satışlar verisini çek
-      const otherRes = await fetch(`/api/finance/other-income?student_id=${studentId}`);
-      const otherData = await otherRes.json();
+      // Paralel API çağrıları - HIZLI
+      const [otherRes, instRes] = await Promise.all([
+        fetch(`/api/finance/other-income?student_id=${studentId}`),
+        fetch(`/api/installments?student_id=${studentId}`)
+      ]);
+      
+      const [otherData, instData] = await Promise.all([
+        otherRes.json(),
+        instRes.json()
+      ]);
+      
       const otherIncomes = otherData.data || [];
+      const installments = instData.data || [];
       
       const otherTotal = otherIncomes.reduce((s: number, i: any) => s + (i.amount || 0), 0);
       const otherPaid = otherIncomes.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0);
-      
-      // Taksit verisini çek
-      const instRes = await fetch(`/api/installments?student_id=${studentId}`);
-      const instData = await instRes.json();
-      const installments = instData.data || [];
-      
       const eduTotal = installments.reduce((s: number, i: any) => s + (i.amount || 0), 0);
       const eduPaid = installments.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0);
       
