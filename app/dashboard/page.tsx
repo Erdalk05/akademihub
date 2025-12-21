@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense, useCallback, useRef, memo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
 import HeroBanner from '@/components/dashboard/HeroBanner';
 import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
+import { LazyDashboardSection } from '@/components/dashboard/LazyDashboardSection';
+import { useMobileOptimization } from '@/lib/hooks/useMobileOptimization';
 import { 
   Loader2, 
   AlertTriangle, 
@@ -16,33 +18,92 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-// LAZY LOADING
+// ✅ LAZY LOADING - Componentler sadece viewport'a girince yüklenir
 const TodayCollectionWidget = lazy(() => import('@/components/dashboard/TodayCollectionWidget'));
 const PendingPaymentsWidget = lazy(() => import('@/components/dashboard/PendingPaymentsWidget'));
 const GraphicsTabPanel = lazy(() => import('@/components/dashboard/GraphicsTabPanel'));
 
-// SKELETON LOADER
-const WidgetSkeleton = () => (
-  <div className="animate-pulse bg-emerald-50 rounded-2xl p-6 h-48 border border-emerald-100">
-    <div className="h-4 bg-emerald-200/50 rounded w-3/4 mb-4"></div>
-    <div className="h-8 bg-emerald-100 rounded w-1/2 mb-2"></div>
-    <div className="h-4 bg-emerald-50 rounded w-full"></div>
+// ✅ SKELETON LOADER - Mobil uyumlu
+const WidgetSkeleton = memo(() => (
+  <div className="animate-pulse bg-emerald-50 rounded-2xl p-4 md:p-6 h-40 md:h-48 border border-emerald-100">
+    <div className="h-3 md:h-4 bg-emerald-200/50 rounded w-3/4 mb-3 md:mb-4"></div>
+    <div className="h-6 md:h-8 bg-emerald-100 rounded w-1/2 mb-2"></div>
+    <div className="h-3 md:h-4 bg-emerald-50 rounded w-full"></div>
   </div>
-);
+));
+WidgetSkeleton.displayName = 'WidgetSkeleton';
+
+// ✅ KPI Card Skeleton - Mobil uyumlu  
+const KPICardSkeleton = memo(() => (
+  <div className="animate-pulse bg-white rounded-xl md:rounded-2xl p-3 md:p-5 border border-slate-100">
+    <div className="flex items-start justify-between">
+      <div className="flex-1">
+        <div className="h-2 md:h-3 bg-gray-200 rounded w-16 md:w-20 mb-2"></div>
+        <div className="h-5 md:h-8 bg-gray-100 rounded w-12 md:w-16"></div>
+      </div>
+      <div className="w-9 h-9 md:w-12 md:h-12 bg-gray-100 rounded-lg md:rounded-xl"></div>
+    </div>
+  </div>
+));
+KPICardSkeleton.displayName = 'KPICardSkeleton';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, _hasHydrated } = useAuthStore();
   const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
-  const { selectedYear } = useAcademicYearStore(); // Global store'dan al
+  const { selectedYear } = useAcademicYearStore();
   const [isClient, setIsClient] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ✅ Mobile optimization
+  const { isMobile, shouldDeferHeavyCalc } = useMobileOptimization();
+  
+  // ✅ AbortController for API calls
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    console.debug('[DASHBOARD] 📱 Mobile:', isMobile, 'DeferHeavy:', shouldDeferHeavyCalc);
+  }, [isMobile, shouldDeferHeavyCalc]);
 
+  // ✅ Memoized fetch function
+  const fetchDashboardData = useCallback(async (academicYear: string) => {
+    // Abort previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    setIsLoading(true);
+    console.debug('[DASHBOARD] 🔄 Fetching data...');
+    
+    try {
+      const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      
+      const response = await fetch(
+        `/api/dashboard/stats?academicYear=${academicYear}${orgParam}`,
+        { signal: controller.signal }
+      );
+      
+      if (controller.signal.aborted) return;
+      
+      const result = await response.json();
+      if (result.success) {
+        setDashboardData(result.data);
+        console.debug('[DASHBOARD] ✅ Data loaded');
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      console.error('[DASHBOARD] ❌ Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAllOrganizations, currentOrganization?.id]);
+
+  // ✅ Fetch on mount and dependency change
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!token) {
@@ -50,34 +111,13 @@ export default function DashboardPage() {
       return;
     }
     fetchDashboardData(selectedYear);
-  }, [_hasHydrated, token, router, selectedYear, currentOrganization, isAllOrganizations]);
-
-  const fetchDashboardData = async (academicYear: string) => {
-    setIsLoading(true);
-    try {
-      // Çoklu kurum desteği: organization_id filtresi (Tüm Kurumlar modunda boş)
-      const orgParam = !isAllOrganizations && currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
-      
-      // Debug log
-      console.log('[Dashboard] Fetching with:', {
-        academicYear,
-        organizationId: currentOrganization?.id,
-        organizationName: currentOrganization?.name,
-        isAllOrganizations,
-        apiUrl: `/api/dashboard/stats?academicYear=${academicYear}${orgParam}`
-      });
-      
-      const response = await fetch(`/api/dashboard/stats?academicYear=${academicYear}${orgParam}`);
-      const result = await response.json();
-      if (result.success) {
-        setDashboardData(result.data);
+    
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-    } catch {
-      // Error handling
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+  }, [_hasHydrated, token, router, selectedYear, fetchDashboardData]);
 
 
   if (!isClient || !_hasHydrated || !user) {
@@ -172,20 +212,45 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Widget'lar */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Suspense fallback={<WidgetSkeleton />}>
-            <TodayCollectionWidget onRefresh={() => fetchDashboardData(selectedYear)} academicYear={selectedYear} />
-          </Suspense>
-          <Suspense fallback={<WidgetSkeleton />}>
-            <PendingPaymentsWidget onRefresh={() => fetchDashboardData(selectedYear)} academicYear={selectedYear} />
-          </Suspense>
-        </div>
+        {/* ✅ Widget'lar - Lazy loaded, mobilde scroll'da yüklenir */}
+        <LazyDashboardSection 
+          id="widgets-section" 
+          minHeight={isMobile ? 160 : 200}
+          fallback={
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <WidgetSkeleton />
+              <WidgetSkeleton />
+            </div>
+          }
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <Suspense fallback={<WidgetSkeleton />}>
+              <TodayCollectionWidget onRefresh={() => fetchDashboardData(selectedYear)} academicYear={selectedYear} />
+            </Suspense>
+            <Suspense fallback={<WidgetSkeleton />}>
+              <PendingPaymentsWidget onRefresh={() => fetchDashboardData(selectedYear)} academicYear={selectedYear} />
+            </Suspense>
+          </div>
+        </LazyDashboardSection>
 
-        {/* Grafikler */}
-        <Suspense fallback={<WidgetSkeleton />}>
+        {/* ✅ Grafikler - Ağır component, lazy load ile yüklenir */}
+        <LazyDashboardSection 
+          id="charts-section" 
+          minHeight={isMobile ? 300 : 400}
+          rootMargin={isMobile ? '100px' : '300px'} // Mobilde daha yakın, masaüstünde daha erken
+          fallback={
+            <div className="animate-pulse bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 p-4 md:p-6" style={{ minHeight: isMobile ? 300 : 400 }}>
+              <div className="h-4 bg-emerald-200/50 rounded w-1/4 mb-6"></div>
+              <div className="flex gap-2 mb-4">
+                <div className="h-8 bg-emerald-100 rounded-lg w-24"></div>
+                <div className="h-8 bg-emerald-50 rounded-lg w-24"></div>
+              </div>
+              <div className="h-48 md:h-64 bg-emerald-100/30 rounded-xl"></div>
+            </div>
+          }
+        >
           <GraphicsTabPanel academicYear={selectedYear} />
-        </Suspense>
+        </LazyDashboardSection>
 
         {/* Yenile Butonu */}
         {!isLoading && (
