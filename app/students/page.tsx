@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useEffect, useMemo, useState, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -75,10 +75,19 @@ function StudentsContent() {
   // URL'den filter parametresini oku
   const urlFilter = searchParams.get('filter');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(''); // ✅ Debounced search
   const [statusFilter, setStatusFilter] = useState<'all' | 'debt' | 'paid' | 'critical' | 'deleted'>(
     urlFilter === 'deleted' ? 'deleted' : 'all'
   );
   const [classFilter, setClassFilter] = useState('');
+  
+  // ✅ Search Debounce (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   
   // UI
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
@@ -109,7 +118,7 @@ function StudentsContent() {
         params.set('organization_id', currentOrganization.id);
       }
       if (selectedYear) params.set('academic_year', selectedYear);
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       params.set('status_filter', statusFilter);
       if (classFilter) params.set('class_filter', classFilter);
       params.set('sort_field', sortField);
@@ -210,8 +219,20 @@ function StudentsContent() {
     }
   };
 
+  // ✅ İlk yükleme kontrolü - org/year hazır olana kadar bekle
+  const isReady = useMemo(() => {
+    // Tüm organizasyonlar modunda veya organization seçiliyse hazır
+    return isAllOrganizations || !!currentOrganization?.id;
+  }, [isAllOrganizations, currentOrganization?.id]);
+
   // Fetch Data
   useEffect(() => {
+    // Hazır değilse çağrı yapma
+    if (!isReady) {
+      console.log('[STUDENTS] ⏳ Bekleniyor... (org hazır değil)');
+      return;
+    }
+    
     const fetchData = async () => {
       setLoading(true);
       const optimizedSuccess = await fetchDataOptimized();
@@ -222,7 +243,7 @@ function StudentsContent() {
     };
     
     fetchData();
-  }, [selectedYear, currentOrganization?.id, isAllOrganizations, search, statusFilter, classFilter, sortField, sortDir, currentPage]);
+  }, [isReady, selectedYear, debouncedSearch, statusFilter, classFilter, sortField, sortDir, currentPage]);
 
   // ✅ Filtered & Sorted - Server mode'da API zaten filtrelenmiş/sıralanmış veri döner
   const filteredStudents = useMemo(() => {
