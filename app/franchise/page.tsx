@@ -115,20 +115,29 @@ export default function FranchiseDashboardPage() {
       const stats: OrganizationStats[] = [];
       const allGrades: Record<string, number> = {};
       
-      for (const org of orgs) {
+      // ✅ TÜM KURUMLARI PARALEL ÇEK - Çok daha hızlı!
+      const orgDataPromises = orgs.map(async (org) => {
+        const [studentsRes, installmentsRes, usersRes, otherIncomeRes] = await Promise.all([
+          fetch(`/api/students?organization_id=${org.id}`),
+          fetch(`/api/installments?organization_id=${org.id}`),
+          fetch(`/api/settings/users?organization_id=${org.id}&is_super_admin=true`),
+          fetch(`/api/finance/other-income?organization_id=${org.id}`)
+        ]);
+        
+        const [studentsData, installmentsData, usersData, otherIncomeData] = await Promise.all([
+          studentsRes.json(),
+          installmentsRes.json(),
+          usersRes.json(),
+          otherIncomeRes.json()
+        ]);
+        
+        return { org, studentsData, installmentsData, usersData, otherIncomeData };
+      });
+      
+      const allOrgData = await Promise.all(orgDataPromises);
+      
+      for (const { org, studentsData, installmentsData, usersData, otherIncomeData } of allOrgData) {
         try {
-          const [studentsRes, installmentsRes, usersRes, otherIncomeRes] = await Promise.all([
-            fetch(`/api/students?organization_id=${org.id}`),
-            fetch(`/api/installments?organization_id=${org.id}`),
-            fetch(`/api/settings/users?organization_id=${org.id}&is_super_admin=true`),
-            fetch(`/api/finance/other-income?organization_id=${org.id}`)
-          ]);
-          
-          const studentsData = await studentsRes.json();
-          const installmentsData = await installmentsRes.json();
-          const usersData = await usersRes.json();
-          const otherIncomeData = await otherIncomeRes.json();
-          
           const students = studentsData.data || [];
           const installments = installmentsData.data || [];
           const orgUsers = (usersData.data || []).filter((u: any) => u.organization_id === org.id);

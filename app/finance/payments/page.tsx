@@ -75,47 +75,30 @@ export default function CollectionsPage() {
   const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<CollectionRow[]>([]);
 
-  // Fetch Data
+  // Fetch Data - ✅ TEK API ÇAĞRISI (JOIN ile öğrenci bilgisi geliyor)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Çoklu kurum desteği
         const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
-        const [installmentsRes, studentsRes] = await Promise.all([
-          fetch(`/api/installments${orgParam ? `?${orgParam}` : ''}`),
-          fetch('/api/students')
-        ]);
+        const response = await fetch(`/api/installments${orgParam ? `?${orgParam}` : ''}`);
+        const json = await response.json();
+        const installments = json.data || [];
         
-        const installmentsJson = await installmentsRes.json();
-        const studentsJson = await studentsRes.json();
-        
-        const installments = installmentsJson.data || [];
-        const students = studentsJson.data || [];
-        
-        // Student lookup
-        const studentMap: Record<string, any> = {};
-        students.forEach((s: any) => {
-          studentMap[s.id] = s;
-        });
-        
-        // Filter only paid installments
+        // Filter only paid installments - öğrenci bilgisi zaten JOIN ile geldi
         const paidInstallments = installments
           .filter((i: any) => i.is_paid && i.paid_at)
-          .map((i: any) => {
-            const student = studentMap[i.student_id] || {};
-            return {
-              id: i.id,
-              studentId: i.student_id,
-              studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.full_name || 'Bilinmeyen',
-              studentNo: student.student_no || '-',
-              studentClass: student.class || student.enrolled_class || '-',
-              amount: Number(i.amount) || 0,
-              paidAt: new Date(i.paid_at),
-              installmentNo: i.installment_no || 0,
-              paymentMethod: i.payment_method || 'Nakit',
-            };
-          })
+          .map((i: any) => ({
+            id: i.id,
+            studentId: i.student_id,
+            studentName: i.studentName || 'Bilinmeyen',
+            studentNo: i.studentNo || '-',
+            studentClass: i.studentClass || '-',
+            amount: Number(i.amount) || 0,
+            paidAt: new Date(i.paid_at),
+            installmentNo: i.installment_no || 0,
+            paymentMethod: i.payment_method || 'Nakit',
+          }))
           .sort((a: CollectionRow, b: CollectionRow) => b.paidAt.getTime() - a.paidAt.getTime());
         
         setCollections(paidInstallments);
