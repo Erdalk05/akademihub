@@ -372,6 +372,97 @@ export default function FounderReportPage() {
     Oran: s.totalStudents > 0 ? (s.freeStudents / s.totalStudents) * 100 : 0
   })), [classStats]);
 
+  // Tab bazlı PDF oluşturma
+  const exportTabPDF = (tabType: string) => {
+    const today = new Date().toLocaleDateString('tr-TR');
+    let title = '';
+    let tableHeaders = '';
+    let tableRows = '';
+    let summary = '';
+    
+    switch (tabType) {
+      case 'classes':
+        title = 'Sınıf Bazlı Detaylı Analiz';
+        tableHeaders = '<tr><th>SINIF</th><th class="text-center">ÜCRETLİ</th><th class="text-center">ÜCRETSİZ</th><th class="text-center">TOPLAM</th><th class="text-right">TOPLAM GELİR</th><th class="text-right">TAHSİL EDİLEN</th><th class="text-right">ORT. ÜCRET</th><th class="text-center">TAHSİLAT</th></tr>';
+        tableRows = classStats.map(s => `
+          <tr>
+            <td><strong>${s.class}. Sınıf</strong></td>
+            <td class="text-center">${s.paidStudents}</td>
+            <td class="text-center green">${s.freeStudents}</td>
+            <td class="text-center"><strong>${s.totalStudents}</strong></td>
+            <td class="text-right">₺${formatCurrency(s.totalAmount)}</td>
+            <td class="text-right ${s.collectedAmount > 0 ? 'green' : 'red'}">₺${formatCurrency(s.collectedAmount)}</td>
+            <td class="text-right">₺${formatCurrency(s.averageFee)}</td>
+            <td class="text-center ${s.collectionRate >= 50 ? 'green' : s.collectionRate > 0 ? 'amber' : 'red'}">%${s.collectionRate.toFixed(0)}</td>
+          </tr>
+        `).join('');
+        tableRows += `<tr class="total-row"><td><strong>TOPLAM</strong></td><td class="text-center"><strong>${totals.paidStudents}</strong></td><td class="text-center green"><strong>${totals.freeStudents}</strong></td><td class="text-center"><strong>${totals.totalStudents}</strong></td><td class="text-right"><strong>₺${formatCurrency(totals.totalRevenue)}</strong></td><td class="text-right green"><strong>₺${formatCurrency(totals.collectedRevenue)}</strong></td><td class="text-right"><strong>₺${formatCurrency(totals.averageFeePerStudent)}</strong></td><td class="text-center green"><strong>%${totals.collectionRate.toFixed(0)}</strong></td></tr>`;
+        break;
+      case 'free':
+        title = 'Ücretsiz Öğrenci Listesi';
+        tableHeaders = '<tr><th>#</th><th>ÖĞRENCİ ADI</th><th class="text-center">SINIF</th><th class="text-center">KAYIT TARİHİ</th></tr>';
+        tableRows = freeStudents.map((s, idx) => `<tr><td>${idx + 1}</td><td>${s.name}</td><td class="text-center">${s.class}</td><td class="text-center">${s.registrationDate}</td></tr>`).join('');
+        summary = `<div class="summary">Toplam Ücretsiz Öğrenci: <strong>${freeStudents.length}</strong> | Oran: <strong>%${totals.totalStudents > 0 ? ((totals.freeStudents/totals.totalStudents)*100).toFixed(1) : 0}</strong></div>`;
+        break;
+      case 'deleted':
+        title = 'Kaydı Silinen Öğrenciler';
+        tableHeaders = '<tr><th>#</th><th>ÖĞRENCİ ADI</th><th class="text-center">SINIF</th><th class="text-right">TOPLAM ÜCRET</th><th class="text-right">TAHSİL EDİLEN</th><th class="text-right">İPTAL EDİLEN</th><th class="text-center">SİLİNME TARİHİ</th></tr>';
+        tableRows = deletedStudents.map((s, idx) => `<tr><td>${idx + 1}</td><td>${s.name}</td><td class="text-center">${s.class}</td><td class="text-right">₺${formatCurrency(s.totalAmount)}</td><td class="text-right green">₺${formatCurrency(s.collectedAmount)}</td><td class="text-right red">₺${formatCurrency(s.remainingAmount)}</td><td class="text-center">${s.deletedDate}</td></tr>`).join('');
+        tableRows += `<tr class="total-row"><td colspan="3"><strong>TOPLAM</strong></td><td class="text-right"><strong>₺${formatCurrency(totals.deletedTotalAmount)}</strong></td><td class="text-right green"><strong>₺${formatCurrency(totals.deletedCollectedAmount)}</strong></td><td class="text-right red"><strong>₺${formatCurrency(totals.deletedTotalAmount - totals.deletedCollectedAmount)}</strong></td><td></td></tr>`;
+        break;
+      case 'risk':
+        title = 'Riskli Öğrenci Listesi';
+        tableHeaders = '<tr><th>#</th><th>ÖĞRENCİ ADI</th><th class="text-center">SINIF</th><th class="text-right">BORÇ</th><th class="text-center">GECİKME</th><th class="text-center">RİSK SEVİYESİ</th></tr>';
+        tableRows = riskStudents.map((s, idx) => `<tr><td>${idx + 1}</td><td>${s.name}</td><td class="text-center">${s.class}</td><td class="text-right red">₺${formatCurrencyShort(s.totalDebt)}</td><td class="text-center">${s.overdueDays} gün</td><td class="text-center ${s.riskLevel === 'critical' ? 'red' : s.riskLevel === 'high' ? 'amber' : 'green'}">${s.riskLevel === 'critical' ? 'Kritik' : s.riskLevel === 'high' ? 'Yüksek' : s.riskLevel === 'medium' ? 'Orta' : 'Düşük'}</td></tr>`).join('');
+        const criticalCount = riskStudents.filter(s => s.riskLevel === 'critical').length;
+        const highCount = riskStudents.filter(s => s.riskLevel === 'high').length;
+        summary = `<div class="summary">Kritik: <strong class="red">${criticalCount}</strong> | Yüksek: <strong class="amber">${highCount}</strong> | Toplam Riskli: <strong>${riskStudents.length}</strong></div>`;
+        break;
+      default:
+        return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
+    .header { margin-bottom: 15px; border-bottom: 2px solid #10B981; padding-bottom: 10px; }
+    .header h1 { font-size: 18px; font-weight: bold; color: #075E54; }
+    .header p { font-size: 11px; color: #666; margin-top: 3px; }
+    .summary { background: #f0fdf4; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #10B981; color: white; padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 600; }
+    td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .green { color: #10B981; }
+    .red { color: #EF4444; }
+    .amber { color: #F59E0B; }
+    .total-row { background: #f0fdf4; font-weight: bold; }
+    .total-row td { border-top: 2px solid #10B981; }
+    .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #9ca3af; }
+    @media print { body { padding: 10px; } }
+  </style>
+</head><body>
+  <div class="header">
+    <h1>${title}</h1>
+    <p>Tarih: ${today}</p>
+  </div>
+  ${summary}
+  <table><thead>${tableHeaders}</thead><tbody>${tableRows}</tbody></table>
+  <div class="footer">${new Date().toLocaleString('tr-TR')} | AkademiHub</div>
+</body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 500);
+    }
+  };
+
   // Profesyonel PDF Çıktısı
   const exportToPDF = () => {
     const reportDate = new Date().toLocaleDateString('tr-TR');
@@ -954,8 +1045,11 @@ export default function FounderReportPage() {
         {/* Classes Tab */}
         {activeTab === 'classes' && (
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-[#075E54] to-[#128C7E]">
+            <div className="p-4 bg-gradient-to-r from-[#075E54] to-[#128C7E] flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2"><GraduationCap className="w-5 h-5" /> Sınıf Bazlı Detaylı Analiz</h3>
+              <button onClick={() => exportTabPDF('classes')} className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                <Printer className="w-4 h-4" /> PDF
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1064,8 +1158,11 @@ export default function FounderReportPage() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600">
+              <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="w-5 h-5" /> Ücretsiz Öğrenci Listesi ({freeStudents.length})</h3>
+                <button onClick={() => exportTabPDF('free')} className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                  <Printer className="w-4 h-4" /> PDF
+                </button>
               </div>
               <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                 <table className="w-full">
@@ -1139,11 +1236,16 @@ export default function FounderReportPage() {
             
             {/* Deleted Students Table */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <X className="w-5 h-5" /> Kaydı Silinen Öğrenciler ({deletedStudents.length})
-                </h3>
-                <p className="text-white/80 text-sm mt-1">Tahsil edilen ödemeler korunmuştur</p>
+              <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <X className="w-5 h-5" /> Kaydı Silinen Öğrenciler ({deletedStudents.length})
+                  </h3>
+                  <p className="text-white/80 text-sm mt-1">Tahsil edilen ödemeler korunmuştur</p>
+                </div>
+                <button onClick={() => exportTabPDF('deleted')} className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                  <Printer className="w-4 h-4" /> PDF
+                </button>
               </div>
               <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                 <table className="w-full">
@@ -1261,8 +1363,11 @@ export default function FounderReportPage() {
               ))}
             </div>
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600">
+              <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Shield className="w-5 h-5" /> Riskli Öğrenci Listesi ({riskStudents.length})</h3>
+                <button onClick={() => exportTabPDF('risk')} className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                  <Printer className="w-4 h-4" /> PDF
+                </button>
               </div>
               <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                 <table className="w-full">
