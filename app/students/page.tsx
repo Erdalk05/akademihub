@@ -225,13 +225,33 @@ function StudentsContent() {
     return isAllOrganizations || !!currentOrganization?.id;
   }, [isAllOrganizations, currentOrganization?.id]);
 
-  // Fetch Data
+  // ✅ İlk yükleme flag'i - gereksiz çoklu çağrıları engeller
+  const initialLoadDone = useRef(false);
+  const lastFetchParams = useRef<string>('');
+  
+  // Fetch Data - SADECE gerçek filtre değişikliklerinde çağrılır
   useEffect(() => {
     // Hazır değilse çağrı yapma
     if (!isReady) {
       console.log('[STUDENTS] ⏳ Bekleniyor... (org hazır değil)');
       return;
     }
+    
+    // ✅ Aynı parametrelerle tekrar çağrı yapma
+    const currentParams = JSON.stringify({
+      org: currentOrganization?.id,
+      year: selectedYear,
+      search: debouncedSearch,
+      status: statusFilter,
+      class: classFilter,
+      page: currentPage
+    });
+    
+    if (currentParams === lastFetchParams.current && initialLoadDone.current) {
+      console.log('[STUDENTS] ⏭️ Aynı parametreler, çağrı atlanıyor');
+      return;
+    }
+    lastFetchParams.current = currentParams;
     
     const fetchData = async () => {
       setLoading(true);
@@ -240,16 +260,34 @@ function StudentsContent() {
         console.warn('[STUDENTS] RPC failed, using fallback');
         await fetchDataFallback();
       }
+      initialLoadDone.current = true;
     };
     
     fetchData();
-  }, [isReady, selectedYear, debouncedSearch, statusFilter, classFilter, sortField, sortDir, currentPage]);
+  }, [isReady, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage]); // ✅ sortField ve sortDir KALDIRILDI - client-side yapılacak
 
-  // ✅ Filtered & Sorted - Server mode'da API zaten filtrelenmiş/sıralanmış veri döner
+  // ✅ Filtered & Sorted - Client-side sıralama (API çağrısı azaltmak için)
   const filteredStudents = useMemo(() => {
-    // Server mode: API zaten filtreleme ve sıralama yaptı
+    // ✅ Önce client-side sıralama yap (API çağrısı yapmadan)
+    let sorted = [...students];
+    
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'name') {
+        const nameA = (a.full_name || `${a.first_name || ''} ${a.last_name || ''}` || a.parent_name || '').toLowerCase();
+        const nameB = (b.full_name || `${b.first_name || ''} ${b.last_name || ''}` || b.parent_name || '').toLowerCase();
+        cmp = nameA.localeCompare(nameB, 'tr');
+      } else if (sortField === 'debt') {
+        cmp = a.debt - b.debt;
+      } else if (sortField === 'risk') {
+        const riskOrder = { 'Yüksek': 3, 'Orta': 2, 'Düşük': 1, 'Yok': 0 };
+        cmp = (riskOrder[a.risk] || 0) - (riskOrder[b.risk] || 0);
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    
     if (useServerMode) {
-      return students;
+      return sorted;
     }
     
     // Fallback mode: Client-side filtreleme
