@@ -28,7 +28,9 @@ import toast from 'react-hot-toast';
 
 // Tab Components
 import StudentFinanceTab from '@/components/student-detail/StudentFinanceTab';
+import StudentNotesTab from '@/components/student-detail/StudentNotesTab';
 import ImageUploadModal from '@/components/upload/ImageUploadModal';
+import { StickyNote } from 'lucide-react';
 
 // Permission System
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -780,13 +782,14 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* TAB MENÜSÜ - 2 Tab Yeşil Tonları */}
+      {/* TAB MENÜSÜ - 3 Tab: Eğitim Ödemeleri, Diğer Satışlar, Notlar */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-200 p-2">
-          <TabsList className="grid w-full grid-cols-2 bg-white/50 rounded-lg p-1 gap-2">
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 rounded-xl shadow-sm border border-emerald-200 p-2">
+          <TabsList className="grid w-full grid-cols-3 bg-white/50 rounded-lg p-1 gap-2">
+            {/* Eğitim Ödemeleri */}
             <TabsTrigger 
               value="education" 
-              className="flex items-center gap-2 rounded-lg py-3 px-4 font-semibold transition-all
+              className="flex items-center gap-2 rounded-lg py-3 px-3 font-semibold transition-all
                 data-[state=inactive]:bg-emerald-100 data-[state=inactive]:text-emerald-700 data-[state=inactive]:hover:bg-emerald-200
                 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
             >
@@ -794,9 +797,11 @@ export default function StudentDetailPage() {
               <span className="hidden sm:inline">Egitim Odemeleri</span>
               <span className="sm:hidden">Egitim</span>
             </TabsTrigger>
+            
+            {/* Diğer Satışlar */}
             <TabsTrigger 
               value="other" 
-              className="flex items-center gap-2 rounded-lg py-3 px-4 font-semibold transition-all
+              className="flex items-center gap-2 rounded-lg py-3 px-3 font-semibold transition-all
                 data-[state=inactive]:bg-teal-100 data-[state=inactive]:text-teal-700 data-[state=inactive]:hover:bg-teal-200
                 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
             >
@@ -804,17 +809,36 @@ export default function StudentDetailPage() {
               <span className="hidden sm:inline">Diger Satislar</span>
               <span className="sm:hidden">Diger</span>
             </TabsTrigger>
+            
+            {/* Notlar */}
+            <TabsTrigger 
+              value="notes" 
+              className="flex items-center gap-2 rounded-lg py-3 px-3 font-semibold transition-all
+                data-[state=inactive]:bg-indigo-100 data-[state=inactive]:text-indigo-700 data-[state=inactive]:hover:bg-indigo-200
+                data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+            >
+              <StickyNote className="w-5 h-5" />
+              <span className="hidden sm:inline">Notlar</span>
+              <span className="sm:hidden">Not</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
         {/* TAB İÇERİKLERİ */}
         <div className="mt-6">
+          {/* Eğitim Ödemeleri */}
           <TabsContent value="education">
             <StudentFinanceTab student={student} onRefresh={fetchStudentData} tabMode="education" />
           </TabsContent>
 
+          {/* Diğer Satışlar */}
           <TabsContent value="other">
             <StudentFinanceTab student={student} onRefresh={fetchStudentData} tabMode="other" />
+          </TabsContent>
+
+          {/* Notlar */}
+          <TabsContent value="notes">
+            <StudentNotesTab student={student} onRefresh={fetchStudentData} />
           </TabsContent>
         </div>
       </Tabs>
