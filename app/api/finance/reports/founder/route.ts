@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'nodejs';
+// ✅ Edge Runtime - Cold Start YOK
+export const runtime = 'edge';
+
+function getEdgeSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * GET /api/finance/reports/founder
@@ -13,7 +22,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const organizationId = searchParams.get('organization_id');
     
-    const supabase = getServiceRoleClient();
+    const supabase = getEdgeSupabaseClient();
     
     // Tek RPC çağrısı ile tüm verileri al
     const { data, error } = await supabase.rpc('get_founder_report', {

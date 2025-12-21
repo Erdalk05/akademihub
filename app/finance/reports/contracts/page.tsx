@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { 
   FileText, 
@@ -69,17 +69,43 @@ export default function ContractsPage() {
   
   // Organization context
   const { currentOrganization } = useOrganizationStore();
+  
+  // ✅ AbortController ile çoklu çağrı engelleme
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchCountRef = useRef(0);
 
   // ✅ OPTİMİZE: Tek API çağrısı ile hem taksit hem öğrenci verisi
   useEffect(() => {
+    // Org hazır değilse çağrı yapma
+    if (!currentOrganization?.id) {
+      console.log('[CONTRACTS] ⏳ Org hazır değil, bekleniyor...');
+      return;
+    }
+    
+    // Önceki isteği iptal et
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    const fetchId = ++fetchCountRef.current;
+    console.log(`[CONTRACTS] 🔄 Fetch #${fetchId} başladı`);
+    
     const fetchData = async () => {
       setLoading(true);
       try {
-        const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}&` : '';
+        const orgParam = `organization_id=${currentOrganization.id}&`;
         
         // ✅ Tek çağrı: withStudent=true ile hem taksitler hem öğrenciler
-        const res = await fetch(`/api/installments?${orgParam}withStudent=true`);
+        const res = await fetch(`/api/installments?${orgParam}withStudent=true`, { signal: controller.signal });
+        
+        if (controller.signal.aborted) return;
+        
         const data = await res.json();
+        
+        console.log(`[CONTRACTS] ✅ Fetch #${fetchId} tamamlandı`);
         
         if (data.success) {
           setInstallments(data.data || []);
@@ -87,13 +113,17 @@ export default function ContractsPage() {
         }
 
       } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error('Fetch error:', err);
         toast.error('Veriler yüklenemedi: ' + err.message);
       } finally {
         setLoading(false);
       }
     };
+    
     fetchData();
+    
+    return () => controller.abort();
   }, [currentOrganization?.id]);
 
   // Calculate student payment status

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Users, TrendingUp, DollarSign, BarChart3, PieChart, Target, AlertTriangle, CheckCircle,
   Download, RefreshCw, Brain, GraduationCap, Wallet, Clock, Shield, Award, Gift, Calculator,
@@ -106,50 +106,80 @@ export default function FounderReportPage() {
     deletedCollectedAmount: 0, deletedTotalAmount: 0,
   });
 
-  useEffect(() => { fetchAllData(); }, [currentOrganization?.id]);
+  // ✅ AbortController ile çoklu çağrı engelleme
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchCountRef = useRef(0);
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    try {
-      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
-      
-      // ✅ OPTİMİZE: Tek RPC çağrısı ile tüm aggregation'lar SQL'de yapılır
-      const res = await fetch(`/api/finance/reports/founder${orgParam ? '?' + orgParam : ''}`);
-      const result = await res.json();
-      
-      // RPC başarılı ise direkt kullan
-      if (result.success && result.data) {
-        const data = result.data;
-        setTotals(data.totals);
-        setClassStats(data.classStats);
-        setMonthlyData(data.monthlyData);
-        setRiskStudents(data.riskStudents);
-        setFreeStudents(data.freeStudents);
-        setDeletedStudents(data.deletedStudents);
-        setAllStudents(data.allStudents);
-        setAiInsights(data.aiInsights);
-        setLoading(false);
-        return;
-      }
-      
-      // ✅ FALLBACK: RPC yoksa eski yöntem (migration yapılmamışsa)
-      console.warn('[FOUNDER] RPC failed, using fallback method');
-      await fetchAllDataFallback();
-      
-    } catch (error) {
-      console.error('Veri yükleme hatası:', error);
-      // Fallback
-      await fetchAllDataFallback();
-    } finally { setLoading(false); }
-  };
+  useEffect(() => {
+    // Org hazır değilse çağrı yapma
+    if (!currentOrganization?.id) {
+      console.log('[FOUNDER] ⏳ Org hazır değil, bekleniyor...');
+      return;
+    }
+    
+    // Önceki isteği iptal et
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    const fetchId = ++fetchCountRef.current;
+    console.log(`[FOUNDER] 🔄 Fetch #${fetchId} başladı`);
+    
+    const fetchAllData = async () => {
+      setLoading(true);
+      try {
+        const orgParam = `organization_id=${currentOrganization.id}`;
+        
+        // ✅ OPTİMİZE: Tek RPC çağrısı
+        const res = await fetch(`/api/finance/reports/founder?${orgParam}`, { signal: controller.signal });
+        
+        if (controller.signal.aborted) return;
+        
+        const result = await res.json();
+        
+        console.log(`[FOUNDER] ✅ Fetch #${fetchId} tamamlandı`);
+        
+        // RPC başarılı ise direkt kullan
+        if (result.success && result.data) {
+          const data = result.data;
+          setTotals(data.totals);
+          setClassStats(data.classStats);
+          setMonthlyData(data.monthlyData);
+          setRiskStudents(data.riskStudents);
+          setFreeStudents(data.freeStudents);
+          setDeletedStudents(data.deletedStudents);
+          setAllStudents(data.allStudents);
+          setAiInsights(data.aiInsights);
+          setLoading(false);
+          return;
+        }
+        
+        // ✅ FALLBACK
+        console.warn('[FOUNDER] RPC failed, using fallback method');
+        await fetchAllDataFallback(controller.signal);
+        
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
+        console.error('Veri yükleme hatası:', error);
+        await fetchAllDataFallback(controller.signal);
+      } finally { setLoading(false); }
+    };
+    
+    fetchAllData();
+    
+    return () => controller.abort();
+  }, [currentOrganization?.id]);
   
   // Fallback method (RPC yoksa kullanılır)
-  const fetchAllDataFallback = async () => {
+  const fetchAllDataFallback = async (signal?: AbortSignal) => {
     try {
       const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       const [studentsRes, installmentsRes] = await Promise.all([
-        fetch(`/api/students${orgParam ? '?' + orgParam : ''}`), 
-        fetch(`/api/installments?${orgParam}${orgParam ? '&' : ''}raw=true`)
+        fetch(`/api/students${orgParam ? '?' + orgParam : ''}`, { signal }), 
+        fetch(`/api/installments?${orgParam}${orgParam ? '&' : ''}raw=true`, { signal })
       ]);
       const studentsData = await studentsRes.json();
       const installmentsData = await installmentsRes.json();
