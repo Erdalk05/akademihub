@@ -108,10 +108,24 @@ function StudentsContent() {
   const [serverPagination, setServerPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [serverStats, setServerStats] = useState<{ totalActive: number; withDebt: number; paid: number; critical: number; deleted: number } | null>(null);
   const [useServerMode, setUseServerMode] = useState(true);
+  
+  // ✅ AbortController ref - önceki istekleri iptal etmek için
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchCountRef = useRef(0);
 
-  // ✅ OPTİMİZE: Yeni RPC tabanlı API (tüm hesaplamalar SQL'de)
-  const fetchDataOptimized = async () => {
+  // ✅ TEK FETCH FONKSİYONU - useCallback ile memoize edildi
+  const fetchStudents = useCallback(async (signal?: AbortSignal) => {
+    // Organization hazır değilse çık
+    if (!isAllOrganizations && !currentOrganization?.id) {
+      console.log('[STUDENTS] ⏳ Org hazır değil, bekleniyor...');
+      return;
+    }
+    
+    const fetchId = ++fetchCountRef.current;
+    console.log(`[STUDENTS] 🔄 Fetch #${fetchId} başladı`);
+    
     setLoading(true);
+    
     try {
       const params = new URLSearchParams();
       if (!isAllOrganizations && currentOrganization?.id) {
@@ -121,51 +135,57 @@ function StudentsContent() {
       if (debouncedSearch) params.set('search', debouncedSearch);
       params.set('status_filter', statusFilter);
       if (classFilter) params.set('class_filter', classFilter);
-      params.set('sort_field', sortField);
-      params.set('sort_dir', sortDir);
+      params.set('sort_field', 'name'); // Her zaman name ile başla, client-side sort yapılacak
+      params.set('sort_dir', 'asc');
       params.set('page', currentPage.toString());
       params.set('page_size', pageSize.toString());
       
-      console.log('[STUDENTS] 🔄 API çağrılıyor:', `/api/students/list?${params.toString()}`);
-      const fetchStart = performance.now();
+      const res = await fetch(`/api/students/list?${params.toString()}`, { signal });
       
-      const res = await fetch(`/api/students/list?${params.toString()}`);
+      // İptal edildiyse çık
+      if (signal?.aborted) {
+        console.log(`[STUDENTS] ⏹️ Fetch #${fetchId} iptal edildi`);
+        return;
+      }
+      
       const json = await res.json();
       
-      console.log('[STUDENTS] 📊 API yanıtı:', {
+      console.log(`[STUDENTS] ✅ Fetch #${fetchId} tamamlandı:`, {
         success: json.success,
-        fallback: json.fallback,
-        studentCount: json.data?.length,
-        duration: `${Math.round(performance.now() - fetchStart)}ms`,
-        error: json.error
+        studentCount: json.data?.length
       });
       
       if (json.success && !json.fallback) {
-        // RPC başarılı - server-side pagination aktif
         setStudents(json.data || []);
         setServerPagination(json.pagination);
         setServerStats(json.stats);
         setUseServerMode(true);
-        setLoading(false);
-        return true;
+      } else {
+        // Fallback: Eski yöntem
+        await fetchFallback(signal);
       }
-      
-      return false; // Fallback gerekli
-    } catch {
-      return false;
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log(`[STUDENTS] ⏹️ Fetch #${fetchId} iptal edildi (abort)`);
+        return;
+      }
+      console.error('[STUDENTS] ❌ Hata:', err);
+      await fetchFallback(signal);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [isAllOrganizations, currentOrganization?.id, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage, pageSize]);
 
   // Fallback: Eski yöntem (RPC yoksa)
-  const fetchDataFallback = async () => {
+  const fetchFallback = async (signal?: AbortSignal) => {
     try {
       const orgParam = !isAllOrganizations && currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       const yearParam = `academic_year=${selectedYear}`;
       const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
       
       const [studentsRes, installmentsRes] = await Promise.all([
-        fetch(`/api/students?${studentsQuery}`),
-        fetch(`/api/installments?summary=true${orgParam ? `&${orgParam}` : ''}`)
+        fetch(`/api/students?${studentsQuery}`, { signal }),
+        fetch(`/api/installments?summary=true${orgParam ? `&${orgParam}` : ''}`, { signal })
       ]);
       
       const studentsJson = await studentsRes.json();
@@ -219,52 +239,25 @@ function StudentsContent() {
     }
   };
 
-  // ✅ İlk yükleme kontrolü - org/year hazır olana kadar bekle
-  const isReady = useMemo(() => {
-    // Tüm organizasyonlar modunda veya organization seçiliyse hazır
-    return isAllOrganizations || !!currentOrganization?.id;
-  }, [isAllOrganizations, currentOrganization?.id]);
-
-  // ✅ İlk yükleme flag'i - gereksiz çoklu çağrıları engeller
-  const initialLoadDone = useRef(false);
-  const lastFetchParams = useRef<string>('');
-  
-  // Fetch Data - SADECE gerçek filtre değişikliklerinde çağrılır
+  // ✅ TEK useEffect - AbortController ile önceki istekleri iptal eder
   useEffect(() => {
-    // Hazır değilse çağrı yapma
-    if (!isReady) {
-      console.log('[STUDENTS] ⏳ Bekleniyor... (org hazır değil)');
-      return;
+    // Önceki isteği iptal et
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
     
-    // ✅ Aynı parametrelerle tekrar çağrı yapma
-    const currentParams = JSON.stringify({
-      org: currentOrganization?.id,
-      year: selectedYear,
-      search: debouncedSearch,
-      status: statusFilter,
-      class: classFilter,
-      page: currentPage
-    });
+    // Yeni AbortController oluştur
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     
-    if (currentParams === lastFetchParams.current && initialLoadDone.current) {
-      console.log('[STUDENTS] ⏭️ Aynı parametreler, çağrı atlanıyor');
-      return;
-    }
-    lastFetchParams.current = currentParams;
+    // Fetch başlat
+    fetchStudents(controller.signal);
     
-    const fetchData = async () => {
-      setLoading(true);
-      const optimizedSuccess = await fetchDataOptimized();
-      if (!optimizedSuccess) {
-        console.warn('[STUDENTS] RPC failed, using fallback');
-        await fetchDataFallback();
-      }
-      initialLoadDone.current = true;
+    // Cleanup: component unmount veya dependency değiştiğinde iptal et
+    return () => {
+      controller.abort();
     };
-    
-    fetchData();
-  }, [isReady, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage]); // ✅ sortField ve sortDir KALDIRILDI - client-side yapılacak
+  }, [fetchStudents]); // fetchStudents useCallback ile memoize edildi
 
   // ✅ Filtered & Sorted - Client-side sıralama (API çağrısı azaltmak için)
   const filteredStudents = useMemo(() => {
