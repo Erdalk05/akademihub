@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = createRlsServerClient(accessToken);
+    const supabase = getServiceRoleClient();
 
     const { data, error } = await supabase
       .from('finance_installments')

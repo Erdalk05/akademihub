@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest) {
     const { installment_id, payment_method, amount_paid, payment_date, note } = parsed.data;
 
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = accessToken ? createRlsServerClient(accessToken) : getServiceRoleClient();
+    const supabase = accessToken ? getServiceRoleClient() : getServiceRoleClient();
 
     // Ödemeyi alan kullanıcı (varsa)
     let collectedBy: string | null = null;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { student_id, total_amount, installment_count, first_due_date, reason } = parsed.data;
 
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = accessToken ? createRlsServerClient(accessToken) : getServiceRoleClient();
+    const supabase = accessToken ? getServiceRoleClient() : getServiceRoleClient();
 
     // 1. Bu öğrencinin TÜM taksitlerini al
     const { data: allInstallments, error: fetchError } = await supabase

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
     const { student_id, agreement_id, count, amount, first_due } = parsed.data;
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = createRlsServerClient(accessToken);
+    const supabase = getServiceRoleClient();
     const { data, error } = await supabase.rpc('generate_installments', {
       p_student_id: student_id,
       p_agreement_id: agreement_id || null,

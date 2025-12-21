@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
 
     const accessToken = getAccessTokenFromRequest(req);
     // Eğer oturum token'ı varsa RLS client, yoksa service role client kullan
-    const supabase = accessToken ? createRlsServerClient(accessToken) : getServiceRoleClient();
+    const supabase = accessToken ? getServiceRoleClient() : getServiceRoleClient();
 
     // Get existing installment to check total amount for status calculation
     const { data: existing, error: getError } = await supabase

@@ -15,7 +15,7 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 export async function GET(req: NextRequest, { params }: { params: { student_id: string } }) {
   try {
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = createRlsServerClient(accessToken);
+    const supabase = getServiceRoleClient();
     const { data, error } = await supabase
       .from('finance_logs')
       .select('*')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     // Eğer Authorization yoksa (admin panelinden gelen istekler gibi),
     // taksit üretimi için service role client kullanıyoruz ki RLS'e takılmasın.
     const supabase = accessToken
-      ? createRlsServerClient(accessToken)
+      ? getServiceRoleClient()
       : getServiceRoleClient();
 
     const n = Number(count);

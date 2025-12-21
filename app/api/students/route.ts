@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
+
+export const runtime = 'nodejs';
 
 const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
   const auth = req.headers.get('authorization') || req.headers.get('Authorization');
@@ -10,9 +12,6 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 };
 
 // GET /api/students -> Supabase students tablosundan liste
-// Not:
-// - Authorization header varsa RLS'li client kullanılır.
-// - Yoksa, eğer service role key tanımlıysa service client, değilse anon client kullanılır.
 // - organization_id query parametresi ile filtreleme yapılabilir
 // - academic_year query parametresi ile akademik yıla göre filtreleme yapılabilir
 export async function GET(req: NextRequest) {
@@ -21,14 +20,7 @@ export async function GET(req: NextRequest) {
     const organizationId = searchParams.get('organization_id');
     const academicYear = searchParams.get('academic_year');
     
-    const accessToken = getAccessTokenFromRequest(req);
-    const hasServiceRoleKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    const supabase = accessToken
-      ? createRlsServerClient(accessToken)
-      : hasServiceRoleKey
-        ? getServiceRoleClient()
-        : createRlsServerClient();
+    const supabase = getServiceRoleClient();
 
     let query = supabase
       .from('students')
@@ -69,11 +61,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const accessToken = getAccessTokenFromRequest(req);
-
-    const supabase = accessToken
-      ? createRlsServerClient(accessToken)
-      : getServiceRoleClient();
+    const supabase = getServiceRoleClient();
 
     // TC Kimlik kontrolü (eğer varsa)
     if (body.tc_id || body.tc_no) {

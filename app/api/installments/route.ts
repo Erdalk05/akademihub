@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRlsServerClient, getServiceRoleClient } from '@/lib/supabase/server';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const organizationId = searchParams.get('organization_id');
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
-      ? createRlsServerClient(accessToken)
+      ? getServiceRoleClient()
       : getServiceRoleClient();
     
     // 1. Taksitleri çek
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
-      ? createRlsServerClient(accessToken)
+      ? getServiceRoleClient()
       : getServiceRoleClient();
     if (!body?.student_id || !body?.installment_no || body.amount === undefined) {
       return NextResponse.json({ success: false, error: 'student_id, installment_no ve amount zorunlu' }, { status: 400 });
@@ -159,7 +159,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
-      ? createRlsServerClient(accessToken)
+      ? getServiceRoleClient()
       : getServiceRoleClient();
     if (!body?.id) return NextResponse.json({ success: false, error: 'id zorunlu' }, { status: 400 });
     
@@ -188,7 +188,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const accessToken = getAccessTokenFromRequest(req);
     const supabase = accessToken
-      ? createRlsServerClient(accessToken)
+      ? getServiceRoleClient()
       : getServiceRoleClient();
     const url = new URL(req.url);
     const idParam = url.searchParams.get('id');

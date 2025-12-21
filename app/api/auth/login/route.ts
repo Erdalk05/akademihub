@@ -10,6 +10,8 @@ import {
   isValidEmail,
 } from '@/lib/auth/security';
 
+export const runtime = 'nodejs';
+
 // Fallback mock users (Supabase bağlantısı yoksa)
 const MOCK_USERS = [
   {

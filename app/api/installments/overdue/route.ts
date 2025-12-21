@@ -19,7 +19,7 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 export async function GET(req: NextRequest) {
   try {
     const accessToken = getAccessTokenFromRequest(req);
-    const supabase = createRlsServerClient(accessToken);
+    const supabase = getServiceRoleClient();
 
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);

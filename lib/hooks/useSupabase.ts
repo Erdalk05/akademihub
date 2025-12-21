@@ -1,12 +1,18 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useCallback, useState, useMemo } from 'react';
+import { getBrowserClient } from '@/lib/supabase/client';
 
+/**
+ * useSupabase Hook - Uses singleton browser client
+ * No new client created per component mount
+ */
 export const useSupabase = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+  
+  // Use singleton - memoized to prevent unnecessary re-renders
+  const supabase = useMemo(() => getBrowserClient(), []);
 
   // Fetch data
   const fetchData = useCallback(
@@ -155,5 +161,3 @@ export const useSupabase = () => {
     supabase,
   };
 };
-
-

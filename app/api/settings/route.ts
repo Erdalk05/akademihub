@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+export const runtime = 'nodejs';
 
 // GET - Tüm ayarları getir
 export async function GET() {
   try {
-    // Kurum ayarları
-    const { data: schoolSettings } = await supabase
-      .from('school_settings')
-      .select('key, value');
+    const supabase = getServiceRoleClient();
+    
+    // Paralel çağrı - her iki sorguyu aynı anda yap
+    const [schoolResult, commResult] = await Promise.all([
+      supabase.from('school_settings').select('key, value'),
+      supabase.from('communication_settings').select('*')
+    ]);
+
+    const schoolSettings = schoolResult.data;
+    const commSettings = commResult.data;
 
     // Ayarları object'e çevir
     const school: Record<string, string> = {};
     (schoolSettings || []).forEach((s: any) => {
       school[s.key] = s.value || '';
     });
-
-    // İletişim ayarları
-    const { data: commSettings } = await supabase
-      .from('communication_settings')
-      .select('*');
 
     return NextResponse.json({
       success: true,
@@ -50,8 +49,13 @@ export async function GET() {
 // POST - Ayarları kaydet
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getServiceRoleClient();
     const body = await request.json();
     const { school, contractTemplate, kvkkText, communication } = body;
+    const now = new Date().toISOString();
+
+    // Tüm güncellemeleri paralel yap
+    const promises: Promise<any>[] = [];
 
     // Kurum ayarlarını güncelle
     if (school) {
@@ -66,42 +70,53 @@ export async function POST(request: NextRequest) {
         { key: 'school_mersis_no', value: school.mersisNo },
       ];
 
-      for (const update of updates) {
-        await supabase
-          .from('school_settings')
-          .upsert({ key: update.key, value: update.value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-      }
+      updates.forEach(update => {
+        promises.push(
+          supabase
+            .from('school_settings')
+            .upsert({ key: update.key, value: update.value, updated_at: now }, { onConflict: 'key' })
+        );
+      });
     }
 
     // Sözleşme şablonu
     if (contractTemplate !== undefined) {
-      await supabase
-        .from('school_settings')
-        .upsert({ key: 'contract_template', value: contractTemplate, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      promises.push(
+        supabase
+          .from('school_settings')
+          .upsert({ key: 'contract_template', value: contractTemplate, updated_at: now }, { onConflict: 'key' })
+      );
     }
 
     // KVKK metni
     if (kvkkText !== undefined) {
-      await supabase
-        .from('school_settings')
-        .upsert({ key: 'kvkk_text', value: kvkkText, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      promises.push(
+        supabase
+          .from('school_settings')
+          .upsert({ key: 'kvkk_text', value: kvkkText, updated_at: now }, { onConflict: 'key' })
+      );
     }
 
     // İletişim ayarları
     if (communication) {
-      for (const comm of communication) {
-        await supabase
-          .from('communication_settings')
-          .update({
-            is_enabled: comm.is_enabled,
-            provider_name: comm.provider_name,
-            api_key: comm.api_key,
-            config: comm.config,
-            updated_at: new Date().toISOString()
-          })
-          .eq('provider_type', comm.provider_type);
-      }
+      communication.forEach((comm: any) => {
+        promises.push(
+          supabase
+            .from('communication_settings')
+            .update({
+              is_enabled: comm.is_enabled,
+              provider_name: comm.provider_name,
+              api_key: comm.api_key,
+              config: comm.config,
+              updated_at: now
+            })
+            .eq('provider_type', comm.provider_type)
+        );
+      });
     }
+
+    // Tüm güncellemeleri paralel çalıştır
+    await Promise.all(promises);
 
     return NextResponse.json({ success: true, message: 'Ayarlar kaydedildi' });
   } catch (error: any) {

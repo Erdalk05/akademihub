@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (!accessToken) {
         return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const supabase = createRlsServerClient(accessToken);
+    const supabase = getServiceRoleClient();
 
     const { data, error } = await supabase
       .from('finance_installments')
