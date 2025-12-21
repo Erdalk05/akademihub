@@ -26,62 +26,62 @@ function getAcademicYearDates(academicYear: string) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    // student_id veya studentId parametresini kabul et (geriye uyumluluk)
     const studentId = searchParams.get('student_id') || searchParams.get('studentId');
     const academicYear = searchParams.get('academicYear');
     const organizationId = searchParams.get('organization_id');
-    const accessToken = getAccessTokenFromRequest(req);
-    const supabase = accessToken
-      ? getServiceRoleClient()
-      : getServiceRoleClient();
+    const summaryOnly = searchParams.get('summary') === 'true'; // Sadece özet isteniyor mu?
     
-    // 1. Taksitleri çek
+    const supabase = getServiceRoleClient();
+    
+    // ✅ TEK SORGU - JOIN ile öğrenci bilgilerini de getir
     let q = supabase
       .from('finance_installments')
-      .select('*');
+      .select(summaryOnly 
+        ? 'student_id, amount, paid_amount, is_paid' // Özet için minimal veri
+        : '*, student:students!finance_installments_student_id_fkey(id, first_name, last_name, student_no, class, section)'
+      );
+    
     if (studentId) q = q.eq('student_id', studentId);
     if (organizationId) q = q.eq('organization_id', organizationId);
     
-    // Akademik yıl filtresi
     if (academicYear) {
       const { start, end } = getAcademicYearDates(academicYear);
       q = q.gte('due_date', start).lte('due_date', end);
     }
     
-    const { data: installments, error: instError } = await q.order('due_date', { ascending: true });
+    if (!summaryOnly) {
+      q = q.order('due_date', { ascending: true });
+    }
+    
+    const { data: installments, error: instError } = await q;
     if (instError) return NextResponse.json({ success: false, error: instError.message }, { status: 500 });
 
-    // 2. Öğrenci bilgilerini ayrı çek
-    const studentIds = [...new Set((installments || []).map((i: any) => i.student_id).filter(Boolean))];
-    
-    let studentsMap: Record<string, any> = {};
-    if (studentIds.length > 0) {
-      const { data: studentsData } = await supabase
-        .from('students')
-        .select('id, first_name, last_name, student_no, class, section')
-        .in('id', studentIds);
-      
-      (studentsData || []).forEach((s: any) => {
-        studentsMap[s.id] = s;
+    // Özet modu: Öğrenci başına toplam borç hesapla
+    if (summaryOnly) {
+      const summaryMap: Record<string, { total: number; paid: number }> = {};
+      (installments || []).forEach((r: any) => {
+        if (!summaryMap[r.student_id]) {
+          summaryMap[r.student_id] = { total: 0, paid: 0 };
+        }
+        summaryMap[r.student_id].total += Number(r.amount) || 0;
+        summaryMap[r.student_id].paid += Number(r.paid_amount) || 0;
       });
+      return NextResponse.json({ success: true, data: summaryMap }, { status: 200 });
     }
 
-    // 3. Verileri birleştir
+    // Normal mod: Detaylı veri
     const today = new Date();
     const list = (installments || []).map((r: any) => {
-      const student = studentsMap[r.student_id];
+      const student = r.student;
       const studentName = student 
         ? `${student.first_name || ''} ${student.last_name || ''}`.trim() 
         : null;
-      const studentNo = student?.student_no || null;
-      const studentClass = student?.class ? `${student.class}-${student.section || 'A'}` : null;
 
-      // Status hesapla: paid, pending, overdue
       let calculatedStatus: 'paid' | 'pending' | 'overdue' = 'pending';
       if (r.is_paid) {
         calculatedStatus = 'paid';
       } else if (r.status === 'cancelled') {
-        calculatedStatus = 'pending'; // İptal edilen beklemede gösterilsin
+        calculatedStatus = 'pending';
       } else if (r.due_date && new Date(r.due_date) < today) {
         calculatedStatus = 'overdue';
       }
@@ -90,23 +90,21 @@ export async function GET(req: NextRequest) {
         id: r.id,
         student_id: r.student_id,
         studentName,
-        studentNo,
-        studentClass,
+        studentNo: student?.student_no || null,
+        studentClass: student?.class ? `${student.class}-${student.section || 'A'}` : null,
         installment_no: r.installment_no,
         agreement_id: r.agreement_id || null,
         sale_id: r.sale_id || null,
         source: r.source || 'education',
         amount: Number(r.amount),
-        paid_amount: r.paid_amount !== null && r.paid_amount !== undefined
-            ? Number(r.paid_amount)
-            : 0,
+        paid_amount: r.paid_amount !== null && r.paid_amount !== undefined ? Number(r.paid_amount) : 0,
         due_date: r.due_date,
         is_paid: r.is_paid,
         paid_at: r.paid_at || null,
         payment_method: r.payment_method || null,
         payment_id: r.payment_id || null,
         status: calculatedStatus,
-        db_status: r.status || 'active', // Veritabanındaki orijinal status
+        db_status: r.status || 'active',
         note: r.note || null,
         collected_by: r.collected_by || null,
         is_old: typeof r.is_old === 'boolean' ? r.is_old : undefined,

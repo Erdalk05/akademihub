@@ -107,12 +107,10 @@ function StudentsContent() {
         // ✅ Students API'sine academic_year parametresi eklendi
         const studentsQuery = [yearParam, orgParam].filter(Boolean).join('&');
         
-        // ⚠️ Taksitler için academic_year filtresi KALDIRILDI
-        // Çünkü öğrenci görünüyorsa TÜM taksitleri (tüm yıllardan) gösterilmeli
-        // Aksi halde öğrenci 2024-2025'te kayıtlı ama taksitleri 2025-2026'da ise borç 0 görünür
+        // ✅ HIZLI: summary=true ile sadece öğrenci başına özet borç bilgisi çek
         const [studentsRes, installmentsRes] = await Promise.all([
           fetch(`/api/students?${studentsQuery}`),
-          fetch(`/api/installments${orgParam ? `?${orgParam}` : ''}`) // academicYear kaldırıldı
+          fetch(`/api/installments?summary=true${orgParam ? `&${orgParam}` : ''}`)
         ]);
         
         const studentsJson = await studentsRes.json();
@@ -121,23 +119,19 @@ function StudentsContent() {
         if (!studentsJson.success) throw new Error(studentsJson.error);
         
         const studentData = studentsJson.data || [];
-        const installments = installmentsJson.data || [];
+        // summary=true olduğunda API { student_id: { total, paid } } formatında döner
+        const summaryData = installmentsJson.data || {};
         
-        // Calculate debt per student
+        // Özet veriden borç hesapla
         const debtMap: Record<string, number> = {};
-        const lastPaymentMap: Record<string, { date: string; amount: number }> = {};
-        
-        installments.forEach((i: any) => {
-          if (!i.student_id) return;
-          if (!i.is_paid) {
-            debtMap[i.student_id] = (debtMap[i.student_id] || 0) + (i.amount || 0);
-          } else if (i.paid_at) {
-            const existing = lastPaymentMap[i.student_id];
-            if (!existing || new Date(i.paid_at) > new Date(existing.date)) {
-              lastPaymentMap[i.student_id] = { date: i.paid_at, amount: i.paid_amount || i.amount };
-            }
+        Object.entries(summaryData).forEach(([studentId, summary]: [string, any]) => {
+          const remaining = (summary.total || 0) - (summary.paid || 0);
+          if (remaining > 0) {
+            debtMap[studentId] = remaining;
           }
         });
+        
+        const lastPaymentMap: Record<string, { date: string; amount: number }> = {};
         
         const result: StudentRow[] = studentData.map((s: any) => {
           const debt = debtMap[s.id] || 0;
