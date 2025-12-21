@@ -6,7 +6,7 @@ import FinanceOverview from '@/components/finance/FinanceOverview';
 import CashFlowChart from '@/components/finance/CashFlowChart';
 import IncomeExpenseChart from '@/components/finance/IncomeExpenseChart';
 import DebtorsList from '@/components/finance/DebtorsList';
-import CategoryPieChart from '@/components/finance/CategoryPieChart';
+// CategoryPieChart kaldırıldı - Sınıf Bazında Ortalama Ücretler grafiği kullanılıyor
 import ClassAverageChart from '@/components/finance/ClassAverageChart';
 import PaymentCalendar from '@/components/finance/PaymentCalendar';
 import CollectionReport from '@/components/finance/CollectionReport';
@@ -1014,8 +1014,10 @@ export default function FinancePage() {
         {/* Genel Bakış */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-              <div className="xl:col-span-2">
+            {/* Üst Satır: Gelir/Gider ve Sınıf Ücretleri yan yana */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gelir & Gider Grafiği */}
+              <div>
                 <h2 className="mb-4 text-xl font-bold text-gray-900">
                   Aylık Gelir &amp; Gider
                 </h2>
@@ -1024,17 +1026,9 @@ export default function FinancePage() {
                   title="Gelir vs Gider Karşılaştırması (Son 12 Ay)"
                 />
               </div>
-              <div className="space-y-4">
-                {/* Sınıf Bazında Ortalama Ücretler - Bar Chart */}
-                <ClassAverageChart />
-                
-                {/* Gider Kategorileri - Pie Chart */}
-                <CategoryPieChart
-                  title="Gider Kategorileri"
-                  description="Gider kayıtlarındaki category alanına göre dağılım."
-                  data={expenseCategories}
-                />
-              </div>
+              
+              {/* Sınıf Bazında Ortalama Ücretler - Büyük ve Estetik */}
+              <ClassAverageChart />
             </div>
 
             {/* Bu Ayki Taksitler - Kompakt Özet */}
