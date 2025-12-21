@@ -22,24 +22,21 @@ function getAcademicYearDates(academicYear: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// GET /api/installments?studentId=UUID&academicYear=2024-2025&organization_id=UUID
+// GET /api/installments?studentId=UUID&academicYear=2024-2025&organization_id=UUID&summary=true
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get('student_id') || searchParams.get('studentId');
     const academicYear = searchParams.get('academicYear');
     const organizationId = searchParams.get('organization_id');
-    const summaryOnly = searchParams.get('summary') === 'true'; // Sadece özet isteniyor mu?
+    const summaryOnly = searchParams.get('summary') === 'true';
     
     const supabase = getServiceRoleClient();
     
-    // ✅ TEK SORGU - JOIN ile öğrenci bilgilerini de getir
+    // 1. Taksitleri çek
     let q = supabase
       .from('finance_installments')
-      .select(summaryOnly 
-        ? 'student_id, amount, paid_amount, is_paid' // Özet için minimal veri
-        : '*, student:students!finance_installments_student_id_fkey(id, first_name, last_name, student_no, class, section)'
-      );
+      .select(summaryOnly ? 'student_id, amount, paid_amount, is_paid' : '*');
     
     if (studentId) q = q.eq('student_id', studentId);
     if (organizationId) q = q.eq('organization_id', organizationId);
@@ -56,10 +53,11 @@ export async function GET(req: NextRequest) {
     const { data: installments, error: instError } = await q;
     if (instError) return NextResponse.json({ success: false, error: instError.message }, { status: 500 });
 
-    // Özet modu: Öğrenci başına toplam borç hesapla
+    // ✅ Özet modu: Öğrenci başına toplam/ödenen
     if (summaryOnly) {
       const summaryMap: Record<string, { total: number; paid: number }> = {};
       (installments || []).forEach((r: any) => {
+        if (!r.student_id) return;
         if (!summaryMap[r.student_id]) {
           summaryMap[r.student_id] = { total: 0, paid: 0 };
         }
@@ -69,10 +67,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: summaryMap }, { status: 200 });
     }
 
-    // Normal mod: Detaylı veri
+    // 2. Normal mod: Öğrenci bilgilerini paralel çek
+    const studentIds = [...new Set((installments || []).map((i: any) => i.student_id).filter(Boolean))];
+    
+    let studentsMap: Record<string, any> = {};
+    if (studentIds.length > 0) {
+      const { data: studentsData } = await supabase
+        .from('students')
+        .select('id, first_name, last_name, student_no, class, section')
+        .in('id', studentIds);
+      
+      (studentsData || []).forEach((s: any) => {
+        studentsMap[s.id] = s;
+      });
+    }
+
+    // 3. Verileri birleştir
     const today = new Date();
     const list = (installments || []).map((r: any) => {
-      const student = r.student;
+      const student = studentsMap[r.student_id];
       const studentName = student 
         ? `${student.first_name || ''} ${student.last_name || ''}`.trim() 
         : null;
