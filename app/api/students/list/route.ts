@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
     const sortField = searchParams.get('sort_field') || 'name';
     const sortDir = searchParams.get('sort_dir') || 'asc';
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('page_size') || '25', 10);
+    // ✅ Mobil için varsayılan 15, masaüstü 25
+    const pageSize = parseInt(searchParams.get('page_size') || '15', 10);
     
     const offset = (page - 1) * pageSize;
     
@@ -121,7 +122,11 @@ export async function GET(req: NextRequest) {
       }
     }, { 
       status: 200,
-      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' }
+      headers: { 
+        // ✅ Aggressive caching: 60s cache + 120s stale
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+        'X-Response-Time': `${duration}ms`
+      }
     });
     
   } catch (e: any) {

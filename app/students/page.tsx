@@ -103,7 +103,8 @@ function StudentsContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<'name' | 'debt' | 'risk'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const pageSize = 25;
+  // ✅ Daha az öğrenci = daha hızlı yükleme
+  const pageSize = 15;
   
   // ✅ YENİ: Server-side pagination için state
   const [serverPagination, setServerPagination] = useState<{ total: number; totalPages: number } | null>(null);
@@ -628,8 +629,37 @@ function StudentsContent() {
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <RefreshCw size={24} className="animate-spin text-indigo-600" />
+            // ✅ Skeleton table - spinner yerine tablo yapısı göster
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-16 animate-pulse"></div></th>
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-20 animate-pulse"></div></th>
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-12 animate-pulse"></div></th>
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-16 animate-pulse"></div></th>
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-20 animate-pulse"></div></th>
+                    <th className="text-left px-4 py-3.5"><div className="h-3 bg-slate-200 rounded w-12 animate-pulse"></div></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-4 py-3.5"><div className="h-6 bg-gray-100 rounded w-24"></div></td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                          <div className="h-4 bg-gray-200 rounded w-32"></div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5"><div className="h-6 bg-gray-100 rounded w-12"></div></td>
+                      <td className="px-4 py-3.5"><div className="h-5 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-4 py-3.5"><div className="h-5 bg-gray-100 rounded w-16"></div></td>
+                      <td className="px-4 py-3.5"><div className="h-6 bg-gray-200 rounded-full w-16"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
