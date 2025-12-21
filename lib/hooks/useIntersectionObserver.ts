@@ -27,12 +27,10 @@ export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
     const element = ref.current;
     if (!element) return;
     
-    // Zaten görünür ve triggerOnce aktifse, observer'a gerek yok
-    if (isVisible && triggerOnce) return;
-    
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
+          console.log('[LAZY] ✅ Element görünür oldu');
           setIsVisible(true);
           
           // Sadece bir kez tetiklenecekse, unobserve et (performans için)
@@ -51,7 +49,7 @@ export function useIntersectionObserver<T extends HTMLElement = HTMLDivElement>(
     return () => {
       observer.disconnect();
     };
-  }, [threshold, rootMargin, triggerOnce, isVisible]);
+  }, [threshold, rootMargin, triggerOnce]);
   
   return [ref, isVisible];
 }

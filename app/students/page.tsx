@@ -240,8 +240,18 @@ function StudentsContent() {
     }
   };
 
-  // ✅ TEK useEffect - AbortController ile önceki istekleri iptal eder
+  // ✅ Organization ID hazır olana kadar bekle
+  const orgId = isAllOrganizations ? 'ALL' : currentOrganization?.id;
+  const isReady = isAllOrganizations || !!currentOrganization?.id;
+  
+  // ✅ TEK useEffect - Sadece gerekli değişkenlere bağlı
   useEffect(() => {
+    // Organization hazır değilse hiç başlatma
+    if (!isReady) {
+      console.log('[STUDENTS] ⏳ Org hazır değil, bekleniyor...');
+      return;
+    }
+    
     // Önceki isteği iptal et
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -258,7 +268,8 @@ function StudentsContent() {
     return () => {
       controller.abort();
     };
-  }, [fetchStudents]); // fetchStudents useCallback ile memoize edildi
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, orgId, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage]);
 
   // ✅ Filtered & Sorted - Client-side sıralama (API çağrısı azaltmak için)
   const filteredStudents = useMemo(() => {
