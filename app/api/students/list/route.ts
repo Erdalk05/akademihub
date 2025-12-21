@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'nodejs';
+// ✅ Edge Runtime - Cold Start YOK, anında başlar
+export const runtime = 'edge';
+
+// Edge-compatible Supabase client
+function getEdgeSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * GET /api/students/list
@@ -25,7 +35,7 @@ export async function GET(req: NextRequest) {
     
     const offset = (page - 1) * pageSize;
     
-    const supabase = getServiceRoleClient();
+    const supabase = getEdgeSupabaseClient();
     
     console.log('[STUDENTS_LIST] ⏱️ RPC çağrılıyor...', { organizationId, academicYear, page, pageSize });
     const startTime = Date.now();

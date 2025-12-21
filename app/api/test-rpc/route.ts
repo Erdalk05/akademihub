@@ -1,14 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'nodejs';
+// ✅ Edge Runtime - Cold Start YOK
+export const runtime = 'edge';
+
+function getEdgeSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * GET /api/test-rpc
  * RPC fonksiyonlarının çalışıp çalışmadığını test eder
  */
 export async function GET() {
-  const supabase = getServiceRoleClient();
+  const supabase = getEdgeSupabaseClient();
   const results: Record<string, any> = {};
   
   // Test 1: get_students_list
