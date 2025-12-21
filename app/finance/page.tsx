@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Download, CreditCard, FileText, TrendingUp, TrendingDown, 
   Users, AlertTriangle, CheckCircle, Clock, DollarSign,
@@ -13,8 +13,8 @@ import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 // =====================================================
-// SADE FİNANS ÖN ÖZET RAPOR SAYFASI
-// Her bölüm için PDF indirme özelliği
+// OPTİMİZE FİNANS ÖN ÖZET RAPOR SAYFASI
+// TEK API ÇAĞRISI ile tüm veriler
 // =====================================================
 
 interface FinanceSummary {
@@ -30,9 +30,17 @@ interface FinanceSummary {
   thisMonthExpense: number;
 }
 
+interface ClassData {
+  class: string;
+  averageFee: number;
+  studentCount: number;
+  totalAmount: number;
+}
+
 export default function FinancePage() {
   const { isAdmin, isAccounting, isLoading: permissionLoading } = usePermission();
   const { currentOrganization } = useOrganizationStore();
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FinanceSummary>({
@@ -47,73 +55,49 @@ export default function FinancePage() {
     thisMonthIncome: 0,
     thisMonthExpense: 0
   });
+  const [classData, setClassData] = useState<ClassData[]>([]);
 
-  // Verileri çek
-  useEffect(() => {
-    fetchSummary();
-  }, [currentOrganization?.id]);
+  // Tek API çağrısı ile tüm verileri çek
+  const fetchSummary = useCallback(async () => {
+    // Önceki isteği iptal et
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
-  const fetchSummary = async () => {
     setLoading(true);
     try {
-      const [installmentsRes, expensesRes, studentsRes] = await Promise.all([
-        fetch('/api/installments'),
-        fetch('/api/finance/expenses'),
-        fetch('/api/students')
-      ]);
-
-      const [installmentsData, expensesData, studentsData] = await Promise.all([
-        installmentsRes.json(),
-        expensesRes.json(),
-        studentsRes.json()
-      ]);
-
-      const installments = installmentsData.data || [];
-      const expenses = expensesData.data || [];
-      const students = studentsData.data || [];
-
-      // Hesaplamalar
-      const totalIncome = installments.reduce((s: number, i: any) => s + (i.is_paid ? Number(i.amount) : 0), 0);
-      const totalInstallments = installments.reduce((s: number, i: any) => s + Number(i.amount), 0);
-      const totalExpense = expenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
+      const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
       
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      
-      const overdueCount = installments.filter((i: any) => 
-        !i.is_paid && i.due_date && i.due_date < today
-      ).length;
-      
-      const paidCount = installments.filter((i: any) => i.is_paid).length;
-      const pendingCount = installments.filter((i: any) => !i.is_paid).length;
-      
-      // Bu ay
-      const thisMonth = now.toISOString().slice(0, 7);
-      const thisMonthIncome = installments
-        .filter((i: any) => i.is_paid && i.paid_at?.startsWith(thisMonth))
-        .reduce((s: number, i: any) => s + Number(i.amount), 0);
-      const thisMonthExpense = expenses
-        .filter((e: any) => e.date?.startsWith(thisMonth))
-        .reduce((s: number, e: any) => s + Number(e.amount), 0);
-
-      setSummary({
-        totalIncome,
-        totalExpense,
-        netBalance: totalIncome - totalExpense,
-        collectionRate: totalInstallments > 0 ? (totalIncome / totalInstallments) * 100 : 0,
-        totalStudents: students.length,
-        overdueCount,
-        paidCount,
-        pendingCount,
-        thisMonthIncome,
-        thisMonthExpense
+      const res = await fetch(`/api/finance/dashboard${orgParam}`, {
+        signal: abortControllerRef.current.signal,
+        headers: { 'Cache-Control': 'no-cache' }
       });
-    } catch (error) {
-      console.error('Finans verileri yüklenemedi:', error);
+      
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setSummary(data.data.summary);
+        setClassData(data.data.classData || []);
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Finans verileri yüklenemedi:', error);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentOrganization?.id]);
+
+  // Sayfa yüklendiğinde verileri çek
+  useEffect(() => {
+    fetchSummary();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchSummary]);
 
   // PDF oluşturma fonksiyonu - Sade tablo formatı
   const generatePDF = (section: string) => {
@@ -651,7 +635,7 @@ export default function FinancePage() {
               <Printer className="w-4 h-4" />
               PDF
             </button>
-            <ClassAverageChart />
+            <ClassAverageChart data={classData} loading={loading} />
           </div>
 
           {/* Hızlı Erişim Linkleri */}

@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { GraduationCap, TrendingUp, RefreshCw, Users, DollarSign } from 'lucide-react';
-import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface ClassData {
   class: string;
   averageFee: number;
   studentCount: number;
   totalAmount: number;
+}
+
+interface ClassAverageChartProps {
+  data?: ClassData[];
+  loading?: boolean;
 }
 
 // Gradient renk paleti - daha estetik
@@ -26,72 +30,8 @@ const COLORS = [
   '#14B8A6', // teal-500
 ];
 
-export default function ClassAverageChart() {
-  const { currentOrganization } = useOrganizationStore();
-  const [classData, setClassData] = useState<ClassData[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchClassData();
-  }, [currentOrganization?.id]);
-
-  const fetchClassData = async () => {
-    setLoading(true);
-    try {
-      const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
-      
-      const [studentsRes, installmentsRes] = await Promise.all([
-        fetch(`/api/students?${orgParam}`),
-        fetch(`/api/installments?${orgParam}&raw=true`)
-      ]);
-
-      const studentsData = await studentsRes.json();
-      const installmentsData = await installmentsRes.json();
-
-      const students = studentsData.data || [];
-      const installments = installmentsData.data || [];
-
-      const classMap = new Map<string, { students: Set<string>; totalAmount: number }>();
-
-      installments.forEach((inst: any) => {
-        const student = students.find((s: any) => s.id === inst.student_id);
-        if (!student) return;
-
-        const className = student.class || 'Belirsiz';
-        
-        if (!classMap.has(className)) {
-          classMap.set(className, { students: new Set(), totalAmount: 0 });
-        }
-
-        const classInfo = classMap.get(className)!;
-        classInfo.students.add(student.id);
-        classInfo.totalAmount += Number(inst.amount) || 0;
-      });
-
-      const data: ClassData[] = Array.from(classMap.entries())
-        .map(([className, info]) => ({
-          class: className,
-          averageFee: info.students.size > 0 ? Math.round(info.totalAmount / info.students.size) : 0,
-          studentCount: info.students.size,
-          totalAmount: info.totalAmount
-        }))
-        .filter(d => d.averageFee > 0)
-        .sort((a, b) => {
-          const aNum = parseInt(a.class);
-          const bNum = parseInt(b.class);
-          if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-          if (!isNaN(aNum)) return -1;
-          if (!isNaN(bNum)) return 1;
-          return a.class.localeCompare(b.class);
-        });
-
-      setClassData(data);
-    } catch (error) {
-      console.error('Sınıf verileri yüklenemedi:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function ClassAverageChart({ data = [], loading = false }: ClassAverageChartProps) {
+  const classData = data;
 
   const summary = useMemo(() => {
     if (classData.length === 0) return { totalStudents: 0, overallAverage: 0, maxFee: 0, minFee: 0 };
@@ -150,22 +90,14 @@ export default function ClassAverageChart() {
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden h-full">
       {/* Header - Daha büyük ve gradient */}
       <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
-              <GraduationCap className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-xl">Sınıf Bazında Ortalama Ücretler</h3>
-              <p className="text-emerald-100 text-sm mt-0.5">Her sınıfın ortalama eğitim ücreti karşılaştırması</p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+            <GraduationCap className="w-7 h-7 text-white" />
           </div>
-          <button 
-            onClick={fetchClassData}
-            className="p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div>
+            <h3 className="font-bold text-white text-xl">Sınıf Bazında Ortalama Ücretler</h3>
+            <p className="text-emerald-100 text-sm mt-0.5">Her sınıfın ortalama eğitim ücreti karşılaştırması</p>
+          </div>
         </div>
       </div>
 
