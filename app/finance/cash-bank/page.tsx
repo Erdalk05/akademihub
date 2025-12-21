@@ -90,7 +90,7 @@ export default function KasaBankaPage() {
       const [taksitlerRes, giderlerRes, digerGelirlerRes] = await Promise.all([
         fetch(`/api/installments${orgParam}`),
         fetch(`/api/finance/expenses${orgParam}`),
-        fetch(`/api/other-income${orgParam}`)
+        fetch(`/api/finance/other-income${orgParam}`)
       ]);
       
       const taksitlerJson = await taksitlerRes.json();
