@@ -7,6 +7,7 @@ import {
   Lightbulb, Activity, Printer, X, Eye, FileText
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area, Legend, ComposedChart, Line } from 'recharts';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface Student {
   id: string;
@@ -91,6 +92,9 @@ export default function FounderReportPage() {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   
+  // Organization context
+  const { currentOrganization } = useOrganizationStore();
+  
   // Modal states
   const [classModal, setClassModal] = useState<{ isOpen: boolean; className: string; students: Student[] }>({ isOpen: false, className: '', students: [] });
   const [summaryModal, setSummaryModal] = useState<{ isOpen: boolean; type: 'total' | 'paid' | 'free' | 'deleted' }>({ isOpen: false, type: 'total' });
@@ -102,13 +106,16 @@ export default function FounderReportPage() {
     deletedCollectedAmount: 0, deletedTotalAmount: 0,
   });
 
-  useEffect(() => { fetchAllData(); }, []);
+  useEffect(() => { fetchAllData(); }, [currentOrganization?.id]);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      // ✅ Organization filtresi ile sadece mevcut kurumun verileri
+      const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
       const [studentsRes, installmentsRes] = await Promise.all([
-        fetch('/api/students'), fetch('/api/installments')
+        fetch(`/api/students${orgParam}`), 
+        fetch(`/api/installments${orgParam}`)
       ]);
       const studentsData = await studentsRes.json();
       const installmentsData = await installmentsRes.json();

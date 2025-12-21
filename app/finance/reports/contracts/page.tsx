@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   Filter
 } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
 
 type Student = {
@@ -65,28 +66,30 @@ export default function ContractsPage() {
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
+  
+  // Organization context
+  const { currentOrganization } = useOrganizationStore();
 
-  // Fetch data
+  // Fetch data - ✅ PARALEL + Organization filtresi
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Students fetch
-        const studentsRes = await fetch('/api/students');
-        const studentsData = await studentsRes.json();
-        console.log('Students API response:', studentsData);
+        const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
+        
+        const [studentsRes, installmentsRes] = await Promise.all([
+          fetch(`/api/students${orgParam}`),
+          fetch(`/api/installments${orgParam}`)
+        ]);
+        
+        const [studentsData, installmentsData] = await Promise.all([
+          studentsRes.json(),
+          installmentsRes.json()
+        ]);
         
         if (studentsData.success && studentsData.data) {
           setStudents(studentsData.data);
-          console.log('Students set:', studentsData.data.length);
-        } else {
-          console.error('Students API failed:', studentsData);
         }
-
-        // Installments fetch
-        const installmentsRes = await fetch('/api/installments');
-        const installmentsData = await installmentsRes.json();
-        console.log('Installments API response:', installmentsData);
         
         if (installmentsData.success && installmentsData.data) {
           setInstallments(installmentsData.data);
@@ -100,7 +103,7 @@ export default function ContractsPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [currentOrganization?.id]);
 
   // Calculate student payment status
   const getStudentPaymentInfo = (studentId: string) => {
