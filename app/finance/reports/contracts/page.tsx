@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
+import { ContractTableRow } from '@/components/contracts/ContractTableRow';
 
 type Student = {
   id: string;
@@ -65,7 +66,7 @@ export default function ContractsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = 15; // ✅ Optimize: Daha az item per page = daha hızlı render
   
   // Organization context
   const { currentOrganization } = useOrganizationStore();
@@ -616,81 +617,18 @@ Bu sözleşme iki nüsha olarak düzenlenmiş olup, taraflarca okunarak imza alt
                 <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase">İşlemler</th>
               </tr>
             </thead>
+            {/* ✅ LAZY LOADED: Satırlar viewport'a girene kadar skeleton gösterir */}
             <tbody className="divide-y divide-gray-100">
-              {paginatedStudents.map(student => {
-                const info = getStudentPaymentInfo(student.id);
-                const name = getStudentName(student);
-                const initials = name.substring(0, 2).toUpperCase();
-                
-                let statusBadge = { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Kayıt Yok' };
-                if (info.totalCount > 0) {
-                  if (info.remaining === 0) {
-                    statusBadge = { bg: 'bg-green-100', text: 'text-green-700', label: 'Tamamlandı' };
-                  } else if (info.overdueCount > 0) {
-                    statusBadge = { bg: 'bg-red-100', text: 'text-red-700', label: `${info.overdueCount} Gecikmiş` };
-                  } else {
-                    statusBadge = { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Devam Ediyor' };
-                  }
-                }
-
-                return (
-                  <tr key={student.id} className="hover:bg-gray-50 transition">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#DCF8C6] flex items-center justify-center text-[#128C7E] font-bold text-sm">
-                          {initials}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{name}</p>
-                          <p className="text-xs text-gray-500">{student.student_no || '-'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {student.class}{student.section ? `-${student.section}` : ''}
-                    </td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      {info.total > 0 ? `${info.total.toLocaleString('tr-TR')} ₺` : '-'}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-green-600 font-medium">
-                      {info.paid > 0 ? `${info.paid.toLocaleString('tr-TR')} ₺` : '-'}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-amber-600 font-medium">
-                      {info.remaining > 0 ? `${info.remaining.toLocaleString('tr-TR')} ₺` : '-'}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
-                        {statusBadge.label}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleViewContract(student)}
-                          className="p-2 text-gray-500 hover:text-[#128C7E] hover:bg-[#DCF8C6] rounded-lg transition"
-                          title="Görüntüle"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handlePrintContract(student)}
-                          className="p-2 text-gray-500 hover:text-[#128C7E] hover:bg-[#DCF8C6] rounded-lg transition"
-                          title="Yazdır"
-                        >
-                          <Printer size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadPDF(student)}
-                          className="p-2 text-gray-500 hover:text-[#128C7E] hover:bg-[#DCF8C6] rounded-lg transition"
-                          title="PDF İndir"
-                        >
-                          <Download size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {paginatedStudents.map(student => (
+                <ContractTableRow
+                  key={student.id}
+                  student={student}
+                  paymentInfo={getStudentPaymentInfo(student.id)}
+                  onView={handleViewContract}
+                  onPrint={handlePrintContract}
+                  onDownload={handleDownloadPDF}
+                />
+              ))}
             </tbody>
           </table>
 
