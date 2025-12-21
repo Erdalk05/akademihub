@@ -7,6 +7,7 @@ import CashFlowChart from '@/components/finance/CashFlowChart';
 import IncomeExpenseChart from '@/components/finance/IncomeExpenseChart';
 import DebtorsList from '@/components/finance/DebtorsList';
 import CategoryPieChart from '@/components/finance/CategoryPieChart';
+import ClassAverageChart from '@/components/finance/ClassAverageChart';
 import PaymentCalendar from '@/components/finance/PaymentCalendar';
 import CollectionReport from '@/components/finance/CollectionReport';
 import { exportDashboardSummaryPDF } from '@/lib/services/exportService';
@@ -1024,11 +1025,10 @@ export default function FinancePage() {
                 />
               </div>
               <div className="space-y-4">
-                <CategoryPieChart
-                  title="Gelir Kategorileri"
-                  description="Şimdilik tüm gelirler taksit olarak gruplanmıştır."
-                  data={incomeCategories}
-                />
+                {/* Sınıf Bazında Ortalama Ücretler - Bar Chart */}
+                <ClassAverageChart />
+                
+                {/* Gider Kategorileri - Pie Chart */}
                 <CategoryPieChart
                   title="Gider Kategorileri"
                   description="Gider kayıtlarındaki category alanına göre dağılım."
