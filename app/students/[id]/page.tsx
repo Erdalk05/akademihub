@@ -674,16 +674,16 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* GENEL FİNANS ÖZETİ - WhatsApp Yeşil Tonları */}
-      <div className="bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 rounded-2xl p-5 shadow-lg border border-emerald-200 mb-6">
+      {/* GENEL FİNANS ÖZETİ - Koyu Tonlar */}
+      <div className="bg-gradient-to-r from-emerald-700 via-green-700 to-teal-700 rounded-2xl p-5 shadow-xl mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-emerald-800 font-bold flex items-center gap-2 text-lg">
-            <TrendingUp className="w-5 h-5 text-emerald-600" />
+          <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+            <TrendingUp className="w-5 h-5 text-emerald-300" />
             Genel Finans Ozeti
           </h3>
-          <div className="flex items-center gap-2 bg-emerald-100 px-3 py-1.5 rounded-full">
-            <span className="text-xs text-emerald-600">Toplam Odeme Orani</span>
-            <span className="text-emerald-700 font-bold">
+          <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full">
+            <span className="text-xs text-emerald-100">Toplam Odeme Orani</span>
+            <span className="text-white font-bold">
               %{financeSummary.overall.total > 0 ? Math.round((financeSummary.overall.paid / financeSummary.overall.total) * 100) : 0}
             </span>
           </div>
@@ -691,30 +691,30 @@ export default function StudentDetailPage() {
         
         {/* Üst Satır - Genel Toplamlar */}
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl p-4 text-center shadow-md">
-            <div className="text-emerald-50 text-xs mb-1 flex items-center justify-center gap-1">
+          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl p-4 text-center shadow-lg border border-emerald-400/30">
+            <div className="text-emerald-100 text-xs mb-1 flex items-center justify-center gap-1 font-medium">
               <DollarSign className="w-3 h-3" />
               TOPLAM SATIS
             </div>
-            <div className="text-white text-2xl font-bold">
+            <div className="text-white text-2xl font-bold drop-shadow-md">
               ₺{financeSummary.overall.total.toLocaleString('tr-TR')}
             </div>
           </div>
-          <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl p-4 text-center shadow-md">
-            <div className="text-green-50 text-xs mb-1 flex items-center justify-center gap-1">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-4 text-center shadow-lg border border-green-400/30">
+            <div className="text-green-100 text-xs mb-1 flex items-center justify-center gap-1 font-medium">
               <CreditCard className="w-3 h-3" />
               TAHSIL EDILEN
             </div>
-            <div className="text-white text-2xl font-bold">
+            <div className="text-white text-2xl font-bold drop-shadow-md">
               ₺{financeSummary.overall.paid.toLocaleString('tr-TR')}
             </div>
           </div>
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl p-4 text-center shadow-md">
-            <div className="text-amber-50 text-xs mb-1 flex items-center justify-center gap-1">
+          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-4 text-center shadow-lg border border-orange-400/30">
+            <div className="text-orange-100 text-xs mb-1 flex items-center justify-center gap-1 font-medium">
               <Clock className="w-3 h-3" />
               GENEL BORC
             </div>
-            <div className="text-white text-2xl font-bold">
+            <div className="text-white text-2xl font-bold drop-shadow-md">
               ₺{financeSummary.overall.remaining.toLocaleString('tr-TR')}
             </div>
           </div>
@@ -723,56 +723,56 @@ export default function StudentDetailPage() {
         {/* Alt Satır - Kategori Detayları */}
         <div className="grid grid-cols-2 gap-4">
           {/* Eğitim Finans */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 shadow-sm">
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20">
             <div className="flex items-center gap-2 mb-3">
-              <GraduationCap className="w-4 h-4 text-emerald-600" />
-              <span className="text-emerald-800 font-semibold text-sm">Egitim Finans</span>
+              <GraduationCap className="w-4 h-4 text-emerald-300" />
+              <span className="text-white font-semibold text-sm">Egitim Finans</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <div className="text-gray-500 text-[10px]">Toplam</div>
-                <div className="text-emerald-700 font-bold text-sm">₺{financeSummary.education.total.toLocaleString('tr-TR')}</div>
+                <div className="text-emerald-200 text-[10px]">Toplam</div>
+                <div className="text-white font-bold text-sm">₺{financeSummary.education.total.toLocaleString('tr-TR')}</div>
               </div>
               <div>
-                <div className="text-gray-500 text-[10px]">Odenen</div>
-                <div className="text-green-600 font-bold text-sm">₺{financeSummary.education.paid.toLocaleString('tr-TR')}</div>
+                <div className="text-green-200 text-[10px]">Odenen</div>
+                <div className="text-green-300 font-bold text-sm">₺{financeSummary.education.paid.toLocaleString('tr-TR')}</div>
               </div>
               <div>
-                <div className="text-gray-500 text-[10px]">Kalan</div>
-                <div className="text-orange-600 font-bold text-sm">₺{financeSummary.education.remaining.toLocaleString('tr-TR')}</div>
+                <div className="text-orange-200 text-[10px]">Kalan</div>
+                <div className="text-orange-300 font-bold text-sm">₺{financeSummary.education.remaining.toLocaleString('tr-TR')}</div>
               </div>
             </div>
-            <div className="w-full bg-emerald-100 rounded-full h-2 mt-3">
+            <div className="w-full bg-white/20 rounded-full h-2 mt-3">
               <div 
-                className="bg-emerald-500 rounded-full h-2 transition-all" 
+                className="bg-emerald-400 rounded-full h-2 transition-all" 
                 style={{ width: `${financeSummary.education.total > 0 ? Math.min(100, (financeSummary.education.paid / financeSummary.education.total) * 100) : 0}%` }}
               />
             </div>
           </div>
           
           {/* Diğer Satışlar */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200 shadow-sm">
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20">
             <div className="flex items-center gap-2 mb-3">
-              <Package className="w-4 h-4 text-teal-600" />
-              <span className="text-teal-800 font-semibold text-sm">Diger Satislar</span>
+              <Package className="w-4 h-4 text-teal-300" />
+              <span className="text-white font-semibold text-sm">Diger Satislar</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <div className="text-gray-500 text-[10px]">Toplam</div>
-                <div className="text-teal-700 font-bold text-sm">₺{financeSummary.other.total.toLocaleString('tr-TR')}</div>
+                <div className="text-teal-200 text-[10px]">Toplam</div>
+                <div className="text-white font-bold text-sm">₺{financeSummary.other.total.toLocaleString('tr-TR')}</div>
               </div>
               <div>
-                <div className="text-gray-500 text-[10px]">Odenen</div>
-                <div className="text-green-600 font-bold text-sm">₺{financeSummary.other.paid.toLocaleString('tr-TR')}</div>
+                <div className="text-green-200 text-[10px]">Odenen</div>
+                <div className="text-green-300 font-bold text-sm">₺{financeSummary.other.paid.toLocaleString('tr-TR')}</div>
               </div>
               <div>
-                <div className="text-gray-500 text-[10px]">Kalan</div>
-                <div className="text-orange-600 font-bold text-sm">₺{financeSummary.other.remaining.toLocaleString('tr-TR')}</div>
+                <div className="text-orange-200 text-[10px]">Kalan</div>
+                <div className="text-orange-300 font-bold text-sm">₺{financeSummary.other.remaining.toLocaleString('tr-TR')}</div>
               </div>
             </div>
-            <div className="w-full bg-teal-100 rounded-full h-2 mt-3">
+            <div className="w-full bg-white/20 rounded-full h-2 mt-3">
               <div 
-                className="bg-teal-500 rounded-full h-2 transition-all" 
+                className="bg-teal-400 rounded-full h-2 transition-all" 
                 style={{ width: `${financeSummary.other.total > 0 ? Math.min(100, (financeSummary.other.paid / financeSummary.other.total) * 100) : 0}%` }}
               />
             </div>
