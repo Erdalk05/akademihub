@@ -523,9 +523,29 @@ export default function StudentDetailPage() {
 
             {/* Info - Geliştirilmiş */}
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-3">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">
                 {displayName}
               </h1>
+              
+              {/* Veli Adı & Kayıt Tarihi */}
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-3">
+                {student.parent_name && (
+                  <span className="flex items-center gap-1">
+                    👨‍👩‍👧 <span className="font-medium">{student.parent_name}</span>
+                  </span>
+                )}
+                {student.created_at && (
+                  <span className="flex items-center gap-1">
+                    📅 Kayıt: <span className="font-medium">{new Date(student.created_at).toLocaleDateString('tr-TR')}</span>
+                  </span>
+                )}
+                {student.parent_phone && (
+                  <span className="flex items-center gap-1">
+                    📱 <span className="font-medium">{student.parent_phone}</span>
+                  </span>
+                )}
+              </div>
+              
               <div className="flex flex-wrap gap-2">
                 <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${statusBadge.className}`}>
                   {statusBadge.label}
@@ -538,6 +558,22 @@ export default function StudentDetailPage() {
                 {riskBadge && (
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${riskBadge.className}`}>
                     {riskBadge.label}
+                  </span>
+                )}
+                {/* Ödeme Durumu Badge */}
+                {student.balance !== undefined && (
+                  <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${
+                    student.balance === 0 
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
+                      : student.balance > 0 && student.paid_amount && student.paid_amount > 0
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-red-200 bg-red-50 text-red-700'
+                  }`}>
+                    {student.balance === 0 
+                      ? '💚 Borç Yok' 
+                      : student.paid_amount && student.paid_amount > 0
+                        ? `💰 ₺${student.balance?.toLocaleString('tr-TR')} Kalan`
+                        : '⚠️ Ödeme Bekleniyor'}
                   </span>
                 )}
                 <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 shadow-sm font-mono">
