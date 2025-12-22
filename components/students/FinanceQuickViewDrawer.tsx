@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Calendar, TrendingUp, FileText, Copy, CheckCircle, MessageCircle, Plus, User, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, CreditCard, Calendar, TrendingUp, TrendingDown, FileText, Copy, CheckCircle, MessageCircle, Plus, User, Loader2, AlertTriangle, StickyNote, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePermission } from '@/lib/hooks/usePermission';
+import toast from 'react-hot-toast';
 
 interface Installment {
   id: string;
   due_date: string;
   amount: number;
-  status: 'paid' | 'pending' | 'overdue';
-  paid_date?: string;
+  is_paid: boolean;
+  paid_at?: string;
   paid_amount?: number;
+}
+
+interface StudentNote {
+  id: string;
+  content: string;
+  note_type: string;
+  created_at: string;
 }
 
 interface Props {
@@ -21,74 +29,167 @@ interface Props {
 
 export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Props) {
   const router = useRouter();
-  const { canCollectPayment, canViewFinancialReports } = usePermission();
+  const { canCollectPayment, canViewFinancialReports, isAdmin } = usePermission();
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loadingInstallments, setLoadingInstallments] = useState(false);
-  const [notes, setNotes] = useState([
-    { id: 1, date: '15 Kas 2023', text: 'Veli arandı, taksit ödemesini önümüzdeki hafta yapacak.' },
-    { id: 2, date: '10 Kas 2023', text: 'Risk analizi güncellendi - düzenli ödeme yapıyor.' },
-  ]);
+  const [notes, setNotes] = useState<StudentNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  
+  // Risk hesaplaması için state
+  const [riskData, setRiskData] = useState({
+    score: 0,
+    level: 'Düşük' as 'Düşük' | 'Orta' | 'Yüksek' | 'Kritik',
+    overdueCount: 0,
+    totalDebt: 0,
+    paidAmount: 0
+  });
 
-  // Fetch installments when drawer opens
-  useEffect(() => {
-    if (isOpen && student?.id) {
-      fetchInstallments();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, student?.id]);
-
-  const fetchInstallments = async () => {
+  // Fetch all data when drawer opens
+  const fetchData = useCallback(async () => {
     if (!student?.id) return;
     
     setLoadingInstallments(true);
+    setLoadingNotes(true);
+    
     try {
-      const res = await fetch(`/api/installments?studentId=${student.id}`);
-      const data = await res.json();
-      if (data.success && data.data) {
-        setInstallments(data.data.slice(0, 5));
+      // Parallel fetch
+      const [installmentsRes, notesRes] = await Promise.all([
+        fetch(`/api/installments/student/${student.id}`),
+        fetch(`/api/students/${student.id}/notes`)
+      ]);
+      
+      const [installmentsData, notesData] = await Promise.all([
+        installmentsRes.json(),
+        notesRes.json()
+      ]);
+      
+      // Process installments
+      if (installmentsData.data) {
+        const instData = installmentsData.data;
+        setInstallments(instData.slice(0, 6));
+        
+        // Risk hesaplama
+        const today = new Date().toISOString().slice(0, 10);
+        let overdueCount = 0;
+        let totalDebt = 0;
+        let paidAmount = 0;
+        
+        instData.forEach((inst: Installment) => {
+          const amount = Number(inst.amount) || 0;
+          if (inst.is_paid) {
+            paidAmount += amount;
+          } else {
+            totalDebt += amount;
+            if (inst.due_date < today) {
+              overdueCount++;
+            }
+          }
+        });
+        
+        // Risk skoru hesapla (0-100)
+        let score = 100;
+        if (overdueCount > 0) score -= overdueCount * 15;
+        if (totalDebt > 50000) score -= 20;
+        else if (totalDebt > 20000) score -= 10;
+        score = Math.max(0, Math.min(100, score));
+        
+        let level: 'Düşük' | 'Orta' | 'Yüksek' | 'Kritik' = 'Düşük';
+        if (score < 30) level = 'Kritik';
+        else if (score < 50) level = 'Yüksek';
+        else if (score < 70) level = 'Orta';
+        
+        setRiskData({ score, level, overdueCount, totalDebt, paidAmount });
       }
+      
+      // Process notes
+      if (notesData.data) {
+        setNotes(notesData.data.slice(0, 5));
+      }
+      
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch installments:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoadingInstallments(false);
+      setLoadingNotes(false);
     }
-  };
+  }, [student?.id]);
+
+  useEffect(() => {
+    if (isOpen && student?.id) {
+      fetchData();
+    }
+  }, [isOpen, student?.id, fetchData]);
 
   if (!student) return null;
 
   // Calculate next payment from real data
-  const pendingInstallments = installments.filter(i => i.status === 'pending' || i.status === 'overdue');
+  const today = new Date().toISOString().slice(0, 10);
+  const pendingInstallments = installments.filter(i => !i.is_paid);
+  const overdueInstallments = pendingInstallments.filter(i => i.due_date < today);
   const nextPaymentData = pendingInstallments[0];
+  
   const nextPayment = nextPaymentData ? {
     date: new Date(nextPaymentData.due_date).toLocaleDateString('tr-TR'),
-    amount: nextPaymentData.amount,
-    isOverdue: nextPaymentData.status === 'overdue' || new Date(nextPaymentData.due_date) < new Date()
+    amount: Number(nextPaymentData.amount) || 0,
+    isOverdue: nextPaymentData.due_date < today
   } : { date: '-', amount: 0, isOverdue: false };
 
   const parentInfo = {
     name: student.parent_name || 'Veli Bilgisi Yok',
-    phone: student.parent_phone || '+90 XXX XXX XX XX',
+    phone: student.parent_phone || student.phone || '+90 XXX XXX XX XX',
   };
 
   const handleCopyPhone = () => {
     navigator.clipboard.writeText(parentInfo.phone);
     setCopiedPhone(true);
+    toast.success('Telefon numarası kopyalandı');
     setTimeout(() => setCopiedPhone(false), 2000);
   };
 
-  const handleAddNote = () => {
-    if (!newNote.trim()) return;
-    const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
-    setNotes(prev => [{
-      id: Date.now(),
-      date: today,
-      text: newNote.trim()
-    }, ...prev]);
-    setNewNote('');
+  // Gerçek API'ye not kaydet
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !student?.id) return;
+    
+    setSavingNote(true);
+    try {
+      const res = await fetch(`/api/students/${student.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: newNote.trim(),
+          note_type: 'general'
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success && data.data) {
+        setNotes(prev => [data.data, ...prev]);
+        setNewNote('');
+        toast.success('Not eklendi');
+      } else {
+        toast.error(data.error || 'Not eklenemedi');
+      }
+    } catch (error) {
+      toast.error('Not eklenemedi');
+    } finally {
+      setSavingNote(false);
+    }
   };
+
+  // Risk renk sınıfları
+  const getRiskColors = (level: string) => {
+    switch (level) {
+      case 'Kritik': return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', bar: 'bg-red-500' };
+      case 'Yüksek': return { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', bar: 'bg-orange-500' };
+      case 'Orta': return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' };
+      default: return { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' };
+    }
+  };
+  
+  const riskColors = getRiskColors(riskData.level);
 
   return (
     <>
@@ -114,8 +215,8 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
                 {/* Large Avatar */}
                 <div className="h-16 w-16 flex-shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 shadow-lg flex items-center justify-center">
                   <span className="text-2xl font-bold text-white">
-                    {(student.first_name?.charAt(0) || 'Ö').toUpperCase()}
-                    {(student.last_name?.charAt(0) || 'G').toUpperCase()}
+                    {(student.first_name?.charAt(0) || student.full_name?.charAt(0) || 'Ö').toUpperCase()}
+                    {(student.last_name?.charAt(0) || '').toUpperCase()}
                   </span>
                 </div>
 
@@ -123,20 +224,24 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
                   {/* Name & Status Badge */}
                   <div className="flex items-center gap-2 mb-1">
                     <h2 className="text-xl font-bold text-gray-900">
-                      {student.first_name} {student.last_name}
+                      {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`}
                     </h2>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                      student.status === 'deleted' 
+                        ? 'bg-red-100 text-red-700 border-red-200'
+                        : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                    }`}>
                       <CheckCircle size={12} />
-                      Aktif
+                      {student.status === 'deleted' ? 'Pasif' : 'Aktif'}
                     </span>
                   </div>
                   
                   {/* Secondary Info */}
                   <p className="text-sm text-gray-600 font-medium">
-                    {student.class}-{student.section}
+                    {student.class}{student.section ? `-${student.section}` : ''}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Öğrenci No: {student.student_no || 'Yok'}
+                    Öğrenci No: {student.student_no || '-'}
                   </p>
                 </div>
               </div>
@@ -157,13 +262,13 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
               <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                 <p className="text-[10px] font-semibold text-gray-500 uppercase">Toplam Borç</p>
                 <p className="mt-1 text-lg font-bold text-gray-900">
-                  ₺{student.debt?.toLocaleString('tr-TR') || '0'}
+                  ₺{(riskData.totalDebt || student.debt || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
                 <p className="text-[10px] font-semibold text-emerald-700 uppercase">Ödenen</p>
                 <p className="mt-1 text-lg font-bold text-emerald-700">
-                  ₺{student.paid?.toLocaleString('tr-TR') || '0'}
+                  ₺{riskData.paidAmount.toLocaleString('tr-TR')}
                 </p>
               </div>
               <div className={`rounded-xl border p-3 shadow-sm ${
@@ -189,7 +294,7 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
               </div>
             </div>
 
-            {/* Parent Info Card (Replaces "Veli İletişim" Button) */}
+            {/* Parent Info Card */}
             <div className="mb-6">
               <h3 className="mb-2 text-xs font-bold text-gray-900 uppercase tracking-wide">Veli Bilgileri</h3>
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
@@ -242,77 +347,92 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - Tüm butonlar aktif */}
             <div className="mb-6 space-y-2">
               <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wide">Hızlı İşlemler</h3>
               <div className="grid grid-cols-3 gap-2">
-                {/* Ödeme Al */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!student?.id) return;
-                    router.push(`/students/${student.id}/payments`);
-                    onClose();
-                  }}
+                {/* Ödeme Al - Finans sekmesine yönlendir */}
+                <Link
+                  href={`/students/${student.id}?tab=finance`}
+                  onClick={onClose}
                   className="flex flex-col items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-3 text-xs font-bold text-white hover:bg-indigo-700 shadow-md transition-all"
                 >
                   <CreditCard size={18} />
                   Ödeme Al
-                </button>
+                </Link>
 
-                {/* Taksit Planı */}
+                {/* Taksit Planı - Finans sekmesine yönlendir */}
                 <Link
                   href={`/students/${student.id}?tab=finance`}
+                  onClick={onClose}
                   className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
                 >
                   <Calendar size={18} />
                   Taksit Planı
                 </Link>
 
-                {/* Makbuzlar */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!student?.id) return;
-                    router.push(`/students/${student.id}/payments`);
-                    onClose();
-                  }}
+                {/* Notlar - Notlar sekmesine yönlendir */}
+                <Link
+                  href={`/students/${student.id}?tab=notes`}
+                  onClick={onClose}
                   className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
                 >
-                  <FileText size={18} />
-                  Makbuzlar
-                </button>
+                  <StickyNote size={18} />
+                  Notlar
+                </Link>
               </div>
             </div>
 
-            {/* Risk & Analysis */}
+            {/* Risk & Analysis - GERÇEK VERİ */}
             <div className="mb-6">
               <h3 className="mb-2 text-xs font-bold text-gray-900 uppercase tracking-wide">Risk Analizi</h3>
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className={`rounded-xl border ${riskColors.border} ${riskColors.bg} p-4 shadow-sm`}>
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-medium text-gray-600">Ödeme Düzeni</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                    <TrendingUp size={12} />
-                    Düzenli
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${riskColors.bg} ${riskColors.text} border ${riskColors.border}`}>
+                    {riskData.level === 'Kritik' || riskData.level === 'Yüksek' ? (
+                      <TrendingDown size={12} />
+                    ) : (
+                      <TrendingUp size={12} />
+                    )}
+                    {riskData.level === 'Düşük' ? 'Düzenli' : riskData.level}
                   </span>
                 </div>
                 <div className="space-y-3">
                   <div>
                     <div className="mb-1.5 flex justify-between text-xs">
                       <span className="text-gray-500 font-medium">Risk Skoru</span>
-                      <span className="font-bold text-emerald-600">95/100</span>
+                      <span className={`font-bold ${riskColors.text}`}>{riskData.score}/100</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full w-[95%] rounded-full bg-gradient-to-r from-emerald-500 to-green-500 shadow-sm" />
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                      <div 
+                        className={`h-full rounded-full ${riskColors.bar} shadow-sm transition-all`} 
+                        style={{ width: `${riskData.score}%` }}
+                      />
                     </div>
                   </div>
+                  {riskData.overdueCount > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg px-2 py-1.5">
+                      <AlertTriangle size={14} />
+                      <span>{riskData.overdueCount} gecikmiş taksit var</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Mini CRM / Notes Section */}
+            {/* Mini CRM / Notes Section - GERÇEK API */}
             <div className="mb-6">
-              <h3 className="mb-2 text-xs font-bold text-gray-900 uppercase tracking-wide">Hızlı Notlar</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wide">Hızlı Notlar</h3>
+                <Link 
+                  href={`/students/${student.id}?tab=notes`}
+                  onClick={onClose}
+                  className="text-[10px] font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                >
+                  Tümünü Gör <ExternalLink size={10} />
+                </Link>
+              </div>
               
               {/* Add Note Input */}
               <div className="mb-3 flex gap-2">
@@ -320,44 +440,67 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
                   type="text"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                  placeholder="Not ekle..."
+                  onKeyDown={(e) => e.key === 'Enter' && !savingNote && handleAddNote()}
+                  placeholder="Hızlı not ekle..."
                   className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  disabled={savingNote}
                 />
                 <button
                   onClick={handleAddNote}
-                  disabled={!newNote.trim()}
+                  disabled={!newNote.trim() || savingNote}
                   className="rounded-lg bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Plus size={16} />
+                  {savingNote ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 </button>
               </div>
 
               {/* Notes List */}
-              <div className="space-y-2">
-                {notes.slice(0, 2).map((note) => (
-                  <div key={note.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <div className="flex items-start justify-between mb-1">
-                      <span className="text-[10px] font-bold text-indigo-600">{note.date}</span>
+              {loadingNotes ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                </div>
+              ) : notes.length > 0 ? (
+                <div className="space-y-2">
+                  {notes.slice(0, 3).map((note) => (
+                    <div key={note.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <div className="flex items-start justify-between mb-1">
+                        <span className="text-[10px] font-bold text-indigo-600">
+                          {new Date(note.created_at).toLocaleDateString('tr-TR', { 
+                            day: 'numeric', month: 'short', year: 'numeric' 
+                          })}
+                        </span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                          note.note_type === 'payment' ? 'bg-emerald-100 text-emerald-700' :
+                          note.note_type === 'reminder' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {note.note_type === 'payment' ? 'Ödeme' : 
+                           note.note_type === 'reminder' ? 'Hatırlatma' : 'Genel'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-700 line-clamp-2">{note.content}</p>
                     </div>
-                    <p className="text-xs text-gray-700">{note.text}</p>
-                  </div>
-                ))}
-              </div>
-              
-              {notes.length > 2 && (
-                <button
-                  onClick={() => router.push(`/students/${student.id}`)}
-                  className="mt-2 w-full text-center text-[10px] font-medium text-indigo-600 hover:text-indigo-700"
-                >
-                  Tüm notları görüntüle ({notes.length})
-                </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-400 text-xs">
+                  Henüz not eklenmemiş
+                </div>
               )}
             </div>
 
              {/* Real Installments Table */}
              <div>
-                <h3 className="mb-2 text-xs font-bold text-gray-900 uppercase tracking-wide">Taksit Durumu</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wide">Taksit Durumu</h3>
+                  <Link 
+                    href={`/students/${student.id}?tab=finance`}
+                    onClick={onClose}
+                    className="text-[10px] font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  >
+                    Tümünü Gör <ExternalLink size={10} />
+                  </Link>
+                </div>
                 <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
                   {loadingInstallments ? (
                     <div className="flex items-center justify-center py-8">
@@ -373,29 +516,32 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {installments.map((inst, idx) => (
-                              <tr key={inst.id || idx} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-3 py-2 text-gray-600">
-                                  {new Date(inst.due_date).toLocaleDateString('tr-TR')}
-                                </td>
-                                <td className="px-3 py-2">
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                    inst.status === 'paid' 
-                                      ? 'bg-emerald-100 text-emerald-700' 
-                                      : inst.status === 'overdue'
-                                      ? 'bg-red-100 text-red-700'
-                                      : 'bg-amber-100 text-amber-700'
+                            {installments.map((inst, idx) => {
+                              const isOverdue = !inst.is_paid && inst.due_date < today;
+                              return (
+                                <tr key={inst.id || idx} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-3 py-2 text-gray-600">
+                                    {new Date(inst.due_date).toLocaleDateString('tr-TR')}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                      inst.is_paid 
+                                        ? 'bg-emerald-100 text-emerald-700' 
+                                        : isOverdue
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                    }`}>
+                                      {inst.is_paid ? '✓ Ödendi' : isOverdue ? '⚠ Gecikmiş' : '○ Bekliyor'}
+                                    </span>
+                                  </td>
+                                  <td className={`px-3 py-2 text-right font-bold ${
+                                    inst.is_paid ? 'text-emerald-600' : 'text-gray-900'
                                   }`}>
-                                    {inst.status === 'paid' ? '✓ Ödendi' : inst.status === 'overdue' ? '⚠ Gecikmiş' : '○ Bekliyor'}
-                                  </span>
-                                </td>
-                                <td className={`px-3 py-2 text-right font-bold ${
-                                  inst.status === 'paid' ? 'text-emerald-600' : 'text-gray-900'
-                                }`}>
-                                  ₺{inst.amount?.toLocaleString('tr-TR') || '0'}
-                                </td>
-                              </tr>
-                            ))}
+                                    ₺{(Number(inst.amount) || 0).toLocaleString('tr-TR')}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                     </table>
                   ) : (
@@ -409,16 +555,17 @@ export default function FinanceQuickViewDrawer({ isOpen, onClose, student }: Pro
 
           {/* Footer */}
           <div className="border-t border-gray-100 bg-gray-50 p-4">
-            <button
-                onClick={() => window.location.href = `/students/${student.id}`}
-                className="w-full rounded-lg bg-white border border-gray-200 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            <Link
+              href={`/students/${student.id}`}
+              onClick={onClose}
+              className="w-full rounded-lg bg-white border border-gray-200 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2"
             >
+              <User size={16} />
               Detaylı Profil Görüntüle
-            </button>
+            </Link>
           </div>
         </div>
       </div>
     </>
   );
 }
-
