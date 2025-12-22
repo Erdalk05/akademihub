@@ -4,7 +4,7 @@ import { getServiceRoleClient } from '@/lib/supabase/server';
 export const runtime = 'edge';
 
 // GET /api/finance/dashboard
-// Finans özet sayfası için tüm verileri tek seferde döner - OPTIMIZED
+// SQL agregasyonu ile SÜPER HIZLI finans özeti
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   
@@ -16,123 +16,77 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10);
     const thisMonth = new Date().toISOString().slice(0, 7);
 
-    // Parallel queries for speed
-    const [installmentsRes, expensesRes, studentsRes] = await Promise.all([
-      // Taksitler - sadece gerekli alanlar
-      supabase
-        .from('finance_installments')
-        .select('amount, is_paid, due_date, paid_at')
-        .order('due_date', { ascending: false }),
+    // TEK PARALEL SORGU SETİ - Minimum veri transferi
+    const [
+      summaryRes,
+      expenseSummaryRes,
+      studentCountRes,
+      classDataRes
+    ] = await Promise.all([
+      // 1. Taksit özeti - SQL agregasyonu
+      supabase.rpc('get_installment_summary', { 
+        p_today: today,
+        p_this_month: thisMonth
+      }).maybeSingle(),
       
-      // Giderler - sadece gerekli alanlar
-      supabase
-        .from('finance_expenses')
-        .select('amount, date'),
+      // 2. Gider özeti - SQL agregasyonu
+      supabase.rpc('get_expense_summary', {
+        p_this_month: thisMonth
+      }).maybeSingle(),
       
-      // Öğrenci sayısı - sadece count
+      // 3. Aktif öğrenci sayısı - sadece count
       supabase
         .from('students')
-        .select('id, class', { count: 'exact', head: false })
-        .eq('status', 'active')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active'),
+      
+      // 4. Sınıf bazında veriler - SQL agregasyonu
+      supabase.rpc('get_class_finance_data')
     ]);
 
-    const installments = installmentsRes.data || [];
-    const expenses = expensesRes.data || [];
-    const students = studentsRes.data || [];
-    const studentCount = studentsRes.count || students.length;
-
-    // Tek döngüde tüm hesaplamaları yap
-    let totalIncome = 0;
-    let totalInstallments = 0;
-    let overdueCount = 0;
-    let paidCount = 0;
-    let pendingCount = 0;
-    let thisMonthIncome = 0;
-
-    for (const inst of installments as any[]) {
-      const amount = Number(inst.amount) || 0;
-      totalInstallments += amount;
-      
-      if (inst.is_paid) {
-        totalIncome += amount;
-        paidCount++;
-        if (inst.paid_at?.startsWith(thisMonth)) {
-          thisMonthIncome += amount;
-        }
-      } else {
-        pendingCount++;
-        if (inst.due_date && inst.due_date < today) {
-          overdueCount++;
-        }
-      }
+    // Fallback: RPC yoksa eski yöntemi kullan
+    if (summaryRes.error?.code === '42883' || expenseSummaryRes.error?.code === '42883') {
+      return await fallbackMethod(supabase, today, thisMonth, startTime);
     }
 
-    // Gider hesaplaması
-    let totalExpense = 0;
-    let thisMonthExpense = 0;
-    for (const exp of expenses as any[]) {
-      const amount = Number(exp.amount) || 0;
-      totalExpense += amount;
-      if (exp.date?.startsWith(thisMonth)) {
-        thisMonthExpense += amount;
-      }
-    }
+    const installmentSummary = summaryRes.data || {
+      total_income: 0,
+      total_amount: 0,
+      paid_count: 0,
+      pending_count: 0,
+      overdue_count: 0,
+      this_month_income: 0
+    };
 
-    // Sınıf bazında ortalama ücret hesapla
-    const classMap = new Map<string, { students: Set<string>; totalAmount: number }>();
-    
-    // Önce öğrencileri sınıflara ayır
-    const studentClassMap = new Map<string, string>();
-    for (const student of students as any[]) {
-      studentClassMap.set(student.id, student.class || 'Belirsiz');
-    }
+    const expenseSummary = expenseSummaryRes.data || {
+      total_expense: 0,
+      this_month_expense: 0
+    };
 
-    // Şimdi taksitleri al ve sınıf bazında grupla (ayrı sorgu gerekli)
-    const { data: installmentsWithStudent } = await supabase
-      .from('finance_installments')
-      .select('student_id, amount');
+    const studentCount = studentCountRes.count || 0;
+    const classData = (classDataRes.data || []).map((row: any) => ({
+      class: row.class_name,
+      averageFee: Math.round(row.average_fee || 0),
+      studentCount: row.student_count || 0,
+      totalAmount: row.total_amount || 0
+    }));
 
-    for (const inst of (installmentsWithStudent || []) as any[]) {
-      const studentClass = studentClassMap.get(inst.student_id);
-      if (!studentClass) continue;
-
-      if (!classMap.has(studentClass)) {
-        classMap.set(studentClass, { students: new Set(), totalAmount: 0 });
-      }
-      const classInfo = classMap.get(studentClass)!;
-      classInfo.students.add(inst.student_id);
-      classInfo.totalAmount += Number(inst.amount) || 0;
-    }
-
-    const classData = Array.from(classMap.entries())
-      .map(([className, info]) => ({
-        class: className,
-        averageFee: info.students.size > 0 ? Math.round(info.totalAmount / info.students.size) : 0,
-        studentCount: info.students.size,
-        totalAmount: info.totalAmount
-      }))
-      .filter(d => d.averageFee > 0)
-      .sort((a, b) => {
-        const aNum = parseInt(a.class);
-        const bNum = parseInt(b.class);
-        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-        if (!isNaN(aNum)) return -1;
-        if (!isNaN(bNum)) return 1;
-        return a.class.localeCompare(b.class);
-      });
+    const totalIncome = Number(installmentSummary.total_income) || 0;
+    const totalAmount = Number(installmentSummary.total_amount) || 0;
+    const totalExpense = Number(expenseSummary.total_expense) || 0;
 
     const payload = {
       summary: {
         totalIncome,
         totalExpense,
         netBalance: totalIncome - totalExpense,
-        collectionRate: totalInstallments > 0 ? (totalIncome / totalInstallments) * 100 : 0,
+        collectionRate: totalAmount > 0 ? (totalIncome / totalAmount) * 100 : 0,
         totalStudents: studentCount,
-        overdueCount,
-        paidCount,
-        pendingCount,
-        thisMonthIncome,
-        thisMonthExpense
+        overdueCount: installmentSummary.overdue_count || 0,
+        paidCount: installmentSummary.paid_count || 0,
+        pendingCount: installmentSummary.pending_count || 0,
+        thisMonthIncome: Number(installmentSummary.this_month_income) || 0,
+        thisMonthExpense: Number(expenseSummary.this_month_expense) || 0
       },
       classData
     };
@@ -144,7 +98,7 @@ export async function GET(req: NextRequest) {
       { 
         status: 200,
         headers: {
-          'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+          'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
           'X-Response-Time': `${responseTime}ms`
         }
       }
@@ -156,4 +110,112 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Fallback: RPC fonksiyonları yoksa bu metodu kullan
+async function fallbackMethod(supabase: any, today: string, thisMonth: string, startTime: number) {
+  // Minimal veri çekimi - sadece gerekli alanlar
+  const [installmentsRes, expensesRes, studentsRes] = await Promise.all([
+    supabase
+      .from('finance_installments')
+      .select('student_id, amount, is_paid, due_date, paid_at'),
+    supabase
+      .from('finance_expenses')
+      .select('amount, date'),
+    supabase
+      .from('students')
+      .select('id, class')
+      .eq('status', 'active')
+  ]);
+
+  const installments = installmentsRes.data || [];
+  const expenses = expensesRes.data || [];
+  const students = studentsRes.data || [];
+
+  // Tek döngüde tüm hesaplamalar
+  let totalIncome = 0, totalInstallments = 0, overdueCount = 0, paidCount = 0, pendingCount = 0, thisMonthIncome = 0;
+  const classMap = new Map<string, { students: Set<string>; totalAmount: number }>();
+  const studentClassMap = new Map<string, string>();
+
+  for (const s of students) {
+    studentClassMap.set(s.id, s.class || 'Belirsiz');
+  }
+
+  for (const inst of installments) {
+    const amount = Number(inst.amount) || 0;
+    totalInstallments += amount;
+    
+    if (inst.is_paid) {
+      totalIncome += amount;
+      paidCount++;
+      if (inst.paid_at?.startsWith(thisMonth)) thisMonthIncome += amount;
+    } else {
+      pendingCount++;
+      if (inst.due_date && inst.due_date < today) overdueCount++;
+    }
+
+    // Sınıf bazında gruplama
+    const studentClass = studentClassMap.get(inst.student_id);
+    if (studentClass) {
+      if (!classMap.has(studentClass)) {
+        classMap.set(studentClass, { students: new Set(), totalAmount: 0 });
+      }
+      const info = classMap.get(studentClass)!;
+      info.students.add(inst.student_id);
+      info.totalAmount += amount;
+    }
+  }
+
+  let totalExpense = 0, thisMonthExpense = 0;
+  for (const exp of expenses) {
+    const amount = Number(exp.amount) || 0;
+    totalExpense += amount;
+    if (exp.date?.startsWith(thisMonth)) thisMonthExpense += amount;
+  }
+
+  const classData = Array.from(classMap.entries())
+    .map(([className, info]) => ({
+      class: className,
+      averageFee: info.students.size > 0 ? Math.round(info.totalAmount / info.students.size) : 0,
+      studentCount: info.students.size,
+      totalAmount: info.totalAmount
+    }))
+    .filter(d => d.averageFee > 0)
+    .sort((a, b) => {
+      const aNum = parseInt(a.class);
+      const bNum = parseInt(b.class);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      return a.class.localeCompare(b.class);
+    });
+
+  const responseTime = Date.now() - startTime;
+
+  return NextResponse.json(
+    { 
+      success: true, 
+      data: {
+        summary: {
+          totalIncome,
+          totalExpense,
+          netBalance: totalIncome - totalExpense,
+          collectionRate: totalInstallments > 0 ? (totalIncome / totalInstallments) * 100 : 0,
+          totalStudents: students.length,
+          overdueCount,
+          paidCount,
+          pendingCount,
+          thisMonthIncome,
+          thisMonthExpense
+        },
+        classData
+      }
+    },
+    { 
+      status: 200,
+      headers: {
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+        'X-Response-Time': `${responseTime}ms`,
+        'X-Method': 'fallback'
+      }
+    }
+  );
 }
