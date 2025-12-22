@@ -43,7 +43,7 @@ AS $$
   SELECT
     COALESCE(SUM(amount), 0) as total_expense,
     COALESCE(SUM(CASE WHEN date::TEXT LIKE p_this_month || '%' THEN amount ELSE 0 END), 0) as this_month_expense
-  FROM finance_expenses;
+  FROM expenses;
 $$;
 
 -- 3. Sınıf Bazında Finans Verileri
@@ -95,7 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_finance_installments_is_paid ON finance_installme
 CREATE INDEX IF NOT EXISTS idx_finance_installments_due_date ON finance_installments(due_date);
 CREATE INDEX IF NOT EXISTS idx_finance_installments_paid_at ON finance_installments(paid_at);
 CREATE INDEX IF NOT EXISTS idx_finance_installments_student_id ON finance_installments(student_id);
-CREATE INDEX IF NOT EXISTS idx_finance_expenses_date ON finance_expenses(date);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(class);
 

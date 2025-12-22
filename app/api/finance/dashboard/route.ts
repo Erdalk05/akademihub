@@ -120,7 +120,7 @@ async function fallbackMethod(supabase: any, today: string, thisMonth: string, s
       .from('finance_installments')
       .select('student_id, amount, is_paid, due_date, paid_at'),
     supabase
-      .from('finance_expenses')
+      .from('expenses')
       .select('amount, date'),
     supabase
       .from('students')
