@@ -114,6 +114,37 @@ function StudentsContent() {
   // ✅ AbortController ref - önceki istekleri iptal etmek için
   const abortControllerRef = useRef<AbortController | null>(null);
   const fetchCountRef = useRef(0);
+  const initialLoadRef = useRef(true);
+
+  // ✅ Cache key oluştur
+  const getCacheKey = useCallback(() => {
+    const orgId = isAllOrganizations ? 'ALL' : currentOrganization?.id || '';
+    return `students_cache_${orgId}_${selectedYear}_${statusFilter}_${classFilter}_${currentPage}`;
+  }, [isAllOrganizations, currentOrganization?.id, selectedYear, statusFilter, classFilter, currentPage]);
+
+  // ✅ İlk yüklemede cache'den göster (anında açılma hissi)
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      try {
+        const cacheKey = getCacheKey();
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, pagination, stats, timestamp } = JSON.parse(cached);
+          // Cache 5 dakikadan eskiyse kullanma
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            console.log('[STUDENTS] 📦 Cache\'den yüklendi');
+            setStudents(data || []);
+            setServerPagination(pagination);
+            setServerStats(stats);
+            setLoading(false); // Cache varsa loading'i hemen kapat
+          }
+        }
+      } catch (e) {
+        console.log('[STUDENTS] Cache okunamadı');
+      }
+      initialLoadRef.current = false;
+    }
+  }, [getCacheKey]);
 
   // ✅ TEK FETCH FONKSİYONU - useCallback ile memoize edildi
   const fetchStudents = useCallback(async (signal?: AbortSignal) => {
@@ -126,7 +157,12 @@ function StudentsContent() {
     const fetchId = ++fetchCountRef.current;
     console.log(`[STUDENTS] 🔄 Fetch #${fetchId} başladı`);
     
-    setLoading(true);
+    // Cache varsa loading gösterme (arka planda güncelle)
+    const cacheKey = getCacheKey();
+    const hasCachedData = students.length > 0;
+    if (!hasCachedData) {
+      setLoading(true);
+    }
     
     try {
       const params = new URLSearchParams();
@@ -162,6 +198,21 @@ function StudentsContent() {
         setServerPagination(json.pagination);
         setServerStats(json.stats);
         setUseServerMode(true);
+        
+        // ✅ Cache'e kaydet (arama yoksa)
+        if (!debouncedSearch) {
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: json.data,
+              pagination: json.pagination,
+              stats: json.stats,
+              timestamp: Date.now()
+            }));
+            console.log('[STUDENTS] 💾 Cache güncellendi');
+          } catch (e) {
+            // sessionStorage dolu olabilir, ignore et
+          }
+        }
       } else {
         // Fallback: Eski yöntem
         await fetchFallback(signal);
