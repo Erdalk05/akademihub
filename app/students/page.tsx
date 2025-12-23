@@ -57,11 +57,79 @@ type StudentRow = {
   status?: string | null;
 };
 
-// Loading fallback
+// ✅ Skeleton Row - Hızlı algılanan yükleme
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      <td className="py-4 px-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+      <td className="py-4 px-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-slate-200 rounded-full" />
+          <div className="h-4 w-32 bg-slate-200 rounded" />
+        </div>
+      </td>
+      <td className="py-4 px-4"><div className="h-6 w-12 bg-slate-200 rounded-full" /></td>
+      <td className="py-4 px-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+      <td className="py-4 px-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+      <td className="py-4 px-4"><div className="h-6 w-14 bg-slate-200 rounded-full" /></td>
+      <td className="py-4 px-4">
+        <div className="flex gap-2">
+          <div className="w-8 h-8 bg-slate-200 rounded" />
+          <div className="w-8 h-8 bg-slate-200 rounded" />
+          <div className="w-8 h-8 bg-slate-200 rounded" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// Loading fallback - Tam sayfa skeleton
 function StudentsLoading() {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <div>
+            <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
+            <div className="h-4 w-64 bg-slate-200 rounded mt-2 animate-pulse" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-24 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="h-10 w-24 bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+        </div>
+        
+        {/* Stats Skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="bg-white rounded-xl p-4 border border-slate-100 animate-pulse">
+              <div className="h-3 w-16 bg-slate-200 rounded mb-2" />
+              <div className="h-8 w-12 bg-slate-200 rounded" />
+            </div>
+          ))}
+        </div>
+        
+        {/* Table Skeleton */}
+        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-16 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-20 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-12 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-16 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-20 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-12 bg-slate-200 rounded" /></th>
+                <th className="py-3 px-4 text-left"><div className="h-4 w-20 bg-slate-200 rounded" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[1,2,3,4,5,6,7,8].map(i => <SkeletonRow key={i} />)}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -128,25 +196,32 @@ function StudentsContent() {
   // ✅ Cache key oluştur
   const getCacheKey = useCallback(() => {
     const orgId = isAllOrganizations ? 'ALL' : currentOrganization?.id || '';
-    return `students_cache_${orgId}_${selectedYear}_${statusFilter}_${classFilter}_${currentPage}`;
-  }, [isAllOrganizations, currentOrganization?.id, selectedYear, statusFilter, classFilter, currentPage]);
+    return `akademihub_students_${orgId}_${statusFilter}_${currentPage}`;
+  }, [isAllOrganizations, currentOrganization?.id, statusFilter, currentPage]);
 
-  // ✅ İlk yüklemede cache'den göster (anında açılma hissi)
+  // ✅ ANINDA yükleme - Component mount olmadan önce localStorage'dan oku
   useEffect(() => {
-    if (initialLoadRef.current) {
+    if (initialLoadRef.current && typeof window !== 'undefined') {
       try {
         const cacheKey = getCacheKey();
-        const cached = sessionStorage.getItem(cacheKey);
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
           const { data, pagination, stats, timestamp } = JSON.parse(cached);
-          // Cache 5 dakikadan eskiyse kullanma
-          if (Date.now() - timestamp < 5 * 60 * 1000) {
-            console.log('[STUDENTS] 📦 Cache\'den yüklendi');
-            setStudents(data || []);
-            setServerPagination(pagination);
-            setServerStats(stats);
-            setLoading(false); // Cache varsa loading'i hemen kapat
+          // Cache 30 dakikadan eskiyse bile göster (stale-while-revalidate)
+          // Arka planda yeni veri çekilecek
+          console.log('[STUDENTS] 📦 localStorage cache\'den ANINDA yüklendi');
+          setStudents(data || []);
+          setServerPagination(pagination);
+          setServerStats(stats);
+          setLoading(false);
+          
+          // Cache 10 dakikadan yeniyse API çağrısı yapma
+          if (Date.now() - timestamp < 10 * 60 * 1000) {
+            setIsFromCache(true);
+            initialLoadRef.current = false;
+            return; // Early return - API'ye gitme
           }
+          setIsFromCache(true);
         }
       } catch (e) {
         console.log('[STUDENTS] Cache okunamadı');
@@ -201,14 +276,31 @@ function StudentsContent() {
       if (result.data && result.data.length > 0) {
         setStudents(result.data);
         setServerPagination(result.pagination);
-        setServerStats({
+        const statsData = {
           totalActive: result.stats.active,
-          withDebt: 0, // API'den gelmiyorsa 0
+          withDebt: 0,
           paid: 0,
           critical: 0,
           deleted: result.stats.deleted
-        });
+        };
+        setServerStats(statsData);
         setUseServerMode(true);
+        
+        // ✅ localStorage'a kaydet (sonraki ziyarette anında yüklensin)
+        if (!result.fromCache && !debouncedSearch) {
+          try {
+            const cacheKey = getCacheKey();
+            localStorage.setItem(cacheKey, JSON.stringify({
+              data: result.data,
+              pagination: result.pagination,
+              stats: statsData,
+              timestamp: Date.now()
+            }));
+            console.log('[STUDENTS] 💾 localStorage cache güncellendi');
+          } catch (e) {
+            // localStorage dolu olabilir
+          }
+        }
       } else if (!result.isOffline) {
         // Online ama boş sonuç - fallback dene
         await fetchFallback(signal);
@@ -231,7 +323,7 @@ function StudentsContent() {
     } finally {
       setLoading(false);
     }
-  }, [isAllOrganizations, currentOrganization?.id, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage, pageSize, isOnline, students.length]);
+  }, [isAllOrganizations, currentOrganization?.id, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage, pageSize, isOnline, students.length, getCacheKey]);
 
   // Fallback: Eski yöntem (RPC yoksa)
   const fetchFallback = async (signal?: AbortSignal) => {

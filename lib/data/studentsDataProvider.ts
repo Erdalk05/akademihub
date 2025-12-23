@@ -3,9 +3,10 @@
  * Akıllı veri katmanı - Online/Offline mod destekli
  * 
  * Davranış:
- * - ONLINE: API'den çeker, cache'e yazar
- * - OFFLINE: Cache'den okur, yoksa boş döner
- * - Cache: 5 dakika geçerli, localStorage'da kalıcı
+ * - İlk yükleme: localStorage'dan ANINDA göster
+ * - ONLINE: Arka planda API'den çeker, cache günceller
+ * - OFFLINE: Cache'den okur
+ * - Cache: 10 dakika geçerli, localStorage'da kalıcı
  */
 
 import { cacheManager } from '@/lib/offline/cacheManager';
@@ -18,10 +19,10 @@ const CACHE_KEYS = {
   STUDENTS_PAGINATION: 'students_pagination'
 };
 
-// TTL değerleri
+// TTL değerleri - daha uzun cache süresi
 const TTL = {
-  STUDENTS: 5 * 60 * 1000, // 5 dakika
-  STATS: 10 * 60 * 1000    // 10 dakika
+  STUDENTS: 10 * 60 * 1000, // 10 dakika (daha uzun)
+  STATS: 15 * 60 * 1000     // 15 dakika
 };
 
 export interface StudentListParams {
