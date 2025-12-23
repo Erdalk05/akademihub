@@ -10,6 +10,7 @@ import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
 import { LazyDashboardSection } from '@/components/dashboard/LazyDashboardSection';
 import { useMobileOptimization } from '@/lib/hooks/useMobileOptimization';
 import { prefetchStudents } from '@/lib/prefetch/studentsPrefetch';
+import { useSmartNotifications } from '@/lib/hooks/useSmartNotifications';
 import { 
   Loader2, 
   AlertTriangle, 
@@ -60,6 +61,15 @@ export default function DashboardPage() {
   
   // ✅ Mobile optimization
   const { isMobile, shouldDeferHeavyCalc } = useMobileOptimization();
+  
+  // ✅ Akıllı Bildirim Sistemi - RiskEngine tabanlı
+  const riskStudentsForNotifications = (dashboardData?.riskStudents || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    totalDebt: s.totalDebt || 0,
+    overdueDays: s.overdueDays || 0
+  }));
+  useSmartNotifications(riskStudentsForNotifications, { enabled: !isLoading });
   
   // ✅ AbortController for API calls
   const abortControllerRef = useRef<AbortController | null>(null);
