@@ -1,128 +1,184 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Brain, Phone, MessageCircle, Calendar, AlertTriangle, TrendingUp, CheckCircle } from 'lucide-react';
+import { Brain, Phone, MessageCircle, FileText, AlertTriangle, TrendingUp, Zap, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { analyzeRisk, type RiskAnalysis } from '@/lib/risk/RiskEngine';
 
-interface AIRecommendationCardProps {
-  studentName: string;
+interface StudentData {
+  id: string;
+  name: string;
   totalDebt: number;
-  overdueDays?: number;
+  overdueDays: number;
+  phone?: string;
+}
+
+interface AIRecommendationCardProps {
+  student: StudentData;
   className?: string;
 }
 
 /**
  * AIRecommendationCard - "Bu öğrenci için ne yapmalısın?" sorusuna cevap verir
- * RiskEngine tabanlı akıllı öneriler
+ * RiskEngine tabanlı akıllı öneri sistemi
  */
-export default function AIRecommendationCard({
-  studentName,
-  totalDebt,
-  overdueDays = 0,
-  className = ''
-}: AIRecommendationCardProps) {
+export default function AIRecommendationCard({ student, className = '' }: AIRecommendationCardProps) {
+  // RiskEngine analizi
   const analysis = useMemo<RiskAnalysis>(() => {
     return analyzeRisk({
-      totalDebt,
-      overdueDays,
-      overdueAmount: totalDebt
+      totalDebt: student.totalDebt,
+      overdueDays: student.overdueDays,
+      overdueAmount: student.totalDebt
     });
-  }, [totalDebt, overdueDays]);
+  }, [student.totalDebt, student.overdueDays]);
 
-  // Risk yoksa gösterme
-  if (analysis.level === 'none' || analysis.level === 'low') {
-    return (
-      <div className={`bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl p-4 border border-emerald-200 ${className}`}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-            <CheckCircle className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h4 className="font-bold text-emerald-800">Harika!</h4>
-            <p className="text-sm text-emerald-600">{studentName} için acil aksiyon gerekmiyor.</p>
-          </div>
-        </div>
-      </div>
-    );
+  // Aksiyon önerileri oluştur
+  const actions = useMemo(() => {
+    const items: {
+      icon: React.ElementType;
+      label: string;
+      description: string;
+      priority: 'high' | 'medium' | 'low';
+      action?: () => void;
+      href?: string;
+    }[] = [];
+
+    if (analysis.level === 'critical' || analysis.level === 'high') {
+      // Kritik: Hemen ara
+      items.push({
+        icon: Phone,
+        label: 'Hemen Ara',
+        description: 'Veli ile acil görüşme yap',
+        priority: 'high',
+        action: () => {
+          if (student.phone) {
+            window.open(`tel:${student.phone}`, '_self');
+          }
+        }
+      });
+    }
+
+    if (analysis.level !== 'none' && analysis.level !== 'low') {
+      // WhatsApp hatırlatma
+      items.push({
+        icon: MessageCircle,
+        label: 'WhatsApp Gönder',
+        description: 'Ödeme hatırlatması gönder',
+        priority: analysis.level === 'critical' ? 'high' : 'medium',
+        action: () => {
+          const msg = encodeURIComponent(
+            `Sayın Veli, ${student.name} adlı öğrencinizin ₺${student.totalDebt.toLocaleString('tr-TR')} tutarında ödeme borcunu hatırlatmak isteriz.`
+          );
+          window.open(`https://wa.me/?text=${msg}`, '_blank');
+        }
+      });
+    }
+
+    // Ödeme planı önerisi
+    if (student.totalDebt > 10000) {
+      items.push({
+        icon: FileText,
+        label: 'Ödeme Planı Oluştur',
+        description: 'Taksitlendirme planı öner',
+        priority: 'medium',
+        href: `/students/${student.id}?tab=education`
+      });
+    }
+
+    // Risk analizi detayı
+    items.push({
+      icon: TrendingUp,
+      label: 'Detaylı Analiz',
+      description: 'Risk raporunu incele',
+      priority: 'low',
+      href: `/students/${student.id}`
+    });
+
+    return items;
+  }, [analysis, student]);
+
+  if (analysis.level === 'none') {
+    return null; // Risk yoksa kart gösterme
   }
 
-  const getActionIcon = (action: string) => {
-    if (action.includes('Ara') || action.includes('telefon')) return Phone;
-    if (action.includes('WhatsApp') || action.includes('mesaj')) return MessageCircle;
-    if (action.includes('plan') || action.includes('tarih')) return Calendar;
-    if (action.includes('Risk')) return AlertTriangle;
-    return TrendingUp;
-  };
-
   return (
-    <div className={`bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-200 ${className}`}>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-          <Brain className="w-6 h-6 text-white" />
+    <div className={`bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200 overflow-hidden ${className}`}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3">
+        <div className="flex items-center gap-2 text-white">
+          <Brain className="w-5 h-5" />
+          <span className="font-bold text-sm">AI Öneri</span>
+          <Zap className="w-4 h-4 text-yellow-300 animate-pulse" />
         </div>
-        <div>
-          <h4 className="font-bold text-purple-800 flex items-center gap-2">
-            AI Asistan
-            <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full">Beta</span>
-          </h4>
-          <p className="text-sm text-purple-600">{studentName} için öneriler</p>
-        </div>
-        <div className="ml-auto text-right">
-          <div className={`text-2xl font-bold ${analysis.textColor}`}>{analysis.score}</div>
-          <div className="text-xs text-gray-500">Risk Skoru</div>
+        <p className="text-indigo-100 text-xs mt-1">"{student.name} için ne yapmalısın?"</p>
+      </div>
+
+      {/* Risk Özeti */}
+      <div className="px-4 py-3 border-b border-indigo-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+              analysis.level === 'critical' ? 'bg-red-500' :
+              analysis.level === 'high' ? 'bg-orange-500' :
+              analysis.level === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+            }`}>
+              <AlertTriangle className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-800 text-sm">{analysis.label}</p>
+              <p className="text-gray-500 text-xs">Skor: {analysis.score}</p>
+            </div>
+          </div>
+          <span className={`px-2 py-1 rounded-full text-xs font-bold ${analysis.bgColor} ${analysis.textColor}`}>
+            {analysis.level === 'critical' ? 'ACİL' : 
+             analysis.level === 'high' ? 'ÖNCELİKLİ' : 
+             analysis.level === 'medium' ? 'TAKİP' : 'NORMAL'}
+          </span>
         </div>
       </div>
 
-      <div className="space-y-2">
-        {analysis.recommendations.slice(0, 3).map((rec, idx) => {
-          const Icon = getActionIcon(rec.action);
-          return (
-            <div 
-              key={idx}
-              className={`flex items-center gap-3 p-3 rounded-xl ${
-                rec.priority === 'high' ? 'bg-red-50 border border-red-200' :
-                rec.priority === 'medium' ? 'bg-amber-50 border border-amber-200' :
-                'bg-blue-50 border border-blue-200'
-              }`}
-            >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                rec.priority === 'high' ? 'bg-red-500' :
-                rec.priority === 'medium' ? 'bg-amber-500' :
-                'bg-blue-500'
+      {/* Önerilen Aksiyonlar */}
+      <div className="p-3 space-y-2">
+        {actions.slice(0, 3).map((action, idx) => {
+          const Icon = action.icon;
+          const content = (
+            <div className={`flex items-center gap-3 p-2.5 rounded-xl transition cursor-pointer ${
+              action.priority === 'high' ? 'bg-red-50 hover:bg-red-100 border border-red-200' :
+              action.priority === 'medium' ? 'bg-amber-50 hover:bg-amber-100 border border-amber-200' :
+              'bg-white hover:bg-gray-50 border border-gray-200'
+            }`}>
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                action.priority === 'high' ? 'bg-red-500' :
+                action.priority === 'medium' ? 'bg-amber-500' : 'bg-gray-400'
               }`}>
                 <Icon className="w-4 h-4 text-white" />
               </div>
-              <div className="flex-1">
-                <p className={`font-medium text-sm ${
-                  rec.priority === 'high' ? 'text-red-800' :
-                  rec.priority === 'medium' ? 'text-amber-800' :
-                  'text-blue-800'
-                }`}>
-                  {rec.action}
-                </p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800 text-sm">{action.label}</p>
+                <p className="text-gray-500 text-xs truncate">{action.description}</p>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                rec.priority === 'high' ? 'bg-red-200 text-red-700' :
-                rec.priority === 'medium' ? 'bg-amber-200 text-amber-700' :
-                'bg-blue-200 text-blue-700'
-              }`}>
-                {rec.priority === 'high' ? 'Acil' : rec.priority === 'medium' ? 'Bu hafta' : 'Planlı'}
-              </span>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </div>
+          );
+
+          if (action.href) {
+            return <Link key={idx} href={action.href}>{content}</Link>;
+          }
+
+          return (
+            <div key={idx} onClick={action.action}>
+              {content}
             </div>
           );
         })}
       </div>
 
-      {analysis.reasons.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-purple-200">
-          <p className="text-xs text-purple-600 mb-2">Analiz Nedenleri:</p>
-          <div className="flex flex-wrap gap-1">
-            {analysis.reasons.slice(0, 3).map((reason, idx) => (
-              <span key={idx} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg">
-                {reason.title}
-              </span>
-            ))}
-          </div>
+      {/* Alt Bilgi */}
+      {analysis.recommendations.length > 0 && (
+        <div className="px-4 py-2 bg-indigo-100/50 border-t border-indigo-200">
+          <p className="text-xs text-indigo-700">
+            💡 {analysis.recommendations[0]?.action}
+          </p>
         </div>
       )}
     </div>
