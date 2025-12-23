@@ -153,3 +153,4 @@ export function generateRiskNotification(
 }
 
 export default useSmartNotifications;
+
