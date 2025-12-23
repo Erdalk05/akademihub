@@ -1,10 +1,11 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Clock, CheckCircle2, MessageCircle, CreditCard, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Clock, CheckCircle2, MessageCircle, CreditCard, Edit, Trash2, MoreHorizontal, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 import { useIntersectionObserver } from '@/lib/hooks/useIntersectionObserver';
+import { analyzeRisk, type RiskAnalysis } from '@/lib/risk/RiskEngine';
 
 type StudentRow = {
   id: string;
@@ -32,6 +33,108 @@ interface StudentTableRowProps {
   onQuickView: (student: StudentRow) => void;
   onDelete: (id: string) => void;
 }
+
+// ✅ RiskEngine Enhanced Risk Badge with Tooltip
+const RiskBadge = memo(({ student }: { student: StudentRow }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  // RiskEngine analizi - sadece görünürken hesapla
+  const riskAnalysis = useMemo<RiskAnalysis>(() => {
+    return analyzeRisk({
+      totalDebt: student.debt,
+      overdueDays: student.avgDelay || 0,
+      overdueAmount: student.debt
+    });
+  }, [student.debt, student.avgDelay]);
+  
+  const getBadgeStyle = () => {
+    switch (student.risk) {
+      case 'Yüksek':
+        return 'bg-gradient-to-r from-red-500 to-rose-500 text-white';
+      case 'Orta':
+        return 'bg-gradient-to-r from-amber-400 to-orange-400 text-white';
+      case 'Düşük':
+        return 'bg-gradient-to-r from-blue-400 to-indigo-400 text-white';
+      default:
+        return 'bg-gradient-to-r from-emerald-400 to-green-500 text-white';
+    }
+  };
+  
+  const getLabel = () => {
+    switch (student.risk) {
+      case 'Yüksek': return 'Kritik';
+      case 'Orta': return 'Orta';
+      case 'Düşük': return 'Düşük';
+      default: return 'Güncel';
+    }
+  };
+  
+  return (
+    <div className="relative">
+      <button
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${getBadgeStyle()} shadow-sm cursor-default`}
+      >
+        {student.risk === 'Yüksek' && <span className="w-2 h-2 bg-white rounded-full animate-pulse" />}
+        {student.risk === 'Orta' && <span className="w-2 h-2 bg-white rounded-full" />}
+        {student.risk === 'Düşük' && <span className="w-2 h-2 bg-white rounded-full" />}
+        {student.risk === 'Yok' && <CheckCircle2 size={12} />}
+        {getLabel()}
+      </button>
+      
+      {/* Tooltip - Risk Detayları */}
+      {showTooltip && riskAnalysis.reasons.length > 0 && (
+        <div className="absolute z-50 left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <span className="font-bold text-sm text-gray-800">Risk Analizi</span>
+            <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${riskAnalysis.bgColor} ${riskAnalysis.textColor}`}>
+              {riskAnalysis.score}
+            </span>
+          </div>
+          
+          <div className="space-y-1.5">
+            {riskAnalysis.reasons.slice(0, 3).map((reason, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-xs">
+                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                  reason.severity === 'critical' ? 'bg-red-500' :
+                  reason.severity === 'high' ? 'bg-orange-500' :
+                  reason.severity === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+                }`} />
+                <div>
+                  <p className="font-medium text-gray-700">{reason.title}</p>
+                  <p className="text-gray-500 text-[10px]">{reason.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {riskAnalysis.trend.direction !== 'unknown' && (
+            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1 text-xs">
+              {riskAnalysis.trend.direction === 'worsening' && (
+                <>
+                  <TrendingUp className="w-3 h-3 text-red-500" />
+                  <span className="text-red-600">Risk artıyor</span>
+                </>
+              )}
+              {riskAnalysis.trend.direction === 'improving' && (
+                <>
+                  <TrendingDown className="w-3 h-3 text-green-500" />
+                  <span className="text-green-600">Risk düşüyor</span>
+                </>
+              )}
+              {riskAnalysis.trend.direction === 'stable' && (
+                <span className="text-gray-500">Stabil</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+RiskBadge.displayName = 'RiskBadge';
 
 // Skeleton for lazy loading
 const RowSkeleton = () => (
@@ -160,32 +263,9 @@ function StudentTableRowComponent({
         )}
       </td>
       
-      {/* Risk */}
+      {/* Risk - RiskEngine Enhanced */}
       <td className="px-4 py-3.5">
-        {s.risk === 'Yüksek' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-sm">
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-            Kritik
-          </span>
-        )}
-        {s.risk === 'Orta' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm">
-            <span className="w-2 h-2 bg-white rounded-full"></span>
-            Orta
-          </span>
-        )}
-        {s.risk === 'Düşük' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-400 to-indigo-400 text-white shadow-sm">
-            <span className="w-2 h-2 bg-white rounded-full"></span>
-            Düşük
-          </span>
-        )}
-        {s.risk === 'Yok' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-sm">
-            <CheckCircle2 size={12} />
-            Güncel
-          </span>
-        )}
+        <RiskBadge student={s} />
       </td>
       
       {/* İşlemler */}
