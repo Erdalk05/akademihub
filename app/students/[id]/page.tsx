@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Phone, 
@@ -37,6 +37,8 @@ import { StickyNote, UserCircle } from 'lucide-react';
 import { useRole } from '@/lib/contexts/RoleContext';
 import { Permission } from '@/lib/types/role-types';
 import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
+// RiskEngine
+import { analyzeRisk, type RiskAnalysis } from '@/lib/risk/RiskEngine';
 
 interface StudentData {
   id: string;
@@ -82,6 +84,16 @@ export default function StudentDetailPage() {
     other: { total: 0, paid: 0, remaining: 0 },
     overall: { total: 0, paid: 0, remaining: 0 }
   });
+  
+  // ✅ RiskEngine analizi
+  const riskAnalysis = useMemo<RiskAnalysis | null>(() => {
+    if (!student || financeSummary.overall.remaining <= 0) return null;
+    return analyzeRisk({
+      totalDebt: financeSummary.overall.remaining,
+      overdueDays: 0, // TODO: API'den gecikme günü alınabilir
+      overdueAmount: financeSummary.overall.remaining
+    });
+  }, [student, financeSummary]);
   
   // Kamera ve Galeri ref'leri
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -782,6 +794,73 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ RiskEngine Analiz Kartı */}
+      {riskAnalysis && riskAnalysis.level !== 'none' && (
+        <div className={`rounded-2xl p-5 shadow-lg border ${riskAnalysis.bgColor} ${riskAnalysis.borderColor}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl ${
+                riskAnalysis.level === 'critical' ? 'bg-red-500' :
+                riskAnalysis.level === 'high' ? 'bg-orange-500' :
+                riskAnalysis.level === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+              } flex items-center justify-center`}>
+                <AlertTriangle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className={`font-bold text-lg ${riskAnalysis.textColor}`}>
+                  Risk Analizi: {riskAnalysis.label}
+                </h3>
+                <p className="text-sm text-gray-600">{riskAnalysis.summary}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-bold ${riskAnalysis.textColor}`}>{riskAnalysis.score}</div>
+              <div className="text-xs text-gray-500">Risk Skoru</div>
+            </div>
+          </div>
+          
+          {/* Risk Nedenleri */}
+          {riskAnalysis.reasons.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 mb-2">Risk Nedenleri:</p>
+              <div className="flex flex-wrap gap-2">
+                {riskAnalysis.reasons.slice(0, 3).map((reason, idx) => (
+                  <span 
+                    key={idx}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                      reason.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                      reason.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                      reason.severity === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    {reason.title}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Öneriler */}
+          {riskAnalysis.recommendations.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-500 mb-2">Önerilen Aksiyonlar:</p>
+              <div className="space-y-1">
+                {riskAnalysis.recommendations.slice(0, 2).map((rec, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                      rec.priority === 'high' ? 'bg-red-500' : rec.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    {rec.action}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* TAB MENÜSÜ - 4 Tab: Öğrenci Profili, Eğitim Ödemeleri, Diğer Satışlar, Notlar */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
