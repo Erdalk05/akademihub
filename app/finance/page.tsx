@@ -15,6 +15,8 @@ import toast from 'react-hot-toast';
 import { getDashboardDataCached, invalidateFinanceCache } from '@/lib/data/financeDataProvider';
 import { useNetworkStatus } from '@/lib/offline/networkStatus';
 import OfflineIndicator from '@/components/ui/OfflineIndicator';
+// ✅ RiskEngine
+import { calculateRiskStats } from '@/lib/risk/RiskEngine';
 
 // =====================================================
 // OPTİMİZE FİNANS ÖN ÖZET RAPOR SAYFASI
@@ -624,6 +626,42 @@ export default function FinancePage() {
               </button>
             </div>
           </div>
+
+          {/* ✅ Risk Özeti Kartı */}
+          {summary.overdueCount > 0 && (
+            <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-5 border border-red-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
+                    <AlertTriangle className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-red-800 text-lg">Risk Durumu</h3>
+                    <p className="text-red-600 text-sm">{summary.overdueCount} gecikmiş taksit tespit edildi</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-red-600">{summary.overdueCount}</div>
+                  <div className="text-xs text-red-500">Aksiyon Bekliyor</div>
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <a 
+                  href="/finance/reports/founder?tab=risk" 
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold text-center hover:bg-red-700 transition"
+                >
+                  Risk Raporunu Gör
+                </a>
+                <button 
+                  onClick={() => generatePDF('Risk Raporu')}
+                  className="px-4 py-2 bg-white text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-50 transition flex items-center gap-1"
+                >
+                  <Printer className="w-4 h-4" />
+                  PDF
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Taksit & Öğrenci Durumu */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
