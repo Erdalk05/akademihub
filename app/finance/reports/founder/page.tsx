@@ -13,6 +13,8 @@ import { getFounderReportCached, invalidateFounderCache } from '@/lib/data/found
 import { useNetworkStatus } from '@/lib/offline/networkStatus';
 import OfflineIndicator from '@/components/ui/OfflineIndicator';
 import toast from 'react-hot-toast';
+// ✅ RiskEngine entegrasyonu
+import { analyzeRisk, calculateRiskStats, type RiskAnalysis } from '@/lib/risk/RiskEngine';
 
 interface Student {
   id: string;
@@ -1499,23 +1501,54 @@ export default function FounderReportPage() {
           </div>
         )}
 
-        {/* Risk Tab */}
-        {activeTab === 'risk' && (
+        {/* Risk Tab - RiskEngine Enhanced */}
+        {activeTab === 'risk' && (() => {
+          // RiskEngine ile detaylı analiz
+          const riskAnalyses = riskStudents.map(s => analyzeRisk({
+            totalDebt: s.totalDebt,
+            overdueDays: s.overdueDays,
+            overdueAmount: s.totalDebt
+          }));
+          const riskStats = calculateRiskStats(riskAnalyses);
+          const avgScore = riskStats.averageScore;
+          
+          return (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              {[
-                { label: 'Kritik Risk', count: riskStudents.filter(s => s.riskLevel === 'critical').length, color: 'from-red-500 to-rose-600', desc: '90+ gün veya 50K+' },
-                { label: 'Yüksek Risk', count: riskStudents.filter(s => s.riskLevel === 'high').length, color: 'from-amber-500 to-orange-600', desc: '60-90 gün veya 30K+' },
-                { label: 'Orta/Düşük Risk', count: riskStudents.filter(s => s.riskLevel === 'medium' || s.riskLevel === 'low').length, color: 'from-yellow-500 to-amber-600', desc: 'İzleme altında' },
-              ].map((item, idx) => (
-                <div key={idx} className={`bg-gradient-to-br ${item.color} rounded-2xl p-5 text-white`}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <AlertTriangle className="w-8 h-8 opacity-80" />
-                    <div><p className="text-3xl font-bold">{item.count}</p><p className="text-white/80 text-sm">{item.label}</p></div>
-                  </div>
-                  <p className="text-white/60 text-xs">{item.desc}</p>
+            {/* RiskEngine Özet Kartları */}
+            <div className="grid md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <AlertTriangle className="w-8 h-8 opacity-80" />
+                  <div><p className="text-3xl font-bold">{riskStats.critical}</p><p className="text-white/80 text-sm">Kritik Risk</p></div>
                 </div>
-              ))}
+                <p className="text-white/60 text-xs">Acil müdahale gerekli</p>
+              </div>
+              <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <AlertTriangle className="w-8 h-8 opacity-80" />
+                  <div><p className="text-3xl font-bold">{riskStats.high}</p><p className="text-white/80 text-sm">Yüksek Risk</p></div>
+                </div>
+                <p className="text-white/60 text-xs">Bu hafta takip edilmeli</p>
+              </div>
+              <div className="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl p-5 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <AlertTriangle className="w-8 h-8 opacity-80" />
+                  <div><p className="text-3xl font-bold">{riskStats.medium}</p><p className="text-white/80 text-sm">Orta Risk</p></div>
+                </div>
+                <p className="text-white/60 text-xs">İzleme altında</p>
+              </div>
+              <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-5 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <Target className="w-8 h-8 opacity-80" />
+                  <div><p className="text-3xl font-bold">{avgScore.toFixed(0)}</p><p className="text-white/80 text-sm">Ort. Risk Skoru</p></div>
+                </div>
+                <div className="mt-2 h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${avgScore > 70 ? 'bg-red-400' : avgScore > 40 ? 'bg-amber-400' : 'bg-green-400'}`}
+                    style={{ width: `${Math.min(100, avgScore)}%` }}
+                  />
+                </div>
+              </div>
             </div>
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="p-4 bg-gradient-to-r from-red-500 to-rose-600 flex items-center justify-between">
@@ -1568,7 +1601,8 @@ export default function FounderReportPage() {
               </div>
             </div>
           </div>
-        )}
+        );
+        })()}
 
         {/* Metrics Tab */}
         {activeTab === 'metrics' && (
