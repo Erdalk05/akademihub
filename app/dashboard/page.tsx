@@ -23,6 +23,7 @@ import {
 const TodayCollectionWidget = lazy(() => import('@/components/dashboard/TodayCollectionWidget'));
 const PendingPaymentsWidget = lazy(() => import('@/components/dashboard/PendingPaymentsWidget'));
 const GraphicsTabPanel = lazy(() => import('@/components/dashboard/GraphicsTabPanel'));
+const SmartActionPanel = lazy(() => import('@/components/dashboard/SmartActionPanel'));
 
 // ✅ SKELETON LOADER - Mobil uyumlu
 const WidgetSkeleton = memo(() => (
@@ -217,6 +218,45 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ✅ YENİ: Akıllı Aksiyon Paneli - Bugün yapılacaklar */}
+        <LazyDashboardSection
+          id="smart-actions-section"
+          minHeight={isMobile ? 200 : 250}
+          fallback={
+            <div className="animate-pulse bg-white rounded-2xl border border-slate-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 py-3">
+                <div className="h-4 bg-white/20 rounded w-32"></div>
+              </div>
+              <div className="p-3 space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-gray-50 rounded-xl p-3 flex gap-3">
+                    <div className="w-9 h-9 bg-gray-200 rounded-lg"></div>
+                    <div className="flex-1">
+                      <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
+                      <div className="h-4 bg-gray-100 rounded w-3/4"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          }
+        >
+          <Suspense fallback={<div className="h-48 bg-gray-50 rounded-2xl animate-pulse" />}>
+            <SmartActionPanel 
+              kpi={{
+                activeStudents: kpi.activeStudents,
+                debtorStudents: kpi.debtorStudents,
+                totalDebt: kpi.totalDebt,
+                monthlyCollection: kpi.monthlyCollection,
+                criticalStudents: kpi.criticalStudents,
+                todayDueCount: kpi.todayDueCount,
+                weekDueCount: kpi.weekDueCount,
+              }}
+              riskStudents={dashboardData?.riskStudents || []}
+            />
+          </Suspense>
+        </LazyDashboardSection>
 
         {/* ✅ Widget'lar - Lazy loaded, mobilde scroll'da yüklenir */}
         <LazyDashboardSection 
