@@ -908,384 +908,377 @@ export default function FreeReportBuilderPage() {
   }, [rows]);
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50">
-      {/* GLOBAL TOOLBAR */}
-      <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
-            FR
+    <div className="flex h-screen flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* 🎨 MODERN HEADER - Glassmorphism Style */}
+      <header className="flex h-16 items-center justify-between border-b border-white/10 bg-white/5 backdrop-blur-xl px-6">
+        <div className="flex items-center gap-4">
+          {/* Logo */}
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/30">
+            <Sparkles className="h-5 w-5 text-white" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col">
             <input
               value={reportName}
               onChange={(e) =>
                 setReportName(e.target.value.toLocaleUpperCase('tr-TR'))
               }
-              className="w-56 truncate border-none bg-transparent text-sm font-semibold tracking-wide text-slate-900 focus:outline-none focus:ring-0"
+              className="w-64 truncate border-none bg-transparent text-lg font-bold text-white placeholder:text-white/40 focus:outline-none focus:ring-0"
               placeholder="RAPOR ADI"
             />
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${
-                isSaved
-                  ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                  : 'bg-amber-50 text-amber-700 ring-amber-200'
-              }`}
-            >
-              {isSaved ? 'KAYDEDİLDİ' : 'TASLAK'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  isSaved
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-amber-500/20 text-amber-400'
+                }`}
+              >
+                {isSaved ? '✓ KAYDEDİLDİ' : '● TASLAK'}
+              </span>
+              <span className="text-[10px] text-white/40">
+                {selectedFields.length} alan seçili
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-1">
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.max(50, z - 10))}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </button>
-            <span className="px-2 text-xs font-medium text-slate-700">
-              {zoom}%
-            </span>
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.min(150, z + 10))}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-              mode === 'edit'
-                ? 'bg-slate-900 text-white'
-                : 'border border-slate-200 bg-white text-slate-800'
-            }`}
-            onClick={() => setMode((m) => (m === 'edit' ? 'view' : 'edit'))}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-            {mode === 'edit' ? 'DÜZENLEME MODU' : 'GÖRÜNTÜLEME MODU'}
-          </button>
-
+        <div className="flex items-center gap-2">
+          {/* Tarih Filtresi */}
           <button
             type="button"
             onClick={cycleDatePreset}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/20 transition-all"
           >
             <Calendar className="h-4 w-4" />
-            TARİH: {getDatePresetLabel()}
+            {getDatePresetLabel()}
           </button>
 
+          {/* Kaydet */}
           <button
             type="button"
             onClick={saveReport}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+            className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all"
           >
             <Save className="h-4 w-4" />
-            KAYDET
+            Kaydet
           </button>
+
+          {/* Çalıştır - Ana CTA */}
           <button
             type="button"
             onClick={runReport}
-            disabled={running}
-            className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#128C7E] disabled:opacity-70"
+            disabled={running || selectedFields.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 disabled:opacity-50 transition-all"
           >
             {running ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Play className="h-4 w-4" />
             )}
-            RAPORU ÇALIŞTIR
+            Çalıştır
           </button>
+
+          {/* Export Dropdown */}
           <div className="relative export-menu-container">
             <button
               type="button"
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+              disabled={!rows || rows.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 transition-all"
             >
               <Download className="h-4 w-4" />
-              DIŞA AKTAR
             </button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                <div className="mb-1 px-2 py-1.5 text-[10px] font-semibold text-slate-400">
-                  FORMAT SEÇİN
+              <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-white/10 bg-slate-800/95 backdrop-blur-xl p-2 shadow-2xl">
+                <div className="mb-2 px-3 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                  Dışa Aktar
                 </div>
                 <button
                   onClick={exportToExcel}
-                  disabled={!rows || rows.length === 0}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors ${
-                    !rows || rows.length === 0
-                      ? 'cursor-not-allowed opacity-50 text-slate-400'
-                      : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
-                  }`}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-500/20 transition-colors"
                 >
-                  <FileSpreadsheet className={`h-4 w-4 ${!rows || rows.length === 0 ? 'text-slate-400' : 'text-emerald-600'}`} />
-                  <div>
-                    Excel Olarak İndir (.xlsx)
-                    {(!rows || rows.length === 0) && <div className="text-[9px] font-normal opacity-70">Önce raporu çalıştırın</div>}
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">Excel</div>
+                    <div className="text-[10px] text-white/50">.xlsx formatı</div>
                   </div>
                 </button>
                 <button
                   onClick={exportToPDF}
-                  disabled={!rows || rows.length === 0}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors ${
-                    !rows || rows.length === 0
-                      ? 'cursor-not-allowed opacity-50 text-slate-400'
-                      : 'text-slate-700 hover:bg-red-50 hover:text-red-700'
-                  }`}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white hover:bg-red-500/20 transition-colors"
                 >
-                  <FileType className={`h-4 w-4 ${!rows || rows.length === 0 ? 'text-slate-400' : 'text-red-600'}`} />
-                  <div>
-                    PDF Olarak İndir (.pdf)
-                    {(!rows || rows.length === 0) && <div className="text-[9px] font-normal opacity-70">Önce raporu çalıştırın</div>}
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20">
+                    <FileType className="h-4 w-4 text-red-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">PDF</div>
+                    <div className="text-[10px] text-white/50">.pdf formatı</div>
                   </div>
                 </button>
-                <div className="my-1 h-px bg-slate-100" />
                 <button
                   onClick={exportToJSON}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[11px] font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white hover:bg-amber-500/20 transition-colors"
                 >
-                  <FileCode2 className="h-4 w-4 text-amber-600" />
-                  JSON Kaynağı (.json)
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
+                    <FileCode2 className="h-4 w-4 text-amber-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">JSON</div>
+                    <div className="text-[10px] text-white/50">Ham veri</div>
+                  </div>
                 </button>
               </div>
             )}
           </div>
+
+          {/* Ayarlar */}
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white/80 hover:bg-white/20 transition-all"
           >
             <Settings2 className="h-4 w-4" />
-            RAPOR AYARLARI
           </button>
         </div>
       </header>
 
-      {/* ANA LAYOUT */}
-      <main className="flex flex-1 gap-3 overflow-hidden p-3">
-        {/* SOL PANEL – VERİ KAYNAKLARI */}
-        <section className="flex w-80 flex-shrink-0 flex-col rounded-2xl bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#25D366]/10 text-[#25D366]">
-              <Database className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-900">
-                VERİ KAYNAKLARI
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Öğrenci, veli, akademik ve finans alanlarını buradan seçin.
-              </p>
-            </div>
-          </div>
-
-          {/* HIZLI ŞABLONLAR - Tek Tıkla Excel'e Aktar */}
-          <div className="mb-4 rounded-xl border-2 border-[#25D366]/30 bg-gradient-to-br from-[#DCF8C6]/30 to-white p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#075E54]">
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                HIZLI EXCEL AKTARMA
-              </p>
+      {/* 🎨 ANA LAYOUT - Modern 3-Kolon */}
+      <main className="flex flex-1 gap-4 overflow-hidden p-4">
+        {/* SOL PANEL – HIZLI ŞABLONLAR + VERİ KAYNAKLARI */}
+        <section className="flex w-72 flex-shrink-0 flex-col rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+          {/* Hızlı Şablonlar Header */}
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-purple-500/20">
+                  <LayoutTemplate className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Hızlı Başlat</p>
+                  <p className="text-[10px] text-white/50">Tek tıkla Excel&apos;e aktar</p>
+                </div>
+              </div>
               {selectedFields.length > 0 && (
                 <button
                   type="button"
                   onClick={clearAllFields}
-                  className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold text-white hover:bg-red-600 transition"
+                  className="inline-flex items-center gap-1 rounded-lg bg-red-500/20 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500/30 transition"
                 >
-                  <X className="h-2.5 w-2.5" />
-                  Temizle
+                  <X className="h-3 w-3" />
+                  Sıfırla
                 </button>
               )}
             </div>
+
+            {/* Şablon Grid - Modern Kartlar */}
             <div className="grid grid-cols-2 gap-2">
-              {quickTemplates.map((template) => (
-                <div key={template.id} className="flex flex-col gap-1">
-                  <button
-                    onClick={() => quickExportToExcel(template)}
-                    disabled={quickExportLoading === template.id}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-2 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-[#128C7E] transition-all disabled:opacity-70"
-                  >
-                    {quickExportLoading === template.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <span>{template.icon}</span>
-                    )}
-                    <span className="truncate">{template.label}</span>
-                    <Download className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => applyQuickTemplate(template)}
-                    className="text-[9px] text-[#128C7E] hover:text-[#075E54] hover:underline text-left"
-                  >
-                    → Şablonu Uygula
-                  </button>
-                </div>
+              {quickTemplates.slice(0, 4).map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => quickExportToExcel(template)}
+                  disabled={quickExportLoading === template.id}
+                  className="group relative flex flex-col items-center justify-center gap-1 rounded-xl bg-white/5 border border-white/10 p-3 hover:bg-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+                >
+                  {quickExportLoading === template.id ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-white/60" />
+                  ) : (
+                    <span className="text-xl">{template.icon}</span>
+                  )}
+                  <span className="text-[10px] font-semibold text-white/80 text-center">{template.label}</span>
+                  <Download className="absolute top-1.5 right-1.5 h-3 w-3 text-white/30 group-hover:text-emerald-400 transition" />
+                </button>
               ))}
             </div>
-            <p className="mt-2 text-[9px] text-slate-500 italic">
-              💡 Tek tıkla tüm verileri Excel&apos;e aktarın
-            </p>
-          </div>
 
-          <div className="mb-3">
-            <div className="relative">
-              <Filter className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={fieldSearch}
-                onChange={(e) =>
-                  setFieldSearch(e.target.value.toLocaleUpperCase('tr-TR'))
-                }
-                placeholder="ALAN ARA (ÖRN. ÖĞRENCİ, TUTAR...)"
-                className="w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 text-[11px] font-medium tracking-wide text-slate-800 placeholder:text-slate-400 focus:border-[#25D366] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#25D366]/20"
-              />
+            {/* Diğer Şablonlar - Compact */}
+            <div className="mt-2 flex flex-wrap gap-1">
+              {quickTemplates.slice(4).map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => applyQuickTemplate(template)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-[10px] font-medium text-white/60 hover:bg-white/10 hover:text-white transition"
+                >
+                  <span>{template.icon}</span>
+                  {template.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-auto pr-1 text-xs">
-            {filteredTables.map((table) => (
-              <div
-                key={table.name}
-                className="rounded-xl border border-slate-100 bg-slate-50/60 p-2"
-              >
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  {table.label}
-                </p>
-                <div className="space-y-1">
-                  {table.fields.map((field) => {
-                    const active = selectedFields.some(
-                      (sf) =>
-                        sf.table.name === table.name &&
-                        sf.field.name === field.name,
-                    );
-                    return (
-                      <button
-                        key={field.name}
-                        type="button"
-                        onClick={() => toggleField(table, field)}
-                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${
-                          active
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-white text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span>{field.label}</span>
-                        <span className="text-[10px] opacity-75">
-                          {field.type}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+          {/* Veri Kaynakları */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="p-3 border-b border-white/5">
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-white/30" />
+                <input
+                  type="text"
+                  value={fieldSearch}
+                  onChange={(e) =>
+                    setFieldSearch(e.target.value.toLocaleUpperCase('tr-TR'))
+                  }
+                  placeholder="Alan ara..."
+                  className="w-full rounded-xl bg-white/5 border border-white/10 py-2 pl-9 pr-3 text-sm text-white placeholder:text-white/30 focus:border-emerald-500/50 focus:bg-white/10 focus:outline-none transition-all"
+                />
               </div>
-            ))}
+            </div>
+
+            <div className="flex-1 overflow-auto p-3 space-y-2">
+              {filteredTables.map((table) => (
+                <details
+                  key={table.name}
+                  className="group rounded-xl bg-white/5 border border-white/10 overflow-hidden"
+                  open={filteredTables.length <= 3}
+                >
+                  <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-white/5 transition list-none">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-4 w-4 text-emerald-400" />
+                      <span className="text-xs font-semibold text-white">{table.label}</span>
+                    </div>
+                    <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
+                      {table.fields.length}
+                    </span>
+                  </summary>
+                  <div className="p-2 pt-0 space-y-1">
+                    {table.fields.map((field) => {
+                      const active = selectedFields.some(
+                        (sf) =>
+                          sf.table.name === table.name &&
+                          sf.field.name === field.name,
+                      );
+                      return (
+                        <button
+                          key={field.name}
+                          type="button"
+                          onClick={() => toggleField(table, field)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs transition-all ${
+                            active
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20'
+                              : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <span className="font-medium">{field.label}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            active ? 'bg-white/20' : 'bg-white/10'
+                          }`}>
+                            {field.type}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </details>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* ORTA PANEL – RAPOR TUVALİ */}
-        <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                RAPOR TUVALİ
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Sol panelden alan seçin, burada rapor yapınızı tasarlayın.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 p-1">
-            <div className="relative flex items-center gap-2 rounded-lg bg-white p-1 shadow-sm">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-                <Sparkles className="h-4 w-4" />
+        {/* ORTA PANEL – RAPOR TUVALİ (Modern) */}
+        <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+          {/* AI Input Bar */}
+          <div className="p-4 border-b border-white/10">
+            <div className="relative flex items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 p-2">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-purple-500/30">
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <input 
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAiGenerate()}
-                placeholder="Raporunuzu tarif edin... (örn: '12. sınıfta başarısız olan öğrencileri göster')"
-                className="flex-1 bg-transparent text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                placeholder="AI ile sor: '12. sınıfta borcu olan öğrencileri göster'"
+                className="flex-1 bg-transparent text-sm font-medium text-white placeholder:text-white/40 focus:outline-none"
                 disabled={isAiLoading}
               />
               <button
                 onClick={handleAiGenerate}
                 disabled={isAiLoading || !aiPrompt.trim()}
-                className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:from-indigo-700 hover:to-purple-700 disabled:opacity-70 transition-all"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 disabled:opacity-50 transition-all"
               >
                 {isAiLoading ? (
                   <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    DÜŞÜNÜYOR...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Düşünüyor...</span>
                   </>
                 ) : (
                   <>
-                    OLUŞTUR
-                    <Sparkles className="h-3 w-3" />
+                    <Sparkles className="h-4 w-4" />
+                    <span>AI Oluştur</span>
                   </>
                 )}
               </button>
             </div>
             {aiSuccess && (
-              <div className="mt-1 px-2 pb-1">
-                <p className="text-[10px] font-medium text-emerald-600 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
-                  <Sparkles className="h-3 w-3" />
-                  Rapor yapısı yapay zeka tarafından oluşturuldu!
-                </p>
+              <div className="mt-2 flex items-center gap-2 text-emerald-400 animate-in fade-in slide-in-from-top-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs font-semibold">Rapor yapısı AI tarafından oluşturuldu!</span>
               </div>
             )}
           </div>
 
+          {/* Canvas Area */}
           <div
-            className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50/30 to-indigo-50/20 p-4 shadow-inner"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
+            className="flex-1 overflow-auto p-4"
             onClick={() => setFieldSettingsPopover(null)}
           >
             {selectedFields.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
-                <div className="mb-4 rounded-2xl bg-white/80 p-8 shadow-sm border border-slate-200 max-w-md">
-                  <LayoutTemplate className="mx-auto mb-3 h-12 w-12 text-slate-300" />
-                  <p className="mb-2 text-sm font-semibold text-slate-700">
-                    Raporunuzu Oluşturmaya Başlayın
+                {/* Empty State - Modern */}
+                <div className="max-w-md">
+                  <div className="mb-6 flex justify-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500/20 to-teal-500/20 blur-2xl" />
+                      <div className="relative flex h-24 w-24 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+                        <Database className="h-12 w-12 text-white/30" />
+                      </div>
+                    </div>
+                  </div>
+                  <h3 className="mb-2 text-xl font-bold text-white">Rapor Oluşturucu</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-6">
+                    Sol panelden veri alanlarını seçin veya yukarıdaki AI kutusuna ne istediğinizi yazın.
                   </p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Sol panelden bir veya daha fazla alan seçerek raporunuzun temelini oluşturun.
-                    Seçtiğiniz alanlar burada görünecek ve raporunuzun yapısını belirleyecektir.
-                  </p>
+                  
+                  {/* Quick Actions */}
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {quickTemplates.slice(0, 3).map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => applyQuickTemplate(template)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                      >
+                        <span>{template.icon}</span>
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 text-xs">
-                <div className="rounded-lg bg-white p-3 shadow-sm border border-slate-100">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[11px] font-semibold text-slate-700">
-                      SEÇİLİ ALANLAR (Sıralamak için sürükleyin)
-                    </p>
+              <div className="space-y-4">
+                {/* Seçili Alanlar - Modern Chip Grid */}
+                <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                  <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-500">
-                        {selectedFields.length} alan
+                      <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <p className="text-sm font-bold text-white">Seçili Alanlar</p>
+                      <span className="rounded-lg bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                        {selectedFields.length}
                       </span>
-                      {selectedFields.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={clearAllFields}
-                          className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-100 transition"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Temizle
-                        </button>
-                      )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={clearAllFields}
+                      className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-400 hover:bg-red-500/20 transition"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Temizle
+                    </button>
                   </div>
                   
-                  <div className="flex flex-col gap-2">
-                    {selectedFields.map((sf) => {
+                  {/* Horizontal Scrollable Chips */}
+                  <div className="flex flex-wrap gap-2">
+                    {selectedFields.map((sf, index) => {
                       const isPopoverOpen =
                         fieldSettingsPopover?.tableName === sf.table.name &&
                         fieldSettingsPopover?.fieldName === sf.field.name;
@@ -1293,58 +1286,45 @@ export default function FreeReportBuilderPage() {
                       return (
                         <div
                           key={`${sf.table.name}.${sf.field.name}`}
-                          className="relative"
+                          className="relative group"
                         >
-                          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2 shadow-sm hover:border-indigo-300 transition-colors group">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <GripVertical className="h-4 w-4 text-slate-300 cursor-grab active:cursor-grabbing" />
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[11px] font-semibold text-slate-700 truncate">
-                                  {displayLabel}
-                                </span>
-                                <span className="text-[10px] text-slate-500 truncate">
-                                  {sf.table.label}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                                {sf.sort && (
-                                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
-                                    {sf.sort === 'asc' ? 'Artan' : 'Azalan'}
-                                  </span>
-                                )}
-                                {sf.aggregation && (
-                                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-600">
-                                    {sf.aggregation === 'sum' ? 'TOPLA' : sf.aggregation === 'count' ? 'SAY' : 'ORT'}
-                                  </span>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFieldSettingsPopover(
-                                      isPopoverOpen
-                                        ? null
-                                        : { tableName: sf.table.name, fieldName: sf.field.name },
-                                    );
-                                  }}
-                                  className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition"
-                                >
-                                  <Settings2 className="h-3.5 w-3.5" />
-                                </button>
-                            </div>
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFieldSettingsPopover(
+                                isPopoverOpen
+                                  ? null
+                                  : { tableName: sf.table.name, fieldName: sf.field.name },
+                              );
+                            }}
+                            className="field-chip-button inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 px-3 py-2 text-sm text-white hover:border-emerald-400 transition-all"
+                          >
+                            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-500/30 text-[10px] font-bold text-emerald-300">
+                              {index + 1}
+                            </span>
+                            <span className="font-medium">{displayLabel}</span>
+                            {sf.sort && (
+                              <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-medium">
+                                {sf.sort === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                            {sf.aggregation && (
+                              <span className="rounded bg-violet-500/30 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
+                                {sf.aggregation === 'sum' ? 'Σ' : sf.aggregation === 'count' ? '#' : 'μ'}
+                              </span>
+                            )}
+                            <Settings2 className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition" />
+                          </button>
 
                           {isPopoverOpen && (
                             <div
-                              className="field-settings-popover absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                              className="field-settings-popover absolute left-0 top-full z-50 mt-2 w-72 rounded-2xl border border-white/10 bg-slate-800/95 backdrop-blur-xl p-4 shadow-2xl"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <div className="space-y-3">
+                              <div className="space-y-4">
                                 <div>
-                                  <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-                                    BAŞLIK (ALIAS)
+                                  <label className="mb-1.5 block text-[11px] font-bold text-white/50 uppercase tracking-wider">
+                                    Başlık
                                   </label>
                                   <input
                                     type="text"
@@ -1362,13 +1342,13 @@ export default function FreeReportBuilderPage() {
                                         ),
                                       );
                                     }}
-                                    className="w-full rounded border border-slate-200 px-2 py-1 text-[11px] focus:border-indigo-500 focus:outline-none"
+                                    className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-emerald-500/50 focus:outline-none transition"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-                                    SIRALAMA
+                                  <label className="mb-1.5 block text-[11px] font-bold text-white/50 uppercase tracking-wider">
+                                    Sıralama
                                   </label>
                                   <div className="flex gap-1">
                                     {(['asc', 'desc', null] as const).map((s) => (
@@ -1385,13 +1365,13 @@ export default function FreeReportBuilderPage() {
                                             ),
                                           );
                                         }}
-                                        className={`flex-1 rounded px-2 py-1 text-[10px] font-medium transition ${
+                                        className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                                           sf.sort === s
-                                            ? 'bg-indigo-600 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
+                                            : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                       >
-                                        {s === 'asc' ? 'Artan' : s === 'desc' ? 'Azalan' : 'Yok'}
+                                        {s === 'asc' ? '↑ Artan' : s === 'desc' ? '↓ Azalan' : 'Yok'}
                                       </button>
                                     ))}
                                   </div>
@@ -1399,8 +1379,8 @@ export default function FreeReportBuilderPage() {
                                 
                                 {sf.field.type === 'number' && (
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-                                      ÖZET
+                                    <label className="mb-1.5 block text-[11px] font-bold text-white/50 uppercase tracking-wider">
+                                      Hesaplama
                                     </label>
                                     <div className="flex gap-1">
                                       {(['sum', 'avg', 'count', null] as const).map((agg) => (
@@ -1417,32 +1397,30 @@ export default function FreeReportBuilderPage() {
                                               ),
                                             );
                                           }}
-                                          className={`flex-1 rounded px-2 py-1 text-[10px] font-medium transition ${
+                                          className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold transition ${
                                             sf.aggregation === agg
-                                              ? 'bg-indigo-600 text-white'
-                                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                              ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white'
+                                              : 'bg-white/5 text-white/60 hover:bg-white/10'
                                           }`}
                                         >
-                                          {agg === 'sum' ? 'TOP' : agg === 'avg' ? 'ORT' : agg === 'count' ? 'SAY' : 'Yok'}
+                                          {agg === 'sum' ? 'Σ Top' : agg === 'avg' ? 'μ Ort' : agg === 'count' ? '# Say' : 'Yok'}
                                         </button>
                                       ))}
                                     </div>
                                   </div>
                                 )}
 
-                                <div className="pt-2 border-t border-slate-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      removeSelectedField(sf.table.name, sf.field.name);
-                                      setFieldSettingsPopover(null);
-                                    }}
-                                    className="flex w-full items-center justify-center gap-2 rounded bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-100 transition"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    Alanı Kaldır
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    removeSelectedField(sf.table.name, sf.field.name);
+                                    setFieldSettingsPopover(null);
+                                  }}
+                                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/20 transition"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Alanı Kaldır
+                                </button>
                               </div>
                             </div>
                           )}
@@ -1452,17 +1430,19 @@ export default function FreeReportBuilderPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-white p-3 shadow-sm border border-slate-100">
-                  <p className="mb-2 text-[11px] font-semibold text-slate-700">
-                    HIZLI TARİH FİLTRELERİ
-                  </p>
-                  <div className="mb-4 flex flex-wrap gap-2">
+                {/* Tarih ve Filtreler - Modern */}
+                <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-amber-400" />
+                    <p className="text-sm font-bold text-white">Zaman Aralığı</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {[
-                      { key: null, label: 'TÜM ZAMANLAR' },
-                      { key: 'last_7_days', label: 'SON 7 GÜN' },
-                      { key: 'this_month', label: 'BU AY' },
-                      { key: 'this_year', label: 'BU YIL' },
-                      { key: 'last_year', label: 'GEÇEN YIL' },
+                      { key: null, label: 'Tüm Zamanlar', icon: '∞' },
+                      { key: 'last_7_days', label: '7 Gün', icon: '📅' },
+                      { key: 'this_month', label: 'Bu Ay', icon: '📆' },
+                      { key: 'this_year', label: 'Bu Yıl', icon: '🗓️' },
+                      { key: 'last_year', label: 'Geçen Yıl', icon: '📁' },
                     ].map((opt) => {
                       const active = datePreset === opt.key;
                       return (
@@ -1470,23 +1450,31 @@ export default function FreeReportBuilderPage() {
                           key={opt.label}
                           type="button"
                           onClick={() => setDatePreset(opt.key as RelativeDatePreset | null)}
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
                             active
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30'
+                              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
                           }`}
                         >
+                          <span>{opt.icon}</span>
                           {opt.label}
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="border-t border-slate-200 pt-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[11px] font-semibold text-slate-700">
-                        GELİŞMİŞ FİLTRELER
-                      </p>
+                  {/* Gelişmiş Filtreler */}
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-blue-400" />
+                        <p className="text-sm font-bold text-white">Filtreler</p>
+                        {filterRules.length > 0 && (
+                          <span className="rounded-lg bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
+                            {filterRules.length}
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -1507,15 +1495,15 @@ export default function FreeReportBuilderPage() {
                             },
                           ]);
                         }}
-                        className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-blue-400 hover:bg-blue-500/30 transition"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3.5 w-3.5" />
                         Filtre Ekle
                       </button>
                     </div>
                     {filterRules.length === 0 ? (
-                      <p className="text-[10px] text-slate-500 italic">
-                        Henüz filtre eklenmedi. &quot;Filtre Ekle&quot; butonuna tıklayarak özel filtreler oluşturabilirsiniz.
+                      <p className="text-xs text-white/40 italic">
+                        Filtreleme yapmak için &quot;Filtre Ekle&quot; butonuna tıklayın
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -1528,7 +1516,7 @@ export default function FreeReportBuilderPage() {
                           return (
                             <div
                               key={rule.id}
-                              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2"
+                              className="flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 p-2"
                             >
                               <select
                                 value={`${rule.table}.${rule.field}`}
@@ -1542,14 +1530,15 @@ export default function FreeReportBuilderPage() {
                                     ),
                                   );
                                 }}
-                                className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-[10px] focus:border-indigo-500 focus:outline-none"
+                                className="flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-white focus:border-blue-500/50 focus:outline-none"
                               >
                                 {selectedFields.map((sf) => (
                                   <option
                                     key={`${sf.table.name}.${sf.field.name}`}
                                     value={`${sf.table.name}.${sf.field.name}`}
+                                    className="bg-slate-800 text-white"
                                   >
-                                    {sf.table.label} · {sf.field.label}
+                                    {sf.field.label}
                                   </option>
                                 ))}
                               </select>
@@ -1567,16 +1556,15 @@ export default function FreeReportBuilderPage() {
                                     ),
                                   );
                                 }}
-                                className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-[10px] focus:border-indigo-500 focus:outline-none"
+                                className="w-20 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-white focus:border-blue-500/50 focus:outline-none"
                               >
-                                <option value="=">=</option>
-                                <option value="!=">≠</option>
-                                <option value=">">&gt;</option>
-                                <option value="<">&lt;</option>
-                                <option value=">=">≥</option>
-                                <option value="<=">≤</option>
-                                <option value="contains">İçerir</option>
-                                <option value="in">İçinde</option>
+                                <option value="=" className="bg-slate-800">=</option>
+                                <option value="!=" className="bg-slate-800">≠</option>
+                                <option value=">" className="bg-slate-800">&gt;</option>
+                                <option value="<" className="bg-slate-800">&lt;</option>
+                                <option value=">=" className="bg-slate-800">≥</option>
+                                <option value="<=" className="bg-slate-800">≤</option>
+                                <option value="contains" className="bg-slate-800">içerir</option>
                               </select>
                               <input
                                 type={fieldMeta?.field.type === 'number' ? 'number' : 'text'}
@@ -1595,7 +1583,7 @@ export default function FreeReportBuilderPage() {
                                   );
                                 }}
                                 placeholder="Değer"
-                                className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-[10px] focus:border-indigo-500 focus:outline-none"
+                                className="flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-white placeholder:text-white/30 focus:border-blue-500/50 focus:outline-none"
                               />
                               <button
                                 type="button"
@@ -1604,9 +1592,9 @@ export default function FreeReportBuilderPage() {
                                     prev.filter((r) => r.id !== rule.id),
                                   );
                                 }}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded text-red-600 hover:bg-red-50"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-400 hover:bg-red-500/20 transition"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-4 w-4" />
                               </button>
                             </div>
                           );
@@ -1620,48 +1608,55 @@ export default function FreeReportBuilderPage() {
           </div>
         </section>
 
-        {/* SAĞ PANEL – CANLI VERİ ÖNİZLEMESİ */}
-        <section className="flex w-96 flex-shrink-0 flex-col rounded-2xl bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                CANLI VERİ ÖNİZLEMESİ
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Raporunuzun gerçek verilerini burada görebilirsiniz.
-              </p>
+        {/* SAĞ PANEL – CANLI VERİ ÖNİZLEMESİ (Modern) */}
+        <section className="flex w-[420px] flex-shrink-0 flex-col rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg shadow-blue-500/20">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">Canlı Önizleme</p>
+                <p className="text-[10px] text-white/50">
+                  {rows.length > 0 ? `${rows.length} kayıt bulundu` : 'Raporu çalıştırın'}
+                </p>
+              </div>
             </div>
             {chartData && chartData.length > 0 && !error && (
               <button
                 onClick={() => setShowGraph(!showGraph)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
                   showGraph
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                    : 'bg-white/10 text-white/60 hover:bg-white/20'
                 }`}
               >
-                {showGraph ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                {showGraph ? 'Grafiği Gizle' : 'Görselleştir'}
+                {showGraph ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showGraph ? 'Gizle' : 'Grafik'}
               </button>
             )}
           </div>
 
-          <div className="mb-2 flex-1 overflow-auto rounded-xl border border-slate-200 bg-white">
+          {/* Content Area */}
+          <div className="flex-1 overflow-auto">
             {error && (
-              <div className="m-3 rounded-lg border-2 border-red-200 bg-red-50 p-3 shadow-sm">
-                <div className="mb-1 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <p className="text-[12px] font-semibold text-red-800">HATA</p>
+              <div className="m-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20">
+                    <AlertTriangle className="h-4 w-4 text-red-400" />
+                  </div>
+                  <p className="text-sm font-bold text-red-400">Hata Oluştu</p>
                 </div>
-                <p className="mb-2 text-[11px] font-medium text-red-700 leading-relaxed">
+                <p className="text-xs text-red-300/80 leading-relaxed mb-3">
                   {error}
                 </p>
-                <div className="mt-2 rounded bg-red-100/50 p-2 text-[10px] text-red-600">
+                <div className="rounded-xl bg-red-500/10 p-3 text-xs text-red-300/60">
                   <p className="font-semibold mb-1">Çözüm önerileri:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Seçili alanları kontrol edin</li>
-                    <li>Farklı bir tablo veya alan deneyin</li>
-                    <li>Sayfayı yenileyip tekrar deneyin</li>
+                    <li>Farklı bir tablo deneyin</li>
+                    <li>Sayfayı yenileyin</li>
                   </ul>
                 </div>
               </div>
@@ -1669,15 +1664,20 @@ export default function FreeReportBuilderPage() {
 
             {running && (
               <div className="flex h-full flex-col items-center justify-center p-8">
-                <Loader2 className="mb-3 h-8 w-8 animate-spin text-indigo-600" />
-                <p className="text-[11px] font-medium text-slate-600">
-                  Veriler yükleniyor...
-                </p>
-                <div className="mt-4 w-full space-y-2">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-xl animate-pulse" />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+                    <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-white mb-1">Veriler yükleniyor...</p>
+                <p className="text-xs text-white/40">Lütfen bekleyin</p>
+                <div className="mt-6 w-full max-w-xs space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div
                       key={i}
-                      className="h-8 animate-pulse rounded bg-slate-200"
+                      className="h-8 animate-pulse rounded-lg bg-white/5"
+                      style={{ animationDelay: `${i * 100}ms` }}
                     />
                   ))}
                 </div>
@@ -1686,13 +1686,15 @@ export default function FreeReportBuilderPage() {
 
             {!running && !error && rows.length === 0 && selectedFields.length > 0 && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                <Database className="mb-2 h-10 w-10 text-slate-300" />
-                <p className="mb-1 text-[12px] font-semibold text-slate-700">
-                  Henüz Veri Yok
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Üst bardaki &quot;RAPORU ÇALIŞTIR&quot; butonuna basarak
-                  raporunuzu oluşturun.
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500/10 to-teal-500/10 blur-xl" />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+                    <Play className="h-8 w-8 text-emerald-400" />
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-white mb-1">Çalıştırmaya Hazır</p>
+                <p className="text-xs text-white/40 mb-4">
+                  Üstteki yeşil &quot;Çalıştır&quot; butonuna tıklayın
                 </p>
               </div>
             )}
@@ -1700,24 +1702,24 @@ export default function FreeReportBuilderPage() {
             {!running && !error && rows.length > 0 && (
               <div className="flex flex-col h-full">
                 <div className="overflow-auto flex-1">
-                  <table className="w-full text-[11px]">
-                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-slate-800/90 backdrop-blur-sm z-10">
                       <tr>
                         {selectedFields.map((sf) => (
                           <th
                             key={`${sf.table.name}.${sf.field.name}`}
-                            className="px-3 py-2 text-left font-semibold text-slate-700 whitespace-nowrap"
+                            className="px-3 py-3 text-left font-bold text-white/70 whitespace-nowrap border-b border-white/10"
                           >
                             {sf.customLabel || sf.field.label}
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody>
                       {paginatedRows.map((row, idx) => (
                         <tr
                           key={idx}
-                          className="hover:bg-slate-50 transition-colors"
+                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
                         >
                           {selectedFields.map((sf) => {
                             const key = `${sf.table.name}_${sf.field.name}`;
@@ -1730,13 +1732,13 @@ export default function FreeReportBuilderPage() {
                             return (
                               <td
                                 key={`${sf.table.name}.${sf.field.name}`}
-                                className="px-3 py-2 text-slate-600 whitespace-nowrap max-w-[150px]"
+                                className="px-3 py-2.5 text-white/70 whitespace-nowrap max-w-[140px]"
                                 title={displayValue}
                               >
                                 {isId && displayValue.length > 8
                                   ? displayValue.slice(0, 8) + '...'
-                                  : displayValue.length > 20 
-                                    ? displayValue.slice(0, 20) + '...'
+                                  : displayValue.length > 18 
+                                    ? displayValue.slice(0, 18) + '...'
                                     : displayValue}
                               </td>
                             );
@@ -1746,27 +1748,28 @@ export default function FreeReportBuilderPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">
-                  <div>
-                    Toplam <strong>{rows.length}</strong> kayıt
+                {/* Pagination */}
+                <div className="flex items-center justify-between border-t border-white/10 bg-white/5 px-4 py-3 text-xs">
+                  <div className="text-white/50">
+                    Toplam <span className="font-bold text-white">{rows.length}</span> kayıt
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 disabled:opacity-30 transition"
                     >
-                      <ChevronLeft className="h-3.5 w-3.5" />
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <span>
-                      Sayfa {currentPage} / {totalPages || 1}
+                    <span className="px-2 text-white/60">
+                      <span className="font-bold text-white">{currentPage}</span> / {totalPages || 1}
                     </span>
                     <button
                       disabled={currentPage >= totalPages}
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 disabled:opacity-30 transition"
                     >
-                      <ChevronRight className="h-3.5 w-3.5" />
+                      <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -1775,61 +1778,82 @@ export default function FreeReportBuilderPage() {
 
             {!running && !error && selectedFields.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                <LayoutTemplate className="mb-2 h-10 w-10 text-slate-300" />
-                <p className="mb-1 text-[12px] font-semibold text-slate-700">
-                  Alan Seçin
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Sol panelden raporunuza eklemek istediğiniz alanları seçin.
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500/10 to-purple-500/10 blur-xl" />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+                    <LayoutTemplate className="h-8 w-8 text-violet-400" />
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-white mb-1">Alan Seçin</p>
+                <p className="text-xs text-white/40">
+                  Sol panelden veri alanlarını seçin
                 </p>
               </div>
             )}
           </div>
 
+          {/* Chart Area */}
           {chartData && chartData.length > 0 && !error && showGraph && (
-            <div className="mb-2 h-48 rounded-lg bg-white border border-slate-200 p-2 shadow-sm">
-              <p className="mb-1 text-[11px] font-semibold text-slate-700">
-                GRAFİK ÖNİZLEME
-              </p>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 9 }}
-                    height={24}
-                    interval={0}
-                  />
-                  <YAxis tick={{ fontSize: 9 }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="border-t border-white/10 p-4">
+              <p className="mb-3 text-xs font-bold text-white/70">📊 Grafik Görünümü</p>
+              <div className="h-40 rounded-xl bg-white/5 p-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.5)' }}
+                      height={24}
+                      interval={0}
+                      stroke="rgba(255,255,255,0.1)"
+                    />
+                    <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.5)' }} stroke="rgba(255,255,255,0.1)" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(30,41,59,0.95)', 
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px',
+                        color: 'white'
+                      }} 
+                    />
+                    <Bar dataKey="value" fill="url(#colorGradient)" radius={[6, 6, 0, 0]} />
+                    <defs>
+                      <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#14b8a6" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </section>
       </main>
-      {/* RAPOR AYARLARI PANELİ */}
+      {/* RAPOR AYARLARI PANELİ - Modern Dark Modal */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">
-                RAPOR AYARLARI
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-slate-800/95 border border-white/10 p-6 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-purple-500/30">
+                  <Settings2 className="h-5 w-5 text-white" />
+                </div>
+                <p className="text-lg font-bold text-white">Rapor Ayarları</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="space-y-3 text-xs">
+            <div className="space-y-5">
               <div>
-                <p className="mb-1 text-[11px] font-semibold text-slate-700">
-                  RAPOR AÇIKLAMASI
-                </p>
+                <label className="mb-2 block text-xs font-bold text-white/50 uppercase tracking-wider">
+                  Rapor Açıklaması
+                </label>
                 <textarea
                   value={reportDescription}
                   onChange={(e) =>
@@ -1838,36 +1862,36 @@ export default function FreeReportBuilderPage() {
                     )
                   }
                   rows={3}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
-                  placeholder="BU RAPORUN NEYİ ANALİZ ETTİĞİNİ KISACA YAZIN."
+                  className="w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500/50 focus:outline-none transition"
+                  placeholder="Bu raporun neyi analiz ettiğini kısaca yazın..."
                 />
               </div>
               <div>
-                <p className="mb-1 text-[11px] font-semibold text-slate-700">
-                  RAPOR KATEGORİSİ
-                </p>
+                <label className="mb-2 block text-xs font-bold text-white/50 uppercase tracking-wider">
+                  Rapor Kategorisi
+                </label>
                 <select
                   value={reportCategory}
                   onChange={(e) =>
                     setReportCategory(e.target.value.toLocaleUpperCase('tr-TR'))
                   }
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-sm font-medium text-white focus:border-violet-500/50 focus:outline-none transition"
                 >
-                  <option value="GENEL">GENEL</option>
-                  <option value="FİNANS">FİNANS</option>
-                  <option value="ÖĞRENCİ">ÖĞRENCİ</option>
-                  <option value="AKADEMİK">AKADEMİK</option>
-                  <option value="YÖNETİM">YÖNETİM</option>
+                  <option value="GENEL" className="bg-slate-800">📁 Genel</option>
+                  <option value="FİNANS" className="bg-slate-800">💰 Finans</option>
+                  <option value="ÖĞRENCİ" className="bg-slate-800">👤 Öğrenci</option>
+                  <option value="AKADEMİK" className="bg-slate-800">📚 Akademik</option>
+                  <option value="YÖNETİM" className="bg-slate-800">⚙️ Yönetim</option>
                 </select>
               </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition"
               >
-                KAPAT
+                İptal
               </button>
               <button
                 type="button"
@@ -1875,9 +1899,9 @@ export default function FreeReportBuilderPage() {
                   setSettingsOpen(false);
                   setIsSaved(false);
                 }}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-700"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition"
               >
-                TAMAM
+                Kaydet
               </button>
             </div>
           </div>
