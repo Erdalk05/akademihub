@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   Phone, 
   Bell, 
@@ -16,10 +16,40 @@ import {
   ArrowRight,
   Zap,
   Target,
-  Activity
+  Activity,
+  Sun,
+  Moon,
+  Coffee,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { analyzeRisk, calculateRiskStats as calcStats, type RiskAnalysis } from '@/lib/risk/RiskEngine';
+
+// Günün saatine göre selamlama
+function getTimeBasedGreeting(): { greeting: string; icon: React.ElementType; tip: string } {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return { 
+      greeting: 'Günaydın', 
+      icon: Coffee,
+      tip: 'Sabah saatlerinde kritik aramaları yapın'
+    };
+  } else if (hour < 17) {
+    return { 
+      greeting: 'İyi günler', 
+      icon: Sun,
+      tip: 'Hatırlatma mesajları göndermek için ideal zaman'
+    };
+  } else {
+    return { 
+      greeting: 'İyi akşamlar', 
+      icon: Moon,
+      tip: 'Yarına hazırlık yapın, notlarınızı gözden geçirin'
+    };
+  }
+}
 
 interface ActionItem {
   id: string;
@@ -101,6 +131,8 @@ const typeLabels = {
 };
 
 export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartActionPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const timeInfo = useMemo(() => getTimeBasedGreeting(), []);
   
   // ✅ RiskEngine ile detaylı analiz
   const riskAnalyses = useMemo<RiskAnalysis[]>(() => {
@@ -285,28 +317,34 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      {/* Header */}
+      {/* Header - Time-based greeting */}
       <div className="bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-white font-bold text-sm">Bugün Yapılacaklar</h3>
-              <p className="text-white/70 text-xs">RiskEngine™ önerileri</p>
+              <h3 className="text-white font-bold text-sm flex items-center gap-1.5">
+                <timeInfo.icon className="w-4 h-4" />
+                {timeInfo.greeting}! Bugün {actions.length} aksiyon var
+              </h3>
+              <p className="text-white/70 text-xs">{timeInfo.tip}</p>
             </div>
           </div>
-          <span className="bg-white/20 text-white text-xs font-medium px-2 py-1 rounded-full">
-            {actions.length} aksiyon
-          </span>
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="bg-white/20 text-white p-1.5 rounded-lg hover:bg-white/30 transition"
+          >
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
         </div>
         
-        {/* Risk Stats Mini */}
+        {/* Risk Stats Mini - Her zaman göster */}
         {riskStats && riskStats.totalAtRisk > 0 && (
           <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/20">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-red-400"></div>
+              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
               <span className="text-white/80 text-xs">{riskStats.critical} kritik</span>
             </div>
             <div className="flex items-center gap-1">
@@ -317,21 +355,32 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
               <div className="w-2 h-2 rounded-full bg-amber-400"></div>
               <span className="text-white/80 text-xs">{riskStats.medium} orta</span>
             </div>
+            {riskStats.averageScore > 0 && (
+              <div className="ml-auto text-white/60 text-xs">
+                Ort. Risk: {riskStats.averageScore.toFixed(0)}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Action Cards */}
+      {/* Action Cards - Collapsible */}
+      {isExpanded && (
       <div className="p-3 space-y-2">
-        {actions.map((action) => {
+        {actions.map((action, index) => {
           const config = priorityConfig[action.priority];
           const Icon = action.icon;
           
           return (
             <div
               key={action.id}
-              className={`${config.bg} ${config.border} border rounded-xl p-3 transition-all hover:shadow-md ${config.glow}`}
+              className={`${config.bg} ${config.border} border rounded-xl p-3 transition-all hover:shadow-md ${config.glow} relative`}
             >
+              {/* Priority Number Badge */}
+              <div className={`absolute -top-1.5 -left-1.5 w-5 h-5 ${config.iconBg} rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                {index + 1}
+              </div>
+              
               <div className="flex items-start gap-3">
                 {/* Icon */}
                 <div className={`${config.iconBg} w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -397,15 +446,26 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
           );
         })}
       </div>
+      )}
 
-      {/* Footer */}
-      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+      {/* Footer - Always visible */}
+      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
         <Link 
           href="/finance/reports/founder" 
           className="text-xs text-[#075E54] font-medium flex items-center gap-1 hover:underline"
         >
           Tüm raporları gör <ArrowRight className="w-3 h-3" />
         </Link>
+        {!isExpanded && actions.length > 0 && (
+          <span className="text-xs text-gray-400">
+            {actions.filter(a => a.priority === 'critical').length > 0 && (
+              <span className="text-red-500 font-medium">
+                {actions.filter(a => a.priority === 'critical').length} kritik • 
+              </span>
+            )}
+            {actions.length} aksiyon bekliyor
+          </span>
+        )}
       </div>
     </div>
   );
