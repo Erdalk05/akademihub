@@ -313,88 +313,145 @@ export default function KasaBankaPage() {
     });
   };
 
-  // ==================== PDF ====================
-  const pdfOlustur = () => {
+  // ==================== RAPOR MODALI ====================
+  const [raporModalAcik, setRaporModalAcik] = useState(false);
+
+  // Tarihe göre hareketleri filtrele
+  const getHareketlerByPeriod = useCallback((period: 'gunluk' | 'aylik' | 'yillik' | 'tum') => {
+    const simdi = new Date();
+    const bugun = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate());
+    
+    return hareketler.filter(h => {
+      const hTarih = new Date(h.tarih);
+      if (period === 'gunluk') {
+        return hTarih >= bugun;
+      } else if (period === 'aylik') {
+        const ayBasi = new Date(simdi.getFullYear(), simdi.getMonth(), 1);
+        return hTarih >= ayBasi;
+      } else if (period === 'yillik') {
+        const yilBasi = new Date(simdi.getFullYear(), 0, 1);
+        return hTarih >= yilBasi;
+      }
+      return true;
+    });
+  }, [hareketler]);
+
+  // Hesap tipine göre hareketleri filtrele
+  const getHareketlerByHesap = useCallback((hesapTip: HesapTipi) => {
+    return hareketler.filter(h => h.hesap === hesapTip);
+  }, [hareketler]);
+
+  // PDF Oluştur - Genel veya Filtrelenmiş
+  const pdfOlustur = useCallback((
+    data: Hareket[], 
+    baslik: string, 
+    altBaslik: string,
+    ozet?: { giris: number; cikis: number; net: number }
+  ) => {
     const today = new Date().toLocaleDateString('tr-TR');
+    const girisler = ozet?.giris ?? data.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0);
+    const cikislar = ozet?.cikis ?? data.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0);
+    const net = ozet?.net ?? (girisler - cikislar);
+
     const html = `<!DOCTYPE html>
 <html><head>
-  <title>Kasa & Banka Raporu</title>
+  <title>${baslik}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
-    .header { background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-    .header h1 { font-size: 20px; margin-bottom: 5px; }
-    .header p { font-size: 11px; opacity: 0.9; }
-    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-    .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; }
-    .summary-card .label { font-size: 10px; color: #64748b; text-transform: uppercase; }
-    .summary-card .value { font-size: 18px; font-weight: bold; margin-top: 5px; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; font-size: 11px; background: #fff; }
+    .header { background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 25px; border-radius: 16px; margin-bottom: 25px; }
+    .header h1 { font-size: 24px; margin-bottom: 8px; }
+    .header p { font-size: 12px; opacity: 0.9; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: center; }
+    .summary-card .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-card .value { font-size: 20px; font-weight: bold; margin-top: 8px; }
     .summary-card .value.green { color: #10B981; }
     .summary-card .value.red { color: #EF4444; }
     .summary-card .value.blue { color: #3B82F6; }
+    .summary-card .value.purple { color: #8B5CF6; }
+    .section-title { font-size: 16px; font-weight: bold; color: #1e293b; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #10B981; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th { background: #10B981; color: white; padding: 10px 8px; text-align: left; font-size: 10px; }
-    td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
-    .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 600; }
+    th { background: #10B981; color: white; padding: 12px 10px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    th:first-child { border-radius: 8px 0 0 0; }
+    th:last-child { border-radius: 0 8px 0 0; }
+    td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+    tr:hover { background: #f8fafc; }
+    tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+    tr:last-child td:last-child { border-radius: 0 0 8px 0; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 9px; font-weight: 600; }
     .badge-green { background: #d1fae5; color: #059669; }
     .badge-red { background: #fee2e2; color: #dc2626; }
+    .badge-blue { background: #dbeafe; color: #2563eb; }
     .badge-purple { background: #ede9fe; color: #7c3aed; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
-    .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #9ca3af; }
+    .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #9ca3af; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+    .total-row { background: #f1f5f9 !important; font-weight: bold; }
+    .total-row td { border-top: 2px solid #10B981; }
+    @media print { body { padding: 15px; } .header { padding: 20px; } }
   </style>
 </head><body>
   <div class="header">
-    <h1>💰 Kasa & Banka Hesap Raporu</h1>
-    <p>Tarih: ${today} | Toplam ${filtrelenmisHareketler.length} işlem</p>
+    <h1>💰 ${baslik}</h1>
+    <p>${altBaslik} | Oluşturma: ${today} | Toplam ${data.length} işlem</p>
   </div>
   
   <div class="summary">
     <div class="summary-card">
-      <div class="label">Toplam Bakiye</div>
-      <div class="value green">${formatPara(toplamBakiye)}</div>
+      <div class="label">İşlem Sayısı</div>
+      <div class="value blue">${data.length}</div>
     </div>
     <div class="summary-card">
-      <div class="label">💵 Nakit Kasa</div>
-      <div class="value">${formatPara(hesapBakiyeleri.nakit)}</div>
+      <div class="label">Toplam Giriş</div>
+      <div class="value green">+${formatPara(girisler)}</div>
     </div>
     <div class="summary-card">
-      <div class="label">🏦 Banka</div>
-      <div class="value blue">${formatPara(hesapBakiyeleri.banka)}</div>
+      <div class="label">Toplam Çıkış</div>
+      <div class="value red">-${formatPara(cikislar)}</div>
     </div>
     <div class="summary-card">
-      <div class="label">💳 POS</div>
-      <div class="value">${formatPara(hesapBakiyeleri.pos)}</div>
+      <div class="label">Net Bakiye</div>
+      <div class="value ${net >= 0 ? 'green' : 'red'}">${net >= 0 ? '+' : ''}${formatPara(net)}</div>
     </div>
   </div>
+  
+  <div class="section-title">📋 İşlem Detayları</div>
   
   <table>
     <thead>
       <tr>
-        <th>TARİH</th>
-        <th>AD SOYAD</th>
-        <th>AÇIKLAMA</th>
-        <th class="text-center">HESAP</th>
-        <th class="text-center">TİP</th>
-        <th class="text-right">TUTAR</th>
+        <th style="width:12%">TARİH</th>
+        <th style="width:18%">AD SOYAD</th>
+        <th style="width:25%">AÇIKLAMA</th>
+        <th style="width:10%" class="text-center">KAYNAK</th>
+        <th style="width:10%" class="text-center">HESAP</th>
+        <th style="width:10%" class="text-center">TİP</th>
+        <th style="width:15%" class="text-right">TUTAR</th>
       </tr>
     </thead>
     <tbody>
-      ${filtrelenmisHareketler.map(h => `
+      ${data.map(h => `
         <tr>
           <td>${formatTarih(h.tarih)}</td>
-          <td>${h.ogrenciAdi || '-'}</td>
-          <td>${h.aciklama}<br><small style="color:#9ca3af">${h.kaynak || ''}</small></td>
-          <td class="text-center"><span class="badge ${h.hesap === 'nakit' ? 'badge-green' : h.hesap === 'banka' ? '' : 'badge-purple'}" style="${h.hesap === 'banka' ? 'background:#dbeafe;color:#2563eb' : ''}">${h.hesap === 'nakit' ? '💵 Nakit' : h.hesap === 'banka' ? '🏦 Banka' : '💳 POS'}</span></td>
-          <td class="text-center"><span class="badge ${h.tip === 'giris' ? 'badge-green' : h.tip === 'cikis' ? 'badge-red' : 'badge-purple'}">${h.tip === 'giris' ? '↑ Giriş' : h.tip === 'cikis' ? '↓ Çıkış' : '↔ Transfer'}</span></td>
+          <td style="font-weight:500">${h.ogrenciAdi || '-'}</td>
+          <td>${h.aciklama}</td>
+          <td class="text-center"><span style="font-size:9px;color:#64748b">${h.kaynak || '-'}</span></td>
+          <td class="text-center"><span class="badge ${h.hesap === 'nakit' ? 'badge-green' : h.hesap === 'banka' ? 'badge-blue' : 'badge-purple'}">${h.hesap === 'nakit' ? 'Nakit' : h.hesap === 'banka' ? 'Banka' : 'POS'}</span></td>
+          <td class="text-center"><span class="badge ${h.tip === 'giris' ? 'badge-green' : h.tip === 'cikis' ? 'badge-red' : 'badge-purple'}">${h.tip === 'giris' ? 'Giriş' : h.tip === 'cikis' ? 'Çıkış' : 'Transfer'}</span></td>
           <td class="text-right" style="font-weight:bold;color:${h.tip === 'giris' ? '#10B981' : h.tip === 'cikis' ? '#EF4444' : '#8B5CF6'}">${h.tip === 'giris' ? '+' : h.tip === 'cikis' ? '-' : '↔'}${formatPara(h.tutar)}</td>
         </tr>
       `).join('')}
+      <tr class="total-row">
+        <td colspan="6" class="text-right"><strong>TOPLAM:</strong></td>
+        <td class="text-right" style="color:${net >= 0 ? '#10B981' : '#EF4444'}"><strong>${net >= 0 ? '+' : ''}${formatPara(net)}</strong></td>
+      </tr>
     </tbody>
   </table>
   
   <div class="footer">
-    <p>${new Date().toLocaleString('tr-TR')} | AkademiHub - Kasa & Banka Modülü</p>
+    <p>Bu rapor ${new Date().toLocaleString('tr-TR')} tarihinde oluşturulmuştur.</p>
+    <p style="margin-top:5px"><strong>AkademiHub</strong> - Kasa & Banka Modülü</p>
   </div>
 </body></html>`;
 
@@ -405,7 +462,104 @@ export default function KasaBankaPage() {
       setTimeout(() => printWindow.print(), 500);
     }
     toast.success('PDF hazırlandı');
-  };
+  }, [formatPara, formatTarih]);
+
+  // Excel Oluştur
+  const excelOlustur = useCallback((data: Hareket[], dosyaAdi: string) => {
+    // CSV formatında Excel uyumlu dosya
+    const BOM = '\uFEFF'; // UTF-8 BOM for Turkish characters
+    const headers = ['Tarih', 'Ad Soyad', 'Açıklama', 'Kaynak', 'Hesap', 'Tip', 'Tutar'];
+    
+    const rows = data.map(h => [
+      formatTarih(h.tarih),
+      h.ogrenciAdi || '-',
+      h.aciklama.replace(/,/g, ' '),
+      h.kaynak || '-',
+      h.hesap === 'nakit' ? 'Nakit' : h.hesap === 'banka' ? 'Banka' : 'POS',
+      h.tip === 'giris' ? 'Giriş' : h.tip === 'cikis' ? 'Çıkış' : 'Transfer',
+      `${h.tip === 'giris' ? '+' : h.tip === 'cikis' ? '-' : ''}${h.tutar.toFixed(2)}`
+    ]);
+
+    // Özet satırları
+    const girisler = data.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0);
+    const cikislar = data.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0);
+    
+    rows.push([]);
+    rows.push(['', '', '', '', '', 'TOPLAM GİRİŞ:', `+${girisler.toFixed(2)}`]);
+    rows.push(['', '', '', '', '', 'TOPLAM ÇIKIŞ:', `-${cikislar.toFixed(2)}`]);
+    rows.push(['', '', '', '', '', 'NET BAKİYE:', `${(girisler - cikislar).toFixed(2)}`]);
+
+    const csvContent = BOM + [headers, ...rows].map(row => row.join(';')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${dosyaAdi}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    toast.success('Excel dosyası indirildi');
+  }, [formatTarih]);
+
+  // Hesap bazlı PDF
+  const hesapPdfOlustur = useCallback((hesapTip: HesapTipi) => {
+    const data = getHareketlerByHesap(hesapTip);
+    const hesapAdi = hesapTip === 'nakit' ? 'Nakit Kasa' : hesapTip === 'banka' ? 'Banka Hesabı' : 'POS Cihazı';
+    pdfOlustur(data, `${hesapAdi} Raporu`, `Tüm ${hesapAdi.toLowerCase()} hareketleri`);
+  }, [getHareketlerByHesap, pdfOlustur]);
+
+  // Hesap bazlı Excel
+  const hesapExcelOlustur = useCallback((hesapTip: HesapTipi) => {
+    const data = getHareketlerByHesap(hesapTip);
+    const hesapAdi = hesapTip === 'nakit' ? 'Nakit_Kasa' : hesapTip === 'banka' ? 'Banka' : 'POS';
+    excelOlustur(data, hesapAdi);
+  }, [getHareketlerByHesap, excelOlustur]);
+
+  // Dönem bazlı PDF
+  const donemPdfOlustur = useCallback((period: 'gunluk' | 'aylik' | 'yillik' | 'tum') => {
+    const data = getHareketlerByPeriod(period);
+    const donemAdi = period === 'gunluk' ? 'Günlük' : period === 'aylik' ? 'Aylık' : period === 'yillik' ? 'Yıllık' : 'Tüm Dönem';
+    const tarih = new Date();
+    const altBaslik = period === 'gunluk' 
+      ? tarih.toLocaleDateString('tr-TR')
+      : period === 'aylik'
+      ? `${tarih.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}`
+      : period === 'yillik'
+      ? `${tarih.getFullYear()} Yılı`
+      : 'Tüm kayıtlar';
+    pdfOlustur(data, `${donemAdi} Kasa Raporu`, altBaslik);
+  }, [getHareketlerByPeriod, pdfOlustur]);
+
+  // Dönem bazlı Excel
+  const donemExcelOlustur = useCallback((period: 'gunluk' | 'aylik' | 'yillik' | 'tum') => {
+    const data = getHareketlerByPeriod(period);
+    const donemAdi = period === 'gunluk' ? 'Gunluk' : period === 'aylik' ? 'Aylik' : period === 'yillik' ? 'Yillik' : 'Tum_Donem';
+    excelOlustur(data, `Kasa_${donemAdi}`);
+  }, [getHareketlerByPeriod, excelOlustur]);
+
+  // Tip bazlı (Giriş/Çıkış) PDF
+  const tipPdfOlustur = useCallback((tip: 'giris' | 'cikis') => {
+    const data = hareketler.filter(h => h.tip === tip);
+    const tipAdi = tip === 'giris' ? 'Giriş (Tahsilat)' : 'Çıkış (Gider)';
+    pdfOlustur(data, `${tipAdi} Raporu`, 'Tüm kayıtlar');
+  }, [hareketler, pdfOlustur]);
+
+  // Tip bazlı Excel
+  const tipExcelOlustur = useCallback((tip: 'giris' | 'cikis') => {
+    const data = hareketler.filter(h => h.tip === tip);
+    const tipAdi = tip === 'giris' ? 'Girisler' : 'Cikislar';
+    excelOlustur(data, tipAdi);
+  }, [hareketler, excelOlustur]);
+
+  // Genel rapor PDF
+  const genelRaporPdf = useCallback(() => {
+    pdfOlustur(filtrelenmisHareketler, 'Genel Kasa & Banka Raporu', 'Tüm hesap hareketleri');
+  }, [filtrelenmisHareketler, pdfOlustur]);
+
+  // Genel rapor Excel
+  const genelRaporExcel = useCallback(() => {
+    excelOlustur(filtrelenmisHareketler, 'Kasa_Banka_Genel');
+  }, [filtrelenmisHareketler, excelOlustur]);
 
   // ==================== RENDER ====================
   return (
@@ -433,11 +587,11 @@ export default function KasaBankaPage() {
                 Transfer
               </button>
               <button
-                onClick={pdfOlustur}
+                onClick={() => setRaporModalAcik(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white text-emerald-700 rounded-xl hover:bg-emerald-50 transition font-medium text-sm shadow-sm"
               >
-                <Printer className="w-4 h-4" />
-                PDF
+                <Download className="w-4 h-4" />
+                Raporlar
               </button>
               <button
                 onClick={verileriYukle}
@@ -1057,6 +1211,352 @@ export default function KasaBankaPage() {
               >
                 <Check className="w-5 h-5" />
                 Transfer Yap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rapor Modal - Detaylı PDF ve Excel Export */}
+      {raporModalAcik && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden my-8">
+            <div className="p-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Rapor Merkezi</h2>
+                    <p className="text-emerald-100 text-sm">PDF ve Excel formatında detaylı raporlar</p>
+                  </div>
+                </div>
+                <button onClick={() => setRaporModalAcik(false)} className="p-2 hover:bg-white/20 rounded-xl transition">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* HESAP BAZLI RAPORLAR */}
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-emerald-600" />
+                  Hesap Bazlı Raporlar
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Nakit Kasa */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
+                        <Banknote className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-emerald-800">Nakit Kasa</p>
+                        <p className="text-sm text-emerald-600">{getHareketlerByHesap('nakit').length} işlem</p>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-700 mb-4">{formatPara(hesapBakiyeleri.nakit)}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { hesapPdfOlustur('nakit'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition text-sm font-medium"
+                      >
+                        <Printer className="w-4 h-4" /> PDF
+                      </button>
+                      <button
+                        onClick={() => { hesapExcelOlustur('nakit'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-emerald-300 text-emerald-700 rounded-xl hover:bg-emerald-50 transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Banka */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                        <Building2 className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-blue-800">Banka Hesabı</p>
+                        <p className="text-sm text-blue-600">{getHareketlerByHesap('banka').length} işlem</p>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-700 mb-4">{formatPara(hesapBakiyeleri.banka)}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { hesapPdfOlustur('banka'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"
+                      >
+                        <Printer className="w-4 h-4" /> PDF
+                      </button>
+                      <button
+                        onClick={() => { hesapExcelOlustur('banka'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* POS */}
+                  <div className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 rounded-2xl p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-purple-800">POS Cihazı</p>
+                        <p className="text-sm text-purple-600">{getHareketlerByHesap('pos').length} işlem</p>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-700 mb-4">{formatPara(hesapBakiyeleri.pos)}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { hesapPdfOlustur('pos'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition text-sm font-medium"
+                      >
+                        <Printer className="w-4 h-4" /> PDF
+                      </button>
+                      <button
+                        onClick={() => { hesapExcelOlustur('pos'); }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-purple-300 text-purple-700 rounded-xl hover:bg-purple-50 transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Excel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* DÖNEM BAZLI RAPORLAR */}
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-emerald-600" />
+                  Dönem Bazlı Raporlar
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Günlük */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg transition">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Clock className="w-7 h-7 text-amber-600" />
+                      </div>
+                      <p className="font-bold text-slate-800">Günlük Rapor</p>
+                      <p className="text-sm text-slate-500">{getHareketlerByPeriod('gunluk').length} işlem</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => donemPdfOlustur('gunluk')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-xs font-medium"
+                      >
+                        <Printer className="w-3 h-3" /> PDF
+                      </button>
+                      <button
+                        onClick={() => donemExcelOlustur('gunluk')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50 transition text-xs font-medium"
+                      >
+                        <Download className="w-3 h-3" /> Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Aylık */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg transition">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Calendar className="w-7 h-7 text-cyan-600" />
+                      </div>
+                      <p className="font-bold text-slate-800">Aylık Rapor</p>
+                      <p className="text-sm text-slate-500">{getHareketlerByPeriod('aylik').length} işlem</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => donemPdfOlustur('aylik')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition text-xs font-medium"
+                      >
+                        <Printer className="w-3 h-3" /> PDF
+                      </button>
+                      <button
+                        onClick={() => donemExcelOlustur('aylik')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 border border-cyan-300 text-cyan-700 rounded-lg hover:bg-cyan-50 transition text-xs font-medium"
+                      >
+                        <Download className="w-3 h-3" /> Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Yıllık */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg transition">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <BarChart3 className="w-7 h-7 text-indigo-600" />
+                      </div>
+                      <p className="font-bold text-slate-800">Yıllık Rapor</p>
+                      <p className="text-sm text-slate-500">{getHareketlerByPeriod('yillik').length} işlem</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => donemPdfOlustur('yillik')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-xs font-medium"
+                      >
+                        <Printer className="w-3 h-3" /> PDF
+                      </button>
+                      <button
+                        onClick={() => donemExcelOlustur('yillik')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50 transition text-xs font-medium"
+                      >
+                        <Download className="w-3 h-3" /> Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tüm Dönem */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg transition">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <FileText className="w-7 h-7 text-rose-600" />
+                      </div>
+                      <p className="font-bold text-slate-800">Tüm Dönem</p>
+                      <p className="text-sm text-slate-500">{hareketler.length} işlem</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => donemPdfOlustur('tum')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition text-xs font-medium"
+                      >
+                        <Printer className="w-3 h-3" /> PDF
+                      </button>
+                      <button
+                        onClick={() => donemExcelOlustur('tum')}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 border border-rose-300 text-rose-700 rounded-lg hover:bg-rose-50 transition text-xs font-medium"
+                      >
+                        <Download className="w-3 h-3" /> Excel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TİP BAZLI RAPORLAR */}
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+                  İşlem Tipi Raporları
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Girişler */}
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                          <ArrowUpRight className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-green-800">Tüm Girişler (Tahsilatlar)</p>
+                          <p className="text-sm text-green-600">{hareketler.filter(h => h.tip === 'giris').length} işlem</p>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700">
+                        +{formatPara(hareketler.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0))}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => tipPdfOlustur('giris')}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition text-sm font-medium"
+                      >
+                        <Printer className="w-4 h-4" /> PDF İndir
+                      </button>
+                      <button
+                        onClick={() => tipExcelOlustur('giris')}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-green-300 text-green-700 rounded-xl hover:bg-green-50 transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Excel İndir
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Çıkışlar */}
+                  <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
+                          <ArrowDownRight className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-red-800">Tüm Çıkışlar (Giderler)</p>
+                          <p className="text-sm text-red-600">{hareketler.filter(h => h.tip === 'cikis').length} işlem</p>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-red-600">
+                        -{formatPara(hareketler.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0))}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => tipPdfOlustur('cikis')}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition text-sm font-medium"
+                      >
+                        <Printer className="w-4 h-4" /> PDF İndir
+                      </button>
+                      <button
+                        onClick={() => tipExcelOlustur('cikis')}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-red-300 text-red-700 rounded-xl hover:bg-red-50 transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Excel İndir
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GENEL RAPOR */}
+              <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
+                      <PiggyBank className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">Genel Kasa & Banka Raporu</h3>
+                      <p className="text-slate-300 text-sm mt-1">Tüm hesaplar ve tüm işlemler - Toplu rapor</p>
+                      <div className="flex items-center gap-4 mt-2 text-sm">
+                        <span className="text-emerald-400">↑ Giriş: +{formatPara(hareketler.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0))}</span>
+                        <span className="text-red-400">↓ Çıkış: -{formatPara(hareketler.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0))}</span>
+                        <span className="text-white font-bold">Net: {formatPara(toplamBakiye)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={genelRaporPdf}
+                      className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition font-medium"
+                    >
+                      <Printer className="w-5 h-5" />
+                      Genel PDF
+                    </button>
+                    <button
+                      onClick={genelRaporExcel}
+                      className="flex items-center gap-2 px-5 py-3 bg-white text-slate-800 rounded-xl hover:bg-slate-100 transition font-medium"
+                    >
+                      <Download className="w-5 h-5" />
+                      Genel Excel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setRaporModalAcik(false)}
+                className="px-6 py-2.5 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition font-medium"
+              >
+                Kapat
               </button>
             </div>
           </div>

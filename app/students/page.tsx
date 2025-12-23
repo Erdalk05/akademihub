@@ -22,7 +22,8 @@ import {
   MoreHorizontal,
   X,
   RefreshCw,
-  Loader2
+  Loader2,
+  WifiOff
 } from 'lucide-react';
 import { exportStudentsToExcel } from '@/lib/utils/excelExport';
 import FinanceQuickViewDrawer from '@/components/students/FinanceQuickViewDrawer';
@@ -33,6 +34,10 @@ import toast from 'react-hot-toast';
 import { Edit, Trash2 } from 'lucide-react';
 import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
 import { StudentTableRow } from '@/components/students/StudentTableRow';
+// ✅ Offline & Cache desteği
+import { getStudentsCached, invalidateStudentsCache, getCacheStatus } from '@/lib/data/studentsDataProvider';
+import { useNetworkStatus } from '@/lib/offline/networkStatus';
+import OfflineIndicator from '@/components/ui/OfflineIndicator';
 
 type StudentRow = {
   id: string;
@@ -68,6 +73,10 @@ function StudentsContent() {
   const { currentOrganization, isAllOrganizations = false } = useOrganizationStore();
   const { selectedYear } = useAcademicYearStore(); // Global akademik yıl store
   const { canEditStudent, canDeleteStudent, canCollectPayment, canCreateStudent, canExportStudents, isAdmin } = usePermission();
+  
+  // ✅ Network status için hook
+  const { isOnline, isOffline } = useNetworkStatus();
+  const [isFromCache, setIsFromCache] = useState(false);
   
   // Data
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -146,8 +155,8 @@ function StudentsContent() {
     }
   }, [getCacheKey]);
 
-  // ✅ TEK FETCH FONKSİYONU - useCallback ile memoize edildi
-  const fetchStudents = useCallback(async (signal?: AbortSignal) => {
+  // ✅ TEK FETCH FONKSİYONU - Data Provider ile (Offline destekli)
+  const fetchStudents = useCallback(async (signal?: AbortSignal, forceRefresh: boolean = false) => {
     // Organization hazır değilse çık
     if (!isAllOrganizations && !currentOrganization?.id) {
       console.log('[STUDENTS] ⏳ Org hazır değil, bekleniyor...');
@@ -155,30 +164,24 @@ function StudentsContent() {
     }
     
     const fetchId = ++fetchCountRef.current;
-    console.log(`[STUDENTS] 🔄 Fetch #${fetchId} başladı`);
+    console.log(`[STUDENTS] 🔄 Fetch #${fetchId} başladı (Online: ${isOnline}, ForceRefresh: ${forceRefresh})`);
     
     // Cache varsa loading gösterme (arka planda güncelle)
-    const cacheKey = getCacheKey();
     const hasCachedData = students.length > 0;
     if (!hasCachedData) {
       setLoading(true);
     }
     
     try {
-      const params = new URLSearchParams();
-      if (!isAllOrganizations && currentOrganization?.id) {
-        params.set('organization_id', currentOrganization.id);
-      }
-      if (selectedYear) params.set('academic_year', selectedYear);
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      params.set('status_filter', statusFilter);
-      if (classFilter) params.set('class_filter', classFilter);
-      params.set('sort_field', 'name'); // Her zaman name ile başla, client-side sort yapılacak
-      params.set('sort_dir', 'asc');
-      params.set('page', currentPage.toString());
-      params.set('page_size', pageSize.toString());
-      
-      const res = await fetch(`/api/students/list?${params.toString()}`, { signal });
+      // ✅ YENİ: Data Provider kullan (Online/Offline otomatik yönetim)
+      const result = await getStudentsCached({
+        organizationId: !isAllOrganizations ? currentOrganization?.id : undefined,
+        page: currentPage,
+        limit: pageSize,
+        search: debouncedSearch || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        class: classFilter || undefined
+      }, { forceRefresh });
       
       // İptal edildiyse çık
       if (signal?.aborted) {
@@ -186,36 +189,37 @@ function StudentsContent() {
         return;
       }
       
-      const json = await res.json();
-      
       console.log(`[STUDENTS] ✅ Fetch #${fetchId} tamamlandı:`, {
-        success: json.success,
-        studentCount: json.data?.length
+        studentCount: result.data?.length,
+        fromCache: result.fromCache,
+        isOffline: result.isOffline
       });
       
-      if (json.success && !json.fallback) {
-        setStudents(json.data || []);
-        setServerPagination(json.pagination);
-        setServerStats(json.stats);
+      // Cache durumunu güncelle
+      setIsFromCache(result.fromCache);
+      
+      if (result.data && result.data.length > 0) {
+        setStudents(result.data);
+        setServerPagination(result.pagination);
+        setServerStats({
+          totalActive: result.stats.active,
+          withDebt: 0, // API'den gelmiyorsa 0
+          paid: 0,
+          critical: 0,
+          deleted: result.stats.deleted
+        });
         setUseServerMode(true);
-        
-        // ✅ Cache'e kaydet (arama yoksa)
-        if (!debouncedSearch) {
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({
-              data: json.data,
-              pagination: json.pagination,
-              stats: json.stats,
-              timestamp: Date.now()
-            }));
-            console.log('[STUDENTS] 💾 Cache güncellendi');
-          } catch (e) {
-            // sessionStorage dolu olabilir, ignore et
-          }
-        }
-      } else {
-        // Fallback: Eski yöntem
+      } else if (!result.isOffline) {
+        // Online ama boş sonuç - fallback dene
         await fetchFallback(signal);
+      } else {
+        // Offline ve cache yok
+        setStudents([]);
+        setServerPagination(null);
+        setServerStats(null);
+        if (result.isOffline) {
+          toast.error('Çevrimdışı mod - Kayıtlı veri bulunamadı');
+        }
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -227,7 +231,7 @@ function StudentsContent() {
     } finally {
       setLoading(false);
     }
-  }, [isAllOrganizations, currentOrganization?.id, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage, pageSize]);
+  }, [isAllOrganizations, currentOrganization?.id, selectedYear, debouncedSearch, statusFilter, classFilter, currentPage, pageSize, isOnline, students.length]);
 
   // Fallback: Eski yöntem (RPC yoksa)
   const fetchFallback = async (signal?: AbortSignal) => {
@@ -422,11 +426,23 @@ function StudentsContent() {
     }
   };
   
-  // Refresh handler
-  const handleRefresh = () => {
+  // ✅ Refresh handler - Cache'i temizle ve yeniden yükle
+  const handleRefresh = useCallback(async () => {
+    if (isOffline) {
+      toast.error('İnternet bağlantısı yok - Yenileme yapılamıyor');
+      return;
+    }
+    
     setLoading(true);
-    window.location.reload();
-  };
+    invalidateStudentsCache(); // Cache'i temizle
+    
+    // Force refresh ile yeniden yükle
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    await fetchStudents(controller.signal, true);
+    
+    toast.success('Veriler güncellendi');
+  }, [isOffline, fetchStudents]);
 
   // ✅ Stats - Server mode'da API'den gelen stats kullanılır
   const stats = useMemo(() => {
@@ -501,13 +517,31 @@ function StudentsContent() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* ✅ Offline Göstergesi */}
+      <OfflineIndicator onRefresh={handleRefresh} />
+      
       <div className="max-w-7xl mx-auto px-4 py-6">
         
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Öğrenci Listesi</h1>
-            <p className="text-slate-500 text-sm mt-1">Finansal durum takibi ve öğrenci yönetimi</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-slate-500 text-sm">Finansal durum takibi ve öğrenci yönetimi</p>
+              {/* Cache durumu göstergesi */}
+              {isFromCache && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                  <Clock size={10} />
+                  Kayıtlı veri
+                </span>
+              )}
+              {isOffline && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                  <WifiOff size={10} />
+                  Çevrimdışı
+                </span>
+              )}
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
