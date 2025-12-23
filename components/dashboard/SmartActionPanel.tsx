@@ -10,12 +10,16 @@ import {
   MessageSquare,
   Calendar,
   TrendingDown,
+  TrendingUp,
   Users,
   Wallet,
   ArrowRight,
-  Zap
+  Zap,
+  Target,
+  Activity
 } from 'lucide-react';
 import Link from 'next/link';
+import { analyzeRisk, calculateRiskStats as calcStats, type RiskAnalysis } from '@/lib/risk/RiskEngine';
 
 interface ActionItem {
   id: string;
@@ -28,6 +32,10 @@ interface ActionItem {
   actionLabel: string;
   actionLink?: string;
   icon: React.ElementType;
+  riskInfo?: {
+    trend: 'improving' | 'stable' | 'worsening' | 'unknown';
+    topReasons: string[];
+  };
 }
 
 interface SmartActionPanelProps {
@@ -94,44 +102,86 @@ const typeLabels = {
 
 export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartActionPanelProps) {
   
+  // ✅ RiskEngine ile detaylı analiz
+  const riskAnalyses = useMemo<RiskAnalysis[]>(() => {
+    return riskStudents.map(student => analyzeRisk({
+      totalDebt: student.debt,
+      overdueDays: student.overdueDays,
+      overdueAmount: student.debt
+    }));
+  }, [riskStudents]);
+  
+  // ✅ Risk istatistikleri
+  const riskStats = useMemo(() => {
+    if (riskAnalyses.length === 0) return null;
+    return calcStats(riskAnalyses);
+  }, [riskAnalyses]);
+  
   // ✅ Akıllı aksiyon listesi oluştur
   const actions = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = [];
     
-    // 1. KRİTİK: 30+ gün gecikmiş ödemeler
-    const criticalCount = riskStudents.filter(s => s.overdueDays > 30).length;
-    if (criticalCount > 0) {
+    // RiskEngine'den gelen verilerle zenginleştirilmiş aksiyonlar
+    const criticalAnalyses = riskAnalyses.filter(a => a.level === 'critical');
+    const highAnalyses = riskAnalyses.filter(a => a.level === 'high');
+    const worseningCount = riskAnalyses.filter(a => a.trend.direction === 'worsening').length;
+    
+    // 1. KRİTİK: RiskEngine critical seviyesindeki öğrenciler
+    if (criticalAnalyses.length > 0) {
+      const topReasons = criticalAnalyses.slice(0, 3).flatMap(a => a.reasons.slice(0, 1).map(r => r.title));
       items.push({
         id: 'critical-overdue',
         priority: 'critical',
         type: 'call',
-        title: 'Kritik Gecikme - Hemen Arayın',
-        description: `${criticalCount} veli 30+ gün gecikmiş ödeme var. Acil iletişim gerekiyor.`,
-        count: criticalCount,
+        title: 'Kritik Risk - Acil Arayın',
+        description: `${criticalAnalyses.length} öğrenci kritik risk seviyesinde. ${criticalAnalyses[0]?.summary || 'Acil müdahale gerekli.'}`,
+        count: criticalAnalyses.length,
         amount: riskStudents.filter(s => s.overdueDays > 30).reduce((s, r) => s + r.debt, 0),
         actionLabel: 'Listeyi Gör',
         actionLink: '/students?filter=critical',
-        icon: Phone
+        icon: Phone,
+        riskInfo: {
+          trend: 'worsening',
+          topReasons: [...new Set(topReasons)]
+        }
       });
     }
     
-    // 2. YÜKSEK: 15-30 gün gecikmiş
-    const highCount = riskStudents.filter(s => s.overdueDays >= 15 && s.overdueDays <= 30).length;
-    if (highCount > 0) {
+    // 2. YÜKSEK: RiskEngine high seviyesindeki öğrenciler
+    if (highAnalyses.length > 0) {
       items.push({
         id: 'high-overdue',
         priority: 'high',
         type: 'reminder',
-        title: 'Ödeme Hatırlatması Gönder',
-        description: `${highCount} öğrenci 15-30 gün gecikmiş. SMS/WhatsApp hatırlatması gönderin.`,
-        count: highCount,
+        title: 'Yüksek Risk - Hatırlatma Gönder',
+        description: `${highAnalyses.length} öğrenci yüksek risk. Ödeme hatırlatması gönderin.`,
+        count: highAnalyses.length,
         actionLabel: 'Hatırlat',
         actionLink: '/students?filter=debt',
-        icon: Bell
+        icon: Bell,
+        riskInfo: {
+          trend: 'stable',
+          topReasons: highAnalyses.slice(0, 2).flatMap(a => a.reasons.slice(0, 1).map(r => r.title))
+        }
       });
     }
     
-    // 3. ORTA: Bu hafta vadesi gelen
+    // 3. TREND: Kötüleşen öğrenciler
+    if (worseningCount > 0) {
+      items.push({
+        id: 'worsening-trend',
+        priority: 'high',
+        type: 'alert',
+        title: 'Risk Artışı Uyarısı',
+        description: `${worseningCount} öğrencinin risk seviyesi artıyor. Önlem alınmalı.`,
+        count: worseningCount,
+        actionLabel: 'İncele',
+        actionLink: '/finance/reports/founder?tab=risk',
+        icon: TrendingUp
+      });
+    }
+    
+    // 4. Bu hafta vadesi gelen
     const weekDue = kpi.weekDueCount || Math.round((kpi.debtorStudents || 0) * 0.3);
     if (weekDue > 0) {
       items.push({
@@ -227,7 +277,7 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
     // Önceliğe göre sırala
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
     return items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]).slice(0, 5);
-  }, [kpi, riskStudents]);
+  }, [kpi, riskStudents, riskAnalyses]);
 
   if (actions.length === 0) {
     return null;
@@ -236,19 +286,39 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
+      <div className="bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm">Bugün Yapılacaklar</h3>
+              <p className="text-white/70 text-xs">RiskEngine™ önerileri</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-white font-bold text-sm">Bugün Yapılacaklar</h3>
-            <p className="text-white/70 text-xs">Akıllı öneriler</p>
-          </div>
+          <span className="bg-white/20 text-white text-xs font-medium px-2 py-1 rounded-full">
+            {actions.length} aksiyon
+          </span>
         </div>
-        <span className="bg-white/20 text-white text-xs font-medium px-2 py-1 rounded-full">
-          {actions.length} aksiyon
-        </span>
+        
+        {/* Risk Stats Mini */}
+        {riskStats && riskStats.totalAtRisk > 0 && (
+          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/20">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-red-400"></div>
+              <span className="text-white/80 text-xs">{riskStats.critical} kritik</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+              <span className="text-white/80 text-xs">{riskStats.high} yüksek</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+              <span className="text-white/80 text-xs">{riskStats.medium} orta</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Cards */}
@@ -288,6 +358,27 @@ export default function SmartActionPanel({ kpi, riskStudents = [] }: SmartAction
                     <p className={`text-sm font-bold ${config.text} mt-1`}>
                       ₺{action.amount.toLocaleString('tr-TR')}
                     </p>
+                  )}
+                  
+                  {/* Risk Info - Trend & Reasons */}
+                  {action.riskInfo && (
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {action.riskInfo.trend === 'worsening' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                          <TrendingUp className="w-3 h-3" /> Artıyor
+                        </span>
+                      )}
+                      {action.riskInfo.trend === 'improving' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                          <TrendingDown className="w-3 h-3" /> Düşüyor
+                        </span>
+                      )}
+                      {action.riskInfo.topReasons.slice(0, 2).map((reason, idx) => (
+                        <span key={idx} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
                 
