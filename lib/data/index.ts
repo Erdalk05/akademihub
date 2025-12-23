@@ -20,3 +20,9 @@ export {
   invalidateFinanceCache,
   invalidateSpecificCache
 } from './financeDataProvider';
+
+// Founder Report
+export {
+  getFounderReportCached,
+  invalidateFounderCache
+} from './founderDataProvider';

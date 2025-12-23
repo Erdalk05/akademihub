@@ -5,12 +5,16 @@ import {
   Download, CreditCard, FileText, TrendingUp, TrendingDown, 
   Users, AlertTriangle, CheckCircle, Clock, DollarSign,
   PieChart, BarChart3, Wallet, ArrowRight, Printer,
-  RefreshCw, GraduationCap
+  RefreshCw, GraduationCap, WifiOff
 } from 'lucide-react';
 import ClassAverageChart from '@/components/finance/ClassAverageChart';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import toast from 'react-hot-toast';
+// ✅ Offline & Cache desteği
+import { getDashboardDataCached, invalidateFinanceCache } from '@/lib/data/financeDataProvider';
+import { useNetworkStatus } from '@/lib/offline/networkStatus';
+import OfflineIndicator from '@/components/ui/OfflineIndicator';
 
 // =====================================================
 // OPTİMİZE FİNANS ÖN ÖZET RAPOR SAYFASI
@@ -42,6 +46,10 @@ export default function FinancePage() {
   const { currentOrganization } = useOrganizationStore();
   const abortControllerRef = useRef<AbortController | null>(null);
   
+  // ✅ Network status ve cache durumu
+  const { isOnline, isOffline } = useNetworkStatus();
+  const [isFromCache, setIsFromCache] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FinanceSummary>({
     totalIncome: 0,
@@ -57,8 +65,8 @@ export default function FinancePage() {
   });
   const [classData, setClassData] = useState<ClassData[]>([]);
 
-  // Tek API çağrısı ile tüm verileri çek
-  const fetchSummary = useCallback(async () => {
+  // ✅ Cache destekli veri çekme
+  const fetchSummary = useCallback(async (forceRefresh: boolean = false) => {
     // Önceki isteği iptal et
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -67,18 +75,22 @@ export default function FinancePage() {
 
     setLoading(true);
     try {
-      const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
+      console.log(`[FINANCE] 🔄 Veri yükleniyor (Online: ${isOnline}, ForceRefresh: ${forceRefresh})`);
       
-      const res = await fetch(`/api/finance/dashboard${orgParam}`, {
-        signal: abortControllerRef.current.signal,
-        headers: { 'Cache-Control': 'no-cache' }
+      const result = await getDashboardDataCached(currentOrganization?.id, { forceRefresh });
+      
+      setIsFromCache(result.fromCache);
+      
+      console.log(`[FINANCE] ✅ Veri yüklendi:`, {
+        fromCache: result.fromCache,
+        isOffline: result.isOffline
       });
       
-      const data = await res.json();
-      
-      if (data.success && data.data) {
-        setSummary(data.data.summary);
-        setClassData(data.data.classData || []);
+      if (result.data) {
+        setSummary(result.data.summary);
+        setClassData(result.data.classData || []);
+      } else if (result.isOffline) {
+        toast.error('Çevrimdışı mod - Kayıtlı veri bulunamadı');
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -87,7 +99,18 @@ export default function FinancePage() {
     } finally {
       setLoading(false);
     }
-  }, [currentOrganization?.id]);
+  }, [currentOrganization?.id, isOnline]);
+
+  // ✅ Refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (isOffline) {
+      toast.error('İnternet bağlantısı yok - Yenileme yapılamıyor');
+      return;
+    }
+    invalidateFinanceCache();
+    await fetchSummary(true);
+    toast.success('Veriler güncellendi');
+  }, [isOffline, fetchSummary]);
 
   // Sayfa yüklendiğinde verileri çek
   useEffect(() => {
@@ -449,16 +472,35 @@ export default function FinancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      {/* ✅ Offline Göstergesi */}
+      <OfflineIndicator onRefresh={handleRefresh} />
+      
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Finansal Özet Raporu</h1>
-          <p className="text-gray-500 text-sm mt-1">Hızlı finans durumu ve detaylı rapor indirme</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-gray-500 text-sm">Hızlı finans durumu ve detaylı rapor indirme</p>
+            {/* Cache durumu göstergesi */}
+            {isFromCache && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                <Clock className="w-2.5 h-2.5" />
+                Kayıtlı veri
+              </span>
+            )}
+            {isOffline && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                <WifiOff className="w-2.5 h-2.5" />
+                Çevrimdışı
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={fetchSummary}
-            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition flex items-center gap-2 text-sm font-medium"
+            onClick={handleRefresh}
+            disabled={isOffline}
+            className={`px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition flex items-center gap-2 text-sm font-medium ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Yenile

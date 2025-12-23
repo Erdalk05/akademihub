@@ -6,13 +6,18 @@ import {
   Plus, Download, Search, RefreshCw, Banknote, X, Check, CreditCard,
   TrendingUp, TrendingDown, Calendar, Filter, Eye, FileText, 
   PiggyBank, Receipt, CircleDollarSign, ChevronRight, Printer,
-  BarChart3, Clock, Users, AlertTriangle, CheckCircle, ExternalLink
+  BarChart3, Clock, Users, AlertTriangle, CheckCircle, ExternalLink, WifiOff
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+// ✅ Offline & Cache desteği
+import { getInstallmentsCached, getExpensesCached, getOtherIncomeCached, invalidateFinanceCache } from '@/lib/data/financeDataProvider';
+import { useNetworkStatus } from '@/lib/offline/networkStatus';
+import OfflineIndicator from '@/components/ui/OfflineIndicator';
+import { cacheManager } from '@/lib/offline/cacheManager';
 
 // ==================== TİPLER ====================
 type HareketTipi = 'giris' | 'cikis' | 'transfer';
@@ -44,6 +49,10 @@ export default function KasaBankaPage() {
   const { isAdmin, isAccounting } = usePermission();
   const { currentOrganization } = useOrganizationStore();
   
+  // ✅ Network status ve cache durumu
+  const { isOnline, isOffline } = useNetworkStatus();
+  const [isFromCache, setIsFromCache] = useState(false);
+  
   const [hareketler, setHareketler] = useState<Hareket[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics'>('overview');
@@ -68,23 +77,32 @@ export default function KasaBankaPage() {
     kategori: ''
   });
 
-  // ==================== VERİ YÜKLE ====================
-  const verileriYukle = useCallback(async () => {
+  // ==================== VERİ YÜKLE (Cache Destekli) ====================
+  const verileriYukle = useCallback(async (forceRefresh: boolean = false) => {
     setYukleniyor(true);
+    console.log(`[KASA-BANKA] 🔄 Veri yükleniyor (Online: ${isOnline}, ForceRefresh: ${forceRefresh})`);
+    
     try {
-      const orgParam = currentOrganization?.id ? `?organization_id=${currentOrganization.id}` : '';
-      
-      const [taksitlerRes, giderlerRes, digerGelirlerRes] = await Promise.all([
-        fetch(`/api/installments${orgParam}`),
-        fetch(`/api/finance/expenses${orgParam}`),
-        fetch(`/api/finance/other-income${orgParam}`)
+      // ✅ Cache destekli paralel veri çekme
+      const [taksitlerResult, giderlerResult, digerGelirlerResult] = await Promise.all([
+        getInstallmentsCached(currentOrganization?.id, { forceRefresh }),
+        getExpensesCached(currentOrganization?.id, { forceRefresh }),
+        getOtherIncomeCached(currentOrganization?.id, { forceRefresh })
       ]);
       
-      const [taksitlerJson, giderlerJson, digerGelirlerJson] = await Promise.all([
-        taksitlerRes.json(),
-        giderlerRes.json(),
-        digerGelirlerRes.json()
-      ]);
+      // Cache durumunu kontrol et (herhangi biri cache'den gelirse)
+      const anyFromCache = taksitlerResult.fromCache || giderlerResult.fromCache || digerGelirlerResult.fromCache;
+      setIsFromCache(anyFromCache);
+      
+      console.log(`[KASA-BANKA] ✅ Veriler yüklendi:`, {
+        taksitFromCache: taksitlerResult.fromCache,
+        giderFromCache: giderlerResult.fromCache,
+        digerFromCache: digerGelirlerResult.fromCache
+      });
+      
+      const taksitlerJson = { success: true, data: taksitlerResult.data };
+      const giderlerJson = { success: true, data: giderlerResult.data };
+      const digerGelirlerJson = { success: true, data: digerGelirlerResult.data };
       
       const tumHareketler: Hareket[] = [];
       
@@ -149,11 +167,26 @@ export default function KasaBankaPage() {
       setHareketler(tumHareketler);
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
-      toast.error('Veriler yüklenemedi');
+      if (isOffline) {
+        toast.error('Çevrimdışı mod - Kayıtlı veri bulunamadı');
+      } else {
+        toast.error('Veriler yüklenemedi');
+      }
     } finally {
       setYukleniyor(false);
     }
-  }, [currentOrganization?.id]);
+  }, [currentOrganization?.id, isOnline, isOffline]);
+
+  // ✅ Refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (isOffline) {
+      toast.error('İnternet bağlantısı yok - Yenileme yapılamıyor');
+      return;
+    }
+    invalidateFinanceCache();
+    await verileriYukle(true);
+    toast.success('Veriler güncellendi');
+  }, [isOffline, verileriYukle]);
 
   useEffect(() => {
     verileriYukle();
@@ -564,6 +597,9 @@ export default function KasaBankaPage() {
   // ==================== RENDER ====================
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* ✅ Offline Göstergesi */}
+      <OfflineIndicator onRefresh={handleRefresh} />
+      
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-8">
         <div className="max-w-7xl mx-auto">
@@ -574,14 +610,30 @@ export default function KasaBankaPage() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-white">Kasa & Banka</h1>
-                <p className="text-emerald-100 mt-1">Profesyonel hesap yönetimi ve nakit akış takibi</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-emerald-100">Profesyonel hesap yönetimi ve nakit akış takibi</p>
+                  {/* Cache durumu göstergesi */}
+                  {isFromCache && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-400/30 text-amber-100 text-xs rounded-full">
+                      <Clock className="w-2.5 h-2.5" />
+                      Kayıtlı veri
+                    </span>
+                  )}
+                  {isOffline && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-400/30 text-red-100 text-xs rounded-full">
+                      <WifiOff className="w-2.5 h-2.5" />
+                      Çevrimdışı
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setModalTip('transfer'); setModalAcik(true); }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition font-medium text-sm"
+                disabled={isOffline}
+                className={`flex items-center gap-2 px-4 py-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition font-medium text-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <ArrowLeftRight className="w-4 h-4" />
                 Transfer
@@ -594,8 +646,9 @@ export default function KasaBankaPage() {
                 Raporlar
               </button>
               <button
-                onClick={verileriYukle}
-                className="p-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition"
+                onClick={handleRefresh}
+                disabled={isOffline}
+                className={`p-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <RefreshCw className={`w-5 h-5 ${yukleniyor ? 'animate-spin' : ''}`} />
               </button>

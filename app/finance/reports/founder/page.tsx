@@ -4,10 +4,15 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, TrendingUp, DollarSign, BarChart3, PieChart, Target, AlertTriangle, CheckCircle,
   Download, RefreshCw, Brain, GraduationCap, Wallet, Clock, Shield, Award, Gift, Calculator,
-  Lightbulb, Activity, Printer, X, Eye, FileText
+  Lightbulb, Activity, Printer, X, Eye, FileText, WifiOff
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area, Legend, ComposedChart, Line } from 'recharts';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+// ✅ Offline & Cache desteği
+import { getFounderReportCached, invalidateFounderCache } from '@/lib/data/founderDataProvider';
+import { useNetworkStatus } from '@/lib/offline/networkStatus';
+import OfflineIndicator from '@/components/ui/OfflineIndicator';
+import toast from 'react-hot-toast';
 
 interface Student {
   id: string;
@@ -94,6 +99,10 @@ export default function FounderReportPage() {
   
   // Organization context
   const { currentOrganization } = useOrganizationStore();
+  
+  // ✅ Network status ve cache durumu
+  const { isOnline, isOffline } = useNetworkStatus();
+  const [isFromCache, setIsFromCache] = useState(false);
   
   // Modal states
   const [classModal, setClassModal] = useState<{ isOpen: boolean; className: string; students: Student[] }>({ isOpen: false, className: '', students: [] });
@@ -292,8 +301,8 @@ export default function FounderReportPage() {
     }
   }, [currentOrganization?.id]);
 
-  // ✅ fetchAllData dışarıda tanımlanıyor ki buton da kullanabilsin
-  const fetchAllData = useCallback(async () => {
+  // ✅ fetchAllData - Cache destekli (Online/Offline)
+  const fetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     if (!currentOrganization?.id) {
       console.log('[FOUNDER] ⏳ Org hazır değil, bekleniyor...');
       return;
@@ -308,23 +317,24 @@ export default function FounderReportPage() {
     abortControllerRef.current = controller;
     
     const fetchId = ++fetchCountRef.current;
-    console.log(`[FOUNDER] 🔄 Fetch #${fetchId} başladı`);
+    console.log(`[FOUNDER] 🔄 Fetch #${fetchId} başladı (Online: ${isOnline}, ForceRefresh: ${forceRefresh})`);
     
     setLoading(true);
     try {
-      const orgParam = `organization_id=${currentOrganization.id}`;
-      
-      // ✅ OPTİMİZE: Tek RPC çağrısı
-      const res = await fetch(`/api/finance/reports/founder?${orgParam}`, { signal: controller.signal });
+      // ✅ Cache destekli veri çekme
+      const result = await getFounderReportCached(currentOrganization.id, { forceRefresh });
       
       if (controller.signal.aborted) return;
       
-      const result = await res.json();
+      setIsFromCache(result.fromCache);
       
-      console.log(`[FOUNDER] ✅ Fetch #${fetchId} tamamlandı`);
+      console.log(`[FOUNDER] ✅ Fetch #${fetchId} tamamlandı:`, {
+        fromCache: result.fromCache,
+        isOffline: result.isOffline
+      });
       
-      // RPC başarılı ise direkt kullan
-      if (result.success && result.data) {
+      // Veri varsa kullan
+      if (result.data) {
         const data = result.data;
         setTotals(data.totals);
         setClassStats(data.classStats);
@@ -338,16 +348,32 @@ export default function FounderReportPage() {
         return;
       }
       
-      // ✅ FALLBACK
-      console.warn('[FOUNDER] RPC failed, using fallback method');
-      await fetchAllDataFallback(controller.signal);
+      // ✅ FALLBACK (cache yok ve online)
+      if (!result.isOffline) {
+        console.warn('[FOUNDER] Cache yok, fallback method kullanılıyor');
+        await fetchAllDataFallback(controller.signal);
+      } else {
+        // Offline ve cache yok
+        toast.error('Çevrimdışı mod - Kayıtlı veri bulunamadı');
+      }
       
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       console.error('Veri yükleme hatası:', error);
       await fetchAllDataFallback(controller.signal);
     } finally { setLoading(false); }
-  }, [currentOrganization?.id, fetchAllDataFallback]);
+  }, [currentOrganization?.id, fetchAllDataFallback, isOnline]);
+  
+  // ✅ Refresh handler - Cache temizleyerek yeniden yükle
+  const handleRefresh = useCallback(async () => {
+    if (isOffline) {
+      toast.error('İnternet bağlantısı yok - Yenileme yapılamıyor');
+      return;
+    }
+    invalidateFounderCache();
+    await fetchAllData(true);
+    toast.success('Veriler güncellendi');
+  }, [isOffline, fetchAllData]);
 
   // ✅ Sayfa yüklendiğinde fetch et
   useEffect(() => {
@@ -913,6 +939,9 @@ export default function FounderReportPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0fdf4] via-white to-[#dcfce7] p-4 md:p-6">
+      {/* ✅ Offline Göstergesi */}
+      <OfflineIndicator onRefresh={handleRefresh} />
+      
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header */}
@@ -926,14 +955,29 @@ export default function FounderReportPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold">Kurucu Raporu</h1>
-                  <p className="text-white/70 text-sm">Kurumsal Analiz & Karar Destek</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white/70 text-sm">Kurumsal Analiz & Karar Destek</p>
+                    {/* Cache durumu göstergesi */}
+                    {isFromCache && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-400/30 text-amber-100 text-xs rounded-full">
+                        <Clock size={10} />
+                        Kayıtlı veri
+                      </span>
+                    )}
+                    {isOffline && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-400/30 text-red-100 text-xs rounded-full">
+                        <WifiOff size={10} />
+                        Çevrimdışı
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <p className="text-white/80 text-sm mt-2">Son Güncelleme: {new Date().toLocaleString('tr-TR')}</p>
             </div>
             <div className="flex gap-3">
-              <button onClick={fetchAllData} className="px-4 py-2.5 bg-white/20 hover:bg-white/30 rounded-xl flex items-center gap-2 transition backdrop-blur-sm">
-                <RefreshCw size={18} /> Yenile
+              <button onClick={handleRefresh} disabled={isOffline} className={`px-4 py-2.5 bg-white/20 hover:bg-white/30 rounded-xl flex items-center gap-2 transition backdrop-blur-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Yenile
               </button>
               <button onClick={exportToPDF} className="px-4 py-2.5 bg-white text-[#075E54] rounded-xl flex items-center gap-2 font-semibold hover:bg-white/90 transition shadow-lg">
                 <Printer size={18} /> Yazdır
