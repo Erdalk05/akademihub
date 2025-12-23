@@ -25,6 +25,7 @@ import { usePermission } from '@/lib/hooks/usePermission';
 import { useRole } from '@/lib/contexts/RoleContext';
 import { useAuthStore } from '@/lib/store';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { prefetchStudents } from '@/lib/prefetch/studentsPrefetch';
 import toast from 'react-hot-toast';
 
 interface NavItem {
@@ -281,6 +282,12 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
             {item.submenu && item.submenu.length > 0 ? (
               <button
                 onClick={() => toggleSubmenu(item.label)}
+                onMouseEnter={() => {
+                  // ✅ Öğrenciler menüsüne hover olunca prefetch başlat
+                  if (item.label === 'Ogrenciler') {
+                    prefetchStudents(currentOrganization?.id);
+                  }
+                }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   expandedMenu === item.label || item.submenu.some((sub) => isActive(sub.href))
                     ? 'bg-white/20 text-white'
@@ -331,6 +338,12 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
                     key={sidx}
                     href={subitem.href!}
                     onClick={handleNavClick}
+                    onMouseEnter={() => {
+                      // ✅ Students linkine hover olunca prefetch
+                      if (subitem.href === '/students') {
+                        prefetchStudents(currentOrganization?.id);
+                      }
+                    }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all ${
                       isActive(subitem.href)
                         ? 'bg-[#25D366] text-white font-medium'

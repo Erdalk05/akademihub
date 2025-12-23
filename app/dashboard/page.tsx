@@ -9,6 +9,7 @@ import HeroBanner from '@/components/dashboard/HeroBanner';
 import QuickAccessPanel from '@/components/layout/QuickAccessPanel';
 import { LazyDashboardSection } from '@/components/dashboard/LazyDashboardSection';
 import { useMobileOptimization } from '@/lib/hooks/useMobileOptimization';
+import { prefetchStudents } from '@/lib/prefetch/studentsPrefetch';
 import { 
   Loader2, 
   AlertTriangle, 
@@ -65,7 +66,12 @@ export default function DashboardPage() {
   useEffect(() => {
     setIsClient(true);
     console.debug('[DASHBOARD] 📱 Mobile:', isMobile, 'DeferHeavy:', shouldDeferHeavyCalc);
-  }, [isMobile, shouldDeferHeavyCalc]);
+    
+    // ✅ Students verisini arka planda ön yükle (kullanıcı students'a gidince anında açılsın)
+    if (currentOrganization?.id) {
+      setTimeout(() => prefetchStudents(currentOrganization.id), 1000);
+    }
+  }, [isMobile, shouldDeferHeavyCalc, currentOrganization?.id]);
 
   // ✅ Memoized fetch function
   const fetchDashboardData = useCallback(async (academicYear: string) => {
