@@ -161,7 +161,9 @@ async function parseExcel(
     type: 'array',
     cellDates: true,
     cellNF: true,
-    cellText: true
+    cellText: true,
+    codepage: 65001, // UTF-8 for Turkish characters
+    raw: false
   });
   
   // Sheet seç
