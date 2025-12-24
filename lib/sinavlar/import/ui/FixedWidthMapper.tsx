@@ -1,26 +1,25 @@
 /**
  * ============================================
- * AkademiHub - Optik Form Mapper v5.0
+ * AkademiHub - Optik Form Mapper v6.0
  * ============================================
  * 
- * ✅ Tıklanabilir karakterler
- * ✅ Türkçe karakter desteği
- * ✅ Geniş aralıklı görünüm
- * ✅ Manuel alan ekleme
- * ✅ 2 satır önizleme
+ * ✅ Ad Soyad birleşik
+ * ✅ Form şablonları kaydet/yükle
+ * ✅ Kolay manuel alan ekleme
+ * ✅ Türk isim tahmin motoru
  */
 
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   Plus, Trash2, Eye, Save, RotateCcw, CheckCircle, AlertCircle, 
-  Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText
+  Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText,
+  Download, Upload, FolderOpen
 } from 'lucide-react';
 
 // ==================== TÜRK İSİM TAHMİN MOTORU ====================
 
-// Yaygın Türk erkek isimleri
 const ERKEK_ISIMLERI = [
   'ALİ', 'AHMET', 'MEHMET', 'MUSTAFA', 'HASAN', 'HÜSEYİN', 'İBRAHİM', 'İSMAİL',
   'OSMAN', 'YUSUF', 'MURAT', 'ÖMER', 'BURAK', 'EMRE', 'EREN', 'ARDA', 'KAAN',
@@ -28,61 +27,32 @@ const ERKEK_ISIMLERI = [
   'HAKAN', 'KEREM', 'KORAY', 'ONUR', 'OĞUZ', 'OĞUZHAN', 'SERKAN', 'TOLGA',
   'UĞUR', 'UMUT', 'YAĞIZ', 'YIĞIT', 'YUNUS', 'ERDEM', 'ERDAL', 'EROL', 'ERCAN',
   'ŞÜKRÜ', 'ŞEREF', 'GÖKHAN', 'GÖKÇEN', 'İLHAN', 'İSA', 'KEMAL', 'LEVENT',
-  'NİHAT', 'OKAN', 'ORHAN', 'ÖZGÜR', 'RECEP', 'RIDVAN', 'SEFA', 'SELİM',
-  'SERDAR', 'SİNAN', 'TANER', 'TARIK', 'TUNCAY', 'TUNÇ', 'TÜRKER', 'VOLKAN',
 ];
 
-// Yaygın Türk kız isimleri
 const KIZ_ISIMLERI = [
   'AYŞE', 'FATİMA', 'EMİNE', 'HATİCE', 'ZEYNEP', 'MERVE', 'ELİF', 'NUR',
   'BÜŞRA', 'ESRA', 'SEDA', 'DERYA', 'DİLARA', 'ECE', 'EBRU', 'GAMZE',
   'GİZEM', 'GÜLŞEN', 'GÜLAY', 'GÜNEŞ', 'HANDE', 'İREM', 'KÜBRA', 'MELEK',
   'MELİKE', 'MELTEM', 'NESLİHAN', 'NİLAY', 'ÖZGE', 'ÖZLEM', 'PELİN', 'SELEN',
-  'SEVGİ', 'SİBEL', 'ŞİRİN', 'TUĞBA', 'TUĞÇE', 'YAĞMUR', 'YELDA', 'YEŞİM',
-  'ASYA', 'ASLI', 'AZİZE', 'BAHAR', 'BAŞAK', 'BELGİN', 'BERNA', 'BİRSEN',
-  'BURCU', 'CANAN', 'CEMRE', 'ÇİĞDEM', 'DENİZ', 'DİDEM', 'DUYGU', 'FİGEN',
-  'FİLİZ', 'FULYA', 'GÜL', 'GÜLBEN', 'GÜLCAN', 'NURSENA', 'NAZLI', 'NİLGÜN',
+  'ŞİRİN', 'TUĞBA', 'TUĞÇE', 'YAĞMUR', 'ASYA', 'ASLI', 'ÇİĞDEM', 'NURSENA',
 ];
 
-// Yaygın Türk soyadları
 const SOYADLARI = [
   'YILMAZ', 'KAYA', 'DEMİR', 'ÇELİK', 'ŞAHIN', 'YILDIZ', 'YILDIRIM', 'ÖZTÜRK',
   'AYDIN', 'ÖZDEMIR', 'ARSLAN', 'DOĞAN', 'KILIÇ', 'ASLAN', 'ÇETIN', 'KARA',
-  'KOÇAK', 'KURT', 'ÖZKAN', 'ŞİMŞEK', 'POLAT', 'KORKMAZ', 'ÇELIK', 'KAPLAN',
-  'ACAR', 'GÜNEŞ', 'GÜLER', 'TEKIN', 'ERDOĞAN', 'ATEŞ', 'KURTULMUŞ', 'BULUT',
-  'ALTUN', 'AVCI', 'KARACA', 'ÜNAL', 'BAL', 'BOZKURT', 'COŞKUN', 'DEMİRCİ',
-  'DURAN', 'EKİNCİ', 'ERDEM', 'GÜVEN', 'IŞIK', 'KARATAŞ', 'AKTAŞ', 'AKSOY',
-  'ALBAYRAK', 'AYDOĞAN', 'BARAN', 'BAYRAK', 'BAYRAM', 'BİLGİN', 'CAN', 'CEYLAN',
-  'KILIC', 'KILICOGLU', 'KILIÇOĞLU', 'TÜRKMEN', 'TÜRK', 'ÖZCAN', 'NAÇAK',
+  'KOÇAK', 'KURT', 'ÖZKAN', 'ŞİMŞEK', 'POLAT', 'KORKMAZ', 'GÜNEŞ', 'GÜLER',
+  'KILIÇOĞLU', 'TÜRKMEN', 'TÜRK', 'ÖZCAN', 'ERDOĞAN', 'ATEŞ', 'BULUT',
 ];
 
-// Tüm isimler
 const TUM_ISIMLER = [...ERKEK_ISIMLERI, ...KIZ_ISIMLERI, ...SOYADLARI];
 
-// OCR hata düzeltmeleri
 function fixOCRErrors(text: string): string {
   let result = text.toUpperCase();
-  
-  // Sayı → Harf dönüşümleri
-  result = result.replace(/0/g, 'O'); // 0 → O
-  result = result.replace(/1/g, 'I'); // 1 → I
-  result = result.replace(/3/g, 'E'); // 3 → E
-  result = result.replace(/4/g, 'A'); // 4 → A
-  result = result.replace(/5/g, 'S'); // 5 → S
-  result = result.replace(/8/g, 'B'); // 8 → B
-  
-  // Özel karakter dönüşümleri
-  result = result.replace(/\$/g, 'Ş');
-  result = result.replace(/@/g, 'A');
-  result = result.replace(/&/g, 'E');
-  result = result.replace(/#/g, 'H');
-  result = result.replace(/\+/g, 'Ö');
-  result = result.replace(/w/gi, 'W');
-  
+  result = result.replace(/0/g, 'O').replace(/1/g, 'I').replace(/3/g, 'E');
+  result = result.replace(/\$/g, 'Ş').replace(/@/g, 'A').replace(/\+/g, 'Ö');
   return result;
 }
 
-// Levenshtein mesafesi
 function levenshtein(a: string, b: string): number {
   const matrix: number[][] = [];
   for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -97,7 +67,6 @@ function levenshtein(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
-// En yakın ismi bul
 function findClosestName(text: string): string {
   const cleaned = fixOCRErrors(text.trim());
   if (cleaned.length < 2) return cleaned;
@@ -107,64 +76,37 @@ function findClosestName(text: string): string {
   
   for (const name of TUM_ISIMLER) {
     const dist = levenshtein(cleaned, name);
-    const threshold = Math.floor(name.length * 0.4); // %40 hata toleransı
-    
+    const threshold = Math.floor(name.length * 0.4);
     if (dist < bestDistance && dist <= threshold) {
       bestDistance = dist;
       bestMatch = name;
     }
   }
-  
   return bestMatch;
 }
 
-// Ana düzeltme fonksiyonu
 function fixTurkishChars(text: string): string {
-  // Boşluklara göre ayır
   const words = text.split(/\s+/);
-  
-  const correctedWords = words.map(word => {
-    // OCR hatalarını düzelt
+  const corrected = words.map(word => {
     let cleaned = fixOCRErrors(word);
-    
-    // İsim veritabanından en yakınını bul
     const matched = findClosestName(cleaned);
-    
-    // Türkçe karakter düzeltmeleri (eşleşme bulunamazsa)
     if (matched === cleaned) {
-      // Manuel düzeltmeler
       cleaned = cleaned
-        .replace(/OZCAN/g, 'ÖZCAN')
-        .replace(/OZGUR/g, 'ÖZGÜR')
-        .replace(/OZLEM/g, 'ÖZLEM')
-        .replace(/CIGDEM/g, 'ÇİĞDEM')
-        .replace(/CAGLA/g, 'ÇAĞLA')
-        .replace(/GUNES/g, 'GÜNEŞ')
-        .replace(/GULER/g, 'GÜLER')
-        .replace(/GULSEN/g, 'GÜLŞEN')
-        .replace(/SUKRU/g, 'ŞÜKRÜ')
-        .replace(/SEREF/g, 'ŞEREF')
-        .replace(/ILHAN/g, 'İLHAN')
-        .replace(/ISMAIL/g, 'İSMAİL')
-        .replace(/INAR/g, 'İNAR')
-        .replace(/TURKMEN/g, 'TÜRKMEN')
-        .replace(/KILICOGLU/g, 'KILIÇOĞLU')
-        .replace(/KILIC/g, 'KILIÇ')
-        .replace(/YAGIZ/g, 'YAĞIZ')
-        .replace(/YAGMUR/g, 'YAĞMUR')
-        .replace(/SIRIN/g, 'ŞİRİN');
+        .replace(/OZCAN/g, 'ÖZCAN').replace(/OZGUR/g, 'ÖZGÜR').replace(/OZLEM/g, 'ÖZLEM')
+        .replace(/CIGDEM/g, 'ÇİĞDEM').replace(/GUNES/g, 'GÜNEŞ').replace(/GULER/g, 'GÜLER')
+        .replace(/SUKRU/g, 'ŞÜKRÜ').replace(/ILHAN/g, 'İLHAN').replace(/ISMAIL/g, 'İSMAİL')
+        .replace(/TURKMEN/g, 'TÜRKMEN').replace(/KILICOGLU/g, 'KILIÇOĞLU').replace(/KILIC/g, 'KILIÇ')
+        .replace(/YAGIZ/g, 'YAĞIZ').replace(/YAGMUR/g, 'YAĞMUR').replace(/SIRIN/g, 'ŞİRİN');
       return cleaned;
     }
-    
     return matched;
   });
-  
-  return correctedWords.join(' ');
+  return corrected.join(' ');
 }
 
 // ==================== TYPES ====================
 
-type FieldType = 'ogrenci_no' | 'tc' | 'ad' | 'soyad' | 'sinif' | 'kitapcik' | 'cevaplar' | 'custom';
+type FieldType = 'ogrenci_no' | 'tc' | 'ad_soyad' | 'sinif' | 'kitapcik' | 'cevaplar' | 'custom';
 
 interface FieldDefinition {
   id: string;
@@ -177,11 +119,18 @@ interface FieldDefinition {
 interface ParsedStudent {
   ogrenciNo?: string;
   tc?: string;
-  ad?: string;
-  soyad?: string;
+  adSoyad?: string;
   sinif?: string;
   kitapcik?: string;
   cevaplar?: string;
+  [key: string]: string | undefined;
+}
+
+interface FormTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  fields: FieldDefinition[];
 }
 
 // ==================== CONSTANTS ====================
@@ -189,13 +138,13 @@ interface ParsedStudent {
 const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode }[] = [
   { type: 'ogrenci_no', label: 'Öğrenci No', color: '#3B82F6', icon: <Hash className="w-3 h-3" /> },
   { type: 'tc', label: 'TC Kimlik', color: '#8B5CF6', icon: <CreditCard className="w-3 h-3" /> },
-  { type: 'ad', label: 'Ad', color: '#10B981', icon: <Users className="w-3 h-3" /> },
-  { type: 'soyad', label: 'Soyad', color: '#14B8A6', icon: <Users className="w-3 h-3" /> },
+  { type: 'ad_soyad', label: 'Ad Soyad', color: '#10B981', icon: <Users className="w-3 h-3" /> },
   { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" /> },
   { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" /> },
   { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" /> },
-  { type: 'custom', label: 'Özel Alan', color: '#6B7280', icon: <Plus className="w-3 h-3" /> },
 ];
+
+const STORAGE_KEY = 'akademihub_form_templates';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -210,31 +159,52 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const [previewMode, setPreviewMode] = useState(false);
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<FormTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualField, setManualField] = useState({ label: '', start: 1, end: 10 });
   
-  // 2 satır, Türkçe düzeltmeli
+  // LocalStorage'dan şablonları yükle
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setSavedTemplates(JSON.parse(saved));
+    } catch (e) {
+      console.error('Şablon yükleme hatası:', e);
+    }
+  }, []);
+  
+  // Şablonları kaydet
+  const saveTemplates = useCallback((templates: FormTemplate[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+      setSavedTemplates(templates);
+    } catch (e) {
+      console.error('Şablon kaydetme hatası:', e);
+    }
+  }, []);
+  
   const sampleLines = useMemo(() => {
     return rawLines.slice(0, 2).map(line => fixTurkishChars(line));
   }, [rawLines]);
   
   const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length), 100), [rawLines]);
   
-  // Karakter seçimi başlat
+  // Karakter seçimi
   const handleCharMouseDown = useCallback((charIndex: number) => {
-    // Zaten tanımlı bir alanda mı?
     const existingField = fields.find(f => charIndex >= f.start - 1 && charIndex < f.end);
     if (existingField) return;
-    
     setIsSelecting(true);
     setSelection({ start: charIndex, end: charIndex });
   }, [fields]);
   
-  // Karakter seçimi devam
   const handleCharMouseEnter = useCallback((charIndex: number) => {
     if (!isSelecting) return;
     setSelection(prev => prev ? { ...prev, end: charIndex } : null);
   }, [isSelecting]);
   
-  // Karakter seçimi bitir
   const handleMouseUp = useCallback(() => {
     setIsSelecting(false);
   }, []);
@@ -245,7 +215,6 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     
     const start = Math.min(selection.start, selection.end) + 1;
     const end = Math.max(selection.start, selection.end) + 1;
-    
     const fieldType = FIELD_TYPES.find(f => f.type === type);
     
     const newField: FieldDefinition = {
@@ -260,27 +229,25 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     setSelection(null);
   }, [selection]);
   
-  // Manuel alan ekle
+  // Manuel alan ekle - TEK TIKLA
   const handleAddManualField = useCallback(() => {
-    const lastEnd = fields.length > 0 ? Math.max(...fields.map(f => f.end)) : 0;
-    
-    const label = prompt('Alan adını girin:', 'Yeni Alan');
-    if (!label) return;
-    
-    const startStr = prompt('Başlangıç pozisyonu:', String(lastEnd + 1));
-    const start = parseInt(startStr || '1') || 1;
-    
-    const endStr = prompt('Bitiş pozisyonu:', String(start + 10));
-    const end = parseInt(endStr || String(start + 10)) || start + 10;
+    if (!manualField.label.trim()) return;
     
     setFields(prev => [...prev, {
       id: `field-${Date.now()}`,
       type: 'custom',
-      label,
-      start,
-      end
+      label: manualField.label,
+      start: manualField.start,
+      end: manualField.end
     }].sort((a, b) => a.start - b.start));
-  }, [fields]);
+    
+    // Bir sonraki alan için hazırla
+    setManualField({
+      label: '',
+      start: manualField.end + 1,
+      end: manualField.end + 20
+    });
+  }, [manualField]);
   
   // Alan güncelle
   const handleUpdateField = useCallback((id: string, updates: Partial<FieldDefinition>) => {
@@ -298,6 +265,33 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     setSelection(null);
   }, []);
   
+  // Şablon kaydet
+  const handleSaveTemplate = useCallback(() => {
+    if (!newTemplateName.trim() || fields.length === 0) return;
+    
+    const newTemplate: FormTemplate = {
+      id: `template-${Date.now()}`,
+      name: newTemplateName,
+      createdAt: new Date().toISOString(),
+      fields: fields
+    };
+    
+    saveTemplates([...savedTemplates, newTemplate]);
+    setNewTemplateName('');
+    setShowSaveDialog(false);
+  }, [newTemplateName, fields, savedTemplates, saveTemplates]);
+  
+  // Şablon yükle
+  const handleLoadTemplate = useCallback((template: FormTemplate) => {
+    setFields(template.fields.map(f => ({ ...f, id: `field-${Date.now()}-${Math.random()}` })));
+    setShowTemplates(false);
+  }, []);
+  
+  // Şablon sil
+  const handleDeleteTemplate = useCallback((templateId: string) => {
+    saveTemplates(savedTemplates.filter(t => t.id !== templateId));
+  }, [savedTemplates, saveTemplates]);
+  
   // Parse edilmiş öğrenciler
   const parsedStudents = useMemo((): ParsedStudent[] => {
     return rawLines.map(line => {
@@ -308,38 +302,20 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         const value = corrected.substring(f.start - 1, f.end).trim();
         if (f.type === 'ogrenci_no') student.ogrenciNo = value;
         if (f.type === 'tc') student.tc = value;
-        if (f.type === 'ad') student.ad = value;
-        if (f.type === 'soyad') student.soyad = value;
+        if (f.type === 'ad_soyad') student.adSoyad = value;
         if (f.type === 'sinif') student.sinif = value;
         if (f.type === 'kitapcik') student.kitapcik = value;
         if (f.type === 'cevaplar') student.cevaplar = value;
+        if (f.type === 'custom') student[f.label] = value;
       });
       
       return student;
     });
   }, [rawLines, fields]);
   
-  // Validasyon - en az 2 alan tanımlı olmalı
+  // Validasyon
   const isValid = useMemo(() => {
-    const hasIdentity = fields.some(f => 
-      f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad' || 
-      f.label.toLowerCase().includes('öğrenci') || f.label.toLowerCase().includes('no') ||
-      f.label.toLowerCase().includes('ad') || f.label.toLowerCase().includes('isim')
-    );
-    const hasAnswersOrSubjects = fields.some(f => 
-      f.type === 'cevaplar' || 
-      f.label.toLowerCase().includes('cevap') ||
-      f.label.toLowerCase().includes('türkçe') ||
-      f.label.toLowerCase().includes('matematik') ||
-      f.label.toLowerCase().includes('fen') ||
-      f.label.toLowerCase().includes('sosyal') ||
-      f.label.toLowerCase().includes('ingilizce') ||
-      f.label.toLowerCase().includes('din') ||
-      f.label.toLowerCase().includes('inkılap') ||
-      f.label.toLowerCase().includes('inkilap')
-    );
-    // En az 2 alan varsa geçerli
-    return fields.length >= 2 && (hasIdentity || hasAnswersOrSubjects);
+    return fields.length >= 2;
   }, [fields]);
 
   // Karakter rengi
@@ -376,13 +352,119 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     <div className="min-h-[600px]" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 -mx-6 -mt-6 px-6 py-4 mb-4 rounded-t-2xl">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Target className="w-5 h-5" /> Optik Form Tanımları
-        </h2>
-        <p className="text-purple-200 text-sm">{rawLines.length} satır • Karakterleri sürükleyerek seçin</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Target className="w-5 h-5" /> Optik Form Tanımları
+            </h2>
+            <p className="text-purple-200 text-sm">{rawLines.length} satır • Karakterleri sürükleyerek seçin</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowTemplates(true)}
+              className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-white/30"
+            >
+              <FolderOpen className="w-4 h-4" /> Şablon Yükle
+            </button>
+            {fields.length > 0 && (
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-emerald-600"
+              >
+                <Download className="w-4 h-4" /> Kaydet
+              </button>
+            )}
+          </div>
+        </div>
       </div>
       
-      {/* KARAKTER HARİTASI - GENİŞ ARALIKLI, 2 SATIR */}
+      {/* ŞABLON YÜKLEME MODAL */}
+      {showTemplates && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowTemplates(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-purple-600" /> Kayıtlı Form Şablonları
+            </h3>
+            {savedTemplates.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Upload className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>Henüz kayıtlı şablon yok</p>
+                <p className="text-sm">Alanları tanımlayıp "Kaydet" butonuna tıklayın</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {savedTemplates.map(template => (
+                  <div key={template.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div>
+                      <div className="font-bold">{template.name}</div>
+                      <div className="text-xs text-gray-500">{template.fields.length} alan</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleLoadTemplate(template)}
+                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                      >
+                        Yükle
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        className="p-1 text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setShowTemplates(false)}
+              className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* ŞABLON KAYDETME MODAL */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSaveDialog(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Save className="w-5 h-5 text-emerald-600" /> Form Şablonu Kaydet
+            </h3>
+            <input
+              type="text"
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              placeholder="Şablon adı (örn: LGS Optik Form)"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none mb-4"
+              autoFocus
+            />
+            <div className="text-sm text-gray-500 mb-4">
+              {fields.length} alan kaydedilecek
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={!newTemplateName.trim()}
+                className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* KARAKTER HARİTASI */}
       <div className="bg-white border-2 border-gray-200 rounded-xl mb-4 overflow-hidden">
         <div className="bg-gray-100 px-4 py-2 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -406,7 +488,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             ))}
           </div>
           
-          {/* 2 Satır Öğrenci - GENİŞ ARALIKLI */}
+          {/* 2 Satır Öğrenci */}
           {sampleLines.map((line, rowIdx) => (
             <div key={rowIdx} className="flex items-center mb-2">
               <div className="w-10 flex-shrink-0 text-sm font-bold text-gray-400 text-right pr-2">
@@ -443,10 +525,6 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
               </div>
             </div>
           ))}
-          
-          {maxLength > 80 && (
-            <div className="mt-2 text-xs text-amber-600">⚠️ İlk 80 karakter ({maxLength} toplam)</div>
-          )}
         </div>
       </div>
       
@@ -466,7 +544,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           </div>
           <div className="text-sm text-gray-600 mb-2 text-center">Bu alan ne?</div>
           <div className="flex flex-wrap justify-center gap-2">
-            {FIELD_TYPES.filter(f => f.type !== 'custom').map((fieldType) => (
+            {FIELD_TYPES.map((fieldType) => (
               <button
                 key={fieldType.type}
                 onClick={() => handleAssignField(fieldType.type)}
@@ -478,10 +556,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             ))}
           </div>
           <div className="text-center mt-2">
-            <button
-              onClick={() => setSelection(null)}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
+            <button onClick={() => setSelection(null)} className="text-sm text-gray-500 hover:text-gray-700">
               İptal
             </button>
           </div>
@@ -493,12 +568,51 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         <div className="bg-emerald-50 px-4 py-2 border-b flex justify-between items-center">
           <span className="font-bold text-emerald-700">Alan Tanımları ({fields.length})</span>
           <button
-            onClick={handleAddManualField}
+            onClick={() => setShowManualAdd(!showManualAdd)}
             className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-600"
           >
             <Plus className="w-3 h-3" /> Manuel Ekle
           </button>
         </div>
+        
+        {/* MANUEL EKLEME SATIRI */}
+        {showManualAdd && (
+          <div className="p-3 bg-emerald-50/50 border-b flex gap-2 items-center">
+            <input
+              type="text"
+              value={manualField.label}
+              onChange={e => setManualField(p => ({ ...p, label: e.target.value }))}
+              placeholder="Alan adı (örn: Türkçe)"
+              className="flex-1 px-3 py-2 border rounded-lg text-sm"
+              autoFocus
+            />
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Başlangıç:</span>
+              <input
+                type="number"
+                value={manualField.start}
+                onChange={e => setManualField(p => ({ ...p, start: parseInt(e.target.value) || 1 }))}
+                className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Bitiş:</span>
+              <input
+                type="number"
+                value={manualField.end}
+                onChange={e => setManualField(p => ({ ...p, end: parseInt(e.target.value) || 10 }))}
+                className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
+              />
+            </div>
+            <button
+              onClick={handleAddManualField}
+              disabled={!manualField.label.trim()}
+              className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              Ekle
+            </button>
+          </div>
+        )}
         
         <div className="p-3">
           {fields.length === 0 ? (
@@ -519,7 +633,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                   >
                     <div className="col-span-3 flex items-center gap-2">
                       <div className="p-1.5 rounded text-white text-xs" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
-                        {fieldType?.icon}
+                        {fieldType?.icon || <Plus className="w-3 h-3" />}
                       </div>
                       <input
                         type="text"
@@ -570,16 +684,12 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         {isValid ? (
           <>
             <CheckCircle className="w-5 h-5 text-emerald-600" />
-            <span className="text-emerald-700 font-medium">Hazır!</span>
+            <span className="text-emerald-700 font-medium">Hazır! {fields.length} alan tanımlı</span>
           </>
         ) : (
           <>
             <AlertCircle className="w-5 h-5 text-amber-600" />
-            <span className="text-amber-700 text-sm">
-              {!fields.some(f => f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad')
-                ? 'Öğrenci No/TC/Ad alanı gerekli'
-                : 'Cevaplar alanı gerekli'}
-            </span>
+            <span className="text-amber-700 text-sm">En az 2 alan tanımlanmalı</span>
           </>
         )}
       </div>
@@ -633,7 +743,7 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
           const fieldType = FIELD_TYPES.find(t => t.type === field.type);
           return (
             <span key={field.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
-              {fieldType?.icon} {field.label} ({field.start}-{field.end})
+              {fieldType?.icon || <Plus className="w-3 h-3" />} {field.label} ({field.start}-{field.end})
             </span>
           );
         })}
@@ -645,35 +755,39 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-3 py-2 text-left">#</th>
-                {fields.some(f => f.type === 'ogrenci_no') && <th className="px-3 py-2 text-left text-blue-600">Öğrenci No</th>}
-                {fields.some(f => f.type === 'tc') && <th className="px-3 py-2 text-left text-purple-600">TC</th>}
-                {fields.some(f => f.type === 'ad') && <th className="px-3 py-2 text-left text-emerald-600">Ad</th>}
-                {fields.some(f => f.type === 'soyad') && <th className="px-3 py-2 text-left text-teal-600">Soyad</th>}
-                {fields.some(f => f.type === 'sinif') && <th className="px-3 py-2 text-left text-amber-600">Sınıf</th>}
-                {fields.some(f => f.type === 'kitapcik') && <th className="px-3 py-2 text-left text-pink-600">Kit.</th>}
-                {fields.some(f => f.type === 'cevaplar') && <th className="px-3 py-2 text-left text-red-600">Cevaplar</th>}
+                {fields.map(field => (
+                  <th key={field.id} className="px-3 py-2 text-left" style={{ color: FIELD_TYPES.find(t => t.type === field.type)?.color || '#6B7280' }}>
+                    {field.label}
+                  </th>
+                ))}
                 <th className="px-3 py-2 text-center">✓</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((s, idx) => {
-                const isComplete = (s.ogrenciNo || s.tc || s.ad) && s.cevaplar;
-                return (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
-                    {fields.some(f => f.type === 'ogrenci_no') && <td className="px-3 py-2 font-mono font-bold text-blue-700">{s.ogrenciNo || '—'}</td>}
-                    {fields.some(f => f.type === 'tc') && <td className="px-3 py-2 font-mono">{s.tc || '—'}</td>}
-                    {fields.some(f => f.type === 'ad') && <td className="px-3 py-2 font-semibold">{s.ad || '—'}</td>}
-                    {fields.some(f => f.type === 'soyad') && <td className="px-3 py-2 font-semibold">{s.soyad || '—'}</td>}
-                    {fields.some(f => f.type === 'sinif') && <td className="px-3 py-2"><span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold">{s.sinif || '—'}</span></td>}
-                    {fields.some(f => f.type === 'kitapcik') && <td className="px-3 py-2"><span className="px-1.5 py-0.5 bg-pink-100 text-pink-700 rounded text-xs font-bold">{s.kitapcik || '—'}</span></td>}
-                    {fields.some(f => f.type === 'cevaplar') && <td className="px-3 py-2 font-mono text-xs max-w-[150px] truncate">{s.cevaplar ? s.cevaplar.substring(0, 20) + '...' : '—'}</td>}
-                    <td className="px-3 py-2 text-center">
-                      {isComplete ? <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" /> : <AlertCircle className="w-4 h-4 text-amber-500 mx-auto" />}
-                    </td>
-                  </tr>
-                );
-              })}
+              {students.map((s, idx) => (
+                <tr key={idx} className="border-b hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                  {fields.map(field => {
+                    let value = '';
+                    if (field.type === 'ogrenci_no') value = s.ogrenciNo || '';
+                    else if (field.type === 'tc') value = s.tc || '';
+                    else if (field.type === 'ad_soyad') value = s.adSoyad || '';
+                    else if (field.type === 'sinif') value = s.sinif || '';
+                    else if (field.type === 'kitapcik') value = s.kitapcik || '';
+                    else if (field.type === 'cevaplar') value = s.cevaplar || '';
+                    else value = s[field.label] || '';
+                    
+                    return (
+                      <td key={field.id} className="px-3 py-2 font-mono text-sm truncate max-w-[150px]">
+                        {value || '—'}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
