@@ -3,194 +3,50 @@
  * AkademiHub - Import Engine
  * ============================================
  * 
- * PHASE 7 - Universal Optical Reading & Exam Import
- * 
- * Bu modül:
- * - Excel/CSV dosya okuma
- * - Otomatik kolon tespiti
- * - Multi-layer öğrenci eşleştirme
- * - Hata yönetimi
- * - Post-processing (Analytics, AI, PDF)
- * 
- * ÖZELLİKLER:
- * - Sınırsız öğrenci desteği
- * - Çocuk kadar kolay UX
- * - Zero data loss
- * - Human-in-the-loop
+ * PHASE 8.6 - Güncellenmiş
  */
 
-// ==================== TYPES ====================
+// Types
+export * from './types';
 
-export type {
-  // File types
-  SupportedFileType,
-  ImportSource,
-  
-  // Parsed data
-  ParsedRow,
-  ParsedAnswer,
-  StudentIdentifier,
-  ParseError,
-  ParseWarning,
-  ParsedRowStatus,
-  ParseErrorCode,
-  ParseWarningCode,
-  
-  // Column mapping
-  ColumnType,
-  ColumnMapping,
-  ColumnMappingResult,
-  ColumnMappingPreset,
-  MappingSuggestion,
-  
-  // Student matching
-  MatchStrategy,
-  MatchResult,
-  MatchedStudentInfo,
-  AlternativeMatch,
-  MatchStatus,
-  
-  // Validation
-  PreflightResult,
-  PreflightError,
-  PreflightWarning,
-  FileInfo,
-  RowSummary,
-  ColumnAnalysis,
-  
-  // Import result
-  ImportResult,
-  ImportSummary,
-  ProcessedStudent,
-  ImportError,
-  PostProcessingStatus,
-  
-  // UI State
-  ImportWizardStep,
-  ImportWizardState,
-  ImportEvent,
-  ImportEventType
-} from './types';
+// Templates (Sınav türleri ve formları)
+export * from './templates';
 
-export {
-  VALID_ANSWERS,
-  EMPTY_ANSWER_VALUES,
-  BOOKLET_TYPES,
-  REQUIRED_COLUMN_TYPES,
-  COLUMN_NAME_ALIASES
-} from './types';
+// Parsers
+export { parseSpreadsheet, parseLine } from './parsers/spreadsheetParser';
 
-// ==================== PARSERS ====================
+// Mapping
+export { suggestColumnMapping, mapColumns } from './mapping/columnMapper';
+export { matchStudents } from './mapping/studentMatcher';
 
-export {
-  parseSpreadsheet
-} from './parsers/spreadsheetParser';
+// Validation
+export { preflightValidate } from './validation/preflightValidator';
+export { classifyImportError } from './validation/errorClassifier';
 
-// ==================== MAPPING ====================
+// Orchestrator
+export { importExamData } from './orchestrator';
 
-export {
-  autoDetectColumns,
-  applyManualMapping,
-  setAnswerRange,
-  savePreset,
-  loadPresets,
-  deletePreset,
-  findMatchingPreset,
-  applyPreset
-} from './mapping/columnMapper';
-
-export {
-  matchStudent,
-  matchStudentsBatch,
-  createManualMatch,
-  getStudentList
-} from './mapping/studentMatcher';
-
-// ==================== VALIDATION ====================
-
-export {
-  runPreflightChecks,
-  quickFileCheck
-} from './validation/preflightValidator';
-
-export {
-  getUserFriendlyMessage,
-  getSuggestion,
-  isRecoverable,
-  getSeverity,
-  toImportError,
-  groupErrors,
-  summarizeErrors,
-  hasCriticalErrors,
-  getRecoverableErrors,
-  getNonRecoverableErrors,
-  getErrorEmoji,
-  getErrorColorClass,
-  getErrorDetails,
-  ERROR_DEFINITIONS
-} from './validation/errorClassifier';
-
-// ==================== ORCHESTRATOR ====================
-
-export {
-  executeImport,
-  createInitialWizardState,
-  getNextStep,
-  getPreviousStep,
-  isStepComplete
-} from './orchestrator';
-
-export type { ImportOptions, ImportProgress } from './orchestrator';
-
-// ==================== UI COMPONENTS ====================
-
+// UI Components
+export { SmartOpticalImport } from './ui/SmartOpticalImport';
 export { ImportWizard } from './ui/ImportWizard';
-export type { ImportWizardProps } from './ui/ImportWizard';
+export { ColumnMappingPage } from './ui/ColumnMappingPage';
+export { SkipMatchFlow } from './ui/SkipMatchFlow';
 
-// ==================== CONVENIENCE EXPORTS ====================
+// OCR
+export { correctOCRErrors } from './txt/ocrCorrection';
 
-import { parseSpreadsheet } from './parsers/spreadsheetParser';
-import { autoDetectColumns, applyManualMapping } from './mapping/columnMapper';
-import { matchStudent, matchStudentsBatch } from './mapping/studentMatcher';
-import { runPreflightChecks } from './validation/preflightValidator';
-import { executeImport } from './orchestrator';
-
-/**
- * Import Engine - Quick Access
- * 
- * @example
- * import { ImportEngine } from '@/lib/sinavlar/import';
- * 
- * // Dosya parse
- * const result = await ImportEngine.parse(file);
- * 
- * // Kolon tespit
- * const mapping = ImportEngine.detectColumns(headers, samples);
- * 
- * // Öğrenci eşleştir
- * const match = await ImportEngine.matchStudent(identifier);
- * 
- * // Tam import
- * const importResult = await ImportEngine.import(file, { examId, organizationId });
- */
+// Quick Access
 export const ImportEngine = {
-  // Parse
-  parse: parseSpreadsheet,
-  
-  // Column mapping
-  detectColumns: autoDetectColumns,
-  applyMapping: applyManualMapping,
-  
-  // Student matching
-  matchStudent,
-  matchStudentsBatch,
-  
-  // Validation
-  preflight: runPreflightChecks,
-  
-  // Full import
-  import: executeImport
+  parse: async (file: File) => {
+    const { parseSpreadsheet } = await import('./parsers/spreadsheetParser');
+    return parseSpreadsheet(file);
+  },
+  detectColumns: async (headers: string[], samples: string[]) => {
+    const { suggestColumnMapping } = await import('./mapping/columnMapper');
+    return suggestColumnMapping(headers, samples);
+  },
+  matchStudent: async (identifier: { studentNo?: string; tcNo?: string; fullName?: string }) => {
+    const { matchStudents } = await import('./mapping/studentMatcher');
+    return matchStudents([identifier], 'org-id');
+  }
 };
-
-export default ImportEngine;
-
