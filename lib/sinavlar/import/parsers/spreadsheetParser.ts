@@ -204,6 +204,13 @@ async function parseCSV(
     text = text.slice(1);
   }
   
+  // Optik okuyucu formatı kontrolü
+  const isOpticalFormat = detectOpticalReaderFormat(text);
+  
+  if (isOpticalFormat) {
+    return parseOpticalReaderFormat(text, file, options);
+  }
+  
   // Delimiter tespit et
   const delimiter = detectDelimiter(text);
   
@@ -216,6 +223,117 @@ async function parseCSV(
   });
   
   return parseJsonData(jsonData, file, options);
+}
+
+/**
+ * Optik okuyucu formatı mı kontrol et
+ */
+function detectOpticalReaderFormat(text: string): boolean {
+  const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
+  
+  // Optik format özellikleri:
+  // 1. Satır başında 6 haneli numara
+  // 2. TAB karakterleri var
+  // 3. Ardışık A,B,C,D,E karakterleri (cevaplar)
+  
+  const hasStudentNo = /^\d{6}/.test(firstLine);
+  const hasTabs = firstLine.includes('\t');
+  const hasAnswerPattern = /[ABCDE]{5,}/.test(firstLine);
+  
+  return hasStudentNo && (hasTabs || hasAnswerPattern);
+}
+
+/**
+ * Optik okuyucu formatını parse et
+ */
+async function parseOpticalReaderFormat(
+  text: string,
+  file: File,
+  options: ParseOptions
+): Promise<SpreadsheetParseResult> {
+  const lines = text.split(/\r\n|\n|\r/).filter(line => line.trim());
+  
+  if (lines.length === 0) {
+    return createErrorResult('Dosya boş');
+  }
+  
+  // TAB ile böl
+  const jsonData: unknown[][] = lines.map(line => {
+    // Önce TAB ile böl
+    let parts = line.split('\t').map(p => p.trim()).filter(p => p);
+    
+    // Eğer TAB yoksa veya az parça varsa, birden fazla boşluk ile böl
+    if (parts.length < 3) {
+      parts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+    }
+    
+    // İlk parçayı analiz et (No + Ad birleşik olabilir)
+    if (parts.length > 0 && /^\d{6}[A-ZÇĞİÖŞÜ]/.test(parts[0])) {
+      const firstPart = parts[0];
+      // 6 haneli numarayı ayır
+      const studentNo = firstPart.substring(0, 6);
+      const restOfName = firstPart.substring(6);
+      
+      // Yeni parts oluştur
+      parts = [studentNo, restOfName, ...parts.slice(1)];
+    }
+    
+    // Cevap bloklarını birleştir (birden fazla cevap sütunu varsa)
+    const processedParts = processOpticalParts(parts);
+    
+    return processedParts;
+  });
+  
+  // Header oluştur
+  const maxCols = Math.max(...jsonData.map(row => row.length));
+  const headers = ['Öğrenci No', 'Ad', 'Soyad', 'Sınıf'];
+  
+  // Kalan sütunlar cevap sütunları
+  for (let i = headers.length; i < maxCols; i++) {
+    headers.push(`Cevaplar ${i - headers.length + 1}`);
+  }
+  
+  // Header'ı ekle
+  jsonData.unshift(headers);
+  
+  return parseJsonData(jsonData, file, { ...options, headerRows: 1 });
+}
+
+/**
+ * Optik okuyucu parçalarını işle
+ */
+function processOpticalParts(parts: string[]): string[] {
+  const result: string[] = [];
+  let answerBuffer = '';
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    
+    // Sadece cevap karakterlerinden oluşuyorsa (A,B,C,D,E ve boşluk)
+    if (/^[ABCDE\s]+$/.test(part) && part.length > 3) {
+      // Cevap bloğu - boşlukları kaldır ve ekle
+      answerBuffer += part.replace(/\s/g, '');
+    } else if (/^\d{6}$/.test(part)) {
+      // Öğrenci numarası
+      result.push(part);
+    } else if (/^\d{1,2}[A-Z]$/.test(part)) {
+      // Sınıf (8C, 10A vb.)
+      result.push(part);
+    } else if (/\(%\d+\)/.test(part)) {
+      // Yüzde değeri - atla
+      continue;
+    } else {
+      // İsim parçası
+      result.push(part);
+    }
+  }
+  
+  // Cevap buffer'ını ekle
+  if (answerBuffer) {
+    result.push(answerBuffer);
+  }
+  
+  return result;
 }
 
 /**
