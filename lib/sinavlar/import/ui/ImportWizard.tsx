@@ -13,7 +13,7 @@
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type {
   ImportWizardState,
   ImportWizardStep,
@@ -31,6 +31,7 @@ import { parseSpreadsheet } from '../parsers/spreadsheetParser';
 import { autoDetectColumns } from '../mapping/columnMapper';
 import { matchStudentsBatch } from '../mapping/studentMatcher';
 import { runPreflightChecks } from '../validation/preflightValidator';
+import { ColumnMappingPage, type MappingState, type FieldType } from './ColumnMappingPage';
 
 // ==================== PROPS ====================
 
@@ -64,6 +65,8 @@ export function ImportWizard({
   onCancel
 }: ImportWizardProps) {
   const [state, setState] = useState<ImportWizardState>(createInitialWizardState());
+  const [rawGridData, setRawGridData] = useState<string[][]>([]);
+  const [newMappings, setNewMappings] = useState<MappingState[]>([]);
   
   // Dosya yükleme
   const handleFileUpload = useCallback(async (file: File) => {
@@ -78,6 +81,33 @@ export function ImportWizard({
       
       // Kolon mapping
       const columnMapping = autoDetectColumns(result.headers, result.previewRows);
+      
+      // Raw grid data oluştur (yeni mapping UI için)
+      const gridData: string[][] = [];
+      const headers = result.headers;
+      
+      // Header'ları ilk satır olarak ekle
+      gridData.push(headers);
+      
+      // Preview rows'u ekle
+      for (const row of result.previewRows) {
+        const rowData: string[] = [];
+        for (const header of headers) {
+          rowData.push(String(row[header] || ''));
+        }
+        gridData.push(rowData);
+      }
+      
+      // Kalan satırları ekle (ilk 50)
+      for (const parsedRow of result.parsedRows.slice(0, 50)) {
+        const rowData: string[] = [];
+        for (const header of headers) {
+          rowData.push(String(parsedRow.rawData[header] || ''));
+        }
+        gridData.push(rowData);
+      }
+      
+      setRawGridData(gridData);
       
       setState(prev => ({
         ...prev,
@@ -104,6 +134,49 @@ export function ImportWizard({
       ...prev,
       columnMapping: prev.columnMapping ? { ...prev.columnMapping, mappings } : null
     }));
+  }, []);
+  
+  // Yeni mapping tamamlandığında
+  const handleNewMappingComplete = useCallback((mappings: MappingState[]) => {
+    setNewMappings(mappings);
+    
+    // MappingState'i ColumnMapping'e çevir
+    const convertedMappings: ColumnMapping[] = mappings.map((m, index) => {
+      const fieldToType: Record<FieldType, ColumnMapping['targetType']> = {
+        'tc': 'tc_no',
+        'name': 'full_name',
+        'student_no': 'student_no',
+        'class': 'class',
+        'booklet': 'booklet_type',
+        'answers': 'answer',
+        'ignore': 'ignore'
+      };
+      
+      return {
+        sourceColumn: m.columnLetter,
+        sourceIndex: m.columnIndex,
+        targetType: fieldToType[m.field] || 'unknown',
+        confidence: m.confidence,
+        isManual: true
+      };
+    });
+    
+    setState(prev => ({
+      ...prev,
+      columnMapping: prev.columnMapping 
+        ? { ...prev.columnMapping, mappings: convertedMappings }
+        : { 
+            mappings: convertedMappings, 
+            autoDetected: false,
+            confidence: 100,
+            missingRequired: [],
+            suggestions: []
+          },
+      currentStep: 'matching'
+    }));
+    
+    // Öğrenci eşleştirme başlat
+    handleStartMatching();
   }, []);
   
   // Öğrenci eşleştirme
@@ -285,11 +358,13 @@ export function ImportWizard({
           />
         )}
         
-        {/* Mapping Step */}
-        {!state.isLoading && state.currentStep === 'mapping' && state.columnMapping && (
-          <MappingStep
-            mappings={state.columnMapping.mappings}
-            onMappingChange={handleMappingChange}
+        {/* Mapping Step - YENİ UI */}
+        {!state.isLoading && state.currentStep === 'mapping' && rawGridData.length > 0 && (
+          <ColumnMappingPage
+            data={rawGridData}
+            fileName={state.file?.name}
+            onComplete={handleNewMappingComplete}
+            onBack={handleBack}
           />
         )}
         
@@ -434,7 +509,9 @@ function PreviewStep({ rows, fileInfo }: { rows: ImportWizardState['parsedData']
   );
 }
 
-function MappingStep({ mappings, onMappingChange }: { mappings: ColumnMapping[]; onMappingChange: (m: ColumnMapping[]) => void }) {
+// MappingStep - Eski dropdown UI (ColumnMappingPage ile değiştirildi)
+// Yedek olarak saklanıyor
+function _LegacyMappingStep({ mappings, onMappingChange }: { mappings: ColumnMapping[]; onMappingChange: (m: ColumnMapping[]) => void }) {
   return (
     <div>
       <div className="mb-4">
