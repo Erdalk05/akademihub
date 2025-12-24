@@ -893,3 +893,4 @@ export default {
   detectFileType
 };
 
+// Force rebuild: Wed Dec 24 18:53:13 WET 2025
