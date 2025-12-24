@@ -196,9 +196,8 @@ async function parseCSV(
   file: File,
   options: ParseOptions
 ): Promise<SpreadsheetParseResult> {
-  // Buffer'ı text'e çevir
-  const decoder = new TextDecoder('utf-8');
-  let text = decoder.decode(buffer);
+  // Türkçe encoding desteği - önce UTF-8 dene, bozuksa Windows-1254 dene
+  let text = decodeWithTurkishSupport(buffer);
   
   // BOM karakterini kaldır
   if (text.charCodeAt(0) === 0xFEFF) {
@@ -256,9 +255,10 @@ function parseCSVLine(line: string, delimiter: string): string[] {
 function detectDelimiter(text: string): string {
   const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
   
-  const delimiters = [';', ',', '\t', '|'];
+  // Öncelik sırasına göre delimiter'lar
+  const delimiters = [';', '\t', ',', '|'];
   let maxCount = 0;
-  let bestDelimiter = ',';
+  let bestDelimiter = ';'; // Türk optik okuyucular genelde ; kullanır
   
   for (const d of delimiters) {
     const count = (firstLine.match(new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
@@ -268,7 +268,87 @@ function detectDelimiter(text: string): string {
     }
   }
   
+  // Eğer hiçbir delimiter bulunamazsa, birden fazla boşluk ile ayrılmış olabilir
+  if (maxCount === 0) {
+    // Sabit genişlikli format kontrolü - birden fazla boşluk
+    const multiSpaceMatch = firstLine.match(/\s{2,}/g);
+    if (multiSpaceMatch && multiSpaceMatch.length > 0) {
+      return '  '; // Çift boşluk delimiter
+    }
+  }
+  
   return bestDelimiter;
+}
+
+/**
+ * Türkçe karakter desteği ile buffer'ı decode eder
+ * Önce UTF-8 dener, bozuk karakterler varsa Windows-1254 (Turkish) dener
+ */
+function decodeWithTurkishSupport(buffer: ArrayBuffer): string {
+  // Önce UTF-8 dene
+  const utf8Decoder = new TextDecoder('utf-8');
+  const utf8Text = utf8Decoder.decode(buffer);
+  
+  // Türkçe karakterlerin bozuk olup olmadığını kontrol et
+  // Bozuk karakterler genelde � (replacement char) olarak görünür
+  const hasBrokenChars = utf8Text.includes('�') || 
+                         utf8Text.includes('\ufffd') ||
+                         // Yaygın bozuk Türkçe karakter patternleri
+                         /[\xc3][\x87\x96\x9c\x9f\xa7\xb6\xbc]/.test(utf8Text);
+  
+  if (!hasBrokenChars) {
+    return utf8Text;
+  }
+  
+  // Windows-1254 (Turkish) dene
+  try {
+    const win1254Decoder = new TextDecoder('windows-1254');
+    const win1254Text = win1254Decoder.decode(buffer);
+    
+    // Eğer Türkçe karakterler düzgün görünüyorsa bunu kullan
+    if (/[ğüşıöçĞÜŞİÖÇ]/.test(win1254Text)) {
+      return win1254Text;
+    }
+  } catch {
+    // Windows-1254 desteklenmiyorsa UTF-8'e geri dön
+  }
+  
+  // ISO-8859-9 (Latin-5 Turkish) dene
+  try {
+    const iso9Decoder = new TextDecoder('iso-8859-9');
+    const iso9Text = iso9Decoder.decode(buffer);
+    
+    if (/[ğüşıöçĞÜŞİÖÇ]/.test(iso9Text)) {
+      return iso9Text;
+    }
+  } catch {
+    // ISO-8859-9 desteklenmiyorsa UTF-8'e geri dön
+  }
+  
+  // Fallback: Manuel Türkçe karakter düzeltme
+  return fixTurkishChars(utf8Text);
+}
+
+/**
+ * Bozuk Türkçe karakterleri düzeltir
+ */
+function fixTurkishChars(text: string): string {
+  const replacements: Record<string, string> = {
+    'Ã§': 'ç', 'Ã‡': 'Ç',
+    'ÄŸ': 'ğ', 'Äž': 'Ğ',
+    'Ä±': 'ı', 'Ä°': 'İ',
+    'Ã¶': 'ö', 'Ã–': 'Ö',
+    'ÅŸ': 'ş', 'Åž': 'Ş',
+    'Ã¼': 'ü', 'Ãœ': 'Ü',
+    '�': '', // Replacement character'ı kaldır
+  };
+  
+  let result = text;
+  for (const [broken, fixed] of Object.entries(replacements)) {
+    result = result.replace(new RegExp(broken, 'g'), fixed);
+  }
+  
+  return result;
 }
 
 // ==================== JSON DATA PARSER ====================
