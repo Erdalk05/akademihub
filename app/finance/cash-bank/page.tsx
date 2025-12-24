@@ -6,7 +6,8 @@ import {
   Plus, Download, Search, RefreshCw, Banknote, X, Check, CreditCard,
   TrendingUp, TrendingDown, Calendar, Filter, Eye, FileText, 
   PiggyBank, Receipt, CircleDollarSign, ChevronRight, Printer,
-  BarChart3, Clock, Users, AlertTriangle, CheckCircle, ExternalLink, WifiOff
+  BarChart3, Clock, Users, AlertTriangle, CheckCircle, ExternalLink, WifiOff,
+  CalendarRange
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -66,6 +67,12 @@ export default function KasaBankaPage() {
   // Modal state
   const [modalAcik, setModalAcik] = useState(false);
   const [modalTip, setModalTip] = useState<'giris' | 'cikis' | 'transfer'>('transfer');
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<'giris' | 'cikis'>('giris');
+  const [showAlertsPanel, setShowAlertsPanel] = useState(false);
+  const [showDateRangeReport, setShowDateRangeReport] = useState(false);
+  const [dateRangeStart, setDateRangeStart] = useState(new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0]);
+  const [dateRangeEnd, setDateRangeEnd] = useState(new Date().toISOString().split('T')[0]);
   
   // Form state
   const [form, setForm] = useState({
@@ -75,6 +82,15 @@ export default function KasaBankaPage() {
     hedefHesap: 'banka' as HesapTipi,
     tarih: new Date().toISOString().split('T')[0],
     kategori: ''
+  });
+
+  // Quick add form
+  const [quickForm, setQuickForm] = useState({
+    tutar: '',
+    aciklama: '',
+    hesap: 'nakit' as HesapTipi,
+    tarih: new Date().toISOString().split('T')[0],
+    kaynak: ''
   });
 
   // ==================== VERİ YÜKLE (Cache Destekli) ====================
@@ -307,6 +323,61 @@ export default function KasaBankaPage() {
   // Son 5 işlem
   const sonIslemler = useMemo(() => hareketler.slice(0, 5), [hareketler]);
 
+  // Kritik Uyarılar
+  const kritikUyarilar = useMemo(() => {
+    const uyarilar: { tip: 'danger' | 'warning' | 'info'; baslik: string; aciklama: string }[] = [];
+    
+    // Düşük bakiye uyarısı
+    if (hesapBakiyeleri.nakit < 1000) {
+      uyarilar.push({ tip: 'danger', baslik: 'Düşük Nakit Bakiye', aciklama: `Nakit kasa bakiyesi ${formatPara(hesapBakiyeleri.nakit)} seviyesinde` });
+    }
+    if (hesapBakiyeleri.banka < 5000) {
+      uyarilar.push({ tip: 'warning', baslik: 'Düşük Banka Bakiyesi', aciklama: `Banka hesabı ${formatPara(hesapBakiyeleri.banka)} seviyesinde` });
+    }
+    
+    // Negatif bakiye
+    if (toplamBakiye < 0) {
+      uyarilar.push({ tip: 'danger', baslik: 'Negatif Toplam Bakiye', aciklama: 'Toplam bakiye negatife düştü!' });
+    }
+    
+    // Yüksek gider uyarısı (çıkışlar girişlerden fazla)
+    if (donemOzeti.cikis > donemOzeti.giris && donemOzeti.giris > 0) {
+      uyarilar.push({ tip: 'warning', baslik: 'Yüksek Gider', aciklama: `Bu dönem giderler (${formatPara(donemOzeti.cikis)}) gelirleri (${formatPara(donemOzeti.giris)}) aştı` });
+    }
+    
+    // Bugün işlem yok bilgisi
+    const bugunIslem = hareketler.filter(h => new Date(h.tarih).toDateString() === new Date().toDateString()).length;
+    if (bugunIslem === 0 && hareketler.length > 0) {
+      uyarilar.push({ tip: 'info', baslik: 'Bugün İşlem Yok', aciklama: 'Bugün henüz kayıtlı hareket bulunmuyor' });
+    }
+    
+    return uyarilar;
+  }, [hesapBakiyeleri, toplamBakiye, donemOzeti, hareketler, formatPara]);
+
+  // Kategori bazlı dağılım (giderler için)
+  const kategoriDagilimi = useMemo(() => {
+    const kategoriler: Record<string, number> = {};
+    hareketler.filter(h => h.tip === 'cikis').forEach(h => {
+      const kat = h.kaynak || h.kategori || 'Diğer';
+      kategoriler[kat] = (kategoriler[kat] || 0) + h.tutar;
+    });
+    return Object.entries(kategoriler)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [hareketler]);
+
+  // Tarih aralığı raporu
+  const dateRangeData = useMemo(() => {
+    const start = new Date(dateRangeStart);
+    const end = new Date(dateRangeEnd);
+    end.setHours(23, 59, 59, 999);
+    return hareketler.filter(h => {
+      const d = new Date(h.tarih);
+      return d >= start && d <= end;
+    });
+  }, [hareketler, dateRangeStart, dateRangeEnd]);
+
   // ==================== TRANSFER İŞLEMİ ====================
   const transferYap = async () => {
     if (!form.tutar || parseFloat(form.tutar) <= 0) {
@@ -343,6 +414,35 @@ export default function KasaBankaPage() {
       hedefHesap: 'banka',
       tarih: new Date().toISOString().split('T')[0],
       kategori: ''
+    });
+  };
+
+  // Hızlı giriş/çıkış ekleme
+  const hizliKayitEkle = () => {
+    if (!quickForm.tutar || parseFloat(quickForm.tutar) <= 0) {
+      toast.error('Geçerli bir tutar girin');
+      return;
+    }
+    
+    const yeniHareket: Hareket = {
+      id: `manual-${Date.now()}`,
+      hesap: quickForm.hesap,
+      tip: quickAddType,
+      tutar: parseFloat(quickForm.tutar),
+      aciklama: quickForm.aciklama || (quickAddType === 'giris' ? 'Manuel Giriş' : 'Manuel Çıkış'),
+      tarih: quickForm.tarih,
+      kaynak: quickForm.kaynak || (quickAddType === 'giris' ? 'Manuel Tahsilat' : 'Manuel Gider')
+    };
+    
+    setHareketler(prev => [yeniHareket, ...prev]);
+    toast.success(quickAddType === 'giris' ? 'Giriş kaydedildi' : 'Çıkış kaydedildi');
+    setShowQuickAddModal(false);
+    setQuickForm({
+      tutar: '',
+      aciklama: '',
+      hesap: 'nakit',
+      tarih: new Date().toISOString().split('T')[0],
+      kaynak: ''
     });
   };
 
@@ -630,21 +730,59 @@ export default function KasaBankaPage() {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Hızlı Giriş */}
+              <button
+                onClick={() => { setQuickAddType('giris'); setShowQuickAddModal(true); }}
+                disabled={isOffline}
+                className={`flex items-center gap-2 px-3 py-2.5 bg-emerald-400/30 backdrop-blur text-white rounded-xl hover:bg-emerald-400/50 transition font-medium text-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                <span className="hidden md:inline">Giriş</span>
+              </button>
+              
+              {/* Hızlı Çıkış */}
+              <button
+                onClick={() => { setQuickAddType('cikis'); setShowQuickAddModal(true); }}
+                disabled={isOffline}
+                className={`flex items-center gap-2 px-3 py-2.5 bg-red-400/30 backdrop-blur text-white rounded-xl hover:bg-red-400/50 transition font-medium text-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <ArrowDownRight className="w-4 h-4" />
+                <span className="hidden md:inline">Çıkış</span>
+              </button>
+              
+              {/* Transfer */}
               <button
                 onClick={() => { setModalTip('transfer'); setModalAcik(true); }}
                 disabled={isOffline}
-                className={`flex items-center gap-2 px-4 py-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition font-medium text-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex items-center gap-2 px-3 py-2.5 bg-white/20 backdrop-blur text-white rounded-xl hover:bg-white/30 transition font-medium text-sm ${isOffline ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <ArrowLeftRight className="w-4 h-4" />
-                Transfer
+                <span className="hidden md:inline">Transfer</span>
               </button>
+              
+              {/* Uyarılar */}
+              {kritikUyarilar.length > 0 && (
+                <button
+                  onClick={() => setShowAlertsPanel(!showAlertsPanel)}
+                  className="relative p-2.5 bg-amber-400/30 backdrop-blur text-white rounded-xl hover:bg-amber-400/50 transition"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {kritikUyarilar.length}
+                  </span>
+                </button>
+              )}
+              
+              {/* Raporlar */}
               <button
                 onClick={() => setRaporModalAcik(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white text-emerald-700 rounded-xl hover:bg-emerald-50 transition font-medium text-sm shadow-sm"
               >
                 <Download className="w-4 h-4" />
-                Raporlar
+                <span className="hidden md:inline">Raporlar</span>
               </button>
+              
+              {/* Yenile */}
               <button
                 onClick={handleRefresh}
                 disabled={isOffline}
@@ -1166,6 +1304,169 @@ export default function KasaBankaPage() {
         )}
       </div>
 
+      {/* Uyarılar Paneli */}
+      {showAlertsPanel && kritikUyarilar.length > 0 && (
+        <div className="fixed top-24 right-4 z-40 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2">
+          <div className="p-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              <span className="font-bold">Kritik Uyarılar</span>
+            </div>
+            <button onClick={() => setShowAlertsPanel(false)} className="p-1 hover:bg-white/20 rounded-lg">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+            {kritikUyarilar.map((uyari, idx) => (
+              <div key={idx} className={`p-3 rounded-xl border ${
+                uyari.tip === 'danger' ? 'bg-red-50 border-red-200' :
+                uyari.tip === 'warning' ? 'bg-amber-50 border-amber-200' :
+                'bg-blue-50 border-blue-200'
+              }`}>
+                <p className={`font-semibold text-sm ${
+                  uyari.tip === 'danger' ? 'text-red-700' :
+                  uyari.tip === 'warning' ? 'text-amber-700' :
+                  'text-blue-700'
+                }`}>{uyari.baslik}</p>
+                <p className="text-xs text-slate-600 mt-1">{uyari.aciklama}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hızlı Giriş/Çıkış Modal */}
+      {showQuickAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className={`p-6 text-white ${quickAddType === 'giris' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    {quickAddType === 'giris' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">{quickAddType === 'giris' ? 'Hızlı Giriş' : 'Hızlı Çıkış'}</h2>
+                    <p className="text-white/80 text-sm">{quickAddType === 'giris' ? 'Manuel tahsilat kaydı' : 'Manuel gider kaydı'}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowQuickAddModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Tutar</label>
+                <div className="relative">
+                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold ${quickAddType === 'giris' ? 'text-emerald-600' : 'text-red-600'}`}>₺</span>
+                  <input
+                    type="number"
+                    value={quickForm.tutar}
+                    onChange={(e) => setQuickForm({ ...quickForm, tutar: e.target.value })}
+                    placeholder="0,00"
+                    className={`w-full pl-10 pr-4 py-4 text-2xl font-bold text-center border-2 rounded-xl focus:outline-none ${
+                      quickAddType === 'giris' ? 'border-emerald-200 focus:border-emerald-500' : 'border-red-200 focus:border-red-500'
+                    }`}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Hesap</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'nakit', label: '💵 Nakit', color: 'emerald' },
+                    { value: 'banka', label: '🏦 Banka', color: 'blue' },
+                    { value: 'pos', label: '💳 POS', color: 'purple' }
+                  ].map(h => (
+                    <button
+                      key={h.value}
+                      type="button"
+                      onClick={() => setQuickForm({ ...quickForm, hesap: h.value as HesapTipi })}
+                      className={`py-3 rounded-xl text-sm font-medium transition ${
+                        quickForm.hesap === h.value 
+                          ? `bg-${h.color}-100 text-${h.color}-700 border-2 border-${h.color}-500` 
+                          : 'bg-slate-100 text-slate-600 border-2 border-transparent'
+                      }`}
+                    >
+                      {h.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Açıklama</label>
+                <input
+                  type="text"
+                  value={quickForm.aciklama}
+                  onChange={(e) => setQuickForm({ ...quickForm, aciklama: e.target.value })}
+                  placeholder={quickAddType === 'giris' ? 'Tahsilat açıklaması...' : 'Gider açıklaması...'}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Kaynak/Kategori</label>
+                  <input
+                    type="text"
+                    value={quickForm.kaynak}
+                    onChange={(e) => setQuickForm({ ...quickForm, kaynak: e.target.value })}
+                    placeholder={quickAddType === 'giris' ? 'Örn: Veli Ödemesi' : 'Örn: Kira'}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Tarih</label>
+                  <input
+                    type="date"
+                    value={quickForm.tarih}
+                    onChange={(e) => setQuickForm({ ...quickForm, tarih: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+              
+              {quickForm.tutar && parseFloat(quickForm.tutar) > 0 && (
+                <div className={`p-4 rounded-xl ${quickAddType === 'giris' ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${quickAddType === 'giris' ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {quickAddType === 'giris' ? 'Kasaya Girecek:' : 'Kasadan Çıkacak:'}
+                    </span>
+                    <span className={`text-xl font-bold ${quickAddType === 'giris' ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {quickAddType === 'giris' ? '+' : '-'}₺{parseFloat(quickForm.tutar).toLocaleString('tr-TR')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setShowQuickAddModal(false)}
+                className="flex-1 px-5 py-3 border-2 border-slate-200 text-slate-600 rounded-xl hover:bg-white transition font-semibold"
+              >
+                İptal
+              </button>
+              <button
+                onClick={hizliKayitEkle}
+                className={`flex-1 px-5 py-3 text-white rounded-xl transition font-semibold flex items-center justify-center gap-2 ${
+                  quickAddType === 'giris' 
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700' 
+                    : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                }`}
+              >
+                <Check className="w-5 h-5" />
+                {quickAddType === 'giris' ? 'Giriş Kaydet' : 'Çıkış Kaydet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transfer Modal */}
       {modalAcik && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1562,6 +1863,61 @@ export default function KasaBankaPage() {
                       >
                         <Download className="w-4 h-4" /> Excel İndir
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TARİH ARALIĞI RAPORU */}
+              <div className="bg-gradient-to-br from-cyan-50 to-sky-50 border border-cyan-200 rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <CalendarRange className="w-5 h-5 text-cyan-600" />
+                  Özel Tarih Aralığı Raporu
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">Başlangıç</label>
+                    <input
+                      type="date"
+                      value={dateRangeStart}
+                      onChange={(e) => setDateRangeStart(e.target.value)}
+                      className="w-full px-4 py-3 border border-cyan-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">Bitiş</label>
+                    <input
+                      type="date"
+                      value={dateRangeEnd}
+                      onChange={(e) => setDateRangeEnd(e.target.value)}
+                      className="w-full px-4 py-3 border border-cyan-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const girisler = dateRangeData.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0);
+                        const cikislar = dateRangeData.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0);
+                        pdfOlustur(dateRangeData, 'Tarih Aralığı Raporu', `${new Date(dateRangeStart).toLocaleDateString('tr-TR')} - ${new Date(dateRangeEnd).toLocaleDateString('tr-TR')}`, { giris: girisler, cikis: cikislar, net: girisler - cikislar });
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition font-medium"
+                    >
+                      <Printer className="w-4 h-4" /> PDF
+                    </button>
+                    <button
+                      onClick={() => excelOlustur(dateRangeData, `Kasa_${dateRangeStart}_${dateRangeEnd}`)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-cyan-300 text-cyan-700 rounded-xl hover:bg-cyan-50 transition font-medium"
+                    >
+                      <Download className="w-4 h-4" /> Excel
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-white rounded-xl border border-cyan-100">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Seçili dönemde <strong className="text-cyan-700">{dateRangeData.length}</strong> işlem</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-emerald-600">↑ +{formatPara(dateRangeData.filter(h => h.tip === 'giris').reduce((t, h) => t + h.tutar, 0))}</span>
+                      <span className="text-red-500">↓ -{formatPara(dateRangeData.filter(h => h.tip === 'cikis').reduce((t, h) => t + h.tutar, 0))}</span>
                     </div>
                   </div>
                 </div>
