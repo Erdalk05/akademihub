@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
   AlertTriangle,
   Calendar,
@@ -478,25 +479,34 @@ export default function FreeReportBuilderPage() {
   const exportToExcel = useCallback(() => {
     if (rows.length === 0) return;
 
-    const data = rows.map((row) => {
-      const newRow: any = {};
+    // Sadece seçili alanların verilerini al
+    const data = rows.map((row, idx) => {
+      const newRow: any = { '#': idx + 1 };
       selectedFields.forEach((sf) => {
         const key = `${sf.table.name}_${sf.field.name}`;
-        const value = row[key] ?? row[sf.field.name];
+        let value = row[key] ?? row[sf.field.name] ?? '';
         const header = sf.customLabel || sf.field.label;
-        newRow[header] = value;
+        
+        // Sayıları düzgün formatta yaz
+        if (typeof value === 'number') {
+          newRow[header] = value;
+        } else if (value === null || value === undefined) {
+          newRow[header] = '';
+        } else {
+          newRow[header] = String(value);
+        }
       });
       return newRow;
     });
 
-    // Add summary row
+    // Toplam satırı ekle
     if (summaryRow) {
-      const sumRow: any = {};
+      const sumRow: any = { '#': 'TOPLAM' };
       selectedFields.forEach((sf) => {
         const key = `${sf.table.name}_${sf.field.name}`;
         const header = sf.customLabel || sf.field.label;
         if (summaryRow[key]) {
-          sumRow[header] = `TOPLAM: ${summaryRow[key].sum.toLocaleString('tr-TR')}`;
+          sumRow[header] = summaryRow[key].sum;
         } else {
           sumRow[header] = '';
         }
@@ -506,63 +516,140 @@ export default function FreeReportBuilderPage() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // Kolon genişliklerini ayarla
+    const colWidths = [{ wch: 5 }]; // # kolonu
+    selectedFields.forEach((sf) => {
+      const header = sf.customLabel || sf.field.label;
+      colWidths.push({ wch: Math.max(header.length + 2, 12) });
+    });
+    ws['!cols'] = colWidths;
+    
     XLSX.utils.book_append_sheet(wb, ws, 'Rapor');
     const today = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
     XLSX.writeFile(wb, `${reportName}_${today}.xlsx`);
     setShowExportMenu(false);
+    toast.success('Excel dosyası indirildi!');
   }, [rows, selectedFields, reportName, summaryRow]);
 
   const exportToPDF = useCallback(() => {
     if (rows.length === 0) return;
 
-    const doc = new jsPDF();
+    // Kolon sayısına göre sayfa yönünü belirle
+    const isLandscape = selectedFields.length > 5;
+    const doc = new jsPDF({
+      orientation: isLandscape ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
     
-    // Title
-    doc.setFontSize(16);
-    doc.setTextColor(7, 94, 84); // #075E54
-    doc.text(reportName, 14, 20);
+    const pageWidth = isLandscape ? 297 : 210;
+    const pageHeight = isLandscape ? 210 : 297;
     
-    // Date
+    // Başlık
+    doc.setFontSize(18);
+    doc.setTextColor(7, 94, 84);
+    doc.text(reportName, 14, 18);
+    
+    // Alt başlık
     doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Oluşturulma: ${new Date().toLocaleDateString('tr-TR')}`, 14, 28);
-    doc.text(`Toplam Kayıt: ${rows.length}`, 14, 34);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Olusturulma: ${new Date().toLocaleDateString('tr-TR')} | Kayit: ${rows.length}`, 14, 26);
     
-    // Table
-    const headers = selectedFields.map((sf) => sf.customLabel || sf.field.label);
-    const data = rows.map((row) =>
+    // Kolon başlıklarını hazırla - Türkçe karakterleri temizle
+    const cleanText = (text: string): string => {
+      return text
+        .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+        .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+        .replace(/ş/g, 's').replace(/Ş/g, 'S')
+        .replace(/ı/g, 'i').replace(/İ/g, 'I')
+        .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+        .replace(/ç/g, 'c').replace(/Ç/g, 'C');
+    };
+    
+    const headers = selectedFields.map((sf) => cleanText(sf.customLabel || sf.field.label));
+    
+    // Veri satırlarını hazırla
+    const tableData = rows.slice(0, 500).map((row) =>
       selectedFields.map((sf) => {
         const key = `${sf.table.name}_${sf.field.name}`;
-        const value = row[key] ?? row[sf.field.name] ?? '-';
-        return typeof value === 'number' ? value.toLocaleString('tr-TR') : String(value);
+        let value = row[key] ?? row[sf.field.name] ?? '-';
+        
+        if (typeof value === 'number') {
+          return value.toLocaleString('tr-TR');
+        }
+        
+        // Uzun metinleri kısalt
+        const strValue = cleanText(String(value));
+        return strValue.length > 25 ? strValue.substring(0, 22) + '...' : strValue;
       })
     );
 
-    // Add summary row
+    // Toplam satırı ekle
     if (summaryRow && numericFields.length > 0) {
       const sumRowData = selectedFields.map((sf) => {
         const key = `${sf.table.name}_${sf.field.name}`;
         if (summaryRow[key]) {
-          return `Σ ${summaryRow[key].sum.toLocaleString('tr-TR')}`;
+          return 'T: ' + summaryRow[key].sum.toLocaleString('tr-TR');
         }
         return '';
       });
-      data.push(sumRowData);
+      tableData.push(sumRowData);
     }
 
+    // Font boyutunu kolon sayısına göre ayarla
+    let fontSize = 9;
+    if (selectedFields.length > 10) fontSize = 7;
+    else if (selectedFields.length > 7) fontSize = 8;
+    
+    // Tablo oluştur
     autoTable(doc, {
       head: [headers],
-      body: data,
-      startY: 42,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [7, 94, 84], textColor: 255 },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
-      footStyles: { fillColor: [37, 211, 102], fontStyle: 'bold' },
+      body: tableData,
+      startY: 32,
+      theme: 'grid',
+      styles: { 
+        fontSize: fontSize, 
+        cellPadding: 2,
+        overflow: 'linebreak',
+        halign: 'left',
+        valign: 'middle'
+      },
+      headStyles: { 
+        fillColor: [7, 94, 84], 
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      alternateRowStyles: { 
+        fillColor: [245, 250, 245] 
+      },
+      columnStyles: selectedFields.reduce((acc, sf, idx) => {
+        // Para alanlarını sağa hizala
+        if (sf.field.type === 'currency' || sf.field.type === 'number') {
+          acc[idx] = { halign: 'right' };
+        }
+        return acc;
+      }, {} as any),
+      margin: { top: 32, right: 10, bottom: 20, left: 10 },
+      tableWidth: 'auto',
+      didDrawPage: (data: any) => {
+        // Her sayfanın altına sayfa numarası ekle
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          `Sayfa ${data.pageNumber} / ${pageCount}`,
+          pageWidth - 25,
+          pageHeight - 10
+        );
+      }
     });
 
     const today = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
     doc.save(`${reportName}_${today}.pdf`);
     setShowExportMenu(false);
+    toast.success('PDF dosyası indirildi!');
   }, [rows, selectedFields, reportName, summaryRow, numericFields]);
 
   const handlePrint = useCallback(() => {
