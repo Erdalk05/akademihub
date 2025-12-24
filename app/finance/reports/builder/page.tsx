@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   AlertTriangle,
   Calendar,
@@ -13,38 +13,46 @@ import {
   Download,
   Eye,
   EyeOff,
-  FileCode2,
   FileSpreadsheet,
   FileText,
-  FileType,
   Filter,
   FolderOpen,
   Layers,
   LayoutTemplate,
+  LineChart as LineChartIcon,
   Link2,
   Loader2,
   Play,
   Plus,
+  Printer,
   Save,
   Search,
   Settings2,
+  SortAsc,
+  SortDesc,
   Sparkles,
   Table2,
   Trash2,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from 'recharts';
 import {
   REPORT_TABLES,
@@ -62,11 +70,13 @@ import type {
 // TYPES
 // ============================================================
 
+type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | null;
+
 type SelectedField = {
   table: ReportTable;
   field: ReportField;
   sort?: 'asc' | 'desc' | null;
-  aggregation?: 'sum' | 'count' | 'avg' | 'min' | 'max' | null;
+  aggregation?: AggregationType;
   customLabel?: string;
 };
 
@@ -91,19 +101,43 @@ type SavedReport = {
   savedAt: string;
 };
 
-type ChartType = 'bar' | 'pie';
+type ChartType = 'bar' | 'pie' | 'line';
+
+type DateRangeOption = {
+  id: RelativeDatePreset | 'custom';
+  label: string;
+  icon: string;
+};
 
 // ============================================================
 // CONSTANTS
 // ============================================================
 
-const COLORS = ['#25D366', '#075E54', '#128C7E', '#34B7F1', '#00A884', '#667781'];
+const COLORS = ['#25D366', '#075E54', '#128C7E', '#34B7F1', '#00A884', '#667781', '#FF6B6B', '#4ECDC4'];
 
 const QUICK_TEMPLATES = [
   { id: 'students', label: 'Öğrenciler', icon: '👥', table: 'students', fields: ['student_no', 'first_name', 'last_name', 'class', 'status', 'net_fee'] },
   { id: 'installments', label: 'Taksitler', icon: '💰', table: 'finance_installments', fields: ['student_id', 'installment_no', 'amount', 'due_date', 'status'] },
   { id: 'expenses', label: 'Giderler', icon: '📊', table: 'expenses', fields: ['title', 'category', 'amount', 'date', 'status'] },
   { id: 'payments', label: 'Ödemeler', icon: '💳', table: 'payments', fields: ['student_id', 'amount', 'payment_method', 'payment_date', 'status'] },
+];
+
+const DATE_RANGE_OPTIONS: DateRangeOption[] = [
+  { id: 'today', label: 'Bugün', icon: '📅' },
+  { id: 'this_week', label: 'Bu Hafta', icon: '📆' },
+  { id: 'this_month', label: 'Bu Ay', icon: '🗓️' },
+  { id: 'last_30_days', label: 'Son 30 Gün', icon: '⏳' },
+  { id: 'this_year', label: 'Bu Yıl', icon: '📊' },
+  { id: 'custom', label: 'Özel', icon: '⚙️' },
+];
+
+const AGGREGATION_OPTIONS: { value: AggregationType; label: string; icon: string }[] = [
+  { value: null, label: 'Yok', icon: '−' },
+  { value: 'sum', label: 'Toplam', icon: 'Σ' },
+  { value: 'count', label: 'Sayı', icon: '#' },
+  { value: 'avg', label: 'Ortalama', icon: 'μ' },
+  { value: 'min', label: 'Min', icon: '↓' },
+  { value: 'max', label: 'Max', icon: '↑' },
 ];
 
 // ============================================================
@@ -130,12 +164,16 @@ export default function FreeReportBuilderPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
-  const [showGraph, setShowGraph] = useState(false);
+  const [showGraph, setShowGraph] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fieldSettingsOpen, setFieldSettingsOpen] = useState<string | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  
+  const tableRef = useRef<HTMLTableElement>(null);
 
   // Load saved reports on mount
   useEffect(() => {
@@ -169,6 +207,10 @@ export default function FreeReportBuilderPage() {
     return selectedFields.filter((sf) => sf.field.type === 'category' || sf.field.type === 'text');
   }, [selectedFields]);
 
+  const numericFields = useMemo(() => {
+    return selectedFields.filter((sf) => sf.field.type === 'currency' || sf.field.type === 'number');
+  }, [selectedFields]);
+
   const filteredTables = useMemo(() => {
     if (!searchQuery.trim()) return REPORT_TABLES;
     const q = searchQuery.toLowerCase();
@@ -179,6 +221,35 @@ export default function FreeReportBuilderPage() {
       ),
     })).filter((t) => t.fields.length > 0 || t.label.toLowerCase().includes(q));
   }, [searchQuery]);
+
+  // Calculate summary row
+  const summaryRow = useMemo(() => {
+    if (rows.length === 0) return null;
+    
+    const summary: Record<string, { sum: number; count: number; avg: number }> = {};
+    
+    numericFields.forEach((sf) => {
+      const key = `${sf.table.name}_${sf.field.name}`;
+      let sum = 0;
+      let count = 0;
+      
+      rows.forEach((row) => {
+        const val = row[key] ?? row[sf.field.name];
+        if (typeof val === 'number') {
+          sum += val;
+          count++;
+        }
+      });
+      
+      summary[key] = {
+        sum,
+        count,
+        avg: count > 0 ? sum / count : 0,
+      };
+    });
+    
+    return summary;
+  }, [rows, numericFields]);
 
   // ============================================================
   // ACTIONS
@@ -222,6 +293,7 @@ export default function FreeReportBuilderPage() {
     setFilterRules([]);
     setJoinedTables([]);
     setGroupByField(null);
+    setDatePreset(null);
     setRows([]);
     setError(null);
     setReportName('Yeni Rapor');
@@ -302,7 +374,6 @@ export default function FreeReportBuilderPage() {
     setJoinedTables(report.joinedTables);
     setDatePreset(report.datePreset as RelativeDatePreset | null);
 
-    // Reconstruct selected fields
     const fields: SelectedField[] = [];
     report.selectedFields.forEach((sf) => {
       const table = REPORT_TABLES.find((t) => t.name === sf.tableName);
@@ -313,7 +384,7 @@ export default function FreeReportBuilderPage() {
           field,
           customLabel: sf.customLabel,
           sort: sf.sort as 'asc' | 'desc' | null,
-          aggregation: sf.aggregation as any,
+          aggregation: sf.aggregation as AggregationType,
         });
       }
     });
@@ -356,7 +427,7 @@ export default function FreeReportBuilderPage() {
         joins: joinedTables,
         select,
         groupBy: groupByField ? [groupByField] : undefined,
-        limit: 500,
+        limit: 1000,
       };
 
       const res = await fetch('/api/finance/reports/builder', {
@@ -380,7 +451,7 @@ export default function FreeReportBuilderPage() {
   }, [selectedFields, primaryTable, joinedTables, groupByField]);
 
   // ============================================================
-  // EXPORT
+  // EXPORT FUNCTIONS
   // ============================================================
 
   const exportToExcel = useCallback(() => {
@@ -397,12 +468,86 @@ export default function FreeReportBuilderPage() {
       return newRow;
     });
 
+    // Add summary row
+    if (summaryRow) {
+      const sumRow: any = {};
+      selectedFields.forEach((sf) => {
+        const key = `${sf.table.name}_${sf.field.name}`;
+        const header = sf.customLabel || sf.field.label;
+        if (summaryRow[key]) {
+          sumRow[header] = `TOPLAM: ${summaryRow[key].sum.toLocaleString('tr-TR')}`;
+        } else {
+          sumRow[header] = '';
+        }
+      });
+      data.push(sumRow);
+    }
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, 'Rapor');
     const today = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
     XLSX.writeFile(wb, `${reportName}_${today}.xlsx`);
-  }, [rows, selectedFields, reportName]);
+    setShowExportMenu(false);
+  }, [rows, selectedFields, reportName, summaryRow]);
+
+  const exportToPDF = useCallback(() => {
+    if (rows.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.setTextColor(7, 94, 84); // #075E54
+    doc.text(reportName, 14, 20);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Oluşturulma: ${new Date().toLocaleDateString('tr-TR')}`, 14, 28);
+    doc.text(`Toplam Kayıt: ${rows.length}`, 14, 34);
+    
+    // Table
+    const headers = selectedFields.map((sf) => sf.customLabel || sf.field.label);
+    const data = rows.map((row) =>
+      selectedFields.map((sf) => {
+        const key = `${sf.table.name}_${sf.field.name}`;
+        const value = row[key] ?? row[sf.field.name] ?? '-';
+        return typeof value === 'number' ? value.toLocaleString('tr-TR') : String(value);
+      })
+    );
+
+    // Add summary row
+    if (summaryRow && numericFields.length > 0) {
+      const sumRowData = selectedFields.map((sf) => {
+        const key = `${sf.table.name}_${sf.field.name}`;
+        if (summaryRow[key]) {
+          return `Σ ${summaryRow[key].sum.toLocaleString('tr-TR')}`;
+        }
+        return '';
+      });
+      data.push(sumRowData);
+    }
+
+    autoTable(doc, {
+      head: [headers],
+      body: data,
+      startY: 42,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [7, 94, 84], textColor: 255 },
+      alternateRowStyles: { fillColor: [240, 253, 244] },
+      footStyles: { fillColor: [37, 211, 102], fontStyle: 'bold' },
+    });
+
+    const today = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+    doc.save(`${reportName}_${today}.pdf`);
+    setShowExportMenu(false);
+  }, [rows, selectedFields, reportName, summaryRow, numericFields]);
+
+  const handlePrint = useCallback(() => {
+    window.print();
+    setShowExportMenu(false);
+  }, []);
 
   const applyTemplate = useCallback((template: typeof QUICK_TEMPLATES[0]) => {
     const table = REPORT_TABLES.find((t) => t.name === template.table);
@@ -436,8 +581,8 @@ export default function FreeReportBuilderPage() {
     if (!numericKey) return null;
 
     const agg: Record<string, number> = {};
-    rows.slice(0, 10).forEach((r) => {
-      const label = String(r[labelKey] ?? 'Diğer').slice(0, 15);
+    rows.slice(0, 15).forEach((r) => {
+      const label = String(r[labelKey] ?? 'Diğer').slice(0, 12);
       const val = typeof r[numericKey] === 'number' ? r[numericKey] : 0;
       agg[label] = (agg[label] || 0) + val;
     });
@@ -450,9 +595,9 @@ export default function FreeReportBuilderPage() {
   // ============================================================
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50 print:bg-white">
       {/* ============ HEADER ============ */}
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 shadow-sm">
+      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-gradient-to-r from-[#075E54] to-[#128C7E] px-4 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
             <Table2 className="h-5 w-5 text-white" />
@@ -477,6 +622,38 @@ export default function FreeReportBuilderPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Date Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDateFilter(!showDateFilter)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                datePreset ? 'bg-white text-[#075E54]' : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {datePreset ? DATE_RANGE_OPTIONS.find(d => d.id === datePreset)?.label : 'Tarih'}
+            </button>
+            {showDateFilter && (
+              <div className="absolute right-0 top-full mt-1 w-40 rounded-lg bg-white shadow-xl border border-gray-200 py-1 z-50">
+                {DATE_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      setDatePreset(opt.id === 'custom' ? null : opt.id as RelativeDatePreset);
+                      setShowDateFilter(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 ${
+                      datePreset === opt.id ? 'text-[#25D366] font-bold' : 'text-gray-700'
+                    }`}
+                  >
+                    <span>{opt.icon}</span>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={saveReport}
             disabled={selectedFields.length === 0}
@@ -485,6 +662,7 @@ export default function FreeReportBuilderPage() {
             <Save className="h-3.5 w-3.5" />
             Kaydet
           </button>
+          
           <button
             onClick={runReport}
             disabled={running || selectedFields.length === 0}
@@ -493,13 +671,46 @@ export default function FreeReportBuilderPage() {
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             Çalıştır
           </button>
-          <button
-            onClick={exportToExcel}
-            disabled={rows.length === 0}
-            className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/30 disabled:opacity-50 transition"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </button>
+          
+          {/* Export Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              disabled={rows.length === 0}
+              className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/30 disabled:opacity-50 transition"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Dışa Aktar
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 w-44 rounded-lg bg-white shadow-xl border border-gray-200 py-1 z-50">
+                <button
+                  onClick={exportToExcel}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                  Excel (.xlsx)
+                </button>
+                <button
+                  onClick={exportToPDF}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="h-4 w-4 text-red-500" />
+                  PDF (.pdf)
+                </button>
+                <hr className="my-1" />
+                <button
+                  onClick={handlePrint}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  <Printer className="h-4 w-4 text-blue-500" />
+                  Yazdır
+                </button>
+              </div>
+            )}
+          </div>
+          
           <button
             onClick={() => setSettingsOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/30 transition"
@@ -510,9 +721,9 @@ export default function FreeReportBuilderPage() {
       </header>
 
       {/* ============ MAIN CONTENT ============ */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden print:block">
         {/* ============ LEFT SIDEBAR ============ */}
-        <aside className="w-72 border-r border-gray-200 bg-white flex flex-col">
+        <aside className="w-72 border-r border-gray-200 bg-white flex flex-col print:hidden">
           {/* Tabs */}
           <div className="flex border-b border-gray-100">
             <button
@@ -545,14 +756,14 @@ export default function FreeReportBuilderPage() {
               <div className="p-2 border-b border-gray-100 bg-gradient-to-r from-[#DCF8C6]/30 to-white">
                 <p className="text-[10px] font-bold text-[#075E54] mb-1.5 flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  Hızlı Başlat
+                  Hızlı Şablonlar
                 </p>
                 <div className="grid grid-cols-2 gap-1">
                   {QUICK_TEMPLATES.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => applyTemplate(t)}
-                      className="flex items-center gap-1.5 rounded-md bg-[#25D366] px-2 py-1 text-[10px] font-bold text-white hover:bg-[#20c05c] transition"
+                      className="flex items-center gap-1.5 rounded-md bg-[#25D366] px-2 py-1.5 text-[10px] font-bold text-white hover:bg-[#20c05c] transition shadow-sm"
                     >
                       <span>{t.icon}</span>
                       {t.label}
@@ -578,6 +789,7 @@ export default function FreeReportBuilderPage() {
               <div className="flex-1 overflow-auto p-2 space-y-1">
                 {filteredTables.map((table) => {
                   const isExpanded = expandedTables.includes(table.name);
+                  const selectedCount = selectedFields.filter(sf => sf.table.name === table.name).length;
                   return (
                     <div key={table.name} className="rounded-lg border border-gray-100 bg-white overflow-hidden">
                       <button
@@ -591,6 +803,9 @@ export default function FreeReportBuilderPage() {
                         <div className="flex items-center gap-1.5">
                           <Database className="h-3 w-3 text-[#075E54]" />
                           <span className="text-[11px] font-bold text-gray-700">{table.label}</span>
+                          {selectedCount > 0 && (
+                            <span className="bg-[#25D366] text-white text-[8px] px-1 rounded-full">{selectedCount}</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-gray-400 bg-gray-100 px-1 rounded">{table.fields.length}</span>
@@ -609,13 +824,13 @@ export default function FreeReportBuilderPage() {
                                 onClick={() => toggleField(table, field)}
                                 className={`w-full flex items-center justify-between rounded-md px-2 py-1 text-[10px] transition ${
                                   isSelected
-                                    ? 'bg-[#25D366] text-white'
+                                    ? 'bg-[#25D366] text-white shadow-sm'
                                     : 'bg-gray-50 text-gray-600 hover:bg-[#DCF8C6] hover:text-[#075E54]'
                                 }`}
                               >
                                 <span className="font-medium truncate">{field.label}</span>
                                 <span className={`text-[8px] px-1 rounded ${isSelected ? 'bg-white/30' : 'bg-gray-200'}`}>
-                                  {field.type}
+                                  {field.type === 'currency' ? '₺' : field.type === 'number' ? '#' : field.type === 'date' ? '📅' : 'A'}
                                 </span>
                               </button>
                             );
@@ -640,7 +855,7 @@ export default function FreeReportBuilderPage() {
                 savedReports.map((report) => (
                   <div
                     key={report.id}
-                    className="rounded-lg border border-gray-200 bg-white p-2 hover:border-[#25D366] transition group"
+                    className="rounded-lg border border-gray-200 bg-white p-2 hover:border-[#25D366] hover:shadow-sm transition group"
                   >
                     <div className="flex items-start justify-between">
                       <button
@@ -651,7 +866,7 @@ export default function FreeReportBuilderPage() {
                         <p className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5">
                           <Clock className="h-2.5 w-2.5" />
                           {new Date(report.savedAt).toLocaleDateString('tr-TR')}
-                          <span className="bg-gray-100 px-1 rounded">{report.selectedFields.length} alan</span>
+                          <span className="bg-[#DCF8C6] text-[#075E54] px-1 rounded">{report.selectedFields.length} alan</span>
                         </p>
                       </button>
                       <button
@@ -669,16 +884,16 @@ export default function FreeReportBuilderPage() {
         </aside>
 
         {/* ============ CENTER PANEL ============ */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-[#DCF8C6]/10">
+        <main className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-[#DCF8C6]/10 print:bg-white">
           {selectedFields.length === 0 ? (
             /* Empty State */
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#DCF8C6]">
-                  <LayoutTemplate className="h-8 w-8 text-[#075E54]" />
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#25D366] to-[#075E54] shadow-lg">
+                  <LayoutTemplate className="h-10 w-10 text-white" />
                 </div>
-                <h2 className="text-lg font-bold text-gray-800 mb-2">Rapor Oluşturucu</h2>
-                <p className="text-sm text-gray-500 mb-4">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Rapor Oluşturucu</h2>
+                <p className="text-sm text-gray-500 mb-6">
                   Sol panelden veri alanlarını seçin veya hazır şablonlardan birini kullanın.
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -686,9 +901,9 @@ export default function FreeReportBuilderPage() {
                     <button
                       key={t.id}
                       onClick={() => applyTemplate(t)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-[#25D366] hover:text-[#075E54] transition"
+                      className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:border-[#25D366] hover:text-[#075E54] hover:shadow-md transition"
                     >
-                      <span>{t.icon}</span>
+                      <span className="text-lg">{t.icon}</span>
                       {t.label}
                     </button>
                   ))}
@@ -696,9 +911,9 @@ export default function FreeReportBuilderPage() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto p-3 space-y-3">
+            <div className="flex-1 overflow-auto p-3 space-y-3 print:p-0">
               {/* Selected Fields */}
-              <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm">
+              <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm print:shadow-none">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-[#25D366]" />
@@ -711,35 +926,103 @@ export default function FreeReportBuilderPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedFields.map((sf, idx) => (
-                    <div
-                      key={`${sf.table.name}.${sf.field.name}`}
-                      className="group relative inline-flex items-center gap-1 rounded-lg bg-[#DCF8C6] border border-[#25D366]/30 px-2 py-1 text-[11px] text-[#075E54]"
-                    >
-                      <span className="flex h-4 w-4 items-center justify-center rounded bg-[#25D366] text-[9px] font-bold text-white">{idx + 1}</span>
-                      <span className="font-semibold">{sf.customLabel || sf.field.label}</span>
-                      {sf.aggregation && (
-                        <span className="bg-purple-100 text-purple-600 text-[9px] px-1 rounded">
-                          {sf.aggregation === 'sum' ? 'Σ' : sf.aggregation === 'count' ? '#' : sf.aggregation === 'avg' ? 'μ' : sf.aggregation}
-                        </span>
-                      )}
-                      {sf.sort && (
-                        <span className="text-[9px]">{sf.sort === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                      <button
-                        onClick={() => removeField(sf.table.name, sf.field.name)}
-                        className="ml-1 text-red-400 hover:text-red-600"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                  {selectedFields.map((sf, idx) => {
+                    const fieldKey = `${sf.table.name}.${sf.field.name}`;
+                    const isSettingsOpen = fieldSettingsOpen === fieldKey;
+                    return (
+                      <div key={fieldKey} className="relative">
+                        <div
+                          className="group inline-flex items-center gap-1 rounded-lg bg-[#DCF8C6] border border-[#25D366]/30 px-2 py-1 text-[11px] text-[#075E54] cursor-pointer hover:shadow-sm"
+                          onClick={() => setFieldSettingsOpen(isSettingsOpen ? null : fieldKey)}
+                        >
+                          <span className="flex h-4 w-4 items-center justify-center rounded bg-[#25D366] text-[9px] font-bold text-white">{idx + 1}</span>
+                          <span className="font-semibold">{sf.customLabel || sf.field.label}</span>
+                          {sf.aggregation && (
+                            <span className="bg-purple-100 text-purple-600 text-[9px] px-1 rounded font-bold">
+                              {AGGREGATION_OPTIONS.find(a => a.value === sf.aggregation)?.icon}
+                            </span>
+                          )}
+                          {sf.sort && (
+                            <span className="text-[9px]">{sf.sort === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeField(sf.table.name, sf.field.name);
+                            }}
+                            className="ml-1 text-red-400 hover:text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        
+                        {/* Field Settings Popover */}
+                        {isSettingsOpen && (
+                          <div className="absolute left-0 top-full mt-1 w-48 rounded-lg bg-white shadow-xl border border-gray-200 p-2 z-50">
+                            <p className="text-[10px] font-bold text-gray-500 mb-1.5">Alan Ayarları</p>
+                            
+                            {/* Aggregation */}
+                            {(sf.field.type === 'currency' || sf.field.type === 'number') && (
+                              <div className="mb-2">
+                                <p className="text-[9px] text-gray-400 mb-1">Hesaplama</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {AGGREGATION_OPTIONS.map((agg) => (
+                                    <button
+                                      key={agg.value || 'none'}
+                                      onClick={() => updateField(sf.table.name, sf.field.name, { aggregation: agg.value })}
+                                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition ${
+                                        sf.aggregation === agg.value
+                                          ? 'bg-purple-500 text-white'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-purple-100'
+                                      }`}
+                                    >
+                                      {agg.icon}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Sort */}
+                            <div className="mb-2">
+                              <p className="text-[9px] text-gray-400 mb-1">Sıralama</p>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => updateField(sf.table.name, sf.field.name, { sort: sf.sort === 'asc' ? null : 'asc' })}
+                                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold transition ${
+                                    sf.sort === 'asc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
+                                  }`}
+                                >
+                                  <SortAsc className="h-3 w-3" /> A-Z
+                                </button>
+                                <button
+                                  onClick={() => updateField(sf.table.name, sf.field.name, { sort: sf.sort === 'desc' ? null : 'desc' })}
+                                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold transition ${
+                                    sf.sort === 'desc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-100'
+                                  }`}
+                                >
+                                  <SortDesc className="h-3 w-3" /> Z-A
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <button
+                              onClick={() => setFieldSettingsOpen(null)}
+                              className="w-full mt-1 py-1 rounded bg-gray-100 text-[10px] font-semibold text-gray-600 hover:bg-gray-200"
+                            >
+                              Kapat
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* JOIN Tables */}
               {availableJoins.length > 0 && (
-                <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm">
+                <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm print:hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Link2 className="h-4 w-4 text-blue-500" />
                     <span className="text-xs font-bold text-gray-800">İlişkili Tablolar (JOIN)</span>
@@ -754,7 +1037,7 @@ export default function FreeReportBuilderPage() {
                           onClick={() => toggleJoinTable(tableName)}
                           className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                             isJoined
-                              ? 'bg-blue-500 text-white'
+                              ? 'bg-blue-500 text-white shadow-sm'
                               : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'
                           }`}
                         >
@@ -769,7 +1052,7 @@ export default function FreeReportBuilderPage() {
 
               {/* Grouping */}
               {groupableFields.length > 0 && (
-                <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm">
+                <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm print:hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Layers className="h-4 w-4 text-amber-500" />
                     <span className="text-xs font-bold text-gray-800">Gruplandırma (GROUP BY)</span>
@@ -779,7 +1062,7 @@ export default function FreeReportBuilderPage() {
                       onClick={() => setGroupByField(null)}
                       className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                         !groupByField
-                          ? 'bg-amber-500 text-white'
+                          ? 'bg-amber-500 text-white shadow-sm'
                           : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'
                       }`}
                     >
@@ -794,7 +1077,7 @@ export default function FreeReportBuilderPage() {
                           onClick={() => setGroupByField(isGrouped ? null : key)}
                           className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                             isGrouped
-                              ? 'bg-amber-500 text-white'
+                              ? 'bg-amber-500 text-white shadow-sm'
                               : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'
                           }`}
                         >
@@ -807,7 +1090,7 @@ export default function FreeReportBuilderPage() {
               )}
 
               {/* Filters */}
-              <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm">
+              <div className="rounded-xl bg-white border border-gray-200 p-3 shadow-sm print:hidden">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-purple-500" />
@@ -825,7 +1108,7 @@ export default function FreeReportBuilderPage() {
                   </button>
                 </div>
                 {filterRules.length === 0 ? (
-                  <p className="text-[10px] text-gray-400 italic">Filtreleme için "Filtre Ekle" butonuna tıklayın</p>
+                  <p className="text-[10px] text-gray-400 italic">Veri filtrelemek için "Filtre Ekle" butonuna tıklayın</p>
                 ) : (
                   <div className="space-y-1.5">
                     {filterRules.map((rule) => (
@@ -847,7 +1130,7 @@ export default function FreeReportBuilderPage() {
                         <select
                           value={rule.operator}
                           onChange={(e) => updateFilter(rule.id, { operator: e.target.value as any })}
-                          className="w-14 rounded-md bg-white border border-gray-200 px-1 py-1 text-[10px]"
+                          className="w-16 rounded-md bg-white border border-gray-200 px-1 py-1 text-[10px]"
                         >
                           <option value="=">=</option>
                           <option value="!=">≠</option>
@@ -858,7 +1141,7 @@ export default function FreeReportBuilderPage() {
                         <input
                           value={String(rule.value)}
                           onChange={(e) => updateFilter(rule.id, { value: e.target.value })}
-                          placeholder="Değer"
+                          placeholder="Değer..."
                           className="flex-1 rounded-md bg-white border border-gray-200 px-1.5 py-1 text-[10px]"
                         />
                         <button onClick={() => removeFilter(rule.id)} className="text-red-400 hover:text-red-600">
@@ -874,9 +1157,9 @@ export default function FreeReportBuilderPage() {
         </main>
 
         {/* ============ RIGHT PANEL - PREVIEW ============ */}
-        <aside className="w-[400px] border-l border-gray-200 bg-white flex flex-col">
+        <aside className="w-[420px] border-l border-gray-200 bg-white flex flex-col print:w-full print:border-0">
           {/* Header */}
-          <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-[#DCF8C6]/30 to-white flex items-center justify-between">
+          <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-[#DCF8C6]/30 to-white flex items-center justify-between print:hidden">
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-[#25D366]" />
               <span className="text-xs font-bold text-[#075E54]">Önizleme</span>
@@ -885,22 +1168,33 @@ export default function FreeReportBuilderPage() {
               )}
             </div>
             {chartData && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
                 <button
-                  onClick={() => setChartType('bar')}
-                  className={`p-1 rounded ${chartType === 'bar' ? 'bg-[#25D366] text-white' : 'text-gray-400 hover:text-gray-600'}`}
+                  onClick={() => { setChartType('bar'); setShowGraph(true); }}
+                  className={`p-1.5 rounded-md transition ${chartType === 'bar' && showGraph ? 'bg-[#25D366] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  title="Bar Grafik"
                 >
-                  <BarChart className="h-3.5 w-3.5" />
+                  <TrendingUp className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => setChartType('pie')}
-                  className={`p-1 rounded ${chartType === 'pie' ? 'bg-[#25D366] text-white' : 'text-gray-400 hover:text-gray-600'}`}
+                  onClick={() => { setChartType('pie'); setShowGraph(true); }}
+                  className={`p-1.5 rounded-md transition ${chartType === 'pie' && showGraph ? 'bg-[#25D366] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  title="Pasta Grafik"
                 >
                   <PieChart className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  onClick={() => { setChartType('line'); setShowGraph(true); }}
+                  className={`p-1.5 rounded-md transition ${chartType === 'line' && showGraph ? 'bg-[#25D366] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  title="Çizgi Grafik"
+                >
+                  <LineChartIcon className="h-3.5 w-3.5" />
+                </button>
+                <div className="w-px h-4 bg-gray-300 mx-0.5" />
+                <button
                   onClick={() => setShowGraph(!showGraph)}
-                  className={`p-1 rounded ${showGraph ? 'bg-[#25D366] text-white' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`p-1.5 rounded-md transition ${!showGraph ? 'bg-gray-200 text-gray-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Grafiği Gizle/Göster"
                 >
                   {showGraph ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
@@ -922,16 +1216,18 @@ export default function FreeReportBuilderPage() {
 
             {running && (
               <div className="flex flex-col items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-[#25D366] mb-2" />
-                <p className="text-xs text-gray-500">Veriler yükleniyor...</p>
+                <Loader2 className="h-10 w-10 animate-spin text-[#25D366] mb-3" />
+                <p className="text-sm font-medium text-gray-600">Veriler yükleniyor...</p>
               </div>
             )}
 
             {!running && !error && rows.length === 0 && selectedFields.length > 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                <Play className="h-10 w-10 text-[#25D366] mb-2" />
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#DCF8C6]">
+                  <Play className="h-7 w-7 text-[#25D366]" />
+                </div>
                 <p className="text-sm font-bold text-gray-700">Çalıştırmaya Hazır</p>
-                <p className="text-[10px] text-gray-400">Üstteki "Çalıştır" butonuna tıklayın</p>
+                <p className="text-xs text-gray-400 mt-1">Üstteki "Çalıştır" butonuna tıklayın</p>
               </div>
             )}
 
@@ -939,8 +1235,8 @@ export default function FreeReportBuilderPage() {
               <>
                 {/* Chart */}
                 {showGraph && chartData && (
-                  <div className="p-3 border-b border-gray-100">
-                    <div className="h-40 rounded-lg bg-gray-50 p-2">
+                  <div className="p-3 border-b border-gray-100 print:border-0">
+                    <div className="h-44 rounded-xl bg-gradient-to-br from-gray-50 to-[#DCF8C6]/20 p-3 border border-gray-100">
                       <ResponsiveContainer width="100%" height="100%">
                         {chartType === 'bar' ? (
                           <BarChart data={chartData}>
@@ -950,6 +1246,14 @@ export default function FreeReportBuilderPage() {
                             <Tooltip />
                             <Bar dataKey="value" fill="#25D366" radius={[4, 4, 0, 0]} />
                           </BarChart>
+                        ) : chartType === 'line' ? (
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                            <YAxis tick={{ fontSize: 9 }} />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="value" stroke="#25D366" strokeWidth={2} dot={{ fill: '#25D366', r: 4 }} />
+                          </LineChart>
                         ) : (
                           <PieChart>
                             <Pie
@@ -958,8 +1262,9 @@ export default function FreeReportBuilderPage() {
                               nameKey="label"
                               cx="50%"
                               cy="50%"
-                              outerRadius={60}
-                              label={({ label }) => label}
+                              outerRadius={65}
+                              label={({ label, percent }) => `${label} (${(percent * 100).toFixed(0)}%)`}
+                              labelLine={{ strokeWidth: 1 }}
                             >
                               {chartData.map((_, index) => (
                                 <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -975,53 +1280,98 @@ export default function FreeReportBuilderPage() {
 
                 {/* Table */}
                 <div className="overflow-auto">
-                  <table className="w-full text-[10px]">
-                    <thead className="sticky top-0 bg-[#075E54] text-white">
+                  <table ref={tableRef} className="w-full text-[10px]">
+                    <thead className="sticky top-0 bg-[#075E54] text-white print:bg-gray-800">
                       <tr>
+                        <th className="px-2 py-2 text-center font-bold w-8">#</th>
                         {selectedFields.map((sf) => (
                           <th key={`${sf.table.name}.${sf.field.name}`} className="px-2 py-2 text-left font-bold whitespace-nowrap">
                             {sf.customLabel || sf.field.label}
+                            {sf.aggregation && <span className="ml-1 text-[8px] opacity-70">({AGGREGATION_OPTIONS.find(a => a.value === sf.aggregation)?.icon})</span>}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedRows.map((row, idx) => (
-                        <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-[#DCF8C6]/30`}>
+                        <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-[#DCF8C6]/30 transition`}>
+                          <td className="px-2 py-1.5 text-center text-gray-400 font-medium">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                           {selectedFields.map((sf) => {
                             const key = `${sf.table.name}_${sf.field.name}`;
                             const value = row[key] ?? row[sf.field.name] ?? '-';
-                            const displayValue = typeof value === 'number' ? value.toLocaleString('tr-TR') : String(value);
+                            const displayValue = typeof value === 'number' 
+                              ? (sf.field.type === 'currency' ? `₺${value.toLocaleString('tr-TR')}` : value.toLocaleString('tr-TR'))
+                              : String(value);
                             return (
-                              <td key={key} className="px-2 py-1.5 text-gray-700 whitespace-nowrap max-w-[100px] truncate" title={displayValue}>
-                                {displayValue.length > 15 ? displayValue.slice(0, 15) + '...' : displayValue}
+                              <td key={key} className="px-2 py-1.5 text-gray-700 whitespace-nowrap max-w-[120px] truncate" title={displayValue}>
+                                {displayValue.length > 18 ? displayValue.slice(0, 18) + '...' : displayValue}
                               </td>
                             );
                           })}
                         </tr>
                       ))}
                     </tbody>
+                    {/* Summary Row */}
+                    {summaryRow && numericFields.length > 0 && (
+                      <tfoot className="bg-[#DCF8C6] font-bold">
+                        <tr>
+                          <td className="px-2 py-2 text-[#075E54]">Σ</td>
+                          {selectedFields.map((sf) => {
+                            const key = `${sf.table.name}_${sf.field.name}`;
+                            const summary = summaryRow[key];
+                            if (summary) {
+                              const displayValue = sf.field.type === 'currency' 
+                                ? `₺${summary.sum.toLocaleString('tr-TR')}`
+                                : summary.sum.toLocaleString('tr-TR');
+                              return (
+                                <td key={key} className="px-2 py-2 text-[#075E54]">
+                                  {displayValue}
+                                  <span className="text-[8px] ml-1 opacity-70">(ort: {sf.field.type === 'currency' ? '₺' : ''}{summary.avg.toLocaleString('tr-TR', { maximumFractionDigits: 0 })})</span>
+                                </td>
+                              );
+                            }
+                            return <td key={key} className="px-2 py-2"></td>;
+                          })}
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
 
                 {/* Pagination */}
-                <div className="p-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
-                  <span className="text-gray-500">Toplam <strong>{rows.length}</strong></span>
+                <div className="p-2 border-t border-gray-100 flex items-center justify-between text-[10px] print:hidden">
+                  <span className="text-gray-500">
+                    <strong>{rows.length}</strong> kayıt • Sayfa <strong>{currentPage}</strong>/{totalPages || 1}
+                  </span>
                   <div className="flex items-center gap-1">
                     <button
                       disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(1)}
+                      className="px-2 py-1 rounded bg-gray-100 disabled:opacity-30 hover:bg-gray-200 font-semibold"
+                    >
+                      İlk
+                    </button>
+                    <button
+                      disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => p - 1)}
-                      className="p-1 rounded bg-gray-100 disabled:opacity-30"
+                      className="p-1 rounded bg-gray-100 disabled:opacity-30 hover:bg-gray-200"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </button>
-                    <span>{currentPage} / {totalPages || 1}</span>
+                    <span className="px-2 font-bold text-[#075E54]">{currentPage}</span>
                     <button
                       disabled={currentPage >= totalPages}
                       onClick={() => setCurrentPage((p) => p + 1)}
-                      className="p-1 rounded bg-gray-100 disabled:opacity-30"
+                      className="p-1 rounded bg-gray-100 disabled:opacity-30 hover:bg-gray-200"
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="px-2 py-1 rounded bg-gray-100 disabled:opacity-30 hover:bg-gray-200 font-semibold"
+                    >
+                      Son
                     </button>
                   </div>
                 </div>
@@ -1030,9 +1380,9 @@ export default function FreeReportBuilderPage() {
 
             {!running && selectedFields.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                <LayoutTemplate className="h-10 w-10 text-gray-300 mb-2" />
+                <LayoutTemplate className="h-12 w-12 text-gray-300 mb-3" />
                 <p className="text-sm font-bold text-gray-600">Alan Seçin</p>
-                <p className="text-[10px] text-gray-400">Sol panelden veri alanlarını seçin</p>
+                <p className="text-[10px] text-gray-400 mt-1">Sol panelden veri alanlarını seçin</p>
               </div>
             )}
           </div>
@@ -1041,7 +1391,7 @@ export default function FreeReportBuilderPage() {
 
       {/* ============ SETTINGS MODAL ============ */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -1089,6 +1439,18 @@ export default function FreeReportBuilderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Close dropdowns on click outside */}
+      {(showExportMenu || showDateFilter || fieldSettingsOpen) && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => {
+            setShowExportMenu(false);
+            setShowDateFilter(false);
+            setFieldSettingsOpen(null);
+          }} 
+        />
       )}
     </div>
   );
