@@ -225,11 +225,27 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     });
   }, [rawLines, fields]);
   
-  // Validasyon
+  // Validasyon - en az 2 alan tanımlı olmalı
   const isValid = useMemo(() => {
-    const hasIdentity = fields.some(f => f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad');
-    const hasAnswers = fields.some(f => f.type === 'cevaplar');
-    return hasIdentity && hasAnswers;
+    const hasIdentity = fields.some(f => 
+      f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad' || 
+      f.label.toLowerCase().includes('öğrenci') || f.label.toLowerCase().includes('no') ||
+      f.label.toLowerCase().includes('ad') || f.label.toLowerCase().includes('isim')
+    );
+    const hasAnswersOrSubjects = fields.some(f => 
+      f.type === 'cevaplar' || 
+      f.label.toLowerCase().includes('cevap') ||
+      f.label.toLowerCase().includes('türkçe') ||
+      f.label.toLowerCase().includes('matematik') ||
+      f.label.toLowerCase().includes('fen') ||
+      f.label.toLowerCase().includes('sosyal') ||
+      f.label.toLowerCase().includes('ingilizce') ||
+      f.label.toLowerCase().includes('din') ||
+      f.label.toLowerCase().includes('inkılap') ||
+      f.label.toLowerCase().includes('inkilap')
+    );
+    // En az 2 alan varsa geçerli
+    return fields.length >= 2 && (hasIdentity || hasAnswersOrSubjects);
   }, [fields]);
 
   // Karakter rengi
