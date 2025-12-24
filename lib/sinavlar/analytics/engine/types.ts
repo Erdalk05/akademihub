@@ -406,3 +406,222 @@ export const DEFAULT_TREND_CONFIG = {
   thresholdStable: 1.5,
   weights: [0.1, 0.15, 0.2, 0.25, 0.3]
 };
+
+// ==================== AI-READY INTERFACES ====================
+
+/**
+ * Genel Analytics Girdisi (AI-ready)
+ * Tüm hesaplamalar için ortak girdi formatı
+ */
+export interface AnalyticsInput {
+  // Net değerleri (ders koduna göre)
+  nets: Record<string, number>;
+  
+  // Yanlış sayıları (ders koduna göre)
+  wrong: Record<string, number>;
+  
+  // Boş sayıları (ders koduna göre)
+  blank: Record<string, number>;
+  
+  // Toplam soru sayısı
+  totalQuestions: number;
+  
+  // Opsiyonel metrikler
+  difficultyIndex?: number;         // 0-1 arası sınav zorluğu
+  trendData?: number[];             // Geçmiş net değerleri
+  classAverage?: number;            // Sınıf ortalaması
+  schoolAverage?: number;           // Okul ortalaması
+  
+  // Sınav tipi
+  examType?: 'LGS' | 'TYT' | 'AYT_SAY' | 'AYT_EA' | 'AYT_SOZ';
+  wrongPenaltyDivisor?: number;     // 3 veya 4
+}
+
+/**
+ * Tam Analytics Sonucu (AI-ready)
+ * exam_student_analytics JSONB ile uyumlu
+ */
+export interface AnalyticsResult {
+  // Versiyon
+  analytics_version: string;
+  
+  // Özet metrikler
+  summary: SummaryMetrics;
+  
+  // İstatistikler
+  statistics: StatisticsMetrics;
+  
+  // Trend analizi
+  trends: TrendMetrics;
+  
+  // Öğrenme açıkları
+  learning_gaps: LearningGapItem[];
+  
+  // Risk değerlendirmesi
+  risk: RiskMetrics;
+  
+  // Güvenilirlik metrikleri
+  confidence: ConfidenceMetrics;
+  
+  // AI için öneriler
+  recommendations: RecommendationItem[];
+  
+  // Hesaplama metadata
+  metadata: CalculationMetadata;
+}
+
+export interface SummaryMetrics {
+  // Genel sonuçlar
+  total_net: number;
+  total_correct: number;
+  total_wrong: number;
+  total_empty: number;
+  
+  // Yüzdelik
+  success_rate: number;             // 0-1
+  percentile: number | null;        // 0-100
+  
+  // Değerlendirme
+  overall_assessment: OverallAssessment;
+  assessment_summary: string;
+  
+  // Karşılaştırmalar
+  vs_class_avg: number | null;
+  vs_school_avg: number | null;
+  vs_previous: number | null;
+}
+
+export interface StatisticsMetrics {
+  // Temel istatistikler
+  mean: number;
+  median: number;
+  std_dev: number;
+  min: number;
+  max: number;
+  
+  // Ders bazlı
+  subject_stats: Record<string, {
+    net: number;
+    rate: number;
+    rank?: number;
+  }>;
+  
+  // Zorluk bazlı
+  difficulty_stats: {
+    easy: { rate: number; count: number };
+    medium: { rate: number; count: number };
+    hard: { rate: number; count: number };
+  };
+}
+
+export interface TrendMetrics {
+  // Yön ve değişim
+  direction: TrendDirection;
+  change: number;
+  weighted_change: number;
+  
+  // Eğim ve tahmin
+  slope: number;
+  forecast_next: number | null;
+  
+  // Geçmiş veriler
+  history: number[];
+  is_significant: boolean;
+  
+  // Tutarlılık
+  consistency_score: number;
+}
+
+export interface LearningGapItem {
+  // Tanımlama
+  topic_id: string;
+  topic_name: string;
+  subject_code: string;
+  
+  // Performans
+  success_rate: number;
+  questions_count: number;
+  
+  // Değerlendirme
+  severity: 'critical' | 'moderate' | 'minor';
+  priority: number;
+  
+  // Öneri
+  recommendation: string;
+}
+
+export interface RiskMetrics {
+  // Seviye ve skor
+  level: RiskLevel;
+  score: number;
+  
+  // Faktörler
+  factors: Array<{
+    name: string;
+    contribution: number;
+    severity: 'low' | 'medium' | 'high';
+  }>;
+  
+  // Özet
+  summary: string;
+  action_required: boolean;
+}
+
+export interface ConfidenceMetrics {
+  // Genel güven
+  overall: number;
+  level: 'very_high' | 'high' | 'moderate' | 'low' | 'very_low';
+  
+  // Alt faktörler
+  data_quality: number;
+  sample_size_adequate: boolean;
+  consistency: number;
+  
+  // Hata payı
+  margin_of_error: number;
+  
+  // Uyarılar
+  warnings: string[];
+  is_reliable: boolean;
+}
+
+export interface RecommendationItem {
+  // Tanımlama
+  id: string;
+  category: 'study' | 'practice' | 'review' | 'urgent';
+  
+  // İçerik
+  action: string;
+  reason: string;
+  
+  // Öncelik
+  priority: number;
+  effort_level: 'low' | 'medium' | 'high';
+  
+  // Beklenen etki
+  expected_impact: string;
+  estimated_net_gain?: number;
+}
+
+export interface CalculationMetadata {
+  // Versiyon bilgileri
+  version: string;
+  schema_version: string;
+  engine_version: string;
+  
+  // Zaman
+  calculated_at: string;            // ISO 8601
+  calculation_duration_ms: number;
+  
+  // Kaynak
+  data_source: string;
+  input_hash?: string;
+  
+  // Kalite
+  data_completeness: number;
+  confidence_score: number;
+  
+  // AI flags
+  ai_ready: boolean;
+  recommendation_enabled: boolean;
+}

@@ -3,12 +3,33 @@
  * AkademiHub - Analytics Engine Index
  * ============================================
  * 
- * Pure Function Analytics Engine
- * DB çağrısı YOK, API çağrısı YOK, Side-effect YOK
- * Sadece input → output
+ * PURE FUNCTION ANALYTICS ENGINE
+ * Version: 1.0.0
  * 
- * Tüm fonksiyonlar test edilebilir ve bağımsız
+ * KURALLAR:
+ * ❌ No DB calls
+ * ❌ No Supabase imports
+ * ❌ No mutations (immutability only)
+ * ✅ Deterministic input → output
+ * ✅ Senior-level clean code
+ * ✅ Defensive programming
+ * ✅ Fully typed (TypeScript)
+ * 
+ * Bu engine şunları besler:
+ * - exam_student_analytics JSONB fields
+ * - AI interpretation layers
+ * - PDF / WhatsApp reports
+ * - School & class dashboards
  */
+
+// ==================== VERSION INFO ====================
+
+export { 
+  ANALYTICS_VERSION, 
+  ANALYTICS_SCHEMA_VERSION, 
+  ENGINE_VERSION,
+  VERSION_HISTORY 
+} from './versioning';
 
 // ==================== TYPES ====================
 
@@ -66,6 +87,30 @@ export {
 
 export type { StatisticsResult } from './statistics';
 
+// ==================== NORMALIZATION ====================
+
+export {
+  calculateZScore,
+  zScoreToValue,
+  minMaxNormalize,
+  minMaxNormalizeToRange,
+  adjustForDifficulty,
+  calculateDifficultyIndex,
+  normalizeScores,
+  normalizeScore,
+  normalizeCrossExam,
+  normalizeNet,
+  calculatePercentileRank
+} from './normalization';
+
+export type {
+  NormalizationInput,
+  DifficultyAdjustmentInput,
+  ScoreNormalizationInput,
+  CrossExamNormalizationInput,
+  NetNormalizationInput
+} from './normalization';
+
 // ==================== TREND ====================
 
 export {
@@ -74,9 +119,96 @@ export {
   calculateTrendScore
 } from './trend';
 
+// ==================== WEIGHTING (LGS/TYT/AYT) ====================
+
+export {
+  calculateWeightedScore,
+  calculateLGSScore,
+  calculateTYTScore,
+  calculateAYTScore,
+  getWeight,
+  analyzeSubjectImpact,
+  predictRequiredNets,
+  LGS_WEIGHTS,
+  TYT_WEIGHTS,
+  AYT_SAY_WEIGHTS,
+  AYT_EA_WEIGHTS,
+  AYT_SOZ_WEIGHTS,
+  LGS_QUESTION_COUNTS,
+  TYT_QUESTION_COUNTS
+} from './weighting';
+
+export type {
+  ExamType,
+  SubjectNet,
+  WeightedScoreInput,
+  WeightedScoreResult,
+  SubjectContribution,
+  SubjectImpactAnalysis,
+  ScorePredictionInput,
+  ScorePredictionResult,
+  SubjectSuggestion
+} from './weighting';
+
+// ==================== LEARNING GAPS ====================
+
+export { detectLearningGaps } from './gaps';
+
+export type {
+  LearningGapInput,
+  TopicPerformance,
+  OutcomePerformance,
+  PrerequisiteMapping,
+  GapDetectionConfig,
+  LearningGapResult,
+  LearningGap,
+  GapCluster,
+  CascadingRisk,
+  GapSummary
+} from './gaps';
+
 // ==================== RISK ====================
 
 export { calculateRiskScore } from './risk';
+
+// ==================== CONFIDENCE ====================
+
+export {
+  calculateConfidence,
+  calculatePredictionConfidence,
+  calculateAnalyticsReliability,
+  calculateMarginOfError
+} from './confidence';
+
+export type {
+  ConfidenceInput,
+  ConfidenceResult,
+  ConfidenceFactor,
+  PredictionConfidenceInput,
+  AnalyticsReliabilityInput
+} from './confidence';
+
+// ==================== VERSIONING ====================
+
+export {
+  createMetadata,
+  wrapWithVersion,
+  withCalculationContext,
+  isVersionCompatible,
+  compareVersions,
+  formatForAI,
+  calculateChangelog
+} from './versioning';
+
+export type {
+  AnalyticsMetadata,
+  VersionedAnalytics,
+  CalculationContext,
+  CalculationResult,
+  AIReadyOutput,
+  AIReadyItem,
+  AIReadyRecommendation
+} from './versioning';
 
 // ==================== TOPICS ====================
 
@@ -95,8 +227,13 @@ export {
 
 import { calculateFullAnalytics } from './analyticsEngine';
 import { calculateStandardDeviation, calculatePercentile, calculateConsistencyScore, calculateStatistics } from './statistics';
+import { calculateZScore, normalizeScores, adjustForDifficulty, normalizeNet, calculatePercentileRank } from './normalization';
 import { calculateTrend, calculateSimpleTrend, calculateTrendScore } from './trend';
+import { calculateWeightedScore, analyzeSubjectImpact, predictRequiredNets } from './weighting';
+import { detectLearningGaps } from './gaps';
 import { calculateRiskScore } from './risk';
+import { calculateConfidence, calculatePredictionConfidence, calculateAnalyticsReliability, calculateMarginOfError } from './confidence';
+import { createMetadata, wrapWithVersion, formatForAI, ANALYTICS_VERSION } from './versioning';
 import { analyzeTopics, calculateOverallAssessment } from './topics';
 
 /**
@@ -105,29 +242,69 @@ import { analyzeTopics, calculateOverallAssessment } from './topics';
  * @example
  * import AnalyticsEngine from '@/lib/sinavlar/analytics/engine';
  * 
+ * // Tam analiz
  * const result = AnalyticsEngine.calculateFullAnalytics(input);
- * const trend = AnalyticsEngine.calculateTrend({ values: [40, 45, 50] });
+ * 
+ * // LGS puan hesaplama
+ * const score = AnalyticsEngine.calculateWeightedScore({ examType: 'LGS', subjectNets });
+ * 
+ * // Öğrenme açığı tespiti
+ * const gaps = AnalyticsEngine.detectLearningGaps({ topics });
+ * 
+ * // Risk analizi
  * const risk = AnalyticsEngine.calculateRiskScore({ ... });
+ * 
+ * // AI-ready çıktı
+ * const aiOutput = AnalyticsEngine.formatForAI(analytics);
  */
 export default {
+  // Versiyon
+  version: ANALYTICS_VERSION,
+  
   // Ana fonksiyon
   calculateFullAnalytics,
   
-  // İstatistik fonksiyonları
+  // İstatistik
   calculateStandardDeviation,
   calculatePercentile,
   calculateConsistencyScore,
   calculateStatistics,
   
-  // Trend fonksiyonları
+  // Normalizasyon
+  calculateZScore,
+  normalizeScores,
+  adjustForDifficulty,
+  normalizeNet,
+  calculatePercentileRank,
+  
+  // Trend
   calculateTrend,
   calculateSimpleTrend,
   calculateTrendScore,
   
-  // Risk fonksiyonu
+  // Ağırlıklı skorlama
+  calculateWeightedScore,
+  analyzeSubjectImpact,
+  predictRequiredNets,
+  
+  // Öğrenme açıkları
+  detectLearningGaps,
+  
+  // Risk
   calculateRiskScore,
   
   // Konu analizi
   analyzeTopics,
-  calculateOverallAssessment
+  calculateOverallAssessment,
+  
+  // Güvenilirlik
+  calculateConfidence,
+  calculatePredictionConfidence,
+  calculateAnalyticsReliability,
+  calculateMarginOfError,
+  
+  // Versiyon & Metadata
+  createMetadata,
+  wrapWithVersion,
+  formatForAI
 };
