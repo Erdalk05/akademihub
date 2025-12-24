@@ -20,6 +20,10 @@ import {
   Shield,
   Package,
   Building2,
+  GraduationCap,
+  FileSpreadsheet,
+  Brain,
+  Target,
 } from 'lucide-react';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -122,6 +126,19 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       ],
     },
     {
+      label: 'Akademik Analiz',
+      href: '/admin/akademik-analiz',
+      icon: <GraduationCap size={20} />,
+      hideForSuperAdmin: true,
+      submenu: [
+        { label: 'Genel Bakış', href: '/admin/akademik-analiz', icon: <Target size={16} /> },
+        { label: 'Sınav Yönetimi', href: '/admin/akademik-analiz/sinavlar', icon: <FileSpreadsheet size={16} /> },
+        { label: 'Veri Aktarımı', href: '/admin/akademik-analiz/yukle', icon: <FileSpreadsheet size={16} /> },
+        { label: 'Akademik Röntgen', href: '/admin/akademik-analiz/rontgen', icon: <BarChart3 size={16} /> },
+        { label: 'AI Koç Merkezi', href: '/admin/akademik-analiz/ai-koc', icon: <Brain size={16} /> },
+      ],
+    },
+    {
       label: 'Ayarlar',
       href: '/settings',
       icon: <Settings size={20} />,
@@ -160,6 +177,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
     });
   
   const getActiveMenu = () => {
+    if (pathname.startsWith('/admin/akademik-analiz')) return 'Akademik Analiz';
     if (pathname.startsWith('/finance/reports')) return 'Raporlar';
     if (pathname.startsWith('/finance')) return 'Finans';
     if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';
