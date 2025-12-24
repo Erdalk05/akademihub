@@ -1,264 +1,203 @@
 /**
  * ============================================
- * AkademiHub - Sınav Türleri Tanımları
+ * AkademiHub - Sınav Türleri ve Şablonları
  * ============================================
  * 
- * LGS, TYT, AYT ve diğer sınav türlerinin
- * temel yapılandırmaları
+ * LGS, TYT, AYT tam destek
+ * Katsayılar ve net hesaplama kuralları
  */
 
 // ==================== TYPES ====================
 
-export type ExamType = 'LGS' | 'TYT' | 'AYT' | 'DENEME' | 'OKUL' | 'OZEL';
-
-export type SubjectCode = 
-  // LGS Dersleri
-  | 'TUR' | 'MAT' | 'FEN' | 'SOS' | 'DIN' | 'ING'
-  // TYT Dersleri
-  | 'TYT_TUR' | 'TYT_MAT' | 'TYT_FEN' | 'TYT_SOS'
-  // AYT Dersleri (Sayısal)
-  | 'AYT_MAT' | 'AYT_FIZ' | 'AYT_KIM' | 'AYT_BIY'
-  // AYT Dersleri (Eşit Ağırlık)
-  | 'AYT_EDEB' | 'AYT_TAR1' | 'AYT_COG1'
-  // AYT Dersleri (Sözel)
-  | 'AYT_TAR2' | 'AYT_COG2' | 'AYT_FEL' | 'AYT_DIN'
-  // AYT Dil
-  | 'AYT_YDT';
-
-export type BookletType = 'A' | 'B' | 'C' | 'D';
-
 export interface SubjectConfig {
-  code: SubjectCode;
+  code: string;
   name: string;
-  shortName: string;
   questionCount: number;
-  startQuestion: number;
-  endQuestion: number;
+  coefficient: number; // Katsayı
   color: string;
-  emoji: string;
 }
 
 export interface ExamTypeConfig {
-  type: ExamType;
+  id: string;
   name: string;
-  fullName: string;
-  description: string;
   totalQuestions: number;
-  subjects: SubjectConfig[];
-  bookletTypes: BookletType[];
-  gradeLevel: number[];
+  wrongDivisor: number; // LGS: 3, YKS: 4
   duration: number; // dakika
-  emoji: string;
-  color: string;
+  subjects: SubjectConfig[];
+  description: string;
 }
 
-// ==================== LGS ====================
+// ==================== LGS ŞABLONU ====================
 
 export const LGS_CONFIG: ExamTypeConfig = {
-  type: 'LGS',
-  name: 'LGS',
-  fullName: 'Liselere Geçiş Sınavı',
-  description: '8. sınıf öğrencileri için merkezi sınav',
+  id: 'lgs',
+  name: 'LGS (Liseye Geçiş Sınavı)',
   totalQuestions: 90,
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [8],
-  duration: 135, // 2 saat 15 dakika
-  emoji: '🎓',
-  color: 'indigo',
+  wrongDivisor: 3, // 3 yanlış = 1 doğru
+  duration: 155, // 75 + 80 dakika
+  description: '8. sınıf merkezi sınav • 3 yanlış 1 doğru götürür',
   subjects: [
-    { code: 'TUR', name: 'Türkçe', shortName: 'TÜR', questionCount: 20, startQuestion: 1, endQuestion: 20, color: 'red', emoji: '📚' },
-    { code: 'MAT', name: 'Matematik', shortName: 'MAT', questionCount: 20, startQuestion: 21, endQuestion: 40, color: 'blue', emoji: '🔢' },
-    { code: 'FEN', name: 'Fen Bilimleri', shortName: 'FEN', questionCount: 20, startQuestion: 41, endQuestion: 60, color: 'green', emoji: '🔬' },
-    { code: 'SOS', name: 'Sosyal Bilgiler', shortName: 'SOS', questionCount: 10, startQuestion: 61, endQuestion: 70, color: 'amber', emoji: '🌍' },
-    { code: 'DIN', name: 'Din Kültürü', shortName: 'DİN', questionCount: 10, startQuestion: 71, endQuestion: 80, color: 'purple', emoji: '📖' },
-    { code: 'ING', name: 'İngilizce', shortName: 'İNG', questionCount: 10, startQuestion: 81, endQuestion: 90, color: 'teal', emoji: '🌐' }
+    // 1. OTURUM - SÖZEL (75 dk)
+    { code: 'TUR', name: 'Türkçe', questionCount: 20, coefficient: 4, color: '#3B82F6' },
+    { code: 'INK', name: 'T.C. İnkılap Tarihi', questionCount: 10, coefficient: 1, color: '#8B5CF6' },
+    { code: 'DIN', name: 'Din Kültürü', questionCount: 10, coefficient: 1, color: '#F59E0B' },
+    { code: 'ING', name: 'Yabancı Dil', questionCount: 10, coefficient: 1, color: '#EC4899' },
+    // 2. OTURUM - SAYISAL (80 dk)
+    { code: 'MAT', name: 'Matematik', questionCount: 20, coefficient: 4, color: '#EF4444' },
+    { code: 'FEN', name: 'Fen Bilimleri', questionCount: 20, coefficient: 4, color: '#10B981' },
   ]
 };
 
-// ==================== TYT ====================
+// ==================== TYT ŞABLONU ====================
 
 export const TYT_CONFIG: ExamTypeConfig = {
-  type: 'TYT',
-  name: 'TYT',
-  fullName: 'Temel Yeterlilik Testi',
-  description: 'YKS 1. oturum - Tüm adaylar için zorunlu',
+  id: 'tyt',
+  name: 'TYT (Temel Yeterlilik Testi)',
   totalQuestions: 120,
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [12],
-  duration: 135, // 2 saat 15 dakika
-  emoji: '📝',
-  color: 'blue',
+  wrongDivisor: 4, // 4 yanlış = 1 doğru
+  duration: 165,
+  description: 'Üniversite giriş • 4 yanlış 1 doğru götürür',
   subjects: [
-    { code: 'TYT_TUR', name: 'Türkçe', shortName: 'TÜR', questionCount: 40, startQuestion: 1, endQuestion: 40, color: 'red', emoji: '📚' },
-    { code: 'TYT_SOS', name: 'Sosyal Bilimler', shortName: 'SOS', questionCount: 20, startQuestion: 41, endQuestion: 60, color: 'amber', emoji: '🌍' },
-    { code: 'TYT_MAT', name: 'Temel Matematik', shortName: 'MAT', questionCount: 40, startQuestion: 61, endQuestion: 100, color: 'blue', emoji: '🔢' },
-    { code: 'TYT_FEN', name: 'Fen Bilimleri', shortName: 'FEN', questionCount: 20, startQuestion: 101, endQuestion: 120, color: 'green', emoji: '🔬' }
+    { code: 'TUR', name: 'Türkçe', questionCount: 40, coefficient: 2.90, color: '#3B82F6' },
+    { code: 'MAT', name: 'Temel Matematik', questionCount: 40, coefficient: 2.92, color: '#EF4444' },
+    // Fen Bilimleri (20 soru)
+    { code: 'FIZ', name: 'Fizik', questionCount: 7, coefficient: 3.14, color: '#10B981' },
+    { code: 'KIM', name: 'Kimya', questionCount: 7, coefficient: 3.14, color: '#14B8A6' },
+    { code: 'BIY', name: 'Biyoloji', questionCount: 6, coefficient: 3.14, color: '#22C55E' },
+    // Sosyal Bilimler (20 soru)
+    { code: 'TAR', name: 'Tarih', questionCount: 5, coefficient: 2.93, color: '#F59E0B' },
+    { code: 'COG', name: 'Coğrafya', questionCount: 5, coefficient: 2.93, color: '#8B5CF6' },
+    { code: 'FEL', name: 'Felsefe', questionCount: 5, coefficient: 2.93, color: '#EC4899' },
+    { code: 'DIN', name: 'Din Kültürü', questionCount: 5, coefficient: 2.93, color: '#6366F1' },
   ]
 };
 
-// ==================== AYT (SAYISAL) ====================
+// ==================== AYT SAYISAL ŞABLONU ====================
 
-export const AYT_SAYISAL_CONFIG: ExamTypeConfig = {
-  type: 'AYT',
-  name: 'AYT-SAY',
-  fullName: 'Alan Yeterlilik Testi - Sayısal',
-  description: 'YKS 2. oturum - Sayısal alan',
+export const AYT_SAY_CONFIG: ExamTypeConfig = {
+  id: 'ayt-say',
+  name: 'AYT Sayısal',
   totalQuestions: 80,
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [12],
-  duration: 180, // 3 saat
-  emoji: '🔬',
-  color: 'emerald',
+  wrongDivisor: 4,
+  duration: 180,
+  description: 'Sayısal alan • Mühendislik, Tıp, Fen',
   subjects: [
-    { code: 'AYT_MAT', name: 'Matematik', shortName: 'MAT', questionCount: 40, startQuestion: 1, endQuestion: 40, color: 'blue', emoji: '🔢' },
-    { code: 'AYT_FIZ', name: 'Fizik', shortName: 'FİZ', questionCount: 14, startQuestion: 41, endQuestion: 54, color: 'purple', emoji: '⚡' },
-    { code: 'AYT_KIM', name: 'Kimya', shortName: 'KİM', questionCount: 13, startQuestion: 55, endQuestion: 67, color: 'pink', emoji: '🧪' },
-    { code: 'AYT_BIY', name: 'Biyoloji', shortName: 'BİY', questionCount: 13, startQuestion: 68, endQuestion: 80, color: 'green', emoji: '🧬' }
+    { code: 'MAT', name: 'Matematik', questionCount: 40, coefficient: 3.00, color: '#EF4444' },
+    { code: 'FIZ', name: 'Fizik', questionCount: 14, coefficient: 2.85, color: '#3B82F6' },
+    { code: 'KIM', name: 'Kimya', questionCount: 13, coefficient: 3.07, color: '#10B981' },
+    { code: 'BIY', name: 'Biyoloji', questionCount: 13, coefficient: 3.07, color: '#14B8A6' },
   ]
 };
 
-// ==================== AYT (EŞİT AĞIRLIK) ====================
+// ==================== AYT EŞİT AĞIRLIK ŞABLONU ====================
 
 export const AYT_EA_CONFIG: ExamTypeConfig = {
-  type: 'AYT',
-  name: 'AYT-EA',
-  fullName: 'Alan Yeterlilik Testi - Eşit Ağırlık',
-  description: 'YKS 2. oturum - Eşit ağırlık alan',
+  id: 'ayt-ea',
+  name: 'AYT Eşit Ağırlık',
   totalQuestions: 80,
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [12],
+  wrongDivisor: 4,
   duration: 180,
-  emoji: '⚖️',
-  color: 'amber',
+  description: 'Eşit ağırlık • Hukuk, İktisat, İşletme',
   subjects: [
-    { code: 'AYT_MAT', name: 'Matematik', shortName: 'MAT', questionCount: 40, startQuestion: 1, endQuestion: 40, color: 'blue', emoji: '🔢' },
-    { code: 'AYT_EDEB', name: 'Edebiyat', shortName: 'EDB', questionCount: 24, startQuestion: 41, endQuestion: 64, color: 'red', emoji: '📜' },
-    { code: 'AYT_TAR1', name: 'Tarih-1', shortName: 'TAR', questionCount: 10, startQuestion: 65, endQuestion: 74, color: 'amber', emoji: '🏛️' },
-    { code: 'AYT_COG1', name: 'Coğrafya-1', shortName: 'COĞ', questionCount: 6, startQuestion: 75, endQuestion: 80, color: 'green', emoji: '🌍' }
+    { code: 'MAT', name: 'Matematik', questionCount: 40, coefficient: 3.00, color: '#EF4444' },
+    { code: 'EDE', name: 'Türk Dili ve Edebiyatı', questionCount: 24, coefficient: 3.00, color: '#3B82F6' },
+    { code: 'TAR1', name: 'Tarih-1', questionCount: 10, coefficient: 2.80, color: '#F59E0B' },
+    { code: 'COG1', name: 'Coğrafya-1', questionCount: 6, coefficient: 3.33, color: '#8B5CF6' },
   ]
 };
 
-// ==================== AYT (SÖZEL) ====================
+// ==================== AYT SÖZEL ŞABLONU ====================
 
-export const AYT_SOZEL_CONFIG: ExamTypeConfig = {
-  type: 'AYT',
-  name: 'AYT-SÖZ',
-  fullName: 'Alan Yeterlilik Testi - Sözel',
-  description: 'YKS 2. oturum - Sözel alan',
+export const AYT_SOZ_CONFIG: ExamTypeConfig = {
+  id: 'ayt-soz',
+  name: 'AYT Sözel',
   totalQuestions: 80,
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [12],
+  wrongDivisor: 4,
   duration: 180,
-  emoji: '📚',
-  color: 'rose',
+  description: 'Sözel alan • Edebiyat, Tarih, Hukuk',
   subjects: [
-    { code: 'AYT_EDEB', name: 'Edebiyat', shortName: 'EDB', questionCount: 24, startQuestion: 1, endQuestion: 24, color: 'red', emoji: '📜' },
-    { code: 'AYT_TAR1', name: 'Tarih-1', shortName: 'TAR', questionCount: 10, startQuestion: 25, endQuestion: 34, color: 'amber', emoji: '🏛️' },
-    { code: 'AYT_COG1', name: 'Coğrafya-1', shortName: 'COĞ', questionCount: 6, startQuestion: 35, endQuestion: 40, color: 'green', emoji: '🌍' },
-    { code: 'AYT_TAR2', name: 'Tarih-2', shortName: 'TAR2', questionCount: 11, startQuestion: 41, endQuestion: 51, color: 'orange', emoji: '📜' },
-    { code: 'AYT_COG2', name: 'Coğrafya-2', shortName: 'COĞ2', questionCount: 11, startQuestion: 52, endQuestion: 62, color: 'teal', emoji: '🗺️' },
-    { code: 'AYT_FEL', name: 'Felsefe', shortName: 'FEL', questionCount: 12, startQuestion: 63, endQuestion: 74, color: 'purple', emoji: '🤔' },
-    { code: 'AYT_DIN', name: 'Din Kültürü', shortName: 'DİN', questionCount: 6, startQuestion: 75, endQuestion: 80, color: 'indigo', emoji: '📖' }
+    { code: 'EDE', name: 'Türk Dili ve Edebiyatı', questionCount: 24, coefficient: 3.00, color: '#3B82F6' },
+    { code: 'TAR1', name: 'Tarih-1', questionCount: 10, coefficient: 2.80, color: '#F59E0B' },
+    { code: 'COG1', name: 'Coğrafya-1', questionCount: 6, coefficient: 3.33, color: '#8B5CF6' },
+    { code: 'TAR2', name: 'Tarih-2', questionCount: 11, coefficient: 2.91, color: '#EC4899' },
+    { code: 'COG2', name: 'Coğrafya-2', questionCount: 11, coefficient: 2.91, color: '#6366F1' },
+    { code: 'FEL', name: 'Felsefe Grubu', questionCount: 12, coefficient: 3.00, color: '#14B8A6' },
+    { code: 'DIN', name: 'Din Kültürü', questionCount: 6, coefficient: 3.33, color: '#22C55E' },
   ]
 };
 
-// ==================== DENEME SINAVI ====================
+// ==================== GENEL DENEME ŞABLONU ====================
 
 export const DENEME_CONFIG: ExamTypeConfig = {
-  type: 'DENEME',
-  name: 'Deneme',
-  fullName: 'Deneme Sınavı',
-  description: 'Kurum içi deneme sınavı',
-  totalQuestions: 0, // Özelleştirilebilir
-  bookletTypes: ['A', 'B', 'C', 'D'],
-  gradeLevel: [5, 6, 7, 8, 9, 10, 11, 12],
-  duration: 120,
-  emoji: '📋',
-  color: 'slate',
-  subjects: [] // Özelleştirilebilir
+  id: 'deneme',
+  name: 'Genel Deneme',
+  totalQuestions: 0, // Manuel belirlenir
+  wrongDivisor: 4,
+  duration: 0,
+  description: 'Özel deneme sınavı • Manuel ayar',
+  subjects: []
 };
 
-// ==================== OKUL SINAVI ====================
+// ==================== TÜM ŞABLONLAR ====================
 
-export const OKUL_CONFIG: ExamTypeConfig = {
-  type: 'OKUL',
-  name: 'Okul',
-  fullName: 'Okul Sınavı',
-  description: 'Tek derslik okul sınavı',
-  totalQuestions: 0, // Özelleştirilebilir
-  bookletTypes: ['A', 'B'],
-  gradeLevel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-  duration: 40,
-  emoji: '🏫',
-  color: 'gray',
-  subjects: [] // Özelleştirilebilir
-};
+export const ALL_EXAM_CONFIGS: ExamTypeConfig[] = [
+  LGS_CONFIG,
+  TYT_CONFIG,
+  AYT_SAY_CONFIG,
+  AYT_EA_CONFIG,
+  AYT_SOZ_CONFIG,
+  DENEME_CONFIG
+];
 
-// ==================== ALL CONFIGS ====================
-
-export const ALL_EXAM_CONFIGS: Record<string, ExamTypeConfig> = {
-  'LGS': LGS_CONFIG,
-  'TYT': TYT_CONFIG,
-  'AYT-SAY': AYT_SAYISAL_CONFIG,
-  'AYT-EA': AYT_EA_CONFIG,
-  'AYT-SOZ': AYT_SOZEL_CONFIG,
-  'DENEME': DENEME_CONFIG,
-  'OKUL': OKUL_CONFIG
-};
-
-// ==================== HELPER FUNCTIONS ====================
+// ==================== YARDIMCI FONKSİYONLAR ====================
 
 /**
- * Soru sayısına göre sınav türü tahmin et
+ * Net hesaplama
+ * LGS: Net = Doğru - (Yanlış / 3)
+ * YKS: Net = Doğru - (Yanlış / 4)
  */
-export function detectExamType(questionCount: number): ExamTypeConfig | null {
-  if (questionCount === 90) return LGS_CONFIG;
-  if (questionCount === 120) return TYT_CONFIG;
-  if (questionCount === 80) return AYT_SAYISAL_CONFIG; // veya EA/Sözel
-  if (questionCount >= 10 && questionCount <= 50) return OKUL_CONFIG;
-  return DENEME_CONFIG;
+export function calculateNet(correct: number, wrong: number, wrongDivisor: number): number {
+  const net = correct - (wrong / wrongDivisor);
+  return Math.round(net * 100) / 100;
 }
 
 /**
- * Cevap stringini derslere göre böl
+ * Ağırlıklı puan hesaplama
  */
-export function splitAnswersBySubjects(
-  answers: string, 
-  config: ExamTypeConfig
-): Record<SubjectCode, string> {
-  const result: Record<string, string> = {};
+export function calculateWeightedScore(
+  subjectNets: Record<string, number>,
+  subjects: SubjectConfig[]
+): number {
+  let totalScore = 0;
   
-  for (const subject of config.subjects) {
-    const start = subject.startQuestion - 1;
-    const end = subject.endQuestion;
-    result[subject.code] = answers.substring(start, end);
-  }
+  subjects.forEach(subject => {
+    const net = subjectNets[subject.code] || 0;
+    totalScore += net * subject.coefficient;
+  });
   
-  return result as Record<SubjectCode, string>;
+  return Math.round(totalScore * 100) / 100;
 }
 
 /**
- * Ders kodundan ders adı al
+ * Sınav türünü ID ile bul
  */
-export function getSubjectName(code: SubjectCode): string {
-  const allSubjects = [
-    ...LGS_CONFIG.subjects,
-    ...TYT_CONFIG.subjects,
-    ...AYT_SAYISAL_CONFIG.subjects,
-    ...AYT_EA_CONFIG.subjects,
-    ...AYT_SOZEL_CONFIG.subjects
-  ];
-  
-  const subject = allSubjects.find(s => s.code === code);
-  return subject?.name || code;
+export function getExamConfigById(id: string): ExamTypeConfig | undefined {
+  return ALL_EXAM_CONFIGS.find(config => config.id === id);
 }
 
 /**
- * Sınıf seviyesine göre uygun sınav türlerini getir
+ * Ders başlangıç pozisyonlarını hesapla
  */
-export function getExamTypesForGrade(grade: number): ExamTypeConfig[] {
-  return Object.values(ALL_EXAM_CONFIGS).filter(config => 
-    config.gradeLevel.includes(grade)
-  );
+export function calculateSubjectStartPositions(subjects: SubjectConfig[]): { code: string; start: number; end: number }[] {
+  let currentStart = 1;
+  
+  return subjects.map(subject => {
+    const result = {
+      code: subject.code,
+      start: currentStart,
+      end: currentStart + subject.questionCount - 1
+    };
+    currentStart += subject.questionCount;
+    return result;
+  });
 }
-
