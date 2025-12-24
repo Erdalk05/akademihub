@@ -41,7 +41,7 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] p-4 md:p-5 mb-4 shadow-xl">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] p-5 md:p-7 mb-4 shadow-xl">
       {/* Animated background */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse" />
@@ -50,7 +50,7 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
       {/* Content */}
       <div className="relative z-10">
         {/* Header - Mobilde dikey, Desktop'ta yatay */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <p className="text-white/80 text-xs">Hoş geldiniz,</p>
@@ -61,10 +61,10 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
                 </span>
               )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">
               {displayName}! 👋
             </h1>
-            <p className="text-white/70 text-xs sm:text-sm">
+            <p className="text-white/70 text-sm sm:text-base mt-1">
               {organizationName} - Yönetim sistemi ile işlemler kolaylaştırıldı
             </p>
           </div>
@@ -86,77 +86,77 @@ export default function HeroBanner({ userName, onAIReport, stats, isAllOrganizat
 
         {/* Quick Stats - Mobilde 2x3, Desktop'ta 6x1 */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 md:gap-4">
             {/* Toplam Eğitim */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#075E54]" />
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px] leading-tight">Toplam Eğitim</span>
+                <span className="text-white/80 text-[10px] md:text-xs leading-tight">Toplam Eğitim</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white truncate">{formatCurrency(stats.totalContract || 0)}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Eğitim sözleşmeleri</p>
+              <p className="text-base md:text-lg font-bold text-white truncate">{formatCurrency(stats.totalContract || 0)}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Eğitim sözleşmeleri</p>
             </div>
 
             {/* Satışlar */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5 text-purple-700" />
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-700" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px]">Satışlar</span>
+                <span className="text-white/80 text-[10px] md:text-xs">Satışlar</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white truncate">{formatCurrency(stats.totalSales || 0)}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Kitap, yemek vb.</p>
+              <p className="text-base md:text-lg font-bold text-white truncate">{formatCurrency(stats.totalSales || 0)}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Kitap, yemek vb.</p>
             </div>
 
-            {/* 💰 Kasa - YENİ */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Wallet className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-700" />
+            {/* 💰 Kasa */}
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Wallet className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-700" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px]">Kasa</span>
+                <span className="text-white/80 text-[10px] md:text-xs">Kasa</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white truncate">{formatCurrency(stats.cashBalance || 0)}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Mevcut bakiye</p>
+              <p className="text-base md:text-lg font-bold text-white truncate">{formatCurrency(stats.cashBalance || 0)}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Mevcut bakiye</p>
             </div>
 
-            {/* 📅 Günlük Gelir - YENİ */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CalendarCheck className="w-3 h-3 md:w-3.5 md:h-3.5 text-blue-700" />
+            {/* 📅 Günlük Gelir */}
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CalendarCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-700" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px]">Günlük Gelir</span>
+                <span className="text-white/80 text-[10px] md:text-xs">Günlük Gelir</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white truncate">{formatCurrency(stats.dailyIncome || 0)}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Bugünkü tahsilat</p>
+              <p className="text-base md:text-lg font-bold text-white truncate">{formatCurrency(stats.dailyIncome || 0)}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Bugünkü tahsilat</p>
             </div>
 
             {/* Aktif Öğrenci */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#075E54]" />
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px] leading-tight">Aktif Öğrenci</span>
+                <span className="text-white/80 text-[10px] md:text-xs leading-tight">Aktif Öğrenci</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white">{stats.activeStudents}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Kayıtlı öğrenci</p>
+              <p className="text-base md:text-lg font-bold text-white">{stats.activeStudents}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Kayıtlı öğrenci</p>
             </div>
 
             {/* Ödeme Oranı */}
-            <div className="bg-white/15 rounded-xl p-2.5 md:p-3 backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <div className="w-6 h-6 md:w-7 md:h-7 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#075E54]" />
+            <div className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-[#DCF8C6] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#075E54]" />
                 </div>
-                <span className="text-white/80 text-[10px] md:text-[11px] leading-tight">Ödeme Oranı</span>
+                <span className="text-white/80 text-[10px] md:text-xs leading-tight">Ödeme Oranı</span>
               </div>
-              <p className="text-sm md:text-base font-bold text-white">%{stats.paymentRate.toFixed(1)}</p>
-              <p className="text-white/50 text-[8px] md:text-[9px]">Gerçek oran</p>
+              <p className="text-base md:text-lg font-bold text-white">%{stats.paymentRate.toFixed(1)}</p>
+              <p className="text-white/50 text-[9px] md:text-[10px]">Gerçek oran</p>
             </div>
           </div>
         )}
