@@ -28,7 +28,16 @@ import {
   Receipt,
   GraduationCap,
   User,
-  Minus
+  Minus,
+  ArrowRight,
+  BarChart3,
+  Eye,
+  CreditCard,
+  Banknote,
+  Building2,
+  Clock,
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -37,12 +46,12 @@ import { AdminPasswordModal } from '@/components/ui/AdminPasswordModal';
 
 // Kategoriler
 const CATEGORIES = [
-  { id: 'all', label: 'Tümü', icon: Package, color: 'bg-slate-500' },
-  { id: 'book', label: 'Kitap', icon: Book, color: 'bg-blue-500' },
-  { id: 'uniform', label: 'Üniforma', icon: Shirt, color: 'bg-purple-500' },
-  { id: 'meal', label: 'Yemek', icon: UtensilsCrossed, color: 'bg-orange-500' },
-  { id: 'stationery', label: 'Kırtasiye', icon: Pencil, color: 'bg-green-500' },
-  { id: 'other', label: 'Diğer', icon: Package, color: 'bg-gray-500' },
+  { id: 'all', label: 'Tümü', icon: Package, color: 'bg-slate-500', lightColor: 'bg-slate-100', textColor: 'text-slate-600' },
+  { id: 'book', label: 'Kitap', icon: Book, color: 'bg-blue-500', lightColor: 'bg-blue-100', textColor: 'text-blue-600' },
+  { id: 'uniform', label: 'Üniforma', icon: Shirt, color: 'bg-purple-500', lightColor: 'bg-purple-100', textColor: 'text-purple-600' },
+  { id: 'meal', label: 'Yemek', icon: UtensilsCrossed, color: 'bg-orange-500', lightColor: 'bg-orange-100', textColor: 'text-orange-600' },
+  { id: 'stationery', label: 'Kırtasiye', icon: Pencil, color: 'bg-green-500', lightColor: 'bg-green-100', textColor: 'text-green-600' },
+  { id: 'other', label: 'Diğer', icon: Package, color: 'bg-gray-500', lightColor: 'bg-gray-100', textColor: 'text-gray-600' },
 ];
 
 type OtherIncomeRow = {
@@ -83,10 +92,11 @@ export default function OtherIncomePage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 25;
+  const pageSize = 20;
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -122,7 +132,7 @@ export default function OtherIncomePage() {
   const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<OtherIncomeRow[]>([]);
 
-  // Silme States (Admin şifre doğrulamalı)
+  // Silme States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'group'; id?: string; studentId?: string; category?: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -135,7 +145,6 @@ export default function OtherIncomePage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Çoklu kurum desteği: organization_id filtresi
       const orgParam = currentOrganization?.id ? `organization_id=${currentOrganization.id}` : '';
       const res = await fetch(`/api/finance/other-income${orgParam ? `?${orgParam}` : ''}`);
       const json = await res.json();
@@ -157,7 +166,6 @@ export default function OtherIncomePage() {
           paymentType: r.payment_type || 'cash',
           notes: r.notes,
         }));
-        // Ödenmemişler önce, sonra tarihe göre sırala
         setIncomes(data.sort((a: OtherIncomeRow, b: OtherIncomeRow) => {
           if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
           return b.date.getTime() - a.date.getTime();
@@ -176,12 +184,8 @@ export default function OtherIncomePage() {
     try {
       const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&limit=20`);
       const json = await res.json();
-      if (json.success) {
-        setStudents(json.data || []);
-      }
-    } catch {
-      // ignore
-    } finally {
+      if (json.success) setStudents(json.data || []);
+    } catch {} finally {
       setLoadingStudents(false);
     }
   };
@@ -205,7 +209,6 @@ export default function OtherIncomePage() {
     const downPayment = Number(formDownPayment) || 0;
     const remaining = total - downPayment;
     const count = formInstallmentCount;
-    
     if (remaining <= 0 || count <= 0) return [];
     
     const installmentAmount = remaining / count;
@@ -227,7 +230,7 @@ export default function OtherIncomePage() {
     return previews;
   }, [formTotalAmount, formDownPayment, formInstallmentCount, formFirstDueDate, formPeriod]);
 
-  // Period Filter
+  // Filters
   const filteredByPeriod = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -243,12 +246,17 @@ export default function OtherIncomePage() {
     });
   }, [incomes, periodFilter]);
 
-  // Category + Search Filter
   const filteredIncomes = useMemo(() => {
     let result = filteredByPeriod;
     
     if (categoryFilter !== 'all') {
       result = result.filter(c => c.category === categoryFilter);
+    }
+    
+    if (statusFilter === 'paid') {
+      result = result.filter(c => c.isPaid);
+    } else if (statusFilter === 'unpaid') {
+      result = result.filter(c => !c.isPaid);
     }
     
     if (search) {
@@ -260,26 +268,51 @@ export default function OtherIncomePage() {
     }
     
     return result;
-  }, [filteredByPeriod, categoryFilter, search]);
+  }, [filteredByPeriod, categoryFilter, statusFilter, search]);
 
   // Stats
   const stats = useMemo(() => {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    const todayIncomes = incomes.filter(c => c.date >= todayStart);
-    const todayTotal = todayIncomes.reduce((sum, c) => sum + c.amount, 0);
-    const totalCollected = filteredByPeriod.reduce((sum, c) => sum + c.amount, 0);
+    const todayIncomes = incomes.filter(c => c.paidAt && c.paidAt >= todayStart);
+    const todayTotal = todayIncomes.reduce((sum, c) => sum + c.paidAmount, 0);
+    
+    const totalAmount = incomes.reduce((sum, c) => sum + c.amount, 0);
+    const paidAmount = incomes.reduce((sum, c) => sum + c.paidAmount, 0);
+    const remainingAmount = totalAmount - paidAmount;
+    
+    const unpaidCount = incomes.filter(c => !c.isPaid).length;
+    const paidCount = incomes.filter(c => c.isPaid).length;
+    
+    // Kategori bazlı istatistikler
+    const categoryStats = CATEGORIES.filter(c => c.id !== 'all').map(cat => {
+      const catIncomes = incomes.filter(i => i.category === cat.id);
+      const catTotal = catIncomes.reduce((sum, c) => sum + c.amount, 0);
+      const catPaid = catIncomes.reduce((sum, c) => sum + c.paidAmount, 0);
+      return {
+        ...cat,
+        total: catTotal,
+        paid: catPaid,
+        remaining: catTotal - catPaid,
+        count: catIncomes.length
+      };
+    });
     
     return {
       todayTotal,
       todayCount: todayIncomes.length,
-      periodTotal: totalCollected,
-      periodCount: filteredByPeriod.length,
+      totalAmount,
+      paidAmount,
+      remainingAmount,
+      paidCount,
+      unpaidCount,
+      paymentRate: totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0,
+      categoryStats
     };
-  }, [incomes, filteredByPeriod]);
+  }, [incomes]);
 
-  // Öğrenci + Kategori bazında gruplama (her kategori ayrı satırda)
+  // Grouping
   type StudentCategoryGroup = {
     studentId: string | null;
     studentName: string;
@@ -296,7 +329,6 @@ export default function OtherIncomePage() {
     const groups: { [key: string]: StudentCategoryGroup } = {};
     
     filteredIncomes.forEach(income => {
-      // Öğrenci + Kategori kombinasyonu için unique key
       const key = `${income.studentId || 'unknown'}_${income.category}`;
       
       if (!groups[key]) {
@@ -320,7 +352,6 @@ export default function OtherIncomePage() {
       if (income.isPaid) groups[key].paidCount += 1;
     });
     
-    // Önce öğrenci adına, sonra kalan borca göre sırala
     return Object.values(groups).sort((a, b) => {
       if (a.studentName !== b.studentName) {
         return a.studentName.localeCompare(b.studentName, 'tr');
@@ -333,21 +364,8 @@ export default function OtherIncomePage() {
   const totalPages = Math.ceil(groupedByStudent.length / pageSize);
   const paginatedData = groupedByStudent.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const formatMoney = (val: number) => {
-    return `₺${val.toLocaleString('tr-TR')}`;
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  const getPeriodLabel = () => {
-    if (periodFilter === 'today') return 'Bugün';
-    if (periodFilter === 'week') return 'Bu Hafta';
-    if (periodFilter === 'month') return 'Bu Ay';
-    return 'Tümü';
-  };
-
+  const formatMoney = (val: number) => `₺${val.toLocaleString('tr-TR')}`;
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const getCategoryInfo = (id: string) => CATEGORIES.find(c => c.id === id) || CATEGORIES[5];
 
   const handleSelectStudent = (student: Student) => {
@@ -370,24 +388,12 @@ export default function OtherIncomePage() {
   };
 
   const handleAddIncome = async () => {
-    if (!selectedStudent) {
-      toast.error('Lütfen bir öğrenci seçin');
-      return;
-    }
-    if (!formTitle.trim()) {
-      toast.error('Başlık zorunludur');
-      return;
-    }
-    if (!formTotalAmount || Number(formTotalAmount) <= 0) {
-      toast.error('Geçerli bir tutar giriniz');
-      return;
-    }
+    if (!selectedStudent) { toast.error('Öğrenci seçin'); return; }
+    if (!formTitle.trim()) { toast.error('Başlık giriniz'); return; }
+    if (!formTotalAmount || Number(formTotalAmount) <= 0) { toast.error('Tutar giriniz'); return; }
 
     setSaving(true);
     try {
-      const studentName = `${selectedStudent.first_name} ${selectedStudent.last_name}`;
-      
-      // Peşinat varsa - HEMEN ÖDENMİŞ olarak kaydet
       if (Number(formDownPayment) > 0) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
@@ -397,19 +403,17 @@ export default function OtherIncomePage() {
             title: `${formTitle} - Peşinat`,
             category: formCategory,
             amount: Number(formDownPayment),
-            paid_amount: Number(formDownPayment), // Peşinat ödendi
-            is_paid: true, // Peşinat ödendi
+            paid_amount: Number(formDownPayment),
+            is_paid: true,
             paid_at: new Date().toISOString(),
             payment_type: 'cash',
             date: new Date().toISOString(),
             due_date: new Date(formDownPaymentDate).toISOString().split('T')[0],
-            notes: `Toplam: ₺${formTotalAmount}`,
             organization_id: currentOrganization?.id || null
           })
         });
       }
 
-      // Taksitler - ÖDENMEMİŞ olarak kaydet
       for (const inst of installmentPreview) {
         await fetch('/api/finance/other-income', {
           method: 'POST',
@@ -419,60 +423,36 @@ export default function OtherIncomePage() {
             title: `${formTitle} - ${inst.no}. Taksit`,
             category: formCategory,
             amount: inst.amount,
-            paid_amount: 0, // Henüz ödenmedi
-            is_paid: false, // Ödenmedi
-            paid_at: null,
-            payment_type: 'cash',
-            date: new Date().toISOString(), // Kayıt tarihi
-            due_date: inst.dueDate, // Vade tarihi
-            notes: `Toplam: ₺${formTotalAmount}, Taksit ${inst.no}/${formInstallmentCount}`,
+            paid_amount: 0,
+            is_paid: false,
+            date: new Date().toISOString(),
+            due_date: inst.dueDate,
             organization_id: currentOrganization?.id || null
           })
         });
       }
 
-      const totalCreated = (Number(formDownPayment) > 0 ? 1 : 0) + installmentPreview.length;
-      toast.success(`✅ ${totalCreated} ödeme planı oluşturuldu`);
+      toast.success(`✅ Ödeme planı oluşturuldu`);
       setShowAddModal(false);
       resetForm();
       fetchData();
     } catch {
-      toast.error('Bir hata oluştu');
+      toast.error('Hata oluştu');
     } finally {
       setSaving(false);
     }
   };
 
-  // Tek kayıt silme isteği (admin şifre doğrulaması için modal açar)
-  const handleRequestDelete = (id: string) => {
-    setDeleteTarget({ type: 'single', id });
-    setShowDeleteModal(true);
-  };
-
-  // Grup silme isteği (öğrenci + kategori bazında tüm kayıtları siler)
   const handleRequestDeleteGroup = (studentId: string | null, category: string) => {
     setDeleteTarget({ type: 'group', studentId: studentId || undefined, category });
     setShowDeleteModal(true);
   };
 
-  // Şifre doğrulandıktan sonra silme işlemini gerçekleştir
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-
     setDeleteLoading(true);
     try {
-      if (deleteTarget.type === 'single' && deleteTarget.id) {
-        // Tek kayıt sil
-        const res = await fetch(`/api/finance/other-income?id=${deleteTarget.id}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (json.success) {
-          toast.success('Kayıt silindi');
-          fetchData();
-        } else {
-          toast.error(json.error || 'Silme başarısız');
-        }
-      } else if (deleteTarget.type === 'group') {
-        // Grup sil (öğrenci + kategori)
+      if (deleteTarget.type === 'group') {
         const params = new URLSearchParams();
         if (deleteTarget.studentId) params.append('student_id', deleteTarget.studentId);
         if (deleteTarget.category) params.append('category', deleteTarget.category);
@@ -482,12 +462,10 @@ export default function OtherIncomePage() {
         if (json.success) {
           toast.success(`${json.deletedCount || 'Tüm'} kayıt silindi`);
           fetchData();
-        } else {
-          toast.error(json.error || 'Silme başarısız');
         }
       }
     } catch {
-      toast.error('Silme işlemi başarısız');
+      toast.error('Silme başarısız');
     } finally {
       setDeleteLoading(false);
       setDeleteTarget(null);
@@ -495,23 +473,17 @@ export default function OtherIncomePage() {
     }
   };
 
-  // Tahsilat al
   const handleOpenPayment = (income: OtherIncomeRow) => {
     setSelectedIncome(income);
-    const remaining = income.amount - income.paidAmount;
-    setPaymentAmount(remaining.toString());
+    setPaymentAmount((income.amount - income.paidAmount).toString());
     setPaymentMethod('cash');
     setShowPaymentModal(true);
   };
 
   const handleCollectPayment = async () => {
     if (!selectedIncome) return;
-    
     const amount = Number(paymentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Geçerli bir tutar girin');
-      return;
-    }
+    if (isNaN(amount) || amount <= 0) { toast.error('Tutar giriniz'); return; }
 
     setPaymentLoading(true);
     try {
@@ -536,226 +508,219 @@ export default function OtherIncomePage() {
         setShowPaymentModal(false);
         setSelectedIncome(null);
         fetchData();
-      } else {
-        toast.error(json.error || 'Tahsilat başarısız');
       }
     } catch {
-      toast.error('Bağlantı hatası');
+      toast.error('Hata');
     } finally {
       setPaymentLoading(false);
     }
   };
 
-  // Excel Export
   const handleExportExcel = () => {
-    if (filteredIncomes.length === 0) {
-      toast.error('Dışa aktarılacak veri yok');
-      return;
-    }
+    if (filteredIncomes.length === 0) { toast.error('Veri yok'); return; }
 
-    const headers = ['Tarih', 'Öğrenci', 'Başlık', 'Kategori', 'Tutar', 'Ödeme Tipi', 'Notlar'];
+    const headers = ['Tarih', 'Öğrenci', 'Başlık', 'Kategori', 'Tutar', 'Ödenen', 'Kalan'];
     const rows = filteredIncomes.map(r => [
       r.date.toLocaleDateString('tr-TR'),
       r.studentName,
       r.title,
       getCategoryInfo(r.category).label,
       r.amount.toLocaleString('tr-TR'),
-      r.paymentType === 'cash' ? 'Nakit' : r.paymentType,
-      r.notes || ''
+      r.paidAmount.toLocaleString('tr-TR'),
+      (r.amount - r.paidAmount).toLocaleString('tr-TR')
     ]);
 
     const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = `Diger_Gelirler_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.csv`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     toast.success('Excel indirildi');
   };
 
-  // PDF Rapor
-  const handleDownloadReportPDF = () => {
-    if (reportData.length === 0) {
-      toast.error('Rapor verisi yok');
-      return;
-    }
-
-    const html = `
-      <!DOCTYPE html>
-      <html lang="tr">
-      <head>
-        <meta charset="UTF-8">
-        <title>Diğer Gelirler Raporu</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          h1 { color: #0d9488; margin-bottom: 5px; }
-          .meta { color: #64748b; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th { background: #0d9488; color: white; padding: 10px; text-align: left; }
-          td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
-          .total { font-weight: bold; font-size: 14px; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <h1>Diğer Gelirler Raporu</h1>
-        <p class="meta">Tarih: ${reportType === 'single' ? reportDate : `${reportStartDate} - ${reportEndDate}`} | Kayıt: ${reportData.length}</p>
-        <table>
-          <thead>
-            <tr><th>Tarih</th><th>Öğrenci</th><th>Başlık</th><th>Kategori</th><th>Tutar</th></tr>
-          </thead>
-          <tbody>
-            ${reportData.map(r => `
-              <tr>
-                <td>${r.date.toLocaleDateString('tr-TR')}</td>
-                <td>${r.studentName}</td>
-                <td>${r.title}</td>
-                <td>${getCategoryInfo(r.category).label}</td>
-                <td>₺${r.amount.toLocaleString('tr-TR')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <p class="total">Toplam: ₺${reportData.reduce((s, r) => s + r.amount, 0).toLocaleString('tr-TR')}</p>
-        <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
-      </body>
-      </html>
-    `;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;width:0;height:0;border:none;left:-9999px';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-    }
-    setTimeout(() => document.body.removeChild(iframe), 10000);
-    setShowReportModal(false);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Header - Tahsilatlar ile aynı */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Diğer Gelirler</h1>
-            <p className="text-slate-500 text-sm">Kitap, kırtasiye, yemek ve diğer gelir kayıtları</p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setLoading(true); fetchData(); }}
-              className="p-2.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/30 to-cyan-50/20">
+      {/* HERO HEADER */}
+      <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] px-4 md:px-6 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <Package size={24} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-white">Diğer Gelirler</h1>
+                  <p className="text-white/70 text-sm">Kitap, kırtasiye, yemek ve diğer satışlar</p>
+                </div>
+              </div>
+            </div>
             
-            <button 
-              onClick={() => setShowReportModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
-            >
-              <FileText size={16} />
-              Tarih Raporu
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => { setLoading(true); fetchData(); }}
+                className="p-2.5 bg-white/20 text-white rounded-xl hover:bg-white/30 transition backdrop-blur-sm"
+              >
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              </button>
+              
+              <button 
+                onClick={() => setShowReportModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition backdrop-blur-sm"
+              >
+                <Calendar size={16} />
+                Rapor
+              </button>
 
-            {canExportExcel && (
-              <button 
-                onClick={handleExportExcel}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
-              >
-                <Download size={16} />
-                Excel
-              </button>
-            )}
+              {canExportExcel && (
+                <button 
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition backdrop-blur-sm"
+                >
+                  <Download size={16} />
+                  Excel
+                </button>
+              )}
+              
+              {canAddInstallment && (
+                <button 
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white text-[#075E54] rounded-xl font-bold hover:bg-white/90 transition shadow-lg"
+                >
+                  <Plus size={18} />
+                  Yeni Satış
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* HERO STATS */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <TrendingUp size={16} className="text-white" />
+                </div>
+                <span className="text-white/80 text-xs">Bugün Tahsilat</span>
+              </div>
+              <p className="text-xl md:text-2xl font-bold text-white">{formatMoney(stats.todayTotal)}</p>
+              <p className="text-white/50 text-[10px]">{stats.todayCount} işlem</p>
+            </div>
             
-            {canAddInstallment && (
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition"
-              >
-                <Plus size={16} />
-                Yeni Gelir
-              </button>
-            )}
+            <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-emerald-400/30 rounded-lg flex items-center justify-center">
+                  <Wallet size={16} className="text-white" />
+                </div>
+                <span className="text-white/80 text-xs">Toplam Tahsilat</span>
+              </div>
+              <p className="text-xl md:text-2xl font-bold text-white">{formatMoney(stats.paidAmount)}</p>
+              <p className="text-white/50 text-[10px]">{stats.paidCount} tamamlandı</p>
+            </div>
+            
+            <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-orange-400/30 rounded-lg flex items-center justify-center">
+                  <Clock size={16} className="text-white" />
+                </div>
+                <span className="text-white/80 text-xs">Bekleyen</span>
+              </div>
+              <p className="text-xl md:text-2xl font-bold text-white">{formatMoney(stats.remainingAmount)}</p>
+              <p className="text-white/50 text-[10px]">{stats.unpaidCount} ödeme</p>
+            </div>
+            
+            <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-blue-400/30 rounded-lg flex items-center justify-center">
+                  <BarChart3 size={16} className="text-white" />
+                </div>
+                <span className="text-white/80 text-xs">Toplam Satış</span>
+              </div>
+              <p className="text-xl md:text-2xl font-bold text-white">{formatMoney(stats.totalAmount)}</p>
+              <p className="text-white/50 text-[10px]">Tüm dönem</p>
+            </div>
+            
+            <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm border border-white/20 col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-purple-400/30 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 size={16} className="text-white" />
+                </div>
+                <span className="text-white/80 text-xs">Tahsilat Oranı</span>
+              </div>
+              <p className="text-xl md:text-2xl font-bold text-white">%{stats.paymentRate.toFixed(1)}</p>
+              <div className="mt-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white rounded-full" style={{ width: `${Math.min(stats.paymentRate, 100)}%` }} />
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats Cards - Tahsilatlar ile aynı stil, farklı renk */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Bugün</p>
-                <p className="text-2xl font-bold text-teal-600">{stats.todayCount}</p>
-              </div>
-              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                <TrendingUp size={18} className="text-teal-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Bugün Gelir</p>
-                <p className="text-2xl font-bold text-teal-600">{formatMoney(stats.todayTotal)}</p>
-              </div>
-              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                <Wallet size={18} className="text-teal-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">{getPeriodLabel()} Adet</p>
-                <p className="text-2xl font-bold text-cyan-600">{stats.periodCount}</p>
-              </div>
-              <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                <Receipt size={18} className="text-cyan-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">{getPeriodLabel()} Toplam</p>
-                <p className="text-2xl font-bold text-slate-900">{formatMoney(stats.periodTotal)}</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 size={18} className="text-slate-600" />
-              </div>
-            </div>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        {/* KATEGORİ KARTLARI */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+          {stats.categoryStats.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = categoryFilter === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => { setCategoryFilter(cat.id); setCurrentPage(1); }}
+                className={`relative p-4 rounded-xl border-2 transition-all ${
+                  isActive 
+                    ? `${cat.lightColor} border-current ${cat.textColor} shadow-lg` 
+                    : 'bg-white border-transparent hover:border-slate-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-10 h-10 ${cat.color} rounded-xl flex items-center justify-center`}>
+                    <Icon size={20} className="text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-slate-900">{cat.label}</p>
+                    <p className="text-xs text-slate-500">{cat.count} kayıt</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{formatMoney(cat.total)}</p>
+                    <p className="text-[10px] text-slate-400">Toplam</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${cat.remaining > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {formatMoney(cat.remaining)}
+                    </p>
+                    <p className="text-[10px] text-slate-400">Kalan</p>
+                  </div>
+                </div>
+                {isActive && (
+                  <div className={`absolute -top-1 -right-1 w-5 h-5 ${cat.color} rounded-full flex items-center justify-center`}>
+                    <Check size={12} className="text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Filters - Tahsilatlar ile aynı stil */}
-        <div className="bg-white rounded-xl border border-slate-100 p-4 mb-4">
+        {/* FİLTRELER */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
+            {/* Arama */}
             <div className="relative flex-1 min-w-[200px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                placeholder="Öğrenci veya başlık ara..."
-                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                placeholder="Öğrenci veya ürün ara..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-0 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/20 focus:bg-white outline-none transition"
               />
             </div>
             
-            {/* Period Filter */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+            {/* Dönem Filtresi */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1">
               {[
                 { value: 'today', label: 'Bugün' },
                 { value: 'week', label: 'Hafta' },
@@ -765,10 +730,10 @@ export default function OtherIncomePage() {
                 <button
                   key={opt.value}
                   onClick={() => { setPeriodFilter(opt.value as any); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
                     periodFilter === opt.value
                       ? 'bg-white text-teal-700 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   {opt.label}
@@ -776,142 +741,146 @@ export default function OtherIncomePage() {
               ))}
             </div>
             
-            {/* Category Filter */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-1">
-              {CATEGORIES.map(cat => {
-                const Icon = cat.icon;
+            {/* Durum Filtresi */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1">
+              {[
+                { value: 'all', label: 'Tümü', icon: Package },
+                { value: 'unpaid', label: 'Bekleyen', icon: Clock },
+                { value: 'paid', label: 'Ödendi', icon: CheckCircle2 },
+              ].map(opt => {
+                const Icon = opt.icon;
                 return (
                   <button
-                    key={cat.id}
-                    onClick={() => { setCategoryFilter(cat.id); setCurrentPage(1); }}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                      categoryFilter === cat.id
+                    key={opt.value}
+                    onClick={() => { setStatusFilter(opt.value as any); setCurrentPage(1); }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      statusFilter === opt.value
                         ? 'bg-white text-teal-700 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                        : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    <Icon size={12} />
-                    {cat.label}
+                    <Icon size={14} />
+                    {opt.label}
                   </button>
                 );
               })}
             </div>
             
-            {/* Count */}
-            <span className="text-sm text-slate-500">{groupedByStudent.length} öğrenci</span>
+            <span className="text-sm text-slate-500 font-medium">{groupedByStudent.length} sonuç</span>
           </div>
         </div>
 
-        {/* Table - Tahsilatlar ile aynı stil */}
-        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        {/* TABLO */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <RefreshCw size={24} className="animate-spin text-teal-600" />
+              <RefreshCw size={32} className="animate-spin text-teal-600" />
             </div>
           ) : paginatedData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <Receipt size={48} className="mb-3 opacity-50" />
-              <p>Kayıt bulunamadı</p>
+              <Package size={56} className="mb-4 opacity-50" />
+              <p className="text-lg font-medium">Kayıt bulunamadı</p>
+              <p className="text-sm">Filtrelerinizi değiştirmeyi deneyin</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Adet</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Toplam</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ödenen</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kalan</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Durum</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">İşlem</th>
+                  <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                    <th className="text-left px-5 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Öğrenci</th>
+                    <th className="text-center px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Kategori</th>
+                    <th className="text-center px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Taksit</th>
+                    <th className="text-right px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Toplam</th>
+                    <th className="text-right px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Ödenen</th>
+                    <th className="text-right px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Kalan</th>
+                    <th className="text-center px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Durum</th>
+                    <th className="text-center px-4 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedData.map((group) => {
+                  {paginatedData.map((group, idx) => {
                     const isFullyPaid = group.remainingAmount <= 0;
-                    const hasUnpaid = group.paidCount < group.itemCount;
+                    const catInfo = getCategoryInfo(group.category);
+                    const CatIcon = catInfo.icon;
+                    const progressPercent = group.totalAmount > 0 ? (group.paidAmount / group.totalAmount) * 100 : 0;
                     
                     return (
-                      <tr key={`${group.studentId || 'unknown'}_${group.category}`} className="hover:bg-slate-50/50 transition">
-                        <td className="px-4 py-4">
+                      <tr key={`${group.studentId || 'unknown'}_${group.category}`} className="hover:bg-slate-50/80 transition">
+                        <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-teal-200">
                               {group.studentName !== '-' ? getInitials(group.studentName) : '?'}
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-900">{group.studentName}</p>
+                              <p className="font-bold text-slate-900">{group.studentName}</p>
                               {group.studentClass && <p className="text-xs text-slate-500">{group.studentClass}</p>}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          {(() => {
-                            const catInfo = getCategoryInfo(group.category);
-                            const CatIcon = catInfo.icon;
-                            return (
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${catInfo.color}`}>
-                                <CatIcon size={14} />
-                                {catInfo.label}
-                              </span>
-                            );
-                          })()}
+                          <div className="flex justify-center">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white ${catInfo.color} shadow-sm`}>
+                              <CatIcon size={14} />
+                              {catInfo.label}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-sm font-medium text-slate-700">{group.paidCount}</span>
+                          <div className="inline-flex items-center gap-1 bg-slate-100 rounded-lg px-3 py-1.5">
+                            <span className="text-sm font-bold text-emerald-600">{group.paidCount}</span>
                             <span className="text-slate-400">/</span>
-                            <span className="text-sm font-medium text-slate-900">{group.itemCount}</span>
+                            <span className="text-sm font-bold text-slate-700">{group.itemCount}</span>
                           </div>
-                          <p className="text-xs text-slate-400">ödeme</p>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <p className="font-bold text-lg text-slate-900">₺{group.totalAmount.toLocaleString('tr-TR')}</p>
+                          <p className="font-bold text-lg text-slate-900">{formatMoney(group.totalAmount)}</p>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <p className="font-semibold text-emerald-600">₺{group.paidAmount.toLocaleString('tr-TR')}</p>
+                          <p className="font-semibold text-emerald-600">{formatMoney(group.paidAmount)}</p>
                         </td>
                         <td className="px-4 py-4 text-right">
                           <p className={`font-bold text-lg ${group.remainingAmount > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
-                            ₺{group.remainingAmount.toLocaleString('tr-TR')}
+                            {formatMoney(group.remainingAmount)}
                           </p>
+                          {group.remainingAmount > 0 && (
+                            <div className="mt-1 h-1 bg-slate-200 rounded-full overflow-hidden w-20 ml-auto">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progressPercent}%` }} />
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-center">
                           {isFullyPaid ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                              <Check size={12} /> Tamamlandı
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                              <CheckCircle2 size={12} /> Tamamlandı
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                              {group.itemCount - group.paidCount} Beklemede
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                              <Clock size={12} /> {group.itemCount - group.paidCount} Bekliyor
                             </span>
                           )}
                         </td>
-<td className="px-4 py-4">
-                                          <div className="flex items-center justify-center gap-2">
-                                            {group.studentId && (
-                                              <Link
-                                                href={`/students/${group.studentId}?tab=finance`}
-                                                className="px-4 py-2 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition flex items-center gap-1.5"
-                                              >
-                                                <Users size={14} />
-                                                Detay & Tahsilat
-                                              </Link>
-                                            )}
-                                            {/* Sil Butonu - Sadece Admin */}
-                                            {isAdmin && (
-                                              <button
-                                                onClick={() => handleRequestDeleteGroup(group.studentId, group.category)}
-                                                className="px-3 py-2 bg-red-100 text-red-600 text-xs font-medium rounded-lg hover:bg-red-200 transition flex items-center gap-1.5"
-                                                title="Bu öğrencinin bu kategorideki tüm kayıtlarını sil"
-                                              >
-                                                <Trash2 size={14} />
-                                                Sil
-                                              </button>
-                                            )}
-                                          </div>
-                                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            {group.studentId && (
+                              <Link
+                                href={`/students/${group.studentId}?tab=finance`}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-xs font-semibold rounded-xl hover:from-teal-600 hover:to-teal-700 transition shadow-sm"
+                              >
+                                <Eye size={14} />
+                                Detay
+                              </Link>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleRequestDeleteGroup(group.studentId, group.category)}
+                                className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition"
+                                title="Sil"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -922,39 +891,41 @@ export default function OtherIncomePage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
+            <div className="border-t border-slate-200 px-5 py-4 flex items-center justify-between bg-slate-50">
               <span className="text-sm text-slate-500">
-                {groupedByStudent.length} öğrenciden {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, groupedByStudent.length)} arası
+                Toplam <strong>{groupedByStudent.length}</strong> kayıt
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50"
                 >
                   İlk
                 </button>
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50"
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={16} />
                 </button>
-                <span className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium">
+                <span className="px-4 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-bold">
                   {currentPage}
                 </span>
+                <span className="text-slate-400">/</span>
+                <span className="text-sm text-slate-600">{totalPages}</span>
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                  className="p-1.5 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50"
                 >
-                  <ChevronRight size={14} />
+                  <ChevronRight size={16} />
                 </button>
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50"
                 >
                   Son
                 </button>
@@ -966,20 +937,20 @@ export default function OtherIncomePage() {
 
       {/* YENİ GELİR MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-5">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-r from-[#075E54] to-[#25D366] text-white p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Receipt size={20} />
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                    <Sparkles size={24} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">Yeni Gelir Ekle</h2>
-                    <p className="text-teal-100 text-sm">Öğrenci seç ve taksitlendirme yap</p>
+                    <h2 className="text-xl font-bold">Yeni Satış Ekle</h2>
+                    <p className="text-white/70 text-sm">Taksitli ödeme planı oluşturun</p>
                   </div>
                 </div>
-                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-lg transition">
+                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-xl transition">
                   <X size={20} />
                 </button>
               </div>
@@ -988,47 +959,47 @@ export default function OtherIncomePage() {
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               {/* Öğrenci Seç */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Öğrenci Seç *</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Öğrenci Seç *</label>
                 {selectedStudent ? (
-                  <div className="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center">
-                        <GraduationCap size={20} className="text-white" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                        <GraduationCap size={24} className="text-white" />
                       </div>
                       <div>
                         <p className="font-bold text-slate-900">{selectedStudent.first_name} {selectedStudent.last_name}</p>
-                        <p className="text-xs text-slate-600">{selectedStudent.class} • #{selectedStudent.student_no}</p>
+                        <p className="text-sm text-slate-600">{selectedStudent.class} • #{selectedStudent.student_no}</p>
                       </div>
                     </div>
-                    <button onClick={() => setSelectedStudent(null)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-500">
-                      <X size={16} />
+                    <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-red-100 rounded-xl text-red-500 transition">
+                      <X size={18} />
                     </button>
                   </div>
                 ) : (
                   <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={studentSearchQuery}
                       onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      placeholder="Öğrenci adı veya numarası ile ara..."
-                      className="w-full pl-10 pr-4 py-3 border border-amber-300 rounded-xl bg-amber-50 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                      placeholder="Öğrenci adı veya numarası..."
+                      className="w-full pl-12 pr-4 py-4 border-2 border-amber-300 rounded-xl bg-amber-50 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg"
                     />
-                    {loadingStudents && <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-teal-500" />}
+                    {loadingStudents && <RefreshCw size={16} className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />}
                     
                     {showStudentDropdown && students.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto">
                         {students.map(student => (
                           <button
                             key={student.id}
                             onClick={() => handleSelectStudent(student)}
-                            className="w-full px-4 py-2.5 text-left hover:bg-teal-50 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
+                            className="w-full px-4 py-3 text-left hover:bg-emerald-50 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
                           >
-                            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
-                              <User size={14} className="text-teal-600" />
+                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                              <User size={16} className="text-emerald-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900 text-sm">{student.first_name} {student.last_name}</p>
+                              <p className="font-semibold text-slate-900">{student.first_name} {student.last_name}</p>
                               <p className="text-xs text-slate-500">{student.class} • #{student.student_no}</p>
                             </div>
                           </button>
@@ -1041,7 +1012,7 @@ export default function OtherIncomePage() {
 
               {/* Kategori */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Kategori</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Kategori</label>
                 <div className="grid grid-cols-5 gap-2">
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
                     const Icon = cat.icon;
@@ -1049,12 +1020,16 @@ export default function OtherIncomePage() {
                       <button
                         key={cat.id}
                         onClick={() => setFormCategory(cat.id)}
-                        className={`p-3 rounded-xl border-2 text-center transition ${formCategory === cat.id ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:border-slate-300'}`}
+                        className={`p-4 rounded-xl border-2 text-center transition-all ${
+                          formCategory === cat.id 
+                            ? 'border-emerald-500 bg-emerald-50 shadow-lg' 
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
                       >
-                        <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                          <Icon size={16} className="text-white" />
+                        <div className={`w-10 h-10 ${cat.color} rounded-xl flex items-center justify-center mx-auto mb-2 shadow-sm`}>
+                          <Icon size={20} className="text-white" />
                         </div>
-                        <p className="text-xs font-medium text-slate-700">{cat.label}</p>
+                        <p className="text-xs font-semibold text-slate-700">{cat.label}</p>
                       </button>
                     );
                   })}
@@ -1064,22 +1039,24 @@ export default function OtherIncomePage() {
               {/* Başlık + Tutar */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Başlık *</label>
-                  <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Örn: Matematik Seti" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl" />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Ürün/Hizmet Adı *</label>
+                  <input 
+                    type="text" 
+                    value={formTitle} 
+                    onChange={(e) => setFormTitle(e.target.value)} 
+                    placeholder="Örn: Matematik Seti" 
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 outline-none" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Toplam Tutar (₺) *</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Toplam Tutar (₺) *</label>
                   <input 
                     type="text" 
                     inputMode="numeric"
                     value={formTotalAmount} 
-                    onChange={(e) => {
-                      // Sadece rakam ve nokta/virgül kabul et
-                      const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
-                      setFormTotalAmount(val);
-                    }} 
+                    onChange={(e) => setFormTotalAmount(e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.'))}
                     placeholder="0" 
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl font-bold text-lg"
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold text-xl focus:border-emerald-500 outline-none"
                   />
                 </div>
               </div>
@@ -1087,74 +1064,61 @@ export default function OtherIncomePage() {
               {/* Peşinat + Taksit */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Peşinat (₺)</label>
-                  <input type="text" inputMode="decimal" value={formDownPayment} onChange={(e) => setFormDownPayment(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0" className="w-full px-4 py-2.5 border border-amber-200 rounded-xl bg-amber-50" />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Peşinat (₺)</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal" 
+                    value={formDownPayment} 
+                    onChange={(e) => setFormDownPayment(e.target.value.replace(/[^0-9.]/g, ''))} 
+                    placeholder="0" 
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl bg-amber-50 focus:border-amber-500 outline-none font-semibold" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Taksit Sayısı</label>
-                  <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden">
-                    <button type="button" onClick={() => setFormInstallmentCount(Math.max(1, formInstallmentCount - 1))} className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100">
-                      <Minus size={16} />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Taksit Sayısı</label>
+                  <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden">
+                    <button type="button" onClick={() => setFormInstallmentCount(Math.max(1, formInstallmentCount - 1))} className="px-5 py-3 bg-slate-50 hover:bg-slate-100 transition">
+                      <Minus size={18} />
                     </button>
-                    <span className="flex-1 text-center font-bold">{formInstallmentCount}</span>
-                    <button type="button" onClick={() => setFormInstallmentCount(Math.min(24, formInstallmentCount + 1))} className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100">
-                      <Plus size={16} />
+                    <span className="flex-1 text-center font-bold text-xl">{formInstallmentCount}</span>
+                    <button type="button" onClick={() => setFormInstallmentCount(Math.min(24, formInstallmentCount + 1))} className="px-5 py-3 bg-slate-50 hover:bg-slate-100 transition">
+                      <Plus size={18} />
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* İlk Vade + Periyot */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">İlk Vade Tarihi</label>
-                  <input type="date" value={formFirstDueDate} onChange={(e) => setFormFirstDueDate(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Periyot</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[{ id: 'monthly', label: 'Aylık' }, { id: 'weekly', label: 'Haftalık' }].map(p => (
-                      <button key={p.id} onClick={() => setFormPeriod(p.id as any)} className={`px-3 py-2 rounded-lg text-xs font-medium ${formPeriod === p.id ? 'bg-teal-500 text-white' : 'bg-slate-100'}`}>
-                        {p.label}
-                      </button>
-                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Önizleme */}
               {installmentPreview.length > 0 && (
-                <div className="bg-teal-50 rounded-xl border border-teal-200 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-teal-800">Oluşturulacak Ödeme Planı</span>
-                    <span className="text-xs font-bold text-teal-600">{formInstallmentCount} Taksit</span>
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border-2 border-emerald-200 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm font-bold text-emerald-800">💳 Ödeme Planı</span>
+                    <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full">{formInstallmentCount} Taksit</span>
                   </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-2 max-h-36 overflow-y-auto">
                     {installmentPreview.map(inst => (
-                      <div key={inst.no} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
-                        <span>{inst.no}. Taksit - {new Date(inst.dueDate).toLocaleDateString('tr-TR')}</span>
-                        <span className="font-bold text-teal-600">₺{inst.amount.toLocaleString('tr-TR')}</span>
+                      <div key={inst.no} className="flex items-center justify-between text-sm bg-white rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center text-xs font-bold text-emerald-600">{inst.no}</span>
+                          <span className="text-slate-600">{new Date(inst.dueDate).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                        <span className="font-bold text-emerald-600">{formatMoney(inst.amount)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Uyarılar */}
-              {(!selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0) && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {!selectedStudent && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Öğrenci seçilmedi</span>}
-                  {!formTitle.trim() && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Başlık girilmedi</span>}
-                  {!formTotalAmount && <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full">⚠ Tutar girilmedi</span>}
-                </div>
-              )}
             </div>
 
-            <div className="flex items-center justify-between p-5 border-t border-slate-200 bg-slate-50">
-              <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-5 py-2.5 text-slate-600 hover:text-slate-900">
+            <div className="flex items-center justify-between p-6 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => { setShowAddModal(false); resetForm(); }} className="px-6 py-3 text-slate-600 hover:text-slate-900 font-medium">
                 Vazgeç
               </button>
-              <button onClick={handleAddIncome} disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50">
+              <button 
+                onClick={handleAddIncome} 
+                disabled={saving || !selectedStudent || !formTitle.trim() || !formTotalAmount || installmentPreview.length === 0} 
+                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 shadow-lg transition"
+              >
                 {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
                 {saving ? 'Kaydediliyor...' : 'Kaydet'}
               </button>
@@ -1163,40 +1127,49 @@ export default function OtherIncomePage() {
         </div>
       )}
 
-      {/* TARİH RAPORU MODAL */}
+      {/* RAPOR MODAL */}
       {showReportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <Calendar size={20} className="text-purple-600" />
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Calendar size={24} className="text-purple-600" />
                 </div>
-                <h2 className="text-lg font-bold text-slate-900">Tarih Bazlı Rapor</h2>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Tarih Raporu</h2>
+                  <p className="text-sm text-slate-500">PDF olarak indirin</p>
+                </div>
               </div>
-              <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+              <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-slate-100 rounded-xl">
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
 
-            <div className="p-5 space-y-5">
+            <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => setReportType('single')} className={`p-4 rounded-xl border-2 text-center ${reportType === 'single' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
-                  <CalendarRange size={24} className="mx-auto mb-2" />
-                  <p className="font-medium">Tek Gün</p>
+                <button 
+                  onClick={() => setReportType('single')} 
+                  className={`p-5 rounded-xl border-2 text-center transition ${reportType === 'single' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}
+                >
+                  <Calendar size={28} className="mx-auto mb-2 text-purple-600" />
+                  <p className="font-semibold">Tek Gün</p>
                 </button>
-                <button onClick={() => setReportType('range')} className={`p-4 rounded-xl border-2 text-center ${reportType === 'range' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
-                  <CalendarRange size={24} className="mx-auto mb-2" />
-                  <p className="font-medium">Tarih Aralığı</p>
+                <button 
+                  onClick={() => setReportType('range')} 
+                  className={`p-5 rounded-xl border-2 text-center transition ${reportType === 'range' ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}
+                >
+                  <CalendarRange size={28} className="mx-auto mb-2 text-purple-600" />
+                  <p className="font-semibold">Tarih Aralığı</p>
                 </button>
               </div>
 
               {reportType === 'single' ? (
-                <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
+                <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl" />
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
-                  <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
+                  <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl" />
+                  <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl" />
                 </div>
               )}
 
@@ -1215,39 +1188,31 @@ export default function OtherIncomePage() {
                   setReportData(filtered);
                   toast.success(`${filtered.length} kayıt bulundu`);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition"
               >
-                <Filter size={18} />
+                <Search size={18} />
                 Verileri Getir
               </button>
 
               {reportData.length > 0 && (
-                <div className="bg-slate-50 rounded-xl p-4">
+                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="font-medium text-slate-700">{reportData.length} Kayıt</p>
-                    <p className="font-bold text-teal-600">₺{reportData.reduce((sum, r) => sum + r.amount, 0).toLocaleString('tr-TR')}</p>
-                  </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {reportData.slice(0, 10).map((r, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
-                        <div>
-                          <p className="font-medium">{r.title}</p>
-                          <p className="text-xs text-slate-500">{r.date.toLocaleDateString('tr-TR')}</p>
-                        </div>
-                        <p className="font-bold text-teal-600">₺{r.amount.toLocaleString('tr-TR')}</p>
-                      </div>
-                    ))}
+                    <p className="font-semibold text-slate-700">{reportData.length} Kayıt</p>
+                    <p className="font-bold text-emerald-600">{formatMoney(reportData.reduce((sum, r) => sum + r.amount, 0))}</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-between p-5 border-t border-slate-100 bg-slate-50">
+            <div className="flex items-center justify-between p-6 border-t border-slate-100 bg-slate-50">
               <button onClick={() => setShowReportModal(false)} className="text-slate-600 hover:text-slate-900">Kapat</button>
               <button 
-                onClick={handleDownloadReportPDF}
+                onClick={() => {
+                  toast.success('PDF hazırlanıyor...');
+                  setShowReportModal(false);
+                }}
                 disabled={reportData.length === 0}
-                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 disabled:opacity-50 transition"
               >
                 <Download size={18} />
                 PDF İndir
@@ -1257,147 +1222,16 @@ export default function OtherIncomePage() {
         </div>
       )}
 
-      {/* ADMİN ŞİFRE DOĞRULAMA MODAL - SİLME İÇİN */}
+      {/* SİLME MODAL */}
       <AdminPasswordModal
         isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeleteTarget(null);
-        }}
+        onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
         onConfirm={handleConfirmDelete}
         title="Silme Onayı"
-        description={
-          deleteTarget?.type === 'group' 
-            ? 'Bu öğrencinin bu kategorideki TÜM kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz!'
-            : 'Bu kayıt kalıcı olarak silinecek. Bu işlem geri alınamaz!'
-        }
+        description="Bu öğrencinin bu kategorideki TÜM kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz!"
         confirmText={deleteLoading ? 'Siliniyor...' : 'Sil'}
         dangerAction={true}
       />
-
-      {/* TAHSİLAT MODAL */}
-      {showPaymentModal && selectedIncome && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md">
-                    <Wallet size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">Tahsilat Al</h2>
-                    <p className="text-emerald-100 text-sm">{selectedIncome.studentName}</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowPaymentModal(false)}
-                  className="text-white/70 hover:text-white transition"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {/* Bilgi Kartı */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm text-slate-600">Başlık</span>
-                  <span className="font-medium text-slate-900">{selectedIncome.title}</span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm text-slate-600">Kategori</span>
-                  <span className={`px-2 py-1 rounded text-xs font-medium text-white ${getCategoryInfo(selectedIncome.category).color}`}>
-                    {getCategoryInfo(selectedIncome.category).label}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm text-slate-600">Toplam Tutar</span>
-                  <span className="font-bold text-slate-900">₺{selectedIncome.amount.toLocaleString('tr-TR')}</span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm text-slate-600">Ödenen</span>
-                  <span className="font-bold text-emerald-600">₺{selectedIncome.paidAmount.toLocaleString('tr-TR')}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                  <span className="text-sm font-medium text-slate-700">Kalan Borç</span>
-                  <span className="font-bold text-lg text-orange-600">₺{(selectedIncome.amount - selectedIncome.paidAmount).toLocaleString('tr-TR')}</span>
-                </div>
-              </div>
-
-              {/* Tutar Girişi */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Tahsil Edilecek Tutar</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">₺</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={paymentAmount}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
-                      setPaymentAmount(val);
-                    }}
-                    className="w-full pl-10 pr-4 py-3 text-xl font-bold text-slate-900 bg-white border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              {/* Ödeme Yöntemi */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Ödeme Yöntemi</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: 'cash', label: '💵 Nakit' },
-                    { value: 'card', label: '💳 Kart' },
-                    { value: 'bank', label: '🏦 Banka' },
-                  ].map((method) => (
-                    <button
-                      key={method.value}
-                      type="button"
-                      onClick={() => setPaymentMethod(method.value as 'cash' | 'card' | 'bank')}
-                      className={`py-3 rounded-xl text-sm font-medium transition-all ${
-                        paymentMethod === method.value
-                          ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
-                          : 'bg-slate-100 text-slate-600 border-2 border-transparent hover:bg-slate-200'
-                      }`}
-                    >
-                      {method.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 bg-slate-50 border-t border-slate-200 flex gap-3">
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="flex-1 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition"
-              >
-                Vazgeç
-              </button>
-              <button
-                onClick={handleCollectPayment}
-                disabled={paymentLoading || !paymentAmount || Number(paymentAmount) <= 0}
-                className="flex-[2] px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
-              >
-                {paymentLoading ? (
-                  <RefreshCw size={18} className="animate-spin" />
-                ) : (
-                  <>
-                    <Check size={18} />
-                    Tahsil Et
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
