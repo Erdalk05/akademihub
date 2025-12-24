@@ -14,20 +14,94 @@ const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
 // GET /api/students -> Supabase students tablosundan liste
 // - organization_id query parametresi ile filtreleme yapılabilir
 // - academic_year query parametresi ile akademik yıla göre filtreleme yapılabilir
+// - search query parametresi ile ad/soyad/numara araması yapılabilir
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const organizationId = searchParams.get('organization_id');
     const academicYear = searchParams.get('academic_year');
+    const searchQuery = searchParams.get('search')?.trim().toLowerCase() || '';
+    const limit = parseInt(searchParams.get('limit') || '500', 10);
     
     const supabase = getServiceRoleClient();
 
+    // Eğer arama varsa, özel sorgu yap
+    if (searchQuery && searchQuery.length >= 2) {
+      // Türkçe karakter dönüşümü
+      const normalizedSearch = searchQuery
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c');
+      
+      // Birden fazla kelime desteği
+      const searchWords = searchQuery.split(/\s+/).filter(w => w.length > 0);
+      
+      let query = supabase
+        .from('students')
+        .select('*')
+        .neq('status', 'deleted');
+      
+      // Organization filtresi
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId);
+      }
+      
+      // Akademik yıl filtresi
+      if (academicYear) {
+        query = query.eq('academic_year', academicYear);
+      }
+      
+      // Arama: Ad, soyad veya öğrenci numarasında ara
+      // ilike case-insensitive arama yapar
+      query = query.or(
+        `first_name.ilike.%${searchQuery}%,` +
+        `last_name.ilike.%${searchQuery}%,` +
+        `student_no.ilike.%${searchQuery}%,` +
+        `first_name.ilike.%${normalizedSearch}%,` +
+        `last_name.ilike.%${normalizedSearch}%`
+      );
+      
+      const { data, error } = await query.order('first_name', { ascending: true }).limit(limit);
+      
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      
+      // Sonuçları relevance'a göre sırala (tam eşleşme önce)
+      const sortedData = (data || []).sort((a: any, b: any) => {
+        const aName = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+        const bName = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+        
+        // Tam eşleşme öncelikli
+        const aStartsWith = aName.startsWith(searchQuery) || a.first_name?.toLowerCase().startsWith(searchQuery);
+        const bStartsWith = bName.startsWith(searchQuery) || b.first_name?.toLowerCase().startsWith(searchQuery);
+        
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        
+        // Alfabetik sıralama
+        return aName.localeCompare(bName, 'tr');
+      });
+      
+      return NextResponse.json(
+        { success: true, data: sortedData },
+        { 
+          status: 200,
+          headers: { 'Cache-Control': 'private, max-age=10' }
+        }
+      );
+    }
+
+    // Normal liste sorgusu (arama yoksa)
     let query = supabase
       .from('students')
       .select('*')
       .neq('status', 'deleted') // Silinmiş öğrencileri hariç tut
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(limit);
 
     // Organization filtresi (çoklu kurum desteği)
     if (organizationId) {

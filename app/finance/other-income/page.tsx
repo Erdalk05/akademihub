@@ -178,30 +178,47 @@ export default function OtherIncomePage() {
     }
   };
 
-  // Öğrenci Arama
+  // Öğrenci Arama - Hızlı ve akıllı
   const fetchStudents = async (query: string = '') => {
+    if (!query || query.length < 2) {
+      setStudents([]);
+      setShowStudentDropdown(false);
+      return;
+    }
+    
     setLoadingStudents(true);
     try {
-      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&limit=20`);
+      // Organization ID'yi de gönder
+      const orgParam = currentOrganization?.id ? `&organization_id=${currentOrganization.id}` : '';
+      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&limit=15${orgParam}`);
       const json = await res.json();
-      if (json.success) setStudents(json.data || []);
-    } catch {} finally {
+      
+      if (json.success && json.data) {
+        setStudents(json.data);
+        setShowStudentDropdown(true);
+      } else {
+        setStudents([]);
+      }
+    } catch (err) {
+      console.error('Öğrenci arama hatası:', err);
+      setStudents([]);
+    } finally {
       setLoadingStudents(false);
     }
   };
 
+  // Debounce ile arama - 150ms (daha hızlı)
   useEffect(() => {
     if (studentSearchQuery.length >= 2) {
       const timer = setTimeout(() => {
         fetchStudents(studentSearchQuery);
-        setShowStudentDropdown(true);
-      }, 300);
+      }, 150); // 300ms → 150ms (daha hızlı)
       return () => clearTimeout(timer);
     } else {
       setStudents([]);
       setShowStudentDropdown(false);
     }
-  }, [studentSearchQuery]);
+  }, [studentSearchQuery, currentOrganization?.id]);
 
   // Taksit Önizleme
   const installmentPreview = useMemo(() => {
@@ -987,23 +1004,69 @@ export default function OtherIncomePage() {
                     />
                     {loadingStudents && <RefreshCw size={16} className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />}
                     
-                    {showStudentDropdown && students.length > 0 && (
-                      <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto">
-                        {students.map(student => (
-                          <button
-                            key={student.id}
-                            onClick={() => handleSelectStudent(student)}
-                            className="w-full px-4 py-3 text-left hover:bg-emerald-50 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
-                          >
-                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                              <User size={16} className="text-emerald-600" />
+                    {showStudentDropdown && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-emerald-300 rounded-xl shadow-2xl max-h-72 overflow-y-auto">
+                        {loadingStudents ? (
+                          <div className="flex items-center justify-center py-6">
+                            <RefreshCw size={20} className="animate-spin text-emerald-500 mr-2" />
+                            <span className="text-sm text-slate-500">Aranıyor...</span>
+                          </div>
+                        ) : students.length > 0 ? (
+                          <>
+                            <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-200">
+                              <p className="text-xs font-semibold text-emerald-700">
+                                🎯 {students.length} öğrenci bulundu
+                              </p>
                             </div>
-                            <div>
-                              <p className="font-semibold text-slate-900">{student.first_name} {student.last_name}</p>
-                              <p className="text-xs text-slate-500">{student.class} • #{student.student_no}</p>
-                            </div>
-                          </button>
-                        ))}
+                            {students.map((student, idx) => {
+                              // Arama metnini vurgula
+                              const fullName = `${student.first_name} ${student.last_name}`;
+                              const searchLower = studentSearchQuery.toLowerCase();
+                              const nameLower = fullName.toLowerCase();
+                              const matchIndex = nameLower.indexOf(searchLower);
+                              
+                              return (
+                                <button
+                                  key={student.id}
+                                  onClick={() => handleSelectStudent(student)}
+                                  className={`w-full px-4 py-3 text-left hover:bg-emerald-50 flex items-center gap-3 border-b border-slate-100 last:border-b-0 transition ${idx === 0 ? 'bg-emerald-50' : ''}`}
+                                >
+                                  <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                    <span className="text-white font-bold text-sm">
+                                      {student.first_name?.[0]}{student.last_name?.[0]}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-slate-900 truncate">
+                                      {matchIndex >= 0 ? (
+                                        <>
+                                          {fullName.slice(0, matchIndex)}
+                                          <span className="bg-yellow-200 text-yellow-900 px-0.5 rounded">
+                                            {fullName.slice(matchIndex, matchIndex + searchLower.length)}
+                                          </span>
+                                          {fullName.slice(matchIndex + searchLower.length)}
+                                        </>
+                                      ) : (
+                                        fullName
+                                      )}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                      <span className="bg-slate-100 px-1.5 py-0.5 rounded">{student.class || 'Sınıf yok'}</span>
+                                      <span>#{student.student_no || 'No yok'}</span>
+                                    </div>
+                                  </div>
+                                  <ChevronRight size={16} className="text-slate-400" />
+                                </button>
+                              );
+                            })}
+                          </>
+                        ) : studentSearchQuery.length >= 2 ? (
+                          <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                            <AlertCircle size={32} className="mb-2 opacity-50" />
+                            <p className="text-sm font-medium">Öğrenci bulunamadı</p>
+                            <p className="text-xs">"{studentSearchQuery}" için sonuç yok</p>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>
