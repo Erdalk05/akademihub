@@ -27,6 +27,9 @@ import type {
   MatchStrategy
 } from '../types';
 
+// OCR Düzeltme - Türkçe karakter desteği
+import { correctOCRErrors, calculateTurkishSimilarity } from '../txt/ocrCorrection';
+
 // ==================== CONFIG ====================
 
 const MATCHER_CONFIG = {
@@ -486,13 +489,30 @@ function normalizeClass(cls: string): string {
 
 /**
  * Levenshtein distance benzerliks skoru (0-100)
+ * OCR düzeltmeli Türkçe karakter desteği
  */
 function calculateSimilarity(str1: string, str2: string): number {
   if (str1 === str2) return 100;
   if (!str1 || !str2) return 0;
   
-  const len1 = str1.length;
-  const len2 = str2.length;
+  // OCR düzeltmesi uygula (Türkçe karakter düzeltme)
+  const corrected1 = correctOCRErrors(str1).toUpperCase();
+  const corrected2 = correctOCRErrors(str2).toUpperCase();
+  
+  // Düzeltilmiş hallerle karşılaştır
+  if (corrected1 === corrected2) return 100;
+  
+  // Türkçe benzerlik hesapla
+  const turkishScore = calculateTurkishSimilarity(corrected1, corrected2);
+  
+  // Eğer Türkçe skor yüksekse onu kullan
+  if (turkishScore >= 0.85) {
+    return Math.round(turkishScore * 100);
+  }
+  
+  // Yoksa standart Levenshtein hesapla
+  const len1 = corrected1.length;
+  const len2 = corrected2.length;
   
   // Levenshtein distance hesapla
   const matrix: number[][] = [];
@@ -507,7 +527,7 @@ function calculateSimilarity(str1: string, str2: string): number {
   
   for (let i = 1; i <= len1; i++) {
     for (let j = 1; j <= len2; j++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      const cost = corrected1[i - 1] === corrected2[j - 1] ? 0 : 1;
       matrix[i][j] = Math.min(
         matrix[i - 1][j] + 1,
         matrix[i][j - 1] + 1,

@@ -31,6 +31,9 @@ import type {
 } from '../types';
 import { VALID_ANSWERS, EMPTY_ANSWER_VALUES } from '../types';
 
+// OCR Düzeltme Motoru
+import { correctOCRErrors } from '../txt/ocrCorrection';
+
 // ==================== CONFIG ====================
 
 const PARSER_CONFIG = {
@@ -308,7 +311,8 @@ function parseOpticalLine(line: string): string[] | null {
         ? answersMatch.join('').replace(/\s+/g, '')
         : afterClass.replace(/[^ABCDE]/gi, '');
       
-      return [studentNo, namePart, classInfo, answers];
+      // OCR düzeltmesi uygula
+      return [studentNo, correctOCRErrors(namePart), classInfo, answers];
     }
     
     // Sınıf bulunamadı - cevapları direkt bul
@@ -323,10 +327,12 @@ function parseOpticalLine(line: string): string[] | null {
       
       if (/^\d{1,2}[A-Z]$/i.test(lastPart)) {
         const name = nameParts.slice(0, -1).join(' ');
-        return [studentNo, name, lastPart, answers];
+        // OCR düzeltmesi uygula
+        return [studentNo, correctOCRErrors(name), lastPart, answers];
       }
       
-      return [studentNo, namePart, '', answers];
+      // OCR düzeltmesi uygula
+      return [studentNo, correctOCRErrors(namePart), '', answers];
     }
   }
   
@@ -338,9 +344,11 @@ function parseOpticalLine(line: string): string[] | null {
       if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(parts[0])) {
         const studentNo = parts[0].substring(0, 6);
         const name = parts[0].substring(6).trim();
-        return [studentNo, name, ...parts.slice(1)];
+        // OCR düzeltmesi uygula
+        return [studentNo, correctOCRErrors(name), ...parts.slice(1).map(p => correctOCRErrors(p))];
       }
-      return parts;
+      // OCR düzeltmesi uygula
+      return parts.map(p => correctOCRErrors(p));
     }
   }
   
@@ -350,13 +358,15 @@ function parseOpticalLine(line: string): string[] | null {
     if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(spaceParts[0])) {
       const studentNo = spaceParts[0].substring(0, 6);
       const name = spaceParts[0].substring(6).trim();
-      return [studentNo, name, ...spaceParts.slice(1)];
+      // OCR düzeltmesi uygula
+      return [studentNo, correctOCRErrors(name), ...spaceParts.slice(1).map(p => correctOCRErrors(p))];
     }
-    return spaceParts;
+    // OCR düzeltmesi uygula
+    return spaceParts.map(p => correctOCRErrors(p));
   }
   
   // 4. Son çare - tek kelime olarak döndür
-  return [trimmed];
+  return [correctOCRErrors(trimmed)];
 }
 
 /**
