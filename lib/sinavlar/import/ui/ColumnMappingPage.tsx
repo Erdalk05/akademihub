@@ -11,11 +11,13 @@
  * - Tıkla-Eşle mantığı
  * - Otomatik öneri motoru
  * - Excel / CSV / TXT tek UX
+ * - Virtual Scrolling (performans)
+ * - Zustand-style reactive state
  */
 
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 
 // ==================== TYPES ====================
 
@@ -176,6 +178,81 @@ function detectFieldType(values: string[]): { type: FieldType; confidence: numbe
   return { type: 'ignore', confidence: 0, info: 'Tanımlanamadı' };
 }
 
+// ==================== VIRTUAL SCROLL HOOK ====================
+
+function useVirtualScroll(totalItems: number, itemHeight: number, containerHeight: number) {
+  const [scrollTop, setScrollTop] = useState(0);
+  
+  const visibleStart = Math.floor(scrollTop / itemHeight);
+  const visibleEnd = Math.min(
+    visibleStart + Math.ceil(containerHeight / itemHeight) + 2,
+    totalItems
+  );
+  
+  const offsetY = visibleStart * itemHeight;
+  const totalHeight = totalItems * itemHeight;
+  
+  return {
+    visibleStart,
+    visibleEnd,
+    offsetY,
+    totalHeight,
+    onScroll: (e: React.UIEvent<HTMLDivElement>) => {
+      setScrollTop(e.currentTarget.scrollTop);
+    }
+  };
+}
+
+// ==================== ANSWER VISUALIZER ====================
+
+function AnswerVisualizer({ answers, maxShow = 40 }: { answers: string; maxShow?: number }) {
+  const cleanAnswers = answers.replace(/\s/g, '');
+  const chunks = [];
+  
+  // Her 20 soruyu bir grup yap
+  for (let i = 0; i < Math.min(cleanAnswers.length, maxShow); i += 20) {
+    chunks.push(cleanAnswers.slice(i, i + 20));
+  }
+  
+  const colorMap: Record<string, string> = {
+    'A': 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
+    'B': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+    'C': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+    'D': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+    'E': 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'
+  };
+  
+  return (
+    <div className="space-y-1">
+      {chunks.map((chunk, chunkIndex) => (
+        <div key={chunkIndex} className="flex items-center gap-1">
+          <span className="text-[9px] text-gray-400 w-8 flex-shrink-0">
+            {chunkIndex * 20 + 1}-{Math.min((chunkIndex + 1) * 20, cleanAnswers.length)}
+          </span>
+          <div className="flex gap-[2px] flex-wrap">
+            {chunk.split('').map((char, i) => (
+              <span 
+                key={i} 
+                className={`inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium rounded tracking-wider ${
+                  colorMap[char.toUpperCase()] || 'bg-gray-100 text-gray-500'
+                }`}
+                style={{ letterSpacing: '0.05em' }}
+              >
+                {char}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+      {cleanAnswers.length > maxShow && (
+        <span className="text-[10px] text-gray-400 ml-9">
+          +{cleanAnswers.length - maxShow} soru daha
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ==================== MAIN COMPONENT ====================
 
 export function ColumnMappingPage({
@@ -184,13 +261,37 @@ export function ColumnMappingPage({
   onComplete,
   onBack
 }: ColumnMappingPageProps) {
-  // State
+  // Refs
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  
+  // State - Zustand-style reactive
   const [selectedCell, setSelectedCell] = useState<CellSelection | null>(null);
   const [mappings, setMappings] = useState<MappingState[]>([]);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [containerHeight, setContainerHeight] = useState(400);
   
-  // Önizleme için ilk 10 satır
-  const previewData = useMemo(() => data.slice(0, 10), [data]);
+  // Container height measurement
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const height = tableContainerRef.current.clientHeight;
+      if (height > 0) setContainerHeight(height);
+    }
+  }, []);
+  
+  // Virtual scrolling for large datasets
+  const ROW_HEIGHT = 40;
+  const virtualScroll = useVirtualScroll(data.length, ROW_HEIGHT, containerHeight);
+  
+  // Visible data (virtual scrolling için)
+  const visibleData = useMemo(() => {
+    return data.slice(virtualScroll.visibleStart, virtualScroll.visibleEnd);
+  }, [data, virtualScroll.visibleStart, virtualScroll.visibleEnd]);
+  
+  // Önizleme için ilk 10 satır (küçük dosyalar için)
+  const previewData = useMemo(() => data.slice(0, Math.min(data.length, 15)), [data]);
+  
+  // Büyük dosya mı?
+  const isLargeFile = data.length > 50;
   
   // Sütun sayısı
   const columnCount = useMemo(() => {
@@ -336,8 +437,12 @@ export function ColumnMappingPage({
               </span>
             </div>
             
-            {/* Tablo */}
-            <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
+            {/* Tablo - Virtual Scrolling için optimize */}
+            <div 
+              ref={tableContainerRef}
+              className="overflow-x-auto max-h-[450px] overflow-y-auto scroll-smooth"
+              onScroll={isLargeFile ? virtualScroll.onScroll : undefined}
+            >
               <table className="w-full text-sm">
                 {/* Sütun Harfleri */}
                 <thead className="sticky top-0 z-10">
@@ -393,9 +498,14 @@ export function ColumnMappingPage({
                   </tr>
                 </thead>
                 
-                {/* Veri Satırları */}
-                <tbody>
-                  {previewData.map((row, rowIndex) => (
+                {/* Veri Satırları - Virtual Scrolling */}
+                <tbody style={isLargeFile ? { 
+                  height: virtualScroll.totalHeight,
+                  position: 'relative'
+                } : undefined}>
+                  {(isLargeFile ? visibleData : previewData).map((row, idx) => {
+                    const rowIndex = isLargeFile ? virtualScroll.visibleStart + idx : idx;
+                    return (
                     <tr 
                       key={rowIndex} 
                       className={`border-b border-gray-100 dark:border-gray-700 ${
@@ -433,27 +543,7 @@ export function ColumnMappingPage({
                             title={value}
                           >
                             {isAnswerLike ? (
-                              <div className="flex flex-wrap gap-0.5">
-                                {value.replace(/\s/g, '').split('').slice(0, 20).map((char, i) => (
-                                  <span 
-                                    key={i} 
-                                    className={`inline-block w-4 h-4 text-[10px] rounded text-center leading-4 ${
-                                      char === 'A' ? 'bg-red-100 text-red-700' :
-                                      char === 'B' ? 'bg-orange-100 text-orange-700' :
-                                      char === 'C' ? 'bg-yellow-100 text-yellow-700' :
-                                      char === 'D' ? 'bg-green-100 text-green-700' :
-                                      'bg-blue-100 text-blue-700'
-                                    }`}
-                                  >
-                                    {char}
-                                  </span>
-                                ))}
-                                {value.replace(/\s/g, '').length > 20 && (
-                                  <span className="text-gray-400 text-[10px]">
-                                    +{value.replace(/\s/g, '').length - 20}
-                                  </span>
-                                )}
-                              </div>
+                              <AnswerVisualizer answers={value} maxShow={40} />
                             ) : (
                               <span className="text-gray-700 dark:text-gray-300">{value}</span>
                             )}
@@ -461,7 +551,8 @@ export function ColumnMappingPage({
                         );
                       })}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
