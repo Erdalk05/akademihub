@@ -321,10 +321,37 @@ export function ColumnMappingPage({
     return mappings.find(m => m.field === field);
   }, [mappings]);
   
-  // Hücre tıklama
+  // Hücre tıklama - HIZLI SEÇİM POPUP
   const handleCellClick = useCallback((rowIndex: number, colIndex: number, value: string) => {
     setSelectedCell({ rowIndex, colIndex, value });
+    // Otomatik olarak sağ paneli aktif et
   }, []);
+  
+  // HIZLI SEÇİM - Tek tıkla alan ata
+  const handleQuickAssign = useCallback((colIndex: number, field: FieldType) => {
+    const columnLetter = getColumnLetter(colIndex);
+    const sampleValue = data[0]?.[colIndex] || '';
+    const detection = autoDetections[colIndex];
+    
+    // Mevcut mapping'i kaldır
+    const newMappings = mappings.filter(m => 
+      m.columnIndex !== colIndex && m.field !== field
+    );
+    
+    if (field !== 'ignore') {
+      newMappings.push({
+        field,
+        columnIndex: colIndex,
+        columnLetter,
+        sampleValue,
+        confidence: 100,
+        detectedInfo: detection?.info
+      });
+    }
+    
+    setMappings(newMappings);
+    setSelectedCell(null);
+  }, [mappings, data, autoDetections]);
   
   // Alan seçimi
   const handleFieldSelect = useCallback((field: FieldType) => {
@@ -460,35 +487,80 @@ export function ColumnMappingPage({
                       return (
                         <th 
                           key={colIndex}
-                          className={`min-w-[100px] px-3 py-2 text-center font-medium text-xs border-r border-gray-200 dark:border-gray-700 transition-all cursor-pointer ${
+                          className={`min-w-[120px] px-2 py-2 text-center font-medium text-xs border-r border-gray-200 dark:border-gray-700 transition-all ${
                             isSelected 
                               ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500' 
                               : isHovered
                                 ? 'bg-blue-50 dark:bg-blue-900/50'
                                 : mapping
-                                  ? `bg-${fieldConfig?.color}-50 dark:bg-${fieldConfig?.color}-900/30 text-${fieldConfig?.color}-700 dark:text-${fieldConfig?.color}-300`
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
                                   : 'text-gray-500'
                           }`}
                           onMouseEnter={() => setHoveredCol(colIndex)}
                           onMouseLeave={() => setHoveredCol(null)}
-                          onClick={() => handleCellClick(0, colIndex, data[0]?.[colIndex] || '')}
                         >
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-lg">{getColumnLetter(colIndex)}</span>
+                            {/* Sütun Harfi */}
+                            <span className="text-base font-bold">{getColumnLetter(colIndex)}</span>
+                            
+                            {/* Eşleşme varsa göster */}
                             {mapping && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/50 dark:bg-black/30">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-800 font-medium">
                                 {FIELD_CONFIG[mapping.field].emoji} {FIELD_CONFIG[mapping.field].label}
                               </span>
                             )}
-                            {!mapping && detection && detection.confidence > 50 && (
+                            
+                            {/* HIZLI SEÇİM BUTONLARI - Her Zaman Görünür */}
+                            {!mapping && (
+                              <div className="flex flex-wrap gap-1 justify-center mt-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleQuickAssign(colIndex, 'student_no'); }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors"
+                                  title="Öğrenci No"
+                                >
+                                  🔢
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleQuickAssign(colIndex, 'name'); }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+                                  title="Ad Soyad"
+                                >
+                                  👤
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleQuickAssign(colIndex, 'class'); }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors"
+                                  title="Sınıf"
+                                >
+                                  🏫
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleQuickAssign(colIndex, 'answers'); }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-700 transition-colors"
+                                  title="Cevaplar"
+                                >
+                                  ✍️
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleQuickAssign(colIndex, 'ignore'); }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                                  title="Atla"
+                                >
+                                  ⏭️
+                                </button>
+                              </div>
+                            )}
+                            
+                            {/* Öneri varsa göster */}
+                            {!mapping && detection && detection.confidence > 70 && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleAcceptSuggestion(colIndex);
                                 }}
-                                className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                                className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 hover:bg-green-200 transition-colors mt-1"
                               >
-                                🤖 {detection.info}
+                                ✨ {detection.info} olarak ata
                               </button>
                             )}
                           </div>

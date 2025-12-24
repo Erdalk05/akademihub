@@ -278,64 +278,85 @@ async function parseOpticalReaderFormat(
 /**
  * Tek bir optik satırı parse et
  * Format: 000148ALİ ÇINAR KILIÇOĞLU 8C BBACBADCDABCCDACAACBCBC...
+ * 
+ * AKILLI PARSER - Her formatı çözer!
  */
 function parseOpticalLine(line: string): string[] | null {
-  // Regex: 6 haneli no + isim + sınıf + cevaplar
-  // Sınıf formatı: 8C, 8A, 10B, 5-A, 5/A vb.
+  if (!line || line.trim().length < 10) return null;
   
-  const match = line.match(
-    /^(\d{6})([A-ZÇĞİÖŞÜa-zçğıöşü\s\-\+«»]+?)\s+(\d{1,2}[\-\/]?[A-Z])\s+([ABCDE\s]+)/i
-  );
+  const trimmed = line.trim();
   
-  if (match) {
-    const studentNo = match[1];
-    const name = match[2].trim();
-    const classInfo = match[3];
-    // Cevaplardan boşlukları kaldır
-    const answers = match[4].replace(/\s+/g, '');
+  // 1. İlk 6 karakter öğrenci numarası mı?
+  const startsWithNumber = /^(\d{6})/.test(trimmed);
+  
+  if (startsWithNumber) {
+    const studentNo = trimmed.substring(0, 6);
+    const rest = trimmed.substring(6).trim();
     
-    return [studentNo, name, classInfo, answers];
+    // Sınıf formatını bul: 8C, 8A, 10B, 8-A, 5/A
+    const classMatch = rest.match(/\s+(\d{1,2}[\-\/]?[A-Z])\s+/i);
+    
+    if (classMatch) {
+      const classIndex = rest.indexOf(classMatch[0]);
+      const namePart = rest.substring(0, classIndex).trim();
+      const classInfo = classMatch[1];
+      const afterClass = rest.substring(classIndex + classMatch[0].length);
+      
+      // Cevapları bul - sadece A,B,C,D,E karakterleri
+      const answersMatch = afterClass.match(/([ABCDE\s]+)/gi);
+      const answers = answersMatch 
+        ? answersMatch.join('').replace(/\s+/g, '')
+        : afterClass.replace(/[^ABCDE]/gi, '');
+      
+      return [studentNo, namePart, classInfo, answers];
+    }
+    
+    // Sınıf bulunamadı - cevapları direkt bul
+    const answersStart = rest.search(/[ABCDE]{5,}/i);
+    if (answersStart > 0) {
+      const namePart = rest.substring(0, answersStart).trim();
+      const answers = rest.substring(answersStart).replace(/[^ABCDE]/gi, '');
+      
+      // İsimden sınıfı ayıkla (son kelime sınıf olabilir)
+      const nameParts = namePart.split(/\s+/);
+      const lastPart = nameParts[nameParts.length - 1];
+      
+      if (/^\d{1,2}[A-Z]$/i.test(lastPart)) {
+        const name = nameParts.slice(0, -1).join(' ');
+        return [studentNo, name, lastPart, answers];
+      }
+      
+      return [studentNo, namePart, '', answers];
+    }
   }
   
-  // Alternatif format: TAB ile ayrılmış
-  if (line.includes('\t')) {
-    const parts = line.split('\t').map(p => p.trim()).filter(p => p);
-    if (parts.length >= 3) {
+  // 2. TAB ile ayrılmış mı?
+  if (trimmed.includes('\t')) {
+    const parts = trimmed.split('\t').map(p => p.trim()).filter(p => p);
+    if (parts.length >= 2) {
       // İlk parça no+isim birleşik mi?
       if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(parts[0])) {
         const studentNo = parts[0].substring(0, 6);
-        const name = parts[0].substring(6);
+        const name = parts[0].substring(6).trim();
         return [studentNo, name, ...parts.slice(1)];
       }
       return parts;
     }
   }
   
-  // Son çare: Birden fazla boşlukla böl
-  const spaceParts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
-  if (spaceParts.length >= 3) {
-    // İlk parça no+isim birleşik mi?
+  // 3. Birden fazla boşlukla ayrılmış mı?
+  const spaceParts = trimmed.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+  if (spaceParts.length >= 2) {
     if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(spaceParts[0])) {
       const studentNo = spaceParts[0].substring(0, 6);
-      const name = spaceParts[0].substring(6);
+      const name = spaceParts[0].substring(6).trim();
       return [studentNo, name, ...spaceParts.slice(1)];
     }
     return spaceParts;
   }
   
-  // Hiçbir format uymadı - manuel parse dene
-  // Format: 000148ALİ ÇINAR KILIÇOĞLU 8C CEVAPLAR...
-  const manualMatch = line.match(/^(\d{6})(.+?)(\d{1,2}[A-Z])\s*([ABCDE\s\(\)%\d]+)$/i);
-  if (manualMatch) {
-    return [
-      manualMatch[1],
-      manualMatch[2].trim(),
-      manualMatch[3],
-      manualMatch[4].replace(/[\s\(\)%\d]/g, '')
-    ];
-  }
-  
-  return null;
+  // 4. Son çare - tek kelime olarak döndür
+  return [trimmed];
 }
 
 /**
