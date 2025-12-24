@@ -21,3 +21,6 @@ export type { GuidedMappingProps } from './GuidedMapping';
 export { SkipMatchFlow } from './SkipMatchFlow';
 export type { SkipMatchFlowProps } from './SkipMatchFlow';
 
+export { SmartOpticalImport } from './SmartOpticalImport';
+export type { FieldType as SmartFieldType } from './SmartOpticalImport';
+
