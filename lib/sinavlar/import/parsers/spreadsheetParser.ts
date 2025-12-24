@@ -236,12 +236,18 @@ function detectOpticalReaderFormat(text: string): boolean {
   
   // Optik format özellikleri:
   // 1. Satır başında 6 haneli numara
-  // 2. Ardışık A,B,C,D,E karakterleri (cevaplar)
+  // 2. A,B,C,D,E karakterleri (boşluklu da olabilir)
   
   const hasStudentNo = /^\d{6}/.test(firstLine);
-  const hasAnswerPattern = /[ABCDE]{10,}/.test(firstLine);
   
-  return hasStudentNo && hasAnswerPattern;
+  // Boşlukları kaldırıp kontrol et
+  const withoutSpaces = firstLine.replace(/\s/g, '');
+  const hasAnswerPattern = /[ABCDE]{5,}/i.test(withoutSpaces);
+  
+  // Satır uzunluğu ve karakter çeşitliliği
+  const isLongLine = firstLine.length > 50;
+  
+  return hasStudentNo && (hasAnswerPattern || isLongLine);
 }
 
 /**
@@ -282,7 +288,7 @@ async function parseOpticalReaderFormat(
  * Tek bir optik satırı parse et
  * Format: 000148ALİ ÇINAR KILIÇOĞLU 8C BBACBADCDABCCDACAACBCBC...
  * 
- * AKILLI PARSER - Her formatı çözer!
+ * SÜPER BASİT PARSER - Garantili çalışır!
  */
 function parseOpticalLine(line: string): string[] | null {
   if (!line || line.trim().length < 10) return null;
@@ -292,81 +298,117 @@ function parseOpticalLine(line: string): string[] | null {
   // 1. İlk 6 karakter öğrenci numarası mı?
   const startsWithNumber = /^(\d{6})/.test(trimmed);
   
-  if (startsWithNumber) {
-    const studentNo = trimmed.substring(0, 6);
-    const rest = trimmed.substring(6).trim();
-    
-    // Sınıf formatını bul: 8C, 8A, 10B, 8-A, 5/A
-    const classMatch = rest.match(/\s+(\d{1,2}[\-\/]?[A-Z])\s+/i);
-    
-    if (classMatch) {
-      const classIndex = rest.indexOf(classMatch[0]);
-      const namePart = rest.substring(0, classIndex).trim();
-      const classInfo = classMatch[1];
-      const afterClass = rest.substring(classIndex + classMatch[0].length);
-      
-      // Cevapları bul - sadece A,B,C,D,E karakterleri
-      const answersMatch = afterClass.match(/([ABCDE\s]+)/gi);
-      const answers = answersMatch 
-        ? answersMatch.join('').replace(/\s+/g, '')
-        : afterClass.replace(/[^ABCDE]/gi, '');
-      
-      // OCR düzeltmesi uygula
-      return [studentNo, correctOCRErrors(namePart), classInfo, answers];
-    }
-    
-    // Sınıf bulunamadı - cevapları direkt bul
-    const answersStart = rest.search(/[ABCDE]{5,}/i);
-    if (answersStart > 0) {
-      const namePart = rest.substring(0, answersStart).trim();
-      const answers = rest.substring(answersStart).replace(/[^ABCDE]/gi, '');
-      
-      // İsimden sınıfı ayıkla (son kelime sınıf olabilir)
-      const nameParts = namePart.split(/\s+/);
-      const lastPart = nameParts[nameParts.length - 1];
-      
-      if (/^\d{1,2}[A-Z]$/i.test(lastPart)) {
-        const name = nameParts.slice(0, -1).join(' ');
-        // OCR düzeltmesi uygula
-        return [studentNo, correctOCRErrors(name), lastPart, answers];
-      }
-      
-      // OCR düzeltmesi uygula
-      return [studentNo, correctOCRErrors(namePart), '', answers];
-    }
-  }
-  
-  // 2. TAB ile ayrılmış mı?
-  if (trimmed.includes('\t')) {
-    const parts = trimmed.split('\t').map(p => p.trim()).filter(p => p);
+  if (!startsWithNumber) {
+    // Numara ile başlamıyorsa, boşlukla veya TAB ile böl
+    const parts = trimmed.split(/\t|\s{2,}/).map(p => p.trim()).filter(p => p);
     if (parts.length >= 2) {
-      // İlk parça no+isim birleşik mi?
-      if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(parts[0])) {
-        const studentNo = parts[0].substring(0, 6);
-        const name = parts[0].substring(6).trim();
-        // OCR düzeltmesi uygula
-        return [studentNo, correctOCRErrors(name), ...parts.slice(1).map(p => correctOCRErrors(p))];
-      }
-      // OCR düzeltmesi uygula
       return parts.map(p => correctOCRErrors(p));
     }
+    return [correctOCRErrors(trimmed)];
   }
   
-  // 3. Birden fazla boşlukla ayrılmış mı?
-  const spaceParts = trimmed.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
-  if (spaceParts.length >= 2) {
-    if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(spaceParts[0])) {
-      const studentNo = spaceParts[0].substring(0, 6);
-      const name = spaceParts[0].substring(6).trim();
-      // OCR düzeltmesi uygula
-      return [studentNo, correctOCRErrors(name), ...spaceParts.slice(1).map(p => correctOCRErrors(p))];
+  // Öğrenci numarasını al
+  const studentNo = trimmed.substring(0, 6);
+  const rest = trimmed.substring(6).trim();
+  
+  // YÖNTEM 1: Sınıf formatını bul (8C, 8A, 10B, 8-A)
+  // Sınıf HER ZAMAN sayı + harf formatında
+  const classRegex = /\b(\d{1,2}[\-\/]?[A-Z])\b/gi;
+  const allClassMatches = [...rest.matchAll(classRegex)];
+  
+  if (allClassMatches.length > 0) {
+    // İlk class match'i kullan
+    const firstClassMatch = allClassMatches[0];
+    const classInfo = firstClassMatch[1];
+    const classIndex = firstClassMatch.index!;
+    
+    // Sınıftan önceki kısım = isim
+    const namePart = rest.substring(0, classIndex).trim();
+    
+    // Sınıftan sonraki kısım = cevaplar
+    const afterClass = rest.substring(classIndex + classInfo.length).trim();
+    
+    // Cevapları temizle - sadece A,B,C,D,E al
+    const answers = afterClass.replace(/[^ABCDE]/gi, '');
+    
+    if (namePart && answers.length >= 5) {
+      return [studentNo, correctOCRErrors(namePart), classInfo, answers];
     }
-    // OCR düzeltmesi uygula
-    return spaceParts.map(p => correctOCRErrors(p));
   }
   
-  // 4. Son çare - tek kelime olarak döndür
-  return [correctOCRErrors(trimmed)];
+  // YÖNTEM 2: Cevapları bul (uzun ABCDE string)
+  // Cevaplar genellikle satırın sonunda, birden fazla blok halinde
+  const answersRegex = /[ABCDE]{3,}/gi;
+  const allAnswerMatches = [...rest.matchAll(answersRegex)];
+  
+  if (allAnswerMatches.length > 0) {
+    // İlk cevap bloğunun indexi
+    const firstAnswerIndex = allAnswerMatches[0].index!;
+    
+    // Cevaplardan önceki kısım = isim + sınıf
+    const beforeAnswers = rest.substring(0, firstAnswerIndex).trim();
+    
+    // Tüm cevapları birleştir
+    const allAnswers = allAnswerMatches.map(m => m[0]).join('');
+    
+    // İsim ve sınıfı ayır
+    const parts = beforeAnswers.split(/\s+/);
+    const lastPart = parts[parts.length - 1] || '';
+    
+    // Son kelime sınıf mı?
+    if (/^\d{1,2}[A-Z]$/i.test(lastPart)) {
+      const namePart = parts.slice(0, -1).join(' ');
+      return [studentNo, correctOCRErrors(namePart), lastPart, allAnswers];
+    }
+    
+    // Sınıf yok
+    return [studentNo, correctOCRErrors(beforeAnswers), '', allAnswers];
+  }
+  
+  // YÖNTEM 3: TAB ile ayrılmış mı?
+  if (rest.includes('\t')) {
+    const parts = rest.split('\t').map(p => p.trim()).filter(p => p);
+    return [studentNo, ...parts.map(p => correctOCRErrors(p))];
+  }
+  
+  // YÖNTEM 4: Birden fazla boşlukla ayrılmış mı?
+  const spaceParts = rest.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+  if (spaceParts.length >= 2) {
+    return [studentNo, ...spaceParts.map(p => correctOCRErrors(p))];
+  }
+  
+  // YÖNTEM 5: Tek boşlukla ayır ve akıllıca grupla
+  const words = rest.split(/\s+/);
+  const result: string[] = [studentNo];
+  let currentName = '';
+  let foundClass = false;
+  let answers = '';
+  
+  for (const word of words) {
+    // Sınıf mı?
+    if (!foundClass && /^\d{1,2}[A-Z]$/i.test(word)) {
+      if (currentName) result.push(correctOCRErrors(currentName.trim()));
+      result.push(word);
+      foundClass = true;
+    }
+    // Cevap bloğu mu?
+    else if (/^[ABCDE]+$/i.test(word) && word.length >= 3) {
+      answers += word;
+    }
+    // İsim parçası
+    else if (!foundClass) {
+      currentName += (currentName ? ' ' : '') + word;
+    }
+  }
+  
+  if (currentName && !result.includes(correctOCRErrors(currentName.trim()))) {
+    result.push(correctOCRErrors(currentName.trim()));
+  }
+  if (answers) {
+    result.push(answers);
+  }
+  
+  return result.length > 1 ? result : [correctOCRErrors(trimmed)];
 }
 
 /**
