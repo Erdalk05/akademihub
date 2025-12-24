@@ -270,6 +270,27 @@ export default function FreeReportBuilderPage() {
     });
   }, []);
 
+  const selectAllFields = useCallback((table: ReportTable) => {
+    setIsSaved(false);
+    setSelectedFields((prev) => {
+      // Check if all fields from this table are already selected
+      const allSelected = table.fields.every((field) =>
+        prev.some((sf) => sf.table.name === table.name && sf.field.name === field.name)
+      );
+      
+      if (allSelected) {
+        // Deselect all fields from this table
+        return prev.filter((sf) => sf.table.name !== table.name);
+      } else {
+        // Add all fields from this table that aren't already selected
+        const newFields = table.fields
+          .filter((field) => !prev.some((sf) => sf.table.name === table.name && sf.field.name === field.name))
+          .map((field) => ({ table, field }));
+        return [...prev, ...newFields];
+      }
+    });
+  }, []);
+
   const removeField = useCallback((tableName: string, fieldName: string) => {
     setIsSaved(false);
     setSelectedFields((prev) =>
@@ -814,6 +835,30 @@ export default function FreeReportBuilderPage() {
                       </button>
                       {isExpanded && (
                         <div className="px-1.5 pb-1.5 space-y-0.5">
+                          {/* Select All / Deselect All Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectAllFields(table);
+                            }}
+                            className={`w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-bold transition mb-1 ${
+                              selectedCount === table.fields.length
+                                ? 'bg-red-100 text-red-600 hover:bg-red-200 border border-red-200'
+                                : 'bg-[#DCF8C6] text-[#075E54] hover:bg-[#25D366] hover:text-white border border-[#25D366]/30'
+                            }`}
+                          >
+                            {selectedCount === table.fields.length ? (
+                              <>
+                                <X className="h-3 w-3" />
+                                Tümünü Kaldır
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-3 w-3" />
+                                Hepsini Seç ({table.fields.length})
+                              </>
+                            )}
+                          </button>
                           {table.fields.map((field) => {
                             const isSelected = selectedFields.some(
                               (sf) => sf.table.name === table.name && sf.field.name === field.name
