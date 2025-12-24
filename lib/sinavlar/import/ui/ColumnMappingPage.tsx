@@ -422,15 +422,15 @@ export function ColumnMappingPage({
         )}
       </div>
       
-      {/* 2 Kolonlu Layout */}
-      <div className="flex-1 flex gap-6">
+      {/* 2 Kolonlu Layout - Responsive */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 min-h-[500px]">
         {/* SOL: Veri Önizleme */}
-        <div className="w-[70%] overflow-hidden">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+        <div className="w-full lg:w-[65%] xl:w-[70%] overflow-hidden flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm h-full">
             {/* Tablo Header */}
-            <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="bg-gray-50 dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-2">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Veri Önizleme (İlk 10 Satır)
+                Veri Önizleme
               </span>
               <span className="text-xs text-gray-400">
                 Sütuna tıklayarak seçin
@@ -560,8 +560,8 @@ export function ColumnMappingPage({
         </div>
         
         {/* SAĞ: Alan Tanımlama */}
-        <div className="w-[30%]">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm sticky top-4">
+        <div className="w-full lg:w-[35%] xl:w-[30%] flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm lg:sticky lg:top-4">
             {/* Panel Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3">
               <h3 className="text-white font-semibold">Alan Tanımlama</h3>
