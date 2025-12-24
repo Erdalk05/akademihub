@@ -612,6 +612,230 @@ export function calculateNet(
   };
 }
 
+// ==================== SINAV ŞABLONU ====================
+
+export interface ExamTemplate {
+  id: string;
+  examTypeId: string;
+  name: string;
+  code?: string;
+  description?: string;
+  
+  // Soru Yapısı
+  questionStructure: Array<{
+    subjectCode: string;
+    count: number;
+    startNo: number;
+    endNo: number;
+  }>;
+  
+  totalQuestions: number;
+  defaultDurationMinutes?: number;
+  defaultTopicMapping?: Record<number, string>;
+  difficultyDistribution?: {
+    easy: number;
+    medium: number;
+    hard: number;
+  };
+  
+  isActive: boolean;
+  isDefault: boolean;
+  
+  organizationId?: string;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== OPTİK HAM VERİ ====================
+
+export interface ExamOpticalRawData {
+  id: string;
+  examId: string;
+  studentId: string;
+  
+  // Ham Veri
+  rawDataString?: string;
+  rawDataJson?: Record<number, string>;
+  
+  // Optik Bilgileri
+  scannerDevice?: string;
+  scannerVersion?: string;
+  scanTimestamp?: Date;
+  scanQualityScore?: number;
+  
+  // Form Bilgileri
+  formType?: 'A' | 'B' | 'C' | 'D';
+  formSerial?: string;
+  studentIdOnForm?: string;
+  
+  // Kalite Metrikleri
+  totalMarksDetected?: number;
+  ambiguousMarksCount: number;
+  doubleMarksCount: number;
+  emptyMarksCount: number;
+  invalidMarksCount: number;
+  
+  // Hata Detayları
+  markIssues?: Array<{
+    question: number;
+    type: 'double_mark' | 'ambiguous' | 'invalid' | 'empty';
+    values?: string[];
+  }>;
+  
+  // Durum
+  processingStatus: 'pending' | 'processed' | 'error' | 'manual_review';
+  processedAt?: Date;
+  
+  scanImageUrl?: string;
+  
+  organizationId?: string;
+  receivedAt: Date;
+  receivedBy?: string;
+}
+
+// ==================== VALİDASYON HATASI ====================
+
+export interface ExamValidationError {
+  id: string;
+  examId: string;
+  studentId?: string;
+  opticalRawDataId?: string;
+  
+  errorCode: string;
+  errorType: 'critical' | 'warning' | 'info';
+  errorMessage: string;
+  
+  questionNo?: number;
+  subjectCode?: string;
+  fieldName?: string;
+  
+  receivedValue?: string;
+  expectedValue?: string;
+  
+  isResolved: boolean;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolutionAction?: 'corrected' | 'ignored' | 'deleted';
+  resolutionNote?: string;
+  
+  organizationId?: string;
+  createdAt: Date;
+}
+
+// ==================== ANALİTİK SNAPSHOT ====================
+
+export interface ExamAnalyticsSnapshot {
+  id: string;
+  
+  scopeType: 'student' | 'class' | 'school' | 'exam';
+  scopeId: string;
+  
+  snapshotDate: Date;
+  snapshotPeriod?: 'daily' | 'weekly' | 'monthly' | 'exam';
+  
+  examId?: string;
+  academicYearId?: string;
+  
+  // Metrikler
+  examCount: number;
+  avgNet?: number;
+  avgScore?: number;
+  avgPercentile?: number;
+  
+  // Trendler
+  netTrend?: number;
+  scoreTrend?: number;
+  rankTrend?: number;
+  
+  // Performans Detayları
+  subjectPerformance?: Record<string, {
+    avgNet: number;
+    trend: number;
+  }>;
+  
+  topicPerformance?: Record<string, {
+    successRate: number;
+    trend: number;
+  }>;
+  
+  // AI-Ready Veriler
+  strengths?: string[];
+  weaknesses?: string[];
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskFactors?: string[];
+  improvementPriorities?: Array<{
+    topic: string;
+    priority: 'high' | 'medium' | 'low';
+    reason: string;
+  }>;
+  studyRecommendations?: string[];
+  
+  consistencyScore?: number;
+  vsClassAvg?: number;
+  vsSchoolAvg?: number;
+  vsPrevious?: number;
+  
+  organizationId?: string;
+  calculatedAt: Date;
+  createdAt: Date;
+}
+
+// ==================== AUDIT LOG ====================
+
+export interface ExamAuditLog {
+  id: string;
+  
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'CALCULATE' | 'PUBLISH' | 'IMPORT';
+  entityType: 'exam' | 'answer' | 'result' | 'answer_key' | 'template';
+  entityId?: string;
+  
+  examId?: string;
+  studentId?: string;
+  
+  oldValue?: any;
+  newValue?: any;
+  changedFields?: string[];
+  
+  description?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  
+  performedBy?: string;
+  performedAt: Date;
+  
+  organizationId?: string;
+}
+
+// ==================== VALİDASYON KURALI ====================
+
+export interface ExamValidationRule {
+  id: string;
+  examTypeId?: string;
+  
+  ruleCode: string;
+  ruleName: string;
+  description?: string;
+  
+  fieldName?: string;
+  ruleType: 'range' | 'enum' | 'regex' | 'custom';
+  params: any;
+  
+  errorCode: string;
+  errorMessageTemplate: string;
+  errorSeverity: 'error' | 'warning' | 'info';
+  
+  isBlocking: boolean;
+  autoFixAction?: 'set_null' | 'set_default' | 'skip';
+  
+  isActive: boolean;
+  displayOrder: number;
+  
+  organizationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // ==================== EXPORT ====================
 
 export default {
