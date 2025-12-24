@@ -395,7 +395,15 @@ function formatAnalyticsOutputV2(
     study_recommendations: analytics.studyRecommendations ?? [],
     
     // ==================== METADATA ====================
-    ai_metadata: assembled.existing_ai_metadata ?? {},
+    ai_metadata: {
+      ...assembled.existing_ai_metadata,
+      // AI-Ready combined text
+      ai_ready_text: `${trend.ai_ready_text} ${risk.ai_ready_text}`,
+      trend_ai_text: trend.ai_ready_text,
+      risk_ai_text: risk.ai_ready_text,
+      config_version: configs.risk.config_version,
+      generated_at: new Date().toISOString()
+    },
     
     calculation_metadata: {
       analytics_version: CONFIG_VERSION,
@@ -405,7 +413,8 @@ function formatAnalyticsOutputV2(
       data_completeness: trend.has_sufficient_data ? 1.0 : 0.5,
       confidence_score: risk.factors_evaluated >= 5 ? 1.0 : 0.7,
       risk_config_source: configs.risk.loaded_from,
-      trend_config_source: configs.trend.loaded_from
+      trend_config_source: configs.trend.loaded_from,
+      trend_status: trend.status
     },
     
     cache_info: {

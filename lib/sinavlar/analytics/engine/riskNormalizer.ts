@@ -93,6 +93,9 @@ export interface NormalizedRiskResult {
   // Meta
   factors_evaluated: number;
   config_source: 'database' | 'defaults';
+  
+  // AI-Ready text
+  ai_ready_text: string;
 }
 
 // ==================== FACTOR NAMES ====================
@@ -168,6 +171,9 @@ export function normalizeRisk(input: RiskNormalizerInput): NormalizedRiskResult 
   // Özet açıklama oluştur
   const summary = generateRiskSummary(level, sortedFactors, input.current_net);
   
+  // AI-Ready text
+  const aiReadyText = generateAIReadyRiskText(level, score, sortedFactors, primaryConcern);
+  
   return {
     score,
     level,
@@ -178,7 +184,8 @@ export function normalizeRisk(input: RiskNormalizerInput): NormalizedRiskResult 
     action_required: level === 'high' || level === 'critical',
     summary,
     factors_evaluated: factors.length,
-    config_source: input.weights ? 'database' : 'defaults'
+    config_source: input.weights ? 'database' : 'defaults',
+    ai_ready_text: aiReadyText
   };
 }
 
@@ -455,6 +462,40 @@ function generateRiskSummary(
 function round(value: number, decimals: number = 2): number {
   const multiplier = Math.pow(10, decimals);
   return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
+}
+
+/**
+ * AI için yapılandırılmış risk metni üretir
+ */
+function generateAIReadyRiskText(
+  level: 'low' | 'medium' | 'high' | 'critical',
+  score: number,
+  factors: RiskFactorExplanation[],
+  primaryConcern: string | null
+): string {
+  const topFactors = factors
+    .filter(f => f.impact_score > 0.05)
+    .slice(0, 3)
+    .map(f => `${f.factor_name} (etki: ${round(f.impact_score * 100)}%)`);
+  
+  const levelText = {
+    low: 'düşük risk',
+    medium: 'orta risk',
+    high: 'yüksek risk',
+    critical: 'kritik risk'
+  }[level];
+  
+  let text = `Risk Durumu: ${levelText.toUpperCase()} (Skor: ${score}/100). `;
+  
+  if (topFactors.length > 0) {
+    text += `Ana faktörler: ${topFactors.join(', ')}. `;
+  }
+  
+  if (primaryConcern) {
+    text += `Öncelikli odak: ${primaryConcern}.`;
+  }
+  
+  return text;
 }
 
 // ==================== BATCH PROCESSING ====================

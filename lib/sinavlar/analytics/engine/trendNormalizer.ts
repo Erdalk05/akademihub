@@ -28,6 +28,9 @@ export interface TrendNormalizerInput {
   // Net değerleri (eski → yeni sıralı)
   nets: number[];
   
+  // Opsiyonel: Z-Score hesaplama için sınıf verileri
+  classNets?: number[];          // Sınıftaki tüm öğrenci netleri (Z-Score için)
+  
   // Opsiyonel config (yoksa defaults kullanılır)
   config?: Partial<TrendConfig>;
   
@@ -40,6 +43,10 @@ export interface NormalizedTrendResult {
   // Ham değerler
   raw_nets: number[];
   weighted_nets: number[];
+  
+  // Z-Score bazlı değerler (sınav zorluğu etkisini elimine eder)
+  z_scores?: number[];           // Her sınavın Z-Score'u
+  z_score_velocity?: number;     // Z-Score bazlı velocity
   
   // Velocity (eğim)
   velocity: number;              // Net/sınav cinsinden
@@ -66,6 +73,10 @@ export interface NormalizedTrendResult {
   // Veri yeterliliği
   has_sufficient_data: boolean;
   data_point_count: number;
+  status: 'ready' | 'gathering_data' | 'insufficient';
+  
+  // AI-Ready text
+  ai_ready_text: string;
 }
 
 // ==================== ANA FONKSİYON ====================
@@ -75,6 +86,9 @@ export interface NormalizedTrendResult {
  * 
  * PURE FUNCTION - Side effect yok
  * 
+ * Z-SCORE CENTRIC: Sınav zorluğu etkisini elimine etmek için
+ * Z-Score bazlı velocity hesaplanır.
+ * 
  * @param input - Trend girdisi
  * @returns Normalize edilmiş trend sonucu
  */
@@ -82,7 +96,11 @@ export function normalizeTrend(input: TrendNormalizerInput): NormalizedTrendResu
   const config = { ...DEFAULT_TREND_CONFIG, ...input.config };
   const nets = input.nets ?? [];
   
-  // Veri yeterliliği kontrolü
+  // Veri yeterliliği kontrolü - 3 sınavdan az = gathering_data
+  if (nets.length < 3) {
+    return createGatheringDataResult(nets);
+  }
+  
   if (nets.length < config.min_data_points) {
     return createInsufficientDataResult(nets);
   }
@@ -92,6 +110,10 @@ export function normalizeTrend(input: TrendNormalizerInput): NormalizedTrendResu
   
   // Ağırlıklı değerler hesapla
   const weightedNets = calculateWeightedNets(windowedNets, config.weight_distribution);
+  
+  // Z-Score hesapla (sınav zorluğu etkisini elimine eder)
+  const zScores = calculateZScores(windowedNets, input.classNets);
+  const zScoreVelocity = zScores.length >= 2 ? calculateVelocity(zScores) : 0;
   
   // Velocity (linear regression slope)
   const velocity = calculateVelocity(windowedNets);
@@ -130,9 +152,14 @@ export function normalizeTrend(input: TrendNormalizerInput): NormalizedTrendResu
     windowedNets[windowedNets.length - 1]
   );
   
+  // AI-Ready text
+  const aiReadyText = generateAIReadyText(direction, velocity, consistency, windowedNets.length);
+  
   return {
     raw_nets: windowedNets,
     weighted_nets: weightedNets,
+    z_scores: zScores.length > 0 ? zScores : undefined,
+    z_score_velocity: zScores.length >= 2 ? round(zScoreVelocity, 4) : undefined,
     velocity: round(velocity),
     velocity_normalized: round(velocityNormalized, 4),
     std_deviation: round(stdDeviation),
@@ -144,7 +171,9 @@ export function normalizeTrend(input: TrendNormalizerInput): NormalizedTrendResu
     explanation,
     explanation_key: explanationKey,
     has_sufficient_data: true,
-    data_point_count: windowedNets.length
+    data_point_count: windowedNets.length,
+    status: 'ready',
+    ai_ready_text: aiReadyText
   };
 }
 
@@ -339,6 +368,80 @@ function generateExplanation(
   return { explanation, explanationKey };
 }
 
+// ==================== Z-SCORE HESAPLAMA ====================
+
+/**
+ * Z-Score hesaplar - Sınav zorluğu etkisini elimine eder
+ * 
+ * Z-Score = (net - ortalama) / std_dev
+ */
+function calculateZScores(nets: number[], classNets?: number[]): number[] {
+  if (nets.length === 0) return [];
+  
+  // Sınıf verisi varsa kullan, yoksa kendi verilerini kullan
+  const referenceNets = classNets && classNets.length > 1 ? classNets : nets;
+  
+  const mean = referenceNets.reduce((a, b) => a + b, 0) / referenceNets.length;
+  const stdDev = calculateStdDeviation(referenceNets);
+  
+  // Std dev çok küçükse z-score hesaplanamaz
+  if (stdDev < Number.EPSILON) {
+    return nets.map(() => 0);
+  }
+  
+  return nets.map(net => round((net - mean) / stdDev, 4));
+}
+
+// ==================== AI-READY TEXT ====================
+
+/**
+ * AI için yapılandırılmış metin üretir
+ */
+function generateAIReadyText(
+  direction: 'up' | 'down' | 'stable',
+  velocity: number,
+  consistency: number,
+  dataCount: number
+): string {
+  const directionText = {
+    up: 'yükseliyor',
+    down: 'düşüyor',
+    stable: 'stabil'
+  }[direction];
+  
+  const consistencyText = consistency >= 0.7 ? 'tutarlı' : 
+                          consistency >= 0.4 ? 'dalgalı' : 'çok dalgalı';
+  
+  const velocityText = Math.abs(velocity) > 3 ? 'hızla' : 
+                       Math.abs(velocity) > 1 ? 'yavaşça' : 'çok yavaş';
+  
+  return `Trend: ${dataCount} sınav, ${consistencyText} şekilde ${velocityText} ${directionText}. ` +
+         `Velocity: ${round(velocity, 2)} net/sınav, Consistency: ${round(consistency * 100)}%.`;
+}
+
+// ==================== GATHERING DATA RESULT ====================
+
+function createGatheringDataResult(nets: number[]): NormalizedTrendResult {
+  return {
+    raw_nets: nets,
+    weighted_nets: [],
+    velocity: 0,
+    velocity_normalized: 0,
+    std_deviation: 0,
+    consistency: 1,
+    trend_score: 0,
+    direction: 'stable',
+    recent_change: nets.length >= 2 ? round(nets[nets.length - 1] - nets[nets.length - 2]) : 0,
+    total_change: 0,
+    explanation: 'Trend analizi için veri toplanıyor. En az 3 sınav gerekli.',
+    explanation_key: 'gathering_data',
+    has_sufficient_data: false,
+    data_point_count: nets.length,
+    status: 'gathering_data',
+    ai_ready_text: `Trend analizi için veri toplanıyor (${nets.length}/3 sınav).`
+  };
+}
+
 // ==================== INSUFFICIENT DATA RESULT ====================
 
 function createInsufficientDataResult(nets: number[]): NormalizedTrendResult {
@@ -358,7 +461,9 @@ function createInsufficientDataResult(nets: number[]): NormalizedTrendResult {
     explanation: TREND_EXPLANATION_TEMPLATES.insufficient_data,
     explanation_key: 'insufficient_data',
     has_sufficient_data: false,
-    data_point_count: nets.length
+    data_point_count: nets.length,
+    status: 'insufficient',
+    ai_ready_text: 'Trend analizi için yeterli veri yok.'
   };
 }
 
