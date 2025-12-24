@@ -164,3 +164,16 @@ export {
   // Main Export
   ExecutiveModule
 } from './executive';
+
+// ==================== COMMAND CENTER (PHASE 8.5) ====================
+
+export {
+  // Component
+  AcademicAnalysisLanding,
+  
+  // Data
+  getCommandCenterData,
+  
+  // Main Export
+  CommandCenter
+} from './command-center';
