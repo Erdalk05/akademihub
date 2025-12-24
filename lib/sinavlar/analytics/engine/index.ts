@@ -217,6 +217,33 @@ export {
   calculateOverallAssessment
 } from './topics';
 
+// ==================== TREND NORMALIZER (PHASE 3.4) ====================
+
+export {
+  normalizeTrend,
+  normalizeTrendBatch,
+  compareTrends
+} from './trendNormalizer';
+
+export type {
+  TrendNormalizerInput,
+  NormalizedTrendResult
+} from './trendNormalizer';
+
+// ==================== RISK NORMALIZER (PHASE 3.4) ====================
+
+export {
+  normalizeRisk,
+  normalizeRiskBatch,
+  compareRisks
+} from './riskNormalizer';
+
+export type {
+  RiskNormalizerInput,
+  RiskFactorExplanation,
+  NormalizedRiskResult
+} from './riskNormalizer';
+
 // ==================== MAIN ENGINE ====================
 
 export {
@@ -235,6 +262,8 @@ import { calculateRiskScore } from './risk';
 import { calculateConfidence, calculatePredictionConfidence, calculateAnalyticsReliability, calculateMarginOfError } from './confidence';
 import { createMetadata, wrapWithVersion, formatForAI, ANALYTICS_VERSION } from './versioning';
 import { analyzeTopics, calculateOverallAssessment } from './topics';
+import { normalizeTrend, normalizeTrendBatch, compareTrends } from './trendNormalizer';
+import { normalizeRisk, normalizeRiskBatch, compareRisks } from './riskNormalizer';
 
 /**
  * Analytics Engine - Pure Functions
@@ -251,8 +280,11 @@ import { analyzeTopics, calculateOverallAssessment } from './topics';
  * // Öğrenme açığı tespiti
  * const gaps = AnalyticsEngine.detectLearningGaps({ topics });
  * 
- * // Risk analizi
- * const risk = AnalyticsEngine.calculateRiskScore({ ... });
+ * // Risk analizi (DB config ile)
+ * const risk = AnalyticsEngine.normalizeRisk({ ... });
+ * 
+ * // Trend analizi (DB config ile)
+ * const trend = AnalyticsEngine.normalizeTrend({ nets: [...] });
  * 
  * // AI-ready çıktı
  * const aiOutput = AnalyticsEngine.formatForAI(analytics);
@@ -277,10 +309,13 @@ export default {
   normalizeNet,
   calculatePercentileRank,
   
-  // Trend
+  // Trend (Phase 3.4 - DB Configurable)
   calculateTrend,
   calculateSimpleTrend,
   calculateTrendScore,
+  normalizeTrend,
+  normalizeTrendBatch,
+  compareTrends,
   
   // Ağırlıklı skorlama
   calculateWeightedScore,
@@ -290,8 +325,11 @@ export default {
   // Öğrenme açıkları
   detectLearningGaps,
   
-  // Risk
+  // Risk (Phase 3.4 - DB Configurable & Explainable)
   calculateRiskScore,
+  normalizeRisk,
+  normalizeRiskBatch,
+  compareRisks,
   
   // Konu analizi
   analyzeTopics,

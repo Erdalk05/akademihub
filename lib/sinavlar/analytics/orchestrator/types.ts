@@ -137,7 +137,7 @@ export interface DifficultyPerformance {
   hard: { correct: number; total: number; rate: number };
 }
 
-// ==================== TREND ====================
+// ==================== TREND (PHASE 3.4 ENHANCED) ====================
 
 export interface TrendData {
   // Trend yönü
@@ -151,15 +151,30 @@ export interface TrendData {
   // İstatistikler
   slope: number | null;           // Eğim
   is_significant: boolean;        // Anlamlı değişim var mı
+  
+  // PHASE 3.4: Normalize edilmiş trend metrikleri
+  velocity?: number;              // Net/sınav cinsinden hız
+  velocity_normalized?: number;   // [-1, 1] arası normalize
+  consistency?: number;           // [0, 1] arası tutarlılık
+  trend_score?: number;           // [-100, +100] arası skor
+  explanation?: string;           // İnsan okunabilir açıklama
 }
 
-// ==================== RISK ====================
+// ==================== RISK (PHASE 3.4 EXPLAINABLE) ====================
+
+import type { RiskFactorExplanation } from '../engine/riskNormalizer';
 
 export interface RiskData {
   level: RiskLevel | null;
-  score: number | null;           // 0-1
-  factors: string[];
+  score: number | null;           // 0-100
+  factors: RiskFactorExplanation[] | string[];  // Açıklanabilir faktörler
   action_required: boolean;
+  
+  // PHASE 3.4: Açıklanabilir risk
+  primary_concern?: string | null;  // En büyük risk faktörü
+  summary?: string;                  // Genel risk özeti
+  level_label?: string;              // Türkçe etiket
+  level_color?: string;              // UI rengi
 }
 
 // ==================== STRENGTHS / WEAKNESSES ====================
@@ -199,6 +214,10 @@ export interface CalculationMeta {
   engine_version: string;
   data_completeness: number;      // 0-1
   confidence_score: number;       // 0-1
+  
+  // PHASE 3.4: Config kaynakları
+  risk_config_source?: 'database' | 'defaults';
+  trend_config_source?: 'database' | 'defaults';
 }
 
 export interface CacheInfo {
@@ -206,6 +225,9 @@ export interface CacheInfo {
   is_stale: boolean;
   cached_at: string | null;
   stale_reason?: string;
+  
+  // PHASE 3.4: Config versiyonu
+  config_version?: string;
 }
 
 // ==================== SNAPSHOT (DB ROW) ====================

@@ -3,28 +3,56 @@
  * AkademiHub - Sınav Analytics Modülü
  * ============================================
  * 
- * Bu modül ÜÇ katmandan oluşur:
+ * Bu modül DÖRT katmandan oluşur:
  * 
- * 1. ENGINE (Pure Functions) ✅
+ * 1. CONFIG (Konfigürasyon) ✅
+ *    - Varsayılan değerler
+ *    - DB'den config yükleme
+ *    - FAIL-SAFE: Her zaman çalışır
+ * 
+ * 2. ENGINE (Pure Functions) ✅
  *    - DB çağrısı YOK
- *    - API çağrısı YOK
  *    - Side-effect YOK
- *    - Test edilebilir
+ *    - trendNormalizer, riskNormalizer
  * 
- * 2. ORCHESTRATOR (Data Layer) ✅
+ * 3. ORCHESTRATOR (Data Layer) ✅
  *    - Supabase çağrıları
  *    - Cache yönetimi
- *    - Queue işlemleri
+ *    - Config yükleme
  *    - TEK YETKİLİ
  * 
- * 3. UI/API (Consumer)
+ * 4. UI/API (Consumer)
  *    - Sadece Orchestrator'ı çağırır
  *    - Hesaplama YAPMAZ
- *    - Aggregasyon YAPMAZ
  * 
  * MİMARİ:
- * UI → Orchestrator → Engine → Snapshot
+ * UI → Orchestrator → Config + Engine → Snapshot
  */
+
+// ==================== CONFIG (PHASE 3.4) ====================
+
+export {
+  DEFAULT_RISK_WEIGHTS,
+  DEFAULT_RISK_THRESHOLDS,
+  DEFAULT_TREND_CONFIG,
+  RISK_EXPLANATION_TEMPLATES,
+  TREND_EXPLANATION_TEMPLATES,
+  RISK_LEVEL_LABELS,
+  TREND_DIRECTION_LABELS,
+  CONFIG_VERSION,
+  loadRiskConfig,
+  loadTrendConfig,
+  loadAllConfigs,
+  clearConfigCache
+} from './config';
+
+export type {
+  RiskWeightConfig,
+  RiskThresholdConfig,
+  TrendConfig,
+  LoadedRiskConfig,
+  LoadedTrendConfig
+} from './config';
 
 // ==================== ORCHESTRATOR (ANA GİRİŞ) ====================
 
@@ -37,7 +65,9 @@ export {
 export type {
   StudentAnalyticsOutput,
   OrchestratorResult,
-  OrchestratorConfig
+  OrchestratorConfig,
+  RiskData,
+  TrendData
 } from './orchestrator';
 
 // ==================== PURE FUNCTIONS (ENGINE) ====================
@@ -45,13 +75,15 @@ export type {
 export * from './engine';
 export { default as AnalyticsEngine } from './engine';
 
-// ==================== ORCHESTRATOR EXPORTS ====================
+// ==================== ORCHESTRATOR & CONFIG EXPORTS ====================
 
 export { default as Orchestrator } from './orchestrator';
+export { default as AnalyticsConfig } from './config';
 
 // ==================== QUICK ACCESS ====================
 
 import { getStudentAnalytics } from './orchestrator';
+import { loadAllConfigs, clearConfigCache } from './config';
 import {
   calculateFullAnalytics,
   calculateStandardDeviation,
@@ -59,7 +91,9 @@ import {
   calculateConsistencyScore,
   calculateTrend,
   calculateRiskScore,
-  analyzeTopics
+  analyzeTopics,
+  normalizeTrend,
+  normalizeRisk
 } from './engine';
 
 /**
@@ -72,13 +106,23 @@ import {
  * import { Analytics } from '@/lib/sinavlar/analytics';
  * const result = await Analytics.get(examId, studentId);
  * 
- * // Pure function için (test/advanced)
- * import { Analytics } from '@/lib/sinavlar/analytics';
- * const stats = Analytics.engine.full(input);
+ * // Risk açıklamaları
+ * console.log(result.data.risk.factors); // Neden riskli?
+ * console.log(result.data.trends.explanation); // Trend açıklaması
+ * 
+ * // Config yönetimi
+ * await Analytics.config.load(); // DB'den config yükle
+ * Analytics.config.clear(); // Cache temizle
  */
 export const Analytics = {
   // Orchestrator (UI için)
   get: getStudentAnalytics,
+  
+  // Config yönetimi
+  config: {
+    load: loadAllConfigs,
+    clear: clearConfigCache
+  },
   
   // Engine (Pure Functions)
   engine: {
@@ -88,6 +132,10 @@ export const Analytics = {
     consistency: calculateConsistencyScore,
     trend: calculateTrend,
     risk: calculateRiskScore,
-    topics: analyzeTopics
+    topics: analyzeTopics,
+    
+    // PHASE 3.4: DB Configurable Normalizers
+    normalizeTrend,
+    normalizeRisk
   }
 };

@@ -3,7 +3,7 @@
  * AkademiHub - Analytics Orchestrator
  * ============================================
  * 
- * PHASE 3.3 - Ana Orchestrator
+ * PHASE 3.3 + 3.4 - Ana Orchestrator
  * 
  * BU DOSYA:
  * - Analytics için TEK YETKİLİ
@@ -11,11 +11,17 @@
  * - PDF/WhatsApp buradan okur
  * - AI buradan okur
  * 
+ * PHASE 3.4 EKLEMELERİ:
+ * - DB'den config okuma
+ * - Açıklanabilir risk faktörleri
+ * - Normalize edilmiş trend
+ * - Config versiyonlama
+ * 
  * AKIŞ (DEĞİŞTİRİLEMEZ):
  * 1. Snapshot oku
  * 2. Geçerli ise → hemen dön
  * 3. Stale ise → async recompute tetikle, stale dön
- * 4. Yok ise → hesapla, yaz, dön
+ * 4. Yok ise → config yükle, hesapla, yaz, dön
  * 
  * KURALLAR:
  * - UI ASLA beklemez
@@ -29,6 +35,10 @@ import { writeSnapshot, type WriteSnapshotInput } from './snapshotWriter';
 import { assembleInput, toEngineInput } from './inputAssembler';
 import { isSnapshotValid, shouldRecompute, enqueueRecompute } from './cachePolicy';
 import { calculateFullAnalytics } from '../engine/analyticsEngine';
+import { normalizeTrend, type NormalizedTrendResult } from '../engine/trendNormalizer';
+import { normalizeRisk, type NormalizedRiskResult, type RiskFactorExplanation } from '../engine/riskNormalizer';
+import { loadAllConfigs, type LoadedRiskConfig, type LoadedTrendConfig } from '../config/loaders';
+import { CONFIG_VERSION } from '../config/defaults';
 import type { 
   StudentAnalyticsOutput, 
   OrchestratorResult,
@@ -45,7 +55,11 @@ import { DEFAULT_ORCHESTRATOR_CONFIG } from './types';
  * 
  * Bu fonksiyon:
  * 1. Önce cache'den okumaya çalışır
- * 2. Cache yoksa veya stale ise arka planda hesaplar
+ * 2. Cache yoksa veya stale ise:
+ *    - DB'den config yükler
+ *    - Pure Engine ile hesaplar
+ *    - DB config ile risk/trend normalize eder
+ *    - Snapshot'a yazar
  * 3. UI'a her zaman hızlı yanıt döner
  * 
  * @param examId - Sınav ID
@@ -57,6 +71,8 @@ import { DEFAULT_ORCHESTRATOR_CONFIG } from './types';
  * const result = await getStudentAnalytics('exam-123', 'student-456');
  * if (result.success) {
  *   console.log(result.data.summary);
+ *   console.log(result.data.risk.factors); // Açıklanabilir risk faktörleri
+ *   console.log(result.data.trends.explanation); // Trend açıklaması
  * }
  */
 export async function getStudentAnalytics(
@@ -110,8 +126,12 @@ export async function getStudentAnalytics(
       };
     }
     
-    // ==================== ADIM 4: HESAPLA VE YAZ ====================
-    // Snapshot yok - hesaplama gerekli
+    // ==================== ADIM 4: CONFIG YÜKLE ====================
+    const configLoadStart = Date.now();
+    const dbConfigs = await loadAllConfigs();
+    const configLoadMs = Date.now() - configLoadStart;
+    
+    // ==================== ADIM 5: HESAPLA VE YAZ ====================
     const calculationStart = Date.now();
     
     // Input topla
@@ -130,14 +150,57 @@ export async function getStudentAnalytics(
     const engineInput = toEngineInput(assembled);
     const analytics = calculateFullAnalytics(engineInput);
     
+    // ==================== ADIM 6: TREND NORMALIZE ====================
+    const previousNets = assembled.previous_exams?.map(e => e.total_net) ?? [];
+    const allNets = [...previousNets, assembled.result?.total_net ?? 0];
+    
+    const normalizedTrend = normalizeTrend({
+      nets: allNets,
+      config: dbConfigs.trend,
+      classAvgNet: assembled.class_data?.avg_net
+    });
+    
+    // ==================== ADIM 7: RISK NORMALIZE ====================
+    const normalizedRisk = normalizeRisk({
+      current_net: assembled.result?.total_net ?? analytics.totalNet,
+      previous_net: previousNets.length > 0 ? previousNets[previousNets.length - 1] : undefined,
+      class_avg_net: assembled.class_data?.avg_net,
+      trend_velocity: normalizedTrend.velocity,
+      trend_consistency: normalizedTrend.consistency,
+      weak_topic_count: analytics.weaknesses?.length ?? 0,
+      total_topic_count: Object.keys(analytics.topicPerformance).length || 1,
+      empty_count: analytics.totalEmpty,
+      total_questions: analytics.totalCorrect + analytics.totalWrong + analytics.totalEmpty,
+      easy_success_rate: analytics.difficultyPerformance?.easy?.rate,
+      hard_success_rate: analytics.difficultyPerformance?.hard?.rate,
+      current_rank: analytics.rankInExam ?? undefined,
+      previous_rank: assembled.previous_exams?.[assembled.previous_exams.length - 1]?.rank_in_exam,
+      total_students: assembled.class_data?.student_count,
+      weights: dbConfigs.risk.weights,
+      thresholds: dbConfigs.risk.thresholds
+    });
+    
     timing.calculation_ms = Date.now() - calculationStart;
     
-    // Cache'e yaz
+    // ==================== ADIM 8: CACHE YAZ ====================
     const writeStart = Date.now();
+    
+    // Analytics'e normalize edilmiş değerleri ekle
+    const enrichedAnalytics = {
+      ...analytics,
+      // Trend override
+      trendDirection: normalizedTrend.direction,
+      trendChange: normalizedTrend.recent_change,
+      // Risk override
+      riskLevel: normalizedRisk.level,
+      riskScore: normalizedRisk.score,
+      riskFactors: normalizedRisk.factors.map(f => f.explanation)
+    };
+    
     const writeInput: WriteSnapshotInput = {
       examId,
       studentId,
-      analytics,
+      analytics: enrichedAnalytics,
       assembledInput: assembled,
       calculationDurationMs: timing.calculation_ms,
       existingAiMetadata: assembled.existing_ai_metadata
@@ -148,7 +211,6 @@ export async function getStudentAnalytics(
     
     if (!writeResult.success) {
       console.warn('[Orchestrator] Cache write failed, but returning calculated data');
-      // Yazma başarısız olsa bile hesaplanmış veriyi dön
     }
     
     // Sonucu formatla ve dön
@@ -156,7 +218,16 @@ export async function getStudentAnalytics(
     
     return {
       success: true,
-      data: formatAnalyticsOutput(examId, studentId, analytics, assembled, timing.calculation_ms),
+      data: formatAnalyticsOutputV2(
+        examId, 
+        studentId, 
+        analytics, 
+        assembled, 
+        normalizedTrend,
+        normalizedRisk,
+        dbConfigs,
+        timing.calculation_ms
+      ),
       timing
     };
     
@@ -181,9 +252,6 @@ export async function getStudentAnalytics(
 
 /**
  * Bir sınav için tüm öğrenci analytics'lerini getirir
- * 
- * Dikkat: Bu fonksiyon çok sayıda öğrenci için yavaş olabilir.
- * Mümkünse önceden hesaplanmış snapshot'ları kullanın.
  */
 export async function getExamAnalytics(
   examId: string,
@@ -199,9 +267,6 @@ export async function getExamAnalytics(
     failed: number;
   };
 }> {
-  // Bu fonksiyon şu an için basit tutulmuş
-  // Production'da batch processing ve pagination gerekir
-  
   return {
     success: false,
     error: createError(
@@ -215,7 +280,6 @@ export async function getExamAnalytics(
 
 /**
  * Stale snapshot'ları yeniden hesaplar
- * (Background job olarak çalıştırılmalı)
  */
 export async function recomputeStaleSnapshots(
   limit: number = 10
@@ -232,7 +296,7 @@ export async function recomputeStaleSnapshots(
       const result = await getStudentAnalytics(
         snapshot.exam_id,
         snapshot.student_id,
-        { enable_async_recompute: false } // Sonsuz döngü önle
+        { enable_async_recompute: false }
       );
       
       if (result.success) {
@@ -248,22 +312,26 @@ export async function recomputeStaleSnapshots(
   return { processed, failed };
 }
 
-// ==================== YARDIMCI FONKSİYONLAR ====================
+// ==================== FORMAT V2 (PHASE 3.4) ====================
 
 /**
- * Hesaplanmış analytics'i output formatına dönüştürür
+ * Analytics output v2 - DB config ile zenginleştirilmiş
  */
-function formatAnalyticsOutput(
+function formatAnalyticsOutputV2(
   examId: string,
   studentId: string,
   analytics: ReturnType<typeof calculateFullAnalytics>,
   assembled: NonNullable<Awaited<ReturnType<typeof assembleInput>>>,
+  trend: NormalizedTrendResult,
+  risk: NormalizedRiskResult,
+  configs: { risk: LoadedRiskConfig; trend: LoadedTrendConfig },
   calculationMs: number
 ): StudentAnalyticsOutput {
   return {
     student_id: studentId,
     exam_id: examId,
     
+    // ==================== SUMMARY ====================
     summary: {
       total_net: analytics.totalNet,
       total_correct: analytics.totalCorrect,
@@ -279,6 +347,7 @@ function formatAnalyticsOutput(
       vs_previous_exam: analytics.vsPreviousExam
     },
     
+    // ==================== ANALYTICS ====================
     analytics: {
       subject_performance: formatSubjectPerformance(analytics.subjectPerformance),
       topic_performance: formatTopicPerformance(analytics.topicPerformance),
@@ -286,45 +355,69 @@ function formatAnalyticsOutput(
       consistency_score: analytics.consistencyScore
     },
     
+    // ==================== TRENDS (PHASE 3.4 ENHANCED) ====================
     trends: {
-      direction: analytics.trendDirection,
-      change: analytics.trendChange,
-      net_trend: analytics.netTrend,
+      direction: trend.direction,
+      change: trend.recent_change,
+      net_trend: trend.raw_nets,
       rank_trend: analytics.rankTrend,
-      slope: null, // Engine'den gelmiyor
-      is_significant: (analytics.trendChange ?? 0) > 2
+      slope: trend.velocity,
+      velocity: trend.velocity,
+      velocity_normalized: trend.velocity_normalized,
+      consistency: trend.consistency,
+      trend_score: trend.trend_score,
+      explanation: trend.explanation,
+      is_significant: Math.abs(trend.trend_score) > 20
     },
     
+    // ==================== RISK (PHASE 3.4 EXPLAINABLE) ====================
     risk: {
-      level: analytics.riskLevel,
-      score: analytics.riskScore,
-      factors: analytics.riskFactors,
-      action_required: analytics.riskLevel === 'high'
+      level: risk.level,
+      score: risk.score,
+      factors: risk.factors,
+      action_required: risk.action_required,
+      primary_concern: risk.primary_concern,
+      summary: risk.summary,
+      level_label: risk.level_label,
+      level_color: risk.level_color
     },
     
-    strengths: analytics.strengths,
-    weaknesses: analytics.weaknesses,
-    improvement_priorities: analytics.improvementPriorities,
-    study_recommendations: analytics.studyRecommendations,
+    // ==================== AI-READY ====================
+    strengths: analytics.strengths?.map(s => 
+      typeof s === 'string' ? s : s.topic
+    ) ?? [],
+    weaknesses: analytics.weaknesses?.map(w => 
+      typeof w === 'string' ? w : w.topic
+    ) ?? [],
+    improvement_priorities: analytics.improvementPriorities?.map(p => 
+      typeof p === 'string' ? p : p.topic
+    ) ?? [],
+    study_recommendations: analytics.studyRecommendations ?? [],
     
-    ai_metadata: assembled?.existing_ai_metadata ?? {},
+    // ==================== METADATA ====================
+    ai_metadata: assembled.existing_ai_metadata ?? {},
     
     calculation_metadata: {
-      analytics_version: '1.0.0',
+      analytics_version: CONFIG_VERSION,
       calculated_at: new Date().toISOString(),
       calculation_duration_ms: calculationMs,
       engine_version: '1.0.0',
-      data_completeness: 1.0,
-      confidence_score: 1.0
+      data_completeness: trend.has_sufficient_data ? 1.0 : 0.5,
+      confidence_score: risk.factors_evaluated >= 5 ? 1.0 : 0.7,
+      risk_config_source: configs.risk.loaded_from,
+      trend_config_source: configs.trend.loaded_from
     },
     
     cache_info: {
       is_cached: false,
       is_stale: false,
-      cached_at: null
+      cached_at: null,
+      config_version: configs.risk.config_version
     }
   };
 }
+
+// ==================== YARDIMCI FONKSİYONLAR ====================
 
 function formatSubjectPerformance(
   data: Record<string, any>
