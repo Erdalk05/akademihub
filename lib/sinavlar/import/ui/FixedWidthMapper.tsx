@@ -18,54 +18,148 @@ import {
   Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText
 } from 'lucide-react';
 
-// ==================== TÜRKÇE KARAKTER DÜZELTMESİ ====================
+// ==================== TÜRK İSİM TAHMİN MOTORU ====================
 
-const TURKISH_OCR_MAP: Record<string, string> = {
-  'w': 'İ', 'W': 'İ',
-  '0': 'O', // context'e göre
-  '1': 'I', // context'e göre  
-  '6': 'Ğ',
-  '+': 'Ö', // veya Ç
-  '$': 'Ş',
-  '@': 'A',
-  '&': 'E',
-  '#': 'H',
-};
+// Yaygın Türk erkek isimleri
+const ERKEK_ISIMLERI = [
+  'ALİ', 'AHMET', 'MEHMET', 'MUSTAFA', 'HASAN', 'HÜSEYİN', 'İBRAHİM', 'İSMAİL',
+  'OSMAN', 'YUSUF', 'MURAT', 'ÖMER', 'BURAK', 'EMRE', 'EREN', 'ARDA', 'KAAN',
+  'BERK', 'BERKAY', 'CAN', 'ÇAĞRI', 'DENIZ', 'EFE', 'ENES', 'FURKAN', 'GÖRKEM',
+  'HAKAN', 'KEREM', 'KORAY', 'ONUR', 'OĞUZ', 'OĞUZHAN', 'SERKAN', 'TOLGA',
+  'UĞUR', 'UMUT', 'YAĞIZ', 'YIĞIT', 'YUNUS', 'ERDEM', 'ERDAL', 'EROL', 'ERCAN',
+  'ŞÜKRÜ', 'ŞEREF', 'GÖKHAN', 'GÖKÇEN', 'İLHAN', 'İSA', 'KEMAL', 'LEVENT',
+  'NİHAT', 'OKAN', 'ORHAN', 'ÖZGÜR', 'RECEP', 'RIDVAN', 'SEFA', 'SELİM',
+  'SERDAR', 'SİNAN', 'TANER', 'TARIK', 'TUNCAY', 'TUNÇ', 'TÜRKER', 'VOLKAN',
+];
 
-function fixTurkishChars(text: string): string {
+// Yaygın Türk kız isimleri
+const KIZ_ISIMLERI = [
+  'AYŞE', 'FATİMA', 'EMİNE', 'HATİCE', 'ZEYNEP', 'MERVE', 'ELİF', 'NUR',
+  'BÜŞRA', 'ESRA', 'SEDA', 'DERYA', 'DİLARA', 'ECE', 'EBRU', 'GAMZE',
+  'GİZEM', 'GÜLŞEN', 'GÜLAY', 'GÜNEŞ', 'HANDE', 'İREM', 'KÜBRA', 'MELEK',
+  'MELİKE', 'MELTEM', 'NESLİHAN', 'NİLAY', 'ÖZGE', 'ÖZLEM', 'PELİN', 'SELEN',
+  'SEVGİ', 'SİBEL', 'ŞİRİN', 'TUĞBA', 'TUĞÇE', 'YAĞMUR', 'YELDA', 'YEŞİM',
+  'ASYA', 'ASLI', 'AZİZE', 'BAHAR', 'BAŞAK', 'BELGİN', 'BERNA', 'BİRSEN',
+  'BURCU', 'CANAN', 'CEMRE', 'ÇİĞDEM', 'DENİZ', 'DİDEM', 'DUYGU', 'FİGEN',
+  'FİLİZ', 'FULYA', 'GÜL', 'GÜLBEN', 'GÜLCAN', 'NURSENA', 'NAZLI', 'NİLGÜN',
+];
+
+// Yaygın Türk soyadları
+const SOYADLARI = [
+  'YILMAZ', 'KAYA', 'DEMİR', 'ÇELİK', 'ŞAHIN', 'YILDIZ', 'YILDIRIM', 'ÖZTÜRK',
+  'AYDIN', 'ÖZDEMIR', 'ARSLAN', 'DOĞAN', 'KILIÇ', 'ASLAN', 'ÇETIN', 'KARA',
+  'KOÇAK', 'KURT', 'ÖZKAN', 'ŞİMŞEK', 'POLAT', 'KORKMAZ', 'ÇELIK', 'KAPLAN',
+  'ACAR', 'GÜNEŞ', 'GÜLER', 'TEKIN', 'ERDOĞAN', 'ATEŞ', 'KURTULMUŞ', 'BULUT',
+  'ALTUN', 'AVCI', 'KARACA', 'ÜNAL', 'BAL', 'BOZKURT', 'COŞKUN', 'DEMİRCİ',
+  'DURAN', 'EKİNCİ', 'ERDEM', 'GÜVEN', 'IŞIK', 'KARATAŞ', 'AKTAŞ', 'AKSOY',
+  'ALBAYRAK', 'AYDOĞAN', 'BARAN', 'BAYRAK', 'BAYRAM', 'BİLGİN', 'CAN', 'CEYLAN',
+  'KILIC', 'KILICOGLU', 'KILIÇOĞLU', 'TÜRKMEN', 'TÜRK', 'ÖZCAN', 'NAÇAK',
+];
+
+// Tüm isimler
+const TUM_ISIMLER = [...ERKEK_ISIMLERI, ...KIZ_ISIMLERI, ...SOYADLARI];
+
+// OCR hata düzeltmeleri
+function fixOCRErrors(text: string): string {
   let result = text.toUpperCase();
   
-  // Basit değişimler
-  result = result.replace(/w/gi, 'İ');
+  // Sayı → Harf dönüşümleri
+  result = result.replace(/0/g, 'O'); // 0 → O
+  result = result.replace(/1/g, 'I'); // 1 → I
+  result = result.replace(/3/g, 'E'); // 3 → E
+  result = result.replace(/4/g, 'A'); // 4 → A
+  result = result.replace(/5/g, 'S'); // 5 → S
+  result = result.replace(/8/g, 'B'); // 8 → B
+  
+  // Özel karakter dönüşümleri
   result = result.replace(/\$/g, 'Ş');
-  result = result.replace(/6(?=[A-ZÇĞİÖŞÜ])/g, 'Ğ');
-  
-  // + karakteri: kelime başında Ö, ortasında Ç
-  result = result.replace(/\+/g, (match, offset) => {
-    const prevChar = result[offset - 1];
-    if (!prevChar || /\s/.test(prevChar)) return 'Ö';
-    return 'Ç';
-  });
-  
-  // Yaygın Türk isimleri düzeltmeleri
-  const nameCorrections: Record<string, string> = {
-    'OZCAN': 'ÖZCAN', 'OZGUR': 'ÖZGÜR', 'OZLEM': 'ÖZLEM', 'OZGE': 'ÖZGE',
-    'CIGDEM': 'ÇİĞDEM', 'CAGLA': 'ÇAĞLA', 'CEREN': 'ÇEREN',
-    'GUNES': 'GÜNEŞ', 'GULER': 'GÜLER', 'GULSEN': 'GÜLŞEN',
-    'SIRIN': 'ŞİRİN', 'SUKRU': 'ŞÜKRÜ', 'SEREF': 'ŞEREF',
-    'INAR': 'İNAR', 'ILHAN': 'İLHAN', 'ISMAIL': 'İSMAİL',
-    'KILIÇ': 'KILIÇ', 'KILIC': 'KILIÇ', 'KILICOGLU': 'KILIÇOĞLU',
-    'TURKMEN': 'TÜRKMEN', 'TURK': 'TÜRK',
-    'YAGIZ': 'YAĞIZ', 'YAGMUR': 'YAĞMUR',
-    'NURSENA': 'NURSENA', 'ASYA': 'ASYA', 'ERDAL': 'ERDAL',
-    'BURAK': 'BURAK', 'NACAK': 'NAÇAK', 'MACAK': 'MAÇAK',
-  };
-  
-  for (const [wrong, correct] of Object.entries(nameCorrections)) {
-    result = result.replace(new RegExp(wrong, 'gi'), correct);
-  }
+  result = result.replace(/@/g, 'A');
+  result = result.replace(/&/g, 'E');
+  result = result.replace(/#/g, 'H');
+  result = result.replace(/\+/g, 'Ö');
+  result = result.replace(/w/gi, 'W');
   
   return result;
+}
+
+// Levenshtein mesafesi
+function levenshtein(a: string, b: string): number {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      matrix[i][j] = b[i-1] === a[j-1] 
+        ? matrix[i-1][j-1]
+        : Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1);
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+// En yakın ismi bul
+function findClosestName(text: string): string {
+  const cleaned = fixOCRErrors(text.trim());
+  if (cleaned.length < 2) return cleaned;
+  
+  let bestMatch = cleaned;
+  let bestDistance = Infinity;
+  
+  for (const name of TUM_ISIMLER) {
+    const dist = levenshtein(cleaned, name);
+    const threshold = Math.floor(name.length * 0.4); // %40 hata toleransı
+    
+    if (dist < bestDistance && dist <= threshold) {
+      bestDistance = dist;
+      bestMatch = name;
+    }
+  }
+  
+  return bestMatch;
+}
+
+// Ana düzeltme fonksiyonu
+function fixTurkishChars(text: string): string {
+  // Boşluklara göre ayır
+  const words = text.split(/\s+/);
+  
+  const correctedWords = words.map(word => {
+    // OCR hatalarını düzelt
+    let cleaned = fixOCRErrors(word);
+    
+    // İsim veritabanından en yakınını bul
+    const matched = findClosestName(cleaned);
+    
+    // Türkçe karakter düzeltmeleri (eşleşme bulunamazsa)
+    if (matched === cleaned) {
+      // Manuel düzeltmeler
+      cleaned = cleaned
+        .replace(/OZCAN/g, 'ÖZCAN')
+        .replace(/OZGUR/g, 'ÖZGÜR')
+        .replace(/OZLEM/g, 'ÖZLEM')
+        .replace(/CIGDEM/g, 'ÇİĞDEM')
+        .replace(/CAGLA/g, 'ÇAĞLA')
+        .replace(/GUNES/g, 'GÜNEŞ')
+        .replace(/GULER/g, 'GÜLER')
+        .replace(/GULSEN/g, 'GÜLŞEN')
+        .replace(/SUKRU/g, 'ŞÜKRÜ')
+        .replace(/SEREF/g, 'ŞEREF')
+        .replace(/ILHAN/g, 'İLHAN')
+        .replace(/ISMAIL/g, 'İSMAİL')
+        .replace(/INAR/g, 'İNAR')
+        .replace(/TURKMEN/g, 'TÜRKMEN')
+        .replace(/KILICOGLU/g, 'KILIÇOĞLU')
+        .replace(/KILIC/g, 'KILIÇ')
+        .replace(/YAGIZ/g, 'YAĞIZ')
+        .replace(/YAGMUR/g, 'YAĞMUR')
+        .replace(/SIRIN/g, 'ŞİRİN');
+      return cleaned;
+    }
+    
+    return matched;
+  });
+  
+  return correctedWords.join(' ');
 }
 
 // ==================== TYPES ====================
