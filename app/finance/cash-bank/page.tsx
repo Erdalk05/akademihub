@@ -1081,140 +1081,327 @@ export default function KasaBankaPage() {
 
         {/* ==================== İŞLEMLER TAB ==================== */}
         {activeTab === 'transactions' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            {/* Filtreler */}
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={aramaMetni}
-                    onChange={(e) => setAramaMetni(e.target.value)}
-                    placeholder="Hareket ara..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-                  />
+          <div className="space-y-6">
+            {/* Dönem Özet Kartları */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <ArrowUpRight className="w-5 h-5" />
+                  <span className="text-emerald-100 text-xs font-medium">Dönem Girişi</span>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
-                    {['bugun', 'hafta', 'ay', 'tum'].map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => setTarihFiltre(opt as any)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                          tarihFiltre === opt ? 'bg-emerald-100 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {opt === 'bugun' ? 'Bugün' : opt === 'hafta' ? 'Hafta' : opt === 'ay' ? 'Ay' : 'Tümü'}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
-                    {[
-                      { value: 'tum', label: 'Tümü', color: 'bg-slate-200 text-slate-700' },
-                      { value: 'giris', label: '↑ Giriş', color: 'bg-emerald-100 text-emerald-700' },
-                      { value: 'cikis', label: '↓ Çıkış', color: 'bg-red-100 text-red-600' },
-                      { value: 'transfer', label: '↔ Transfer', color: 'bg-purple-100 text-purple-700' }
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setTipFiltre(opt.value as any)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                          tipFiltre === opt.value ? opt.color : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
-                    {[
-                      { value: 'tum', label: 'Tüm Hesaplar' },
-                      { value: 'nakit', label: '💵 Nakit' },
-                      { value: 'banka', label: '🏦 Banka' },
-                      { value: 'pos', label: '💳 POS' }
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setHesapFiltre(opt.value as any)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                          hesapFiltre === opt.value ? 'bg-slate-200 text-slate-700' : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <span className="text-sm text-slate-500 ml-auto">{donemOzeti.islemSayisi} hareket</span>
+                <p className="text-2xl font-bold">+{formatPara(donemOzeti.giris)}</p>
+                <p className="text-xs text-emerald-200 mt-1">{filtrelenmisHareketler.filter(h => h.tip === 'giris').length} işlem</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <ArrowDownRight className="w-5 h-5" />
+                  <span className="text-red-100 text-xs font-medium">Dönem Çıkışı</span>
                 </div>
+                <p className="text-2xl font-bold">-{formatPara(donemOzeti.cikis)}</p>
+                <p className="text-xs text-red-200 mt-1">{filtrelenmisHareketler.filter(h => h.tip === 'cikis').length} işlem</p>
+              </div>
+              
+              <div className={`rounded-2xl p-4 text-white shadow-lg ${donemOzeti.net >= 0 ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-orange-500 to-amber-600'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5" />
+                  <span className="text-white/80 text-xs font-medium">Net Akış</span>
+                </div>
+                <p className="text-2xl font-bold">{donemOzeti.net >= 0 ? '+' : ''}{formatPara(donemOzeti.net)}</p>
+                <p className="text-xs text-white/70 mt-1">{donemOzeti.net >= 0 ? 'Pozitif bakiye' : 'Negatif bakiye'}</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-slate-600 to-slate-800 rounded-2xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Receipt className="w-5 h-5" />
+                  <span className="text-slate-300 text-xs font-medium">Toplam İşlem</span>
+                </div>
+                <p className="text-2xl font-bold">{donemOzeti.islemSayisi}</p>
+                <p className="text-xs text-slate-400 mt-1">Seçili dönem</p>
               </div>
             </div>
 
-            {/* Tablo */}
-            <div className="overflow-x-auto">
-              {yukleniyor ? (
-                <div className="flex items-center justify-center py-20">
-                  <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+            {/* Ana İçerik */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              {/* Gelişmiş Filtreler */}
+              <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  {/* Arama */}
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={aramaMetni}
+                      onChange={(e) => setAramaMetni(e.target.value)}
+                      placeholder="İşlem, isim veya kategori ara..."
+                      className="w-full pl-12 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-white shadow-sm"
+                    />
+                    {aramaMetni && (
+                      <button onClick={() => setAramaMetni('')} className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Dönem Filtresi */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                      {['bugun', 'hafta', 'ay', 'tum'].map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setTarihFiltre(opt as any)}
+                          className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                            tarihFiltre === opt 
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md' 
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {opt === 'bugun' ? '📅 Bugün' : opt === 'hafta' ? '📆 Hafta' : opt === 'ay' ? '🗓 Ay' : '📋 Tümü'}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Tip Filtresi */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                      {[
+                        { value: 'tum', label: '🔄 Tümü', activeClass: 'bg-slate-600' },
+                        { value: 'giris', label: '↑ Giriş', activeClass: 'bg-emerald-500' },
+                        { value: 'cikis', label: '↓ Çıkış', activeClass: 'bg-red-500' },
+                        { value: 'transfer', label: '↔ Transfer', activeClass: 'bg-purple-500' }
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setTipFiltre(opt.value as any)}
+                          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                            tipFiltre === opt.value 
+                              ? `${opt.activeClass} text-white shadow-md` 
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Hesap Filtresi */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                      {[
+                        { value: 'tum', label: '💼 Tümü', activeClass: 'bg-slate-600' },
+                        { value: 'nakit', label: '💵', activeClass: 'bg-emerald-500' },
+                        { value: 'banka', label: '🏦', activeClass: 'bg-blue-500' },
+                        { value: 'pos', label: '💳', activeClass: 'bg-purple-500' }
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setHesapFiltre(opt.value as any)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            hesapFiltre === opt.value 
+                              ? `${opt.activeClass} text-white shadow-md` 
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ) : filtrelenmisHareketler.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                  <Banknote className="w-16 h-16 mb-4 opacity-50" />
-                  <p className="font-medium text-lg">Hareket bulunamadı</p>
-                  <p className="text-sm">Bu dönemde kayıtlı hareket yok</p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Tarih</th>
-                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Ad Soyad</th>
-                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Açıklama</th>
-                      <th className="text-center py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Hesap</th>
-                      <th className="text-center py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Hareket</th>
-                      <th className="text-right py-4 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wide">Tutar</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filtrelenmisHareketler.map((h) => (
-                      <tr key={h.id} className="hover:bg-slate-50/50 transition">
-                        <td className="py-4 px-6 text-sm text-slate-600 whitespace-nowrap">{formatTarih(h.tarih)}</td>
-                        <td className="py-4 px-6 text-sm font-medium text-slate-800">{h.ogrenciAdi || '-'}</td>
-                        <td className="py-4 px-6">
-                          <p className="text-sm text-slate-700">{h.aciklama}</p>
-                          {h.kaynak && <span className="text-xs text-slate-400">{h.kaynak}</span>}
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                            h.hesap === 'nakit' ? 'bg-emerald-100 text-emerald-700' :
-                            h.hesap === 'banka' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                          }`}>
-                            {h.hesap === 'nakit' ? '💵 Nakit' : h.hesap === 'banka' ? '🏦 Banka' : '💳 POS'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                            h.tip === 'giris' ? 'bg-emerald-100 text-emerald-700' : 
-                            h.tip === 'cikis' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-700'
-                          }`}>
-                            {h.tip === 'giris' ? '↑ Giriş' : h.tip === 'cikis' ? '↓ Çıkış' : '↔ Transfer'}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          <span className={`text-lg font-bold ${
-                            h.tip === 'giris' ? 'text-emerald-600' : h.tip === 'cikis' ? 'text-red-500' : 'text-purple-600'
-                          }`}>
-                            {h.tip === 'giris' ? '+' : h.tip === 'cikis' ? '-' : '↔'}{formatPara(h.tutar)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              </div>
+
+              {/* İşlemler Listesi */}
+              <div className="overflow-x-auto">
+                {yukleniyor ? (
+                  <div className="flex flex-col items-center justify-center py-20">
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-emerald-200 rounded-full"></div>
+                      <div className="w-16 h-16 border-4 border-emerald-600 rounded-full animate-spin absolute top-0 left-0 border-t-transparent"></div>
+                    </div>
+                    <p className="mt-4 text-slate-500 font-medium">Yükleniyor...</p>
+                  </div>
+                ) : filtrelenmisHareketler.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                      <Banknote className="w-12 h-12 opacity-50" />
+                    </div>
+                    <p className="font-semibold text-lg text-slate-600">Hareket bulunamadı</p>
+                    <p className="text-sm text-slate-400 mt-1">Bu filtrelere uygun kayıt yok</p>
+                    <button 
+                      onClick={() => { setTarihFiltre('tum'); setTipFiltre('tum'); setHesapFiltre('tum'); setAramaMetni(''); }}
+                      className="mt-4 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 transition"
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Desktop Tablo */}
+                    <table className="w-full hidden lg:table">
+                      <thead className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
+                        <tr>
+                          <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider">Tarih</th>
+                          <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider">Kişi/Kaynak</th>
+                          <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider">Açıklama</th>
+                          <th className="text-center py-4 px-6 text-xs font-bold uppercase tracking-wider">Hesap</th>
+                          <th className="text-center py-4 px-6 text-xs font-bold uppercase tracking-wider">İşlem</th>
+                          <th className="text-right py-4 px-6 text-xs font-bold uppercase tracking-wider">Tutar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filtrelenmisHareketler.map((h, idx) => (
+                          <tr 
+                            key={h.id} 
+                            className={`hover:bg-gradient-to-r hover:from-slate-50 hover:to-white transition-all group ${
+                              idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                            }`}
+                          >
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+                                  h.tip === 'giris' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 
+                                  h.tip === 'cikis' ? 'bg-gradient-to-br from-red-400 to-red-600' : 
+                                  'bg-gradient-to-br from-purple-400 to-purple-600'
+                                }`}>
+                                  {h.tip === 'giris' ? (
+                                    <ArrowUpRight className="w-5 h-5 text-white" />
+                                  ) : h.tip === 'cikis' ? (
+                                    <ArrowDownRight className="w-5 h-5 text-white" />
+                                  ) : (
+                                    <ArrowLeftRight className="w-5 h-5 text-white" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-800">{formatTarih(h.tarih)}</p>
+                                  <p className="text-xs text-slate-400">{new Date(h.tarih).toLocaleDateString('tr-TR', { weekday: 'short' })}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                {h.ogrenciAdi && h.ogrenciAdi !== '-' ? (
+                                  <>
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                                      {h.ogrenciAdi.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <span className="font-medium text-slate-800">{h.ogrenciAdi}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center">
+                                      <Receipt className="w-4 h-4 text-slate-500" />
+                                    </div>
+                                    <span className="text-slate-500 text-sm">{h.kaynak || 'Genel'}</span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <p className="text-sm font-medium text-slate-700 line-clamp-1">{h.aciklama}</p>
+                              {h.kategori && h.kategori !== h.kaynak && (
+                                <span className="text-xs text-slate-400">#{h.kategori}</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm ${
+                                h.hesap === 'nakit' ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border border-emerald-200' :
+                                h.hesap === 'banka' ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200' : 
+                                'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 border border-purple-200'
+                              }`}>
+                                {h.hesap === 'nakit' ? '💵 Nakit' : h.hesap === 'banka' ? '🏦 Banka' : '💳 POS'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold ${
+                                h.tip === 'giris' ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-md' : 
+                                h.tip === 'cikis' ? 'bg-red-500 text-white shadow-red-200 shadow-md' : 
+                                'bg-purple-500 text-white shadow-purple-200 shadow-md'
+                              }`}>
+                                {h.tip === 'giris' ? '↑ GİRİŞ' : h.tip === 'cikis' ? '↓ ÇIKIŞ' : '↔ TRANSFER'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              <span className={`text-xl font-black ${
+                                h.tip === 'giris' ? 'text-emerald-600' : h.tip === 'cikis' ? 'text-red-600' : 'text-purple-600'
+                              }`}>
+                                {h.tip === 'giris' ? '+' : h.tip === 'cikis' ? '-' : '↔'}{formatPara(h.tutar)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    
+                    {/* Mobile Card Listesi */}
+                    <div className="lg:hidden divide-y divide-slate-100">
+                      {filtrelenmisHareketler.map((h) => (
+                        <div key={h.id} className="p-4 hover:bg-slate-50 transition">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md flex-shrink-0 ${
+                                h.tip === 'giris' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 
+                                h.tip === 'cikis' ? 'bg-gradient-to-br from-red-400 to-red-600' : 
+                                'bg-gradient-to-br from-purple-400 to-purple-600'
+                              }`}>
+                                {h.tip === 'giris' ? (
+                                  <ArrowUpRight className="w-6 h-6 text-white" />
+                                ) : h.tip === 'cikis' ? (
+                                  <ArrowDownRight className="w-6 h-6 text-white" />
+                                ) : (
+                                  <ArrowLeftRight className="w-6 h-6 text-white" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-800">{h.aciklama}</p>
+                                <p className="text-sm text-slate-500">{h.ogrenciAdi || h.kaynak || '-'}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-xs text-slate-400">{formatTarih(h.tarih)}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    h.hesap === 'nakit' ? 'bg-emerald-100 text-emerald-700' :
+                                    h.hesap === 'banka' ? 'bg-blue-100 text-blue-700' : 
+                                    'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {h.hesap === 'nakit' ? '💵 Nakit' : h.hesap === 'banka' ? '🏦 Banka' : '💳 POS'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <p className={`text-lg font-black whitespace-nowrap ${
+                              h.tip === 'giris' ? 'text-emerald-600' : h.tip === 'cikis' ? 'text-red-600' : 'text-purple-600'
+                            }`}>
+                              {h.tip === 'giris' ? '+' : h.tip === 'cikis' ? '-' : '↔'}{formatPara(h.tutar)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Alt Özet */}
+                    <div className="p-4 bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-200">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <CheckCircle className="w-5 h-5 text-emerald-600" />
+                          <span><strong>{filtrelenmisHareketler.length}</strong> işlem listelendi</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-emerald-100 rounded-lg">
+                            <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm font-bold text-emerald-700">+{formatPara(donemOzeti.giris)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-red-100 rounded-lg">
+                            <ArrowDownRight className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-bold text-red-700">-{formatPara(donemOzeti.cikis)}</span>
+                          </div>
+                          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${donemOzeti.net >= 0 ? 'bg-blue-100' : 'bg-orange-100'}`}>
+                            <TrendingUp className={`w-4 h-4 ${donemOzeti.net >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+                            <span className={`text-sm font-bold ${donemOzeti.net >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                              Net: {donemOzeti.net >= 0 ? '+' : ''}{formatPara(donemOzeti.net)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
