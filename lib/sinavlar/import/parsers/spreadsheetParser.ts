@@ -233,18 +233,17 @@ function detectOpticalReaderFormat(text: string): boolean {
   
   // Optik format özellikleri:
   // 1. Satır başında 6 haneli numara
-  // 2. TAB karakterleri var
-  // 3. Ardışık A,B,C,D,E karakterleri (cevaplar)
+  // 2. Ardışık A,B,C,D,E karakterleri (cevaplar)
   
   const hasStudentNo = /^\d{6}/.test(firstLine);
-  const hasTabs = firstLine.includes('\t');
-  const hasAnswerPattern = /[ABCDE]{5,}/.test(firstLine);
+  const hasAnswerPattern = /[ABCDE]{10,}/.test(firstLine);
   
-  return hasStudentNo && (hasTabs || hasAnswerPattern);
+  return hasStudentNo && hasAnswerPattern;
 }
 
 /**
- * Optik okuyucu formatını parse et
+ * Optik okuyucu formatını parse et - AKILLI PARSER
+ * Format: 000148ALİ ÇINAR KILIÇOĞLU 8C BBACBADCDABCCDACAACBCBC...
  */
 async function parseOpticalReaderFormat(
   text: string,
@@ -257,83 +256,86 @@ async function parseOpticalReaderFormat(
     return createErrorResult('Dosya boş');
   }
   
-  // TAB ile böl
-  const jsonData: unknown[][] = lines.map(line => {
-    // Önce TAB ile böl
-    let parts = line.split('\t').map(p => p.trim()).filter(p => p);
-    
-    // Eğer TAB yoksa veya az parça varsa, birden fazla boşluk ile böl
-    if (parts.length < 3) {
-      parts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
-    }
-    
-    // İlk parçayı analiz et (No + Ad birleşik olabilir)
-    if (parts.length > 0 && /^\d{6}[A-ZÇĞİÖŞÜ]/.test(parts[0])) {
-      const firstPart = parts[0];
-      // 6 haneli numarayı ayır
-      const studentNo = firstPart.substring(0, 6);
-      const restOfName = firstPart.substring(6);
-      
-      // Yeni parts oluştur
-      parts = [studentNo, restOfName, ...parts.slice(1)];
-    }
-    
-    // Cevap bloklarını birleştir (birden fazla cevap sütunu varsa)
-    const processedParts = processOpticalParts(parts);
-    
-    return processedParts;
-  });
+  const jsonData: unknown[][] = [];
   
-  // Header oluştur
-  const maxCols = Math.max(...jsonData.map(row => row.length));
-  const headers = ['Öğrenci No', 'Ad', 'Soyad', 'Sınıf'];
-  
-  // Kalan sütunlar cevap sütunları
-  for (let i = headers.length; i < maxCols; i++) {
-    headers.push(`Cevaplar ${i - headers.length + 1}`);
+  for (const line of lines) {
+    const parsed = parseOpticalLine(line);
+    if (parsed) {
+      jsonData.push(parsed);
+    }
   }
   
-  // Header'ı ekle
-  jsonData.unshift(headers);
+  if (jsonData.length === 0) {
+    return createErrorResult('Hiçbir satır parse edilemedi');
+  }
+  
+  // Header ekle
+  jsonData.unshift(['Öğrenci No', 'Ad Soyad', 'Sınıf', 'Cevaplar']);
   
   return parseJsonData(jsonData, file, { ...options, headerRows: 1 });
 }
 
 /**
- * Optik okuyucu parçalarını işle
+ * Tek bir optik satırı parse et
+ * Format: 000148ALİ ÇINAR KILIÇOĞLU 8C BBACBADCDABCCDACAACBCBC...
  */
-function processOpticalParts(parts: string[]): string[] {
-  const result: string[] = [];
-  let answerBuffer = '';
+function parseOpticalLine(line: string): string[] | null {
+  // Regex: 6 haneli no + isim + sınıf + cevaplar
+  // Sınıf formatı: 8C, 8A, 10B, 5-A, 5/A vb.
   
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
+  const match = line.match(
+    /^(\d{6})([A-ZÇĞİÖŞÜa-zçğıöşü\s\-\+«»]+?)\s+(\d{1,2}[\-\/]?[A-Z])\s+([ABCDE\s]+)/i
+  );
+  
+  if (match) {
+    const studentNo = match[1];
+    const name = match[2].trim();
+    const classInfo = match[3];
+    // Cevaplardan boşlukları kaldır
+    const answers = match[4].replace(/\s+/g, '');
     
-    // Sadece cevap karakterlerinden oluşuyorsa (A,B,C,D,E ve boşluk)
-    if (/^[ABCDE\s]+$/.test(part) && part.length > 3) {
-      // Cevap bloğu - boşlukları kaldır ve ekle
-      answerBuffer += part.replace(/\s/g, '');
-    } else if (/^\d{6}$/.test(part)) {
-      // Öğrenci numarası
-      result.push(part);
-    } else if (/^\d{1,2}[A-Z]$/.test(part)) {
-      // Sınıf (8C, 10A vb.)
-      result.push(part);
-    } else if (/\(%\d+\)/.test(part)) {
-      // Yüzde değeri - atla
-      continue;
-    } else {
-      // İsim parçası
-      result.push(part);
+    return [studentNo, name, classInfo, answers];
+  }
+  
+  // Alternatif format: TAB ile ayrılmış
+  if (line.includes('\t')) {
+    const parts = line.split('\t').map(p => p.trim()).filter(p => p);
+    if (parts.length >= 3) {
+      // İlk parça no+isim birleşik mi?
+      if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(parts[0])) {
+        const studentNo = parts[0].substring(0, 6);
+        const name = parts[0].substring(6);
+        return [studentNo, name, ...parts.slice(1)];
+      }
+      return parts;
     }
   }
   
-  // Cevap buffer'ını ekle
-  if (answerBuffer) {
-    result.push(answerBuffer);
+  // Son çare: Birden fazla boşlukla böl
+  const spaceParts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+  if (spaceParts.length >= 3) {
+    // İlk parça no+isim birleşik mi?
+    if (/^\d{6}[A-ZÇĞİÖŞÜ]/i.test(spaceParts[0])) {
+      const studentNo = spaceParts[0].substring(0, 6);
+      const name = spaceParts[0].substring(6);
+      return [studentNo, name, ...spaceParts.slice(1)];
+    }
+    return spaceParts;
   }
   
-  return result;
+  // Hiçbir format uymadı - manuel parse dene
+  // Format: 000148ALİ ÇINAR KILIÇOĞLU 8C CEVAPLAR...
+  const manualMatch = line.match(/^(\d{6})(.+?)(\d{1,2}[A-Z])\s*([ABCDE\s\(\)%\d]+)$/i);
+  if (manualMatch) {
+    return [
+      manualMatch[1],
+      manualMatch[2].trim(),
+      manualMatch[3],
+      manualMatch[4].replace(/[\s\(\)%\d]/g, '')
+    ];
+  }
+  
+  return null;
 }
 
 /**
