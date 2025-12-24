@@ -24,7 +24,8 @@ import type {
   TopicInput,
   PreviousExamInput
 } from '../engine/types';
-import type { AssembledInput, OrchestratorConfig, DEFAULT_ORCHESTRATOR_CONFIG } from './types';
+import type { AssembledInput, OrchestratorConfig } from './types';
+import { DEFAULT_ORCHESTRATOR_CONFIG } from './types';
 
 // ==================== LGS DERS YAPILANDIRMASI ====================
 

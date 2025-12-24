@@ -257,7 +257,7 @@ function formatAnalyticsOutput(
   examId: string,
   studentId: string,
   analytics: ReturnType<typeof calculateFullAnalytics>,
-  assembled: Awaited<ReturnType<typeof assembleInput>>,
+  assembled: NonNullable<Awaited<ReturnType<typeof assembleInput>>>,
   calculationMs: number
 ): StudentAnalyticsOutput {
   return {

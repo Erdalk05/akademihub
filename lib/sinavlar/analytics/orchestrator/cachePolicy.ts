@@ -366,13 +366,22 @@ export async function markJobFailed(
   try {
     const supabase = createClient();
     
+    // Önce mevcut retry_count'u al
+    const { data: currentJob } = await supabase
+      .from('exam_analytics_queue')
+      .select('retry_count')
+      .eq('id', jobId)
+      .single();
+    
+    const currentRetryCount = currentJob?.retry_count ?? 0;
+    
     const { error } = await supabase
       .from('exam_analytics_queue')
       .update({
         status: 'failed',
         completed_at: new Date().toISOString(),
         error_message: errorMessage,
-        retry_count: supabase.sql`retry_count + 1`
+        retry_count: currentRetryCount + 1
       })
       .eq('id', jobId);
     
