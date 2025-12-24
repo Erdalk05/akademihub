@@ -26,6 +26,7 @@ export default function LayoutWrapper({
   const [collapsed, setCollapsed] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -69,6 +70,19 @@ export default function LayoutWrapper({
       setShowYearDropdown(false);
     }
   }, [selectedYear, setSelectedYear]);
+
+  // Detect desktop screen size
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
 
   // Load sidebar state from localStorage
   useEffect(() => {
@@ -283,27 +297,28 @@ export default function LayoutWrapper({
         />
       )}
 
-      {/* Sidebar (fixed) - MOBİLDE TAM GENİŞLİK */}
+      {/* Sidebar (fixed) */}
       <aside
-        className={`fixed left-0 top-0 h-full bg-slate-100 border-r border-slate-200 transition-all duration-300 z-40 
-          ${isOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} 
-          lg:translate-x-0 lg:${collapsed ? 'w-16' : 'w-64'} safe-area-inset`}
+        className={`fixed left-0 top-0 h-full bg-slate-100 border-r border-slate-200 transition-all duration-300 z-40 safe-area-inset
+          ${isDesktop 
+            ? `translate-x-0 ${collapsed ? 'w-16' : 'w-64'}` 
+            : `${isOpen ? 'translate-x-0' : '-translate-x-full'} w-72`
+          }`}
         onMouseEnter={() => {
-          if (typeof window !== 'undefined' && window.innerWidth >= 1024) setCollapsed(false);
+          if (isDesktop) setCollapsed(false);
         }}
         onMouseLeave={() => {
-          if (typeof window !== 'undefined' && window.innerWidth >= 1024) setCollapsed(true);
+          if (isDesktop) setCollapsed(true);
         }}
       >
-        {/* Mobilde her zaman collapsed=false */}
-        <Sidebar onClose={() => setIsOpen(false)} collapsed={typeof window !== 'undefined' && window.innerWidth >= 1024 ? collapsed : false} />
+        <Sidebar onClose={() => setIsOpen(false)} collapsed={isDesktop ? collapsed : false} />
       </aside>
 
       {/* Desktop Top Bar (NAVIGATION_GUIDE uyumlu) */}
       <TopBar onSearchClick={() => setShowSearch(true)} />
 
       {/* Content */}
-      <main className={`min-h-[calc(100vh-56px)] lg:pt-16 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+      <main className={`min-h-[calc(100vh-56px)] ${isDesktop ? `pt-16 ${collapsed ? 'ml-16' : 'ml-64'}` : ''}`}>
         {children}
       </main>
 
