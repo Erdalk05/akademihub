@@ -1,11 +1,13 @@
 /**
  * ============================================
- * AkademiHub - Ultimate Optik Form Mapper v4.0
+ * AkademiHub - Optik Form Mapper v5.0
  * ============================================
  * 
- * LGS & TYT/AYT Tam Destek
- * 5 Satır Karakter Haritası
- * Kompakt Alan Kartları
+ * ✅ Tıklanabilir karakterler
+ * ✅ Türkçe karakter desteği
+ * ✅ Geniş aralıklı görünüm
+ * ✅ Manuel alan ekleme
+ * ✅ 2 satır önizleme
  */
 
 'use client';
@@ -13,13 +15,62 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { 
   Plus, Trash2, Eye, Save, RotateCcw, CheckCircle, AlertCircle, 
-  Sparkles, Zap, Target, Users, Hash, CreditCard, School, BookOpen, FileText
+  Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText
 } from 'lucide-react';
-import { correctOCRErrors } from '../txt/ocrCorrection';
+
+// ==================== TÜRKÇE KARAKTER DÜZELTMESİ ====================
+
+const TURKISH_OCR_MAP: Record<string, string> = {
+  'w': 'İ', 'W': 'İ',
+  '0': 'O', // context'e göre
+  '1': 'I', // context'e göre  
+  '6': 'Ğ',
+  '+': 'Ö', // veya Ç
+  '$': 'Ş',
+  '@': 'A',
+  '&': 'E',
+  '#': 'H',
+};
+
+function fixTurkishChars(text: string): string {
+  let result = text.toUpperCase();
+  
+  // Basit değişimler
+  result = result.replace(/w/gi, 'İ');
+  result = result.replace(/\$/g, 'Ş');
+  result = result.replace(/6(?=[A-ZÇĞİÖŞÜ])/g, 'Ğ');
+  
+  // + karakteri: kelime başında Ö, ortasında Ç
+  result = result.replace(/\+/g, (match, offset) => {
+    const prevChar = result[offset - 1];
+    if (!prevChar || /\s/.test(prevChar)) return 'Ö';
+    return 'Ç';
+  });
+  
+  // Yaygın Türk isimleri düzeltmeleri
+  const nameCorrections: Record<string, string> = {
+    'OZCAN': 'ÖZCAN', 'OZGUR': 'ÖZGÜR', 'OZLEM': 'ÖZLEM', 'OZGE': 'ÖZGE',
+    'CIGDEM': 'ÇİĞDEM', 'CAGLA': 'ÇAĞLA', 'CEREN': 'ÇEREN',
+    'GUNES': 'GÜNEŞ', 'GULER': 'GÜLER', 'GULSEN': 'GÜLŞEN',
+    'SIRIN': 'ŞİRİN', 'SUKRU': 'ŞÜKRÜ', 'SEREF': 'ŞEREF',
+    'INAR': 'İNAR', 'ILHAN': 'İLHAN', 'ISMAIL': 'İSMAİL',
+    'KILIÇ': 'KILIÇ', 'KILIC': 'KILIÇ', 'KILICOGLU': 'KILIÇOĞLU',
+    'TURKMEN': 'TÜRKMEN', 'TURK': 'TÜRK',
+    'YAGIZ': 'YAĞIZ', 'YAGMUR': 'YAĞMUR',
+    'NURSENA': 'NURSENA', 'ASYA': 'ASYA', 'ERDAL': 'ERDAL',
+    'BURAK': 'BURAK', 'NACAK': 'NAÇAK', 'MACAK': 'MAÇAK',
+  };
+  
+  for (const [wrong, correct] of Object.entries(nameCorrections)) {
+    result = result.replace(new RegExp(wrong, 'gi'), correct);
+  }
+  
+  return result;
+}
 
 // ==================== TYPES ====================
 
-type FieldType = 'ogrenci_no' | 'tc' | 'ad' | 'soyad' | 'sinif' | 'kitapcik' | 'cevaplar';
+type FieldType = 'ogrenci_no' | 'tc' | 'ad' | 'soyad' | 'sinif' | 'kitapcik' | 'cevaplar' | 'custom';
 
 interface FieldDefinition {
   id: string;
@@ -49,39 +100,8 @@ const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.
   { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" /> },
   { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" /> },
   { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" /> },
+  { type: 'custom', label: 'Özel Alan', color: '#6B7280', icon: <Plus className="w-3 h-3" /> },
 ];
-
-// ==================== AUTO DETECT ====================
-
-function autoDetectFields(line: string): FieldDefinition[] {
-  const fields: FieldDefinition[] = [];
-  let id = 1;
-  
-  const studentNoMatch = line.match(/^(\d{5,6})/);
-  if (studentNoMatch) {
-    fields.push({ id: `auto-${id++}`, type: 'ogrenci_no', label: 'Öğrenci No', start: 1, end: studentNoMatch[1].length });
-  }
-  
-  const tcMatch = line.match(/(\d{11})/);
-  if (tcMatch) {
-    const tcStart = line.indexOf(tcMatch[1]) + 1;
-    fields.push({ id: `auto-${id++}`, type: 'tc', label: 'TC Kimlik', start: tcStart, end: tcStart + 10 });
-  }
-  
-  const answerMatch = line.match(/[ABCDE]{20,}/i);
-  if (answerMatch) {
-    const answerStart = line.indexOf(answerMatch[0]) + 1;
-    fields.push({ id: `auto-${id++}`, type: 'cevaplar', label: 'Cevaplar', start: answerStart, end: answerStart + answerMatch[0].length - 1 });
-  }
-  
-  const classMatch = line.match(/\b(\d{1,2}[A-Z])\b/i);
-  if (classMatch) {
-    const classStart = line.indexOf(classMatch[1]) + 1;
-    fields.push({ id: `auto-${id++}`, type: 'sinif', label: 'Sınıf', start: classStart, end: classStart + classMatch[1].length - 1 });
-  }
-  
-  return fields.sort((a, b) => a.start - b.start);
-}
 
 // ==================== MAIN COMPONENT ====================
 
@@ -94,51 +114,102 @@ interface FixedWidthMapperProps {
 export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMapperProps) {
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
-  const [showAutoDetect, setShowAutoDetect] = useState(true);
+  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
   
+  // 2 satır, Türkçe düzeltmeli
   const sampleLines = useMemo(() => {
-    return rawLines.slice(0, 5).map(line => correctOCRErrors(line));
+    return rawLines.slice(0, 2).map(line => fixTurkishChars(line));
   }, [rawLines]);
   
-  const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length)), [rawLines]);
-  const autoFields = useMemo(() => autoDetectFields(sampleLines[0] || ''), [sampleLines]);
+  const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length), 100), [rawLines]);
   
-  const handleAutoDetect = useCallback(() => {
-    setFields(autoFields);
-    setShowAutoDetect(false);
-  }, [autoFields]);
+  // Karakter seçimi başlat
+  const handleCharMouseDown = useCallback((charIndex: number) => {
+    // Zaten tanımlı bir alanda mı?
+    const existingField = fields.find(f => charIndex >= f.start - 1 && charIndex < f.end);
+    if (existingField) return;
+    
+    setIsSelecting(true);
+    setSelection({ start: charIndex, end: charIndex });
+  }, [fields]);
   
-  const handleAddField = useCallback((type: FieldType) => {
+  // Karakter seçimi devam
+  const handleCharMouseEnter = useCallback((charIndex: number) => {
+    if (!isSelecting) return;
+    setSelection(prev => prev ? { ...prev, end: charIndex } : null);
+  }, [isSelecting]);
+  
+  // Karakter seçimi bitir
+  const handleMouseUp = useCallback(() => {
+    setIsSelecting(false);
+  }, []);
+  
+  // Alan tipi ata
+  const handleAssignField = useCallback((type: FieldType, customLabel?: string) => {
+    if (!selection) return;
+    
+    const start = Math.min(selection.start, selection.end) + 1;
+    const end = Math.max(selection.start, selection.end) + 1;
+    
     const fieldType = FIELD_TYPES.find(f => f.type === type);
-    if (!fieldType) return;
-    const lastEnd = fields.length > 0 ? Math.max(...fields.map(f => f.end)) : 0;
-    setFields(prev => [...prev, {
+    
+    const newField: FieldDefinition = {
       id: `field-${Date.now()}`,
       type,
-      label: fieldType.label,
-      start: lastEnd + 1,
-      end: Math.min(lastEnd + 10, maxLength)
-    }]);
-    setShowAutoDetect(false);
-  }, [fields, maxLength]);
+      label: customLabel || fieldType?.label || 'Özel Alan',
+      start,
+      end
+    };
+    
+    setFields(prev => [...prev, newField].sort((a, b) => a.start - b.start));
+    setSelection(null);
+  }, [selection]);
   
+  // Manuel alan ekle
+  const handleAddManualField = useCallback(() => {
+    const lastEnd = fields.length > 0 ? Math.max(...fields.map(f => f.end)) : 0;
+    
+    const label = prompt('Alan adını girin:', 'Yeni Alan');
+    if (!label) return;
+    
+    const startStr = prompt('Başlangıç pozisyonu:', String(lastEnd + 1));
+    const start = parseInt(startStr || '1') || 1;
+    
+    const endStr = prompt('Bitiş pozisyonu:', String(start + 10));
+    const end = parseInt(endStr || String(start + 10)) || start + 10;
+    
+    setFields(prev => [...prev, {
+      id: `field-${Date.now()}`,
+      type: 'custom',
+      label,
+      start,
+      end
+    }].sort((a, b) => a.start - b.start));
+  }, [fields]);
+  
+  // Alan güncelle
   const handleUpdateField = useCallback((id: string, updates: Partial<FieldDefinition>) => {
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
   }, []);
   
+  // Alan sil
   const handleRemoveField = useCallback((id: string) => {
     setFields(prev => prev.filter(f => f.id !== id));
   }, []);
   
+  // Sıfırla
   const handleReset = useCallback(() => {
     setFields([]);
-    setShowAutoDetect(true);
+    setSelection(null);
   }, []);
   
+  // Parse edilmiş öğrenciler
   const parsedStudents = useMemo((): ParsedStudent[] => {
     return rawLines.map(line => {
-      const corrected = correctOCRErrors(line);
+      const corrected = fixTurkishChars(line);
       const student: ParsedStudent = {};
+      
       fields.forEach(f => {
         const value = corrected.substring(f.start - 1, f.end).trim();
         if (f.type === 'ogrenci_no') student.ogrenciNo = value;
@@ -149,24 +220,35 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         if (f.type === 'kitapcik') student.kitapcik = value;
         if (f.type === 'cevaplar') student.cevaplar = value;
       });
+      
       return student;
     });
   }, [rawLines, fields]);
   
+  // Validasyon
   const isValid = useMemo(() => {
     const hasIdentity = fields.some(f => f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad');
     const hasAnswers = fields.some(f => f.type === 'cevaplar');
     return hasIdentity && hasAnswers;
   }, [fields]);
 
+  // Karakter rengi
   const getCharColor = useCallback((index: number): string | null => {
     const field = fields.find(f => index >= f.start - 1 && index < f.end);
     if (field) {
       const fieldType = FIELD_TYPES.find(t => t.type === field.type);
-      return fieldType?.color || null;
+      return fieldType?.color || '#6B7280';
     }
     return null;
   }, [fields]);
+
+  // Seçim aralığında mı?
+  const isInSelection = useCallback((index: number): boolean => {
+    if (!selection) return false;
+    const start = Math.min(selection.start, selection.end);
+    const end = Math.max(selection.start, selection.end);
+    return index >= start && index <= end;
+  }, [selection]);
 
   if (previewMode) {
     return (
@@ -181,70 +263,68 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   }
 
   return (
-    <div className="min-h-[600px]">
+    <div className="min-h-[600px]" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 -mx-6 -mt-6 px-6 py-4 mb-4 rounded-t-2xl">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Target className="w-5 h-5" /> Optik Form Tanımları
         </h2>
-        <p className="text-purple-200 text-sm">{rawLines.length} satır • Alanları tanımlayın</p>
+        <p className="text-purple-200 text-sm">{rawLines.length} satır • Karakterleri sürükleyerek seçin</p>
       </div>
       
-      {/* Otomatik Algılama */}
-      {showAutoDetect && autoFields.length > 0 && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-600" />
-            <span className="font-medium text-amber-800">{autoFields.length} alan otomatik tespit edildi</span>
-          </div>
-          <button onClick={handleAutoDetect} className="px-4 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600">
-            ⚡ Uygula
-          </button>
-        </div>
-      )}
-      
-      {/* 5 SATIR KARAKTER HARİTASI */}
+      {/* KARAKTER HARİTASI - GENİŞ ARALIKLI, 2 SATIR */}
       <div className="bg-white border-2 border-gray-200 rounded-xl mb-4 overflow-hidden">
         <div className="bg-gray-100 px-4 py-2 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-600" />
             <span className="font-bold text-gray-700">Karakter Haritası</span>
-            <span className="text-xs text-gray-500">(İlk 5 öğrenci)</span>
+            <span className="text-xs text-gray-500">(Sürükleyerek seçin)</span>
           </div>
           <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
             <RotateCcw className="w-3 h-3" /> Sıfırla
           </button>
         </div>
         
-        <div className="p-3 overflow-x-auto" style={{ fontFamily: 'Consolas, Monaco, monospace' }}>
+        <div className="p-4 overflow-x-auto select-none" style={{ fontFamily: 'Consolas, Monaco, monospace' }}>
           {/* Pozisyon Cetveli */}
-          <div className="flex mb-1">
-            <div className="w-8 flex-shrink-0" />
-            {Array.from({ length: Math.ceil(Math.min(maxLength, 100) / 10) }).map((_, i) => (
-              <div key={i} className="text-xs font-bold text-blue-600" style={{ width: '120px' }}>
+          <div className="flex mb-2">
+            <div className="w-10 flex-shrink-0" />
+            {Array.from({ length: Math.ceil(Math.min(maxLength, 80) / 10) }).map((_, i) => (
+              <div key={i} className="text-sm font-bold text-blue-600" style={{ width: '200px' }}>
                 {(i * 10) + 1}
               </div>
             ))}
           </div>
           
-          {/* 5 Satır Öğrenci */}
+          {/* 2 Satır Öğrenci - GENİŞ ARALIKLI */}
           {sampleLines.map((line, rowIdx) => (
-            <div key={rowIdx} className="flex items-center mb-0.5">
-              <div className="w-8 flex-shrink-0 text-xs font-bold text-gray-400 text-right pr-1">
+            <div key={rowIdx} className="flex items-center mb-2">
+              <div className="w-10 flex-shrink-0 text-sm font-bold text-gray-400 text-right pr-2">
                 {rowIdx + 1}
               </div>
               <div className="flex">
-                {Array.from({ length: Math.min(maxLength, 100) }).map((_, i) => {
+                {Array.from({ length: Math.min(line.length, 80) }).map((_, i) => {
                   const char = line[i] || '';
                   const fieldColor = getCharColor(i);
+                  const inSelection = isInSelection(i);
                   
                   return (
                     <div
                       key={i}
-                      className={`w-3 h-5 flex items-center justify-center text-[11px] font-bold border-r border-b first:border-l ${rowIdx === 0 ? 'border-t' : ''} ${
-                        fieldColor ? 'text-white' : 'text-gray-700 border-gray-200 bg-gray-50'
-                      }`}
-                      style={fieldColor ? { backgroundColor: fieldColor, borderColor: fieldColor } : undefined}
+                      onMouseDown={() => handleCharMouseDown(i)}
+                      onMouseEnter={() => handleCharMouseEnter(i)}
+                      className={`
+                        w-5 h-8 flex items-center justify-center text-sm font-bold cursor-pointer
+                        border border-gray-200 transition-all
+                        ${inSelection ? 'bg-blue-400 text-white border-blue-500 scale-110 z-10' : ''}
+                        ${fieldColor && !inSelection ? 'text-white' : ''}
+                        ${!fieldColor && !inSelection ? 'hover:bg-blue-100 hover:border-blue-300' : ''}
+                      `}
+                      style={fieldColor && !inSelection ? { 
+                        backgroundColor: fieldColor, 
+                        borderColor: fieldColor 
+                      } : undefined}
+                      title={`Poz: ${i + 1}`}
                     >
                       {char}
                     </div>
@@ -254,23 +334,69 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             </div>
           ))}
           
-          {maxLength > 100 && (
-            <div className="mt-2 text-xs text-amber-600">⚠️ İlk 100 karakter ({maxLength} toplam)</div>
+          {maxLength > 80 && (
+            <div className="mt-2 text-xs text-amber-600">⚠️ İlk 80 karakter ({maxLength} toplam)</div>
           )}
         </div>
       </div>
       
+      {/* SEÇİM PANELİ */}
+      {selection && (
+        <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-xl">
+          <div className="text-center mb-3">
+            <span className="text-2xl font-bold text-blue-600">
+              {Math.min(selection.start, selection.end) + 1} → {Math.max(selection.start, selection.end) + 1}
+            </span>
+            <span className="text-gray-500 ml-2">
+              ({Math.abs(selection.end - selection.start) + 1} karakter)
+            </span>
+          </div>
+          <div className="p-2 bg-white rounded-lg font-mono text-center mb-3 text-lg">
+            "{sampleLines[0]?.substring(Math.min(selection.start, selection.end), Math.max(selection.start, selection.end) + 1) || ''}"
+          </div>
+          <div className="text-sm text-gray-600 mb-2 text-center">Bu alan ne?</div>
+          <div className="flex flex-wrap justify-center gap-2">
+            {FIELD_TYPES.filter(f => f.type !== 'custom').map((fieldType) => (
+              <button
+                key={fieldType.type}
+                onClick={() => handleAssignField(fieldType.type)}
+                className="px-3 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-1 hover:opacity-80"
+                style={{ backgroundColor: fieldType.color }}
+              >
+                {fieldType.icon} {fieldType.label}
+              </button>
+            ))}
+          </div>
+          <div className="text-center mt-2">
+            <button
+              onClick={() => setSelection(null)}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* ALAN TANIMLARI */}
       <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden mb-4">
-        <div className="bg-emerald-50 px-4 py-2 border-b">
+        <div className="bg-emerald-50 px-4 py-2 border-b flex justify-between items-center">
           <span className="font-bold text-emerald-700">Alan Tanımları ({fields.length})</span>
+          <button
+            onClick={handleAddManualField}
+            className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-600"
+          >
+            <Plus className="w-3 h-3" /> Manuel Ekle
+          </button>
         </div>
         
         <div className="p-3">
           {fields.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">Henüz alan eklenmedi</div>
+            <div className="text-center py-6 text-gray-500">
+              Karakterleri sürükleyerek seçin veya "Manuel Ekle" butonunu kullanın
+            </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {fields.map((field) => {
                 const fieldType = FIELD_TYPES.find(t => t.type === field.type);
                 const previewValue = sampleLines[0]?.substring(field.start - 1, field.end).trim() || '';
@@ -279,10 +405,10 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                   <div 
                     key={field.id} 
                     className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg"
-                    style={{ backgroundColor: fieldType?.color + '15', borderLeft: `3px solid ${fieldType?.color}` }}
+                    style={{ backgroundColor: (fieldType?.color || '#6B7280') + '15', borderLeft: `3px solid ${fieldType?.color || '#6B7280'}` }}
                   >
                     <div className="col-span-3 flex items-center gap-2">
-                      <div className="p-1.5 rounded text-white" style={{ backgroundColor: fieldType?.color }}>
+                      <div className="p-1.5 rounded text-white text-xs" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
                         {fieldType?.icon}
                       </div>
                       <input
@@ -309,7 +435,10 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                       />
                     </div>
                     <div className="col-span-4">
-                      <div className="px-2 py-1 rounded text-xs font-mono truncate" style={{ backgroundColor: fieldType?.color + '20', color: fieldType?.color }}>
+                      <div 
+                        className="px-2 py-1 rounded text-sm font-mono truncate font-bold"
+                        style={{ backgroundColor: (fieldType?.color || '#6B7280') + '30', color: fieldType?.color || '#6B7280' }}
+                      >
                         {previewValue || '—'}
                       </div>
                     </div>
@@ -323,33 +452,6 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
               })}
             </div>
           )}
-          
-          {/* KOMPAKT ALAN EKLEME BUTONLARI (%80 küçük) */}
-          <div className="mt-3 pt-3 border-t">
-            <div className="text-xs text-gray-500 mb-2">+ Alan Ekle:</div>
-            <div className="flex flex-wrap gap-1.5">
-              {FIELD_TYPES.map((fieldType) => {
-                const isAdded = fields.some(f => f.type === fieldType.type);
-                return (
-                  <button
-                    key={fieldType.type}
-                    onClick={() => handleAddField(fieldType.type)}
-                    disabled={isAdded && fieldType.type !== 'cevaplar'}
-                    className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all ${
-                      isAdded && fieldType.type !== 'cevaplar'
-                        ? 'bg-gray-100 text-gray-400'
-                        : 'text-white hover:opacity-80'
-                    }`}
-                    style={!isAdded || fieldType.type === 'cevaplar' ? { backgroundColor: fieldType.color } : undefined}
-                  >
-                    {fieldType.icon}
-                    {fieldType.label}
-                    {isAdded && fieldType.type !== 'cevaplar' && ' ✓'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
       
@@ -365,7 +467,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             <AlertCircle className="w-5 h-5 text-amber-600" />
             <span className="text-amber-700 text-sm">
               {!fields.some(f => f.type === 'ogrenci_no' || f.type === 'tc' || f.type === 'ad')
-                ? 'Öğrenci No/TC/Ad gerekli'
+                ? 'Öğrenci No/TC/Ad alanı gerekli'
                 : 'Cevaplar alanı gerekli'}
             </span>
           </>
@@ -413,14 +515,14 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Eye className="w-5 h-5" /> Veri Önizleme
         </h2>
-        <p className="text-purple-100 text-sm">{totalCount} öğrenci • İlk 15 gösteriliyor</p>
+        <p className="text-purple-100 text-sm">{totalCount} öğrenci</p>
       </div>
       
       <div className="mb-4 flex flex-wrap gap-1.5">
         {fields.map(field => {
           const fieldType = FIELD_TYPES.find(t => t.type === field.type);
           return (
-            <span key={field.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: fieldType?.color }}>
+            <span key={field.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
               {fieldType?.icon} {field.label} ({field.start}-{field.end})
             </span>
           );
