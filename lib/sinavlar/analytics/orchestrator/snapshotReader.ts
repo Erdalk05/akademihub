@@ -104,22 +104,31 @@ export function snapshotToOutput(
       consistency_score: snapshot.consistency_score ?? null
     },
     
-    // Trend
+    // Trend (PHASE 3.4 ENHANCED)
     trends: {
       direction: snapshot.trend_direction ?? null,
       change: snapshot.trend_change ?? null,
       net_trend: snapshot.net_trend ?? null,
       rank_trend: snapshot.rank_trend ?? null,
-      slope: null, // Snapshot'ta tutulmuyorsa null
+      slope: (snapshot.calculation_metadata as any)?.trend_velocity ?? null,
+      velocity: (snapshot.calculation_metadata as any)?.trend_velocity,
+      velocity_normalized: (snapshot.calculation_metadata as any)?.trend_velocity_normalized,
+      consistency: (snapshot.calculation_metadata as any)?.trend_consistency,
+      trend_score: (snapshot.calculation_metadata as any)?.trend_score,
+      explanation: (snapshot.calculation_metadata as any)?.trend_explanation,
       is_significant: (snapshot.trend_change ?? 0) > 2
     },
     
-    // Risk
+    // Risk (PHASE 3.4 EXPLAINABLE)
     risk: {
       level: snapshot.risk_level ?? null,
       score: snapshot.risk_score ?? null,
       factors: Array.isArray(snapshot.risk_factors) ? snapshot.risk_factors : [],
-      action_required: snapshot.risk_level === 'high'
+      action_required: snapshot.risk_level === 'high' || (snapshot.risk_level as string) === 'critical',
+      primary_concern: (snapshot.calculation_metadata as any)?.risk_primary_concern ?? null,
+      summary: (snapshot.calculation_metadata as any)?.risk_summary,
+      level_label: snapshot.risk_level ? getRiskLevelLabel(snapshot.risk_level) : undefined,
+      level_color: snapshot.risk_level ? getRiskLevelColor(snapshot.risk_level) : undefined
     },
     
     // Güçlü/Zayıf yönler
@@ -205,6 +214,28 @@ function transformTopicPerformance(
   }
   
   return result;
+}
+
+// ==================== RISK LEVEL HELPERS (PHASE 3.4) ====================
+
+function getRiskLevelLabel(level: string): string {
+  const labels: Record<string, string> = {
+    low: 'Düşük Risk',
+    medium: 'Orta Risk',
+    high: 'Yüksek Risk',
+    critical: 'Kritik Risk'
+  };
+  return labels[level] ?? level;
+}
+
+function getRiskLevelColor(level: string): string {
+  const colors: Record<string, string> = {
+    low: '#22c55e',
+    medium: '#f59e0b',
+    high: '#f97316',
+    critical: '#ef4444'
+  };
+  return colors[level] ?? '#6b7280';
 }
 
 function transformDifficultyPerformance(

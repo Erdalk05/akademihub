@@ -338,12 +338,14 @@ function generateExplanation(
   let explanationKey: string;
   let template: string;
   
+  type TrendTemplateKey = keyof typeof TREND_EXPLANATION_TEMPLATES;
+  
   if (direction === 'up') {
     explanationKey = isVolatile ? 'up_volatile' : 'up_stable';
-    template = TREND_EXPLANATION_TEMPLATES[explanationKey];
+    template = TREND_EXPLANATION_TEMPLATES[explanationKey as TrendTemplateKey];
   } else if (direction === 'down') {
     explanationKey = isVolatile ? 'down_volatile' : 'down_stable';
-    template = TREND_EXPLANATION_TEMPLATES[explanationKey];
+    template = TREND_EXPLANATION_TEMPLATES[explanationKey as TrendTemplateKey];
   } else {
     // Stable - performans seviyesine göre
     if (currentNet !== undefined && classAvgNet !== undefined) {
@@ -357,7 +359,7 @@ function generateExplanation(
     } else {
       explanationKey = 'stable_average';
     }
-    template = TREND_EXPLANATION_TEMPLATES[explanationKey];
+    template = TREND_EXPLANATION_TEMPLATES[explanationKey as TrendTemplateKey];
   }
   
   // Template'i doldur

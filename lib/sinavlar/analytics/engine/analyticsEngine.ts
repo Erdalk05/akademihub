@@ -56,7 +56,7 @@ export function calculateFullAnalytics(input: FullAnalyticsInput): FullAnalytics
   // 3. Topic performance hesapla
   const topicAnalysis = analyzeTopics({
     topics: input.topicResults,
-    config: input.topicConfig
+    config: input.topicConfig as any
   });
   
   const topicPerformance = formatTopicPerformance(topicAnalysis.topics);
@@ -289,16 +289,8 @@ function round(value: number, decimals: number = 2): number {
 
 // ==================== EXPORT ====================
 
-export {
-  // Ana fonksiyon
-  calculateFullAnalytics,
-  
-  // Alt fonksiyonlar (test için export)
-  formatSubjectPerformance,
-  formatTopicPerformance,
-  formatOutcomePerformance,
-  formatDifficultyPerformance
-};
+// calculateFullAnalytics zaten inline export edildi (line 45)
+// Sadece default export ve yardımcı fonksiyonlar
 
 export default {
   calculateFullAnalytics

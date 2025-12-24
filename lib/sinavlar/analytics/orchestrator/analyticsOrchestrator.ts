@@ -44,7 +44,8 @@ import type {
   OrchestratorResult,
   OrchestratorConfig,
   OrchestratorError,
-  AnalyticsSnapshot
+  AnalyticsSnapshot,
+  RiskData
 } from './types';
 import { DEFAULT_ORCHESTRATOR_CONFIG } from './types';
 
@@ -151,7 +152,7 @@ export async function getStudentAnalytics(
     const analytics = calculateFullAnalytics(engineInput);
     
     // ==================== ADIM 6: TREND NORMALIZE ====================
-    const previousNets = assembled.previous_exams?.map(e => e.total_net) ?? [];
+    const previousNets = assembled.previous_exams?.map(e => e.totalNet) ?? [];
     const allNets = [...previousNets, assembled.result?.total_net ?? 0];
     
     const normalizedTrend = normalizeTrend({
@@ -174,7 +175,7 @@ export async function getStudentAnalytics(
       easy_success_rate: analytics.difficultyPerformance?.easy?.rate,
       hard_success_rate: analytics.difficultyPerformance?.hard?.rate,
       current_rank: analytics.rankInExam ?? undefined,
-      previous_rank: assembled.previous_exams?.[assembled.previous_exams.length - 1]?.rank_in_exam,
+      previous_rank: assembled.previous_exams?.[assembled.previous_exams.length - 1]?.rankInExam,
       total_students: assembled.class_data?.student_count,
       weights: dbConfigs.risk.weights,
       thresholds: dbConfigs.risk.thresholds
@@ -185,15 +186,15 @@ export async function getStudentAnalytics(
     // ==================== ADIM 8: CACHE YAZ ====================
     const writeStart = Date.now();
     
-    // Analytics'e normalize edilmiş değerleri ekle
+    // Analytics'e normalize edilmiş değerleri ekle (type assertion ile)
     const enrichedAnalytics = {
       ...analytics,
       // Trend override
-      trendDirection: normalizedTrend.direction,
+      trendDirection: normalizedTrend.direction as typeof analytics.trendDirection,
       trendChange: normalizedTrend.recent_change,
       // Risk override
-      riskLevel: normalizedRisk.level,
-      riskScore: normalizedRisk.score,
+      riskLevel: normalizedRisk.level as typeof analytics.riskLevel,
+      riskScore: normalizedRisk.score as typeof analytics.riskScore,
       riskFactors: normalizedRisk.factors.map(f => f.explanation)
     };
     
@@ -203,7 +204,21 @@ export async function getStudentAnalytics(
       analytics: enrichedAnalytics,
       assembledInput: assembled,
       calculationDurationMs: timing.calculation_ms,
-      existingAiMetadata: assembled.existing_ai_metadata
+      existingAiMetadata: assembled.existing_ai_metadata,
+      // PHASE 3.4: Extended metadata for cache
+      extendedMetadata: {
+        trend_velocity: normalizedTrend.velocity,
+        trend_velocity_normalized: normalizedTrend.velocity_normalized,
+        trend_consistency: normalizedTrend.consistency,
+        trend_score: normalizedTrend.trend_score,
+        trend_explanation: normalizedTrend.explanation,
+        trend_status: normalizedTrend.status,
+        risk_primary_concern: normalizedRisk.primary_concern,
+        risk_summary: normalizedRisk.summary,
+        risk_ai_text: normalizedRisk.ai_ready_text,
+        ai_ready_text: `${normalizedTrend.ai_ready_text} ${normalizedRisk.ai_ready_text}`,
+        config_version: dbConfigs.risk.config_version
+      }
     };
     
     const writeResult = await writeSnapshot(writeInput);
@@ -372,8 +387,8 @@ function formatAnalyticsOutputV2(
     
     // ==================== RISK (PHASE 3.4 EXPLAINABLE) ====================
     risk: {
-      level: risk.level,
-      score: risk.score,
+      level: risk.level as RiskData['level'],
+      score: risk.score as RiskData['score'],
       factors: risk.factors,
       action_required: risk.action_required,
       primary_concern: risk.primary_concern,
@@ -478,8 +493,10 @@ function createError(
 
 // ==================== EXPORT ====================
 
-export default {
+const AnalyticsOrchestratorAPI = {
   getStudentAnalytics,
   getExamAnalytics,
   recomputeStaleSnapshots
 };
+
+export default AnalyticsOrchestratorAPI;

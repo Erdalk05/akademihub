@@ -210,7 +210,7 @@ function calculateNetDropFactor(
       rawValue,
       0,
       weights.net_drop_weight,
-      'normal',
+      'low',
       thresholds
     );
   }

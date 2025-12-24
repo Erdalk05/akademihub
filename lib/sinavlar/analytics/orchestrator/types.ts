@@ -47,14 +47,14 @@ export interface StudentAnalyticsOutput {
   // Risk değerlendirmesi
   risk: RiskData;
   
-  // Güçlü yönler (AI-ready)
-  strengths: StrengthData[];
+  // Güçlü yönler (AI-ready) - string veya object olabilir
+  strengths: StrengthData[] | string[];
   
-  // Zayıf yönler (AI-ready)
-  weaknesses: WeaknessData[];
+  // Zayıf yönler (AI-ready) - string veya object olabilir
+  weaknesses: WeaknessData[] | string[];
   
-  // İyileştirme öncelikleri (AI-ready)
-  improvement_priorities: ImprovementData[];
+  // İyileştirme öncelikleri (AI-ready) - string veya object olabilir
+  improvement_priorities: ImprovementData[] | string[];
   
   // Çalışma önerileri
   study_recommendations: string[];
@@ -218,6 +218,7 @@ export interface CalculationMeta {
   // PHASE 3.4: Config kaynakları
   risk_config_source?: 'database' | 'defaults';
   trend_config_source?: 'database' | 'defaults';
+  trend_status?: 'ready' | 'gathering_data' | 'insufficient';
 }
 
 export interface CacheInfo {
@@ -438,13 +439,13 @@ export interface AssembledInput {
     question_range: { start: number; end: number };
   }>;
   
-  // Önceki sınavlar (trend için)
+  // Önceki sınavlar (trend için) - PreviousExamInput formatında
   previous_exams?: Array<{
-    exam_id: string;
-    exam_date: string;
-    total_net: number;
-    rank_in_exam?: number;
-    rank_in_class?: number;
+    examId: string;
+    examDate: string;
+    totalNet: number;
+    rankInExam?: number;
+    rankInClass?: number;
   }>;
   
   // Mevcut AI metadata (korunacak)

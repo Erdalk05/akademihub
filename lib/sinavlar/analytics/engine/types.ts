@@ -14,7 +14,7 @@
 
 // ==================== TEMEL TİPLER ====================
 
-export type RiskLevel = 'low' | 'medium' | 'high';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type TrendDirection = 'up' | 'down' | 'stable';
 export type TopicStatus = 'excellent' | 'good' | 'average' | 'weak' | 'critical';
 export type OverallAssessment = 'excellent' | 'good' | 'average' | 'below_average' | 'needs_improvement';
@@ -199,7 +199,7 @@ export interface DifficultyResultInput {
 
 export interface PreviousExamInput {
   examId: string;
-  examDate: Date | string;
+  examDate: string;
   totalNet: number;
   rankInExam?: number;
   rankInClass?: number;

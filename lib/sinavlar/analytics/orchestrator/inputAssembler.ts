@@ -131,7 +131,7 @@ export async function assembleInput(
         answer_key: answerKey
       },
       
-      answers: answersData.map(a => ({
+      answers: answersData.map((a: any) => ({
         question_no: a.question_no,
         given_answer: a.given_answer,
         is_correct: a.is_correct
@@ -300,11 +300,11 @@ async function fetchPreviousExams(
   if (error || !data) return [];
   
   return data.map((r: any) => ({
-    exam_id: r.exam_id,
-    exam_date: r.exams?.exam_date,
-    total_net: r.total_net ?? 0,
-    rank_in_exam: r.rank_in_exam,
-    rank_in_class: r.rank_in_class
+    examId: r.exam_id,
+    examDate: r.exams?.exam_date ?? '',
+    totalNet: r.total_net ?? 0,
+    rankInExam: r.rank_in_exam,
+    rankInClass: r.rank_in_class
   }));
 }
 
@@ -367,13 +367,13 @@ export function toEngineInput(assembled: AssembledInput): FullAnalyticsInput {
   // Topic results oluştur
   const topicResults = buildTopicResults(assembled);
   
-  // Previous exams
+  // Previous exams (zaten camelCase formatında)
   const previousExams = assembled.previous_exams?.map(pe => ({
-    examId: pe.exam_id,
-    examDate: pe.exam_date,
-    totalNet: pe.total_net,
-    rankInExam: pe.rank_in_exam,
-    rankInClass: pe.rank_in_class
+    examId: pe.examId,
+    examDate: pe.examDate,
+    totalNet: pe.totalNet,
+    rankInExam: pe.rankInExam,
+    rankInClass: pe.rankInClass
   }));
   
   return {

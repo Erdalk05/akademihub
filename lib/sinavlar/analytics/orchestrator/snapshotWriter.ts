@@ -37,6 +37,26 @@ export interface WriteSnapshotInput {
   existingAiMetadata?: Record<string, any>;
   organizationId?: string;
   academicYearId?: string;
+  
+  // PHASE 3.4: Extended metadata
+  extendedMetadata?: {
+    // Trend detayları
+    trend_velocity?: number;
+    trend_velocity_normalized?: number;
+    trend_consistency?: number;
+    trend_score?: number;
+    trend_explanation?: string;
+    trend_status?: string;
+    
+    // Risk detayları
+    risk_primary_concern?: string | null;
+    risk_summary?: string;
+    risk_ai_text?: string;
+    
+    // AI text
+    ai_ready_text?: string;
+    config_version?: string;
+  };
 }
 
 export interface WriteResult {
@@ -115,11 +135,11 @@ function prepareSnapshotData(input: WriteSnapshotInput): Partial<AnalyticsSnapsh
     total_wrong: analytics.totalWrong,
     total_empty: analytics.totalEmpty,
     
-    // Sıralama
-    rank_in_exam: analytics.rankInExam,
-    rank_in_class: analytics.rankInClass,
-    rank_in_school: analytics.rankInSchool,
-    percentile: analytics.percentile,
+    // Sıralama (null -> undefined dönüşümü)
+    rank_in_exam: analytics.rankInExam ?? undefined,
+    rank_in_class: analytics.rankInClass ?? undefined,
+    rank_in_school: analytics.rankInSchool ?? undefined,
+    percentile: analytics.percentile ?? undefined,
     
     // JSONB alanları
     subject_performance: analytics.subjectPerformance,
@@ -128,7 +148,7 @@ function prepareSnapshotData(input: WriteSnapshotInput): Partial<AnalyticsSnapsh
     difficulty_performance: analytics.difficultyPerformance,
     
     // Tutarlılık
-    consistency_score: analytics.consistencyScore,
+    consistency_score: analytics.consistencyScore ?? undefined,
     
     // AI-ready alanlar
     strengths: analytics.strengths,
@@ -136,35 +156,37 @@ function prepareSnapshotData(input: WriteSnapshotInput): Partial<AnalyticsSnapsh
     improvement_priorities: analytics.improvementPriorities,
     study_recommendations: analytics.studyRecommendations,
     
-    // Risk
-    risk_level: analytics.riskLevel,
-    risk_score: analytics.riskScore,
-    risk_factors: analytics.riskFactors,
+    // Risk (null -> undefined)
+    risk_level: analytics.riskLevel ?? undefined,
+    risk_score: analytics.riskScore ?? undefined,
+    risk_factors: analytics.riskFactors ?? [],
     
-    // Karşılaştırmalar
-    vs_class_avg: analytics.vsClassAvg,
-    vs_school_avg: analytics.vsSchoolAvg,
-    vs_previous_exam: analytics.vsPreviousExam,
+    // Karşılaştırmalar (null -> undefined)
+    vs_class_avg: analytics.vsClassAvg ?? undefined,
+    vs_school_avg: analytics.vsSchoolAvg ?? undefined,
+    vs_previous_exam: analytics.vsPreviousExam ?? undefined,
     
-    // Trend
-    net_trend: analytics.netTrend,
-    rank_trend: analytics.rankTrend,
-    trend_direction: analytics.trendDirection,
-    trend_change: analytics.trendChange,
+    // Trend (null -> undefined)
+    net_trend: analytics.netTrend ?? undefined,
+    rank_trend: analytics.rankTrend ?? undefined,
+    trend_direction: analytics.trendDirection ?? undefined,
+    trend_change: analytics.trendChange ?? undefined,
     
-    // Genel değerlendirme
-    overall_assessment: analytics.overallAssessment,
-    assessment_summary: analytics.assessmentSummary,
+    // Genel değerlendirme (null -> undefined)
+    overall_assessment: analytics.overallAssessment ?? undefined,
+    assessment_summary: analytics.assessmentSummary ?? undefined,
     
     // AI Metadata - KORU, üzerine yazma
     ai_metadata: existingAiMetadata ?? {},
     
-    // Hesaplama metadata
+    // Hesaplama metadata (PHASE 3.4 EXTENDED)
     calculation_metadata: {
       ...analytics.calculationMetadata,
       engine_version: ENGINE_VERSION,
       data_completeness: calculateDataCompleteness(assembledInput),
-      confidence_score: calculateConfidenceScore(assembledInput, analytics)
+      confidence_score: calculateConfidenceScore(assembledInput, analytics),
+      // Extended metadata from Phase 3.4
+      ...(input.extendedMetadata ?? {})
     },
     
     // Versiyon
