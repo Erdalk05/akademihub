@@ -12,6 +12,9 @@ export * from './types';
 // Templates (Sınav türleri ve formları)
 export * from './templates';
 
+// Answer Key (Cevap anahtarı ve net hesaplama)
+export * from './answerKey';
+
 // Parsers
 export { parseSpreadsheet, parseLine } from './parsers/spreadsheetParser';
 

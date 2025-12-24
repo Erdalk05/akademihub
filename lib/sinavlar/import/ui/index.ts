@@ -24,3 +24,9 @@ export type { SkipMatchFlowProps } from './SkipMatchFlow';
 export { SmartOpticalImport } from './SmartOpticalImport';
 export type { FieldType as SmartFieldType } from './SmartOpticalImport';
 
+export { OpticalImportWizard } from './OpticalImportWizard';
+
+export { AnswerKeyInput } from './AnswerKeyInput';
+
+export { ResultsPreview } from './ResultsPreview';
+

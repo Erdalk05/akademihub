@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, FileSpreadsheet, Camera, FileText, CheckCircle, Sparkles } from 'lucide-react';
-import SmartOpticalImport from '@/lib/sinavlar/import/ui/SmartOpticalImport';
+import { OpticalImportWizard } from '@/lib/sinavlar/import/ui/OpticalImportWizard';
 
 type Step = 'select' | 'import' | 'success';
 
@@ -95,24 +95,12 @@ export default function VeriAktarimiPage() {
           
           {/* Smart Import Component */}
           <div className="bg-white dark:bg-slate-800/50 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6">
-            <SmartOpticalImport
-              examId="demo-exam"
-              examName="Sınav Aktarımı"
+            <OpticalImportWizard
               onComplete={(data) => {
                 console.log('Import tamamlandı:', data);
                 setImportResult({
-                  rowCount: data.rows.length,
-                  fields: data.assignments.map(a => {
-                    const labels: Record<string, string> = {
-                      tc: 'TC Kimlik',
-                      student_no: 'Öğrenci No',
-                      name: 'Ad Soyad',
-                      class: 'Sınıf',
-                      booklet: 'Kitapçık',
-                      answers: 'Cevaplar'
-                    };
-                    return labels[a.field] || a.field;
-                  })
+                  rowCount: data.students.length,
+                  fields: data.subjects.map(s => s.name)
                 });
                 setStep('success');
               }}
