@@ -101,6 +101,15 @@ CREATE TABLE IF NOT EXISTS exam_student_analytics (
   )),
   assessment_summary TEXT,                  -- "Öğrenci genel olarak iyi performans gösteriyor..."
   
+  -- AI METADATA (AI çıkarımları için esnek JSONB)
+  -- Bu alan AI modeli tarafından doldurulacak ek verileri içerir
+  -- Örnek: {"model": "gpt-4", "confidence": 0.92, "tags": ["underperformer", "math_weak"]}
+  ai_metadata JSONB NOT NULL DEFAULT '{}',
+  
+  -- Ek metadata (hesaplama parametreleri, debug bilgisi vs)
+  -- Örnek: {"risk_config_id": "...", "trend_window": 5, "class_size": 35}
+  calculation_metadata JSONB NOT NULL DEFAULT '{}',
+  
   -- Hesaplama Metadata
   calculation_version TEXT DEFAULT '1.0',   -- Algoritma versiyonu
   calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -235,6 +244,98 @@ CREATE TABLE IF NOT EXISTS exam_analytics_queue (
 );
 
 -- ============================================
+-- 4. EXAM_QUESTION_TOPIC_CONFIG (Soru-Konu Eşleştirme Config)
+-- ============================================
+-- Her soru aralığını bir konu etiketiyle eşleştirir
+-- Sınav tipine ve derse göre yapılandırılabilir
+-- ============================================
+CREATE TABLE IF NOT EXISTS exam_question_topic_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Hedef
+  exam_type_id UUID REFERENCES exam_types(id) ON DELETE CASCADE,
+  subject_id UUID REFERENCES exam_subjects(id) ON DELETE CASCADE,
+  template_id UUID REFERENCES exam_templates(id) ON DELETE SET NULL,
+  
+  -- Konfigürasyon Adı
+  config_name TEXT NOT NULL DEFAULT 'default',
+  description TEXT,
+  
+  -- Soru Aralığı -> Konu Eşleştirme
+  -- Format: [{"start": 1, "end": 5, "topic_id": "uuid", "topic_name": "Sözcükte Anlam"}]
+  question_ranges JSONB NOT NULL DEFAULT '[]',
+  
+  -- Alternatif: Tekil soru eşleştirme
+  -- Format: {"1": "topic_uuid_1", "2": "topic_uuid_2", ...}
+  question_mapping JSONB NOT NULL DEFAULT '{}',
+  
+  -- Zorluk Dağılımı (opsiyonel)
+  -- Format: {"1": 0.3, "2": 0.5, ...} (0-1 arası zorluk)
+  difficulty_mapping JSONB NOT NULL DEFAULT '{}',
+  
+  -- Kazanım Eşleştirme (opsiyonel)
+  -- Format: {"1": "outcome_uuid_1", "2": "outcome_uuid_2", ...}
+  outcome_mapping JSONB NOT NULL DEFAULT '{}',
+  
+  -- Durum
+  is_active BOOLEAN DEFAULT true,
+  is_default BOOLEAN DEFAULT false,
+  
+  -- Multi-tenant
+  organization_id UUID REFERENCES organizations(id),
+  
+  -- Meta
+  created_by UUID REFERENCES app_users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(exam_type_id, subject_id, config_name, organization_id)
+);
+
+-- ============================================
+-- 5. EXAM_TREND_CONFIG (Trend Hesaplama Ayarları)
+-- ============================================
+-- Trend normalizasyonu için konfigürasyon
+-- ============================================
+CREATE TABLE IF NOT EXISTS exam_trend_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  config_name TEXT NOT NULL DEFAULT 'default',
+  description TEXT,
+  
+  -- Trend Penceresi
+  window_size INT DEFAULT 5,               -- Son kaç sınav
+  min_exams_required INT DEFAULT 2,        -- Minimum sınav sayısı
+  
+  -- Ağırlıklar (son sınavlar daha ağır)
+  -- Format: [0.1, 0.15, 0.2, 0.25, 0.3] - en eski -> en yeni
+  weight_distribution JSONB DEFAULT '[0.1, 0.15, 0.2, 0.25, 0.3]',
+  
+  -- Normalizasyon Ayarları
+  normalize_by_class BOOLEAN DEFAULT true,
+  normalize_by_exam_type BOOLEAN DEFAULT true,
+  
+  -- Değişim Eşikleri
+  threshold_significant_up DECIMAL(4,2) DEFAULT 3.0,    -- 3+ net artış = yukarı
+  threshold_significant_down DECIMAL(4,2) DEFAULT -3.0, -- 3+ net düşüş = aşağı
+  threshold_stable_range DECIMAL(4,2) DEFAULT 1.5,      -- ±1.5 net = stabil
+  
+  -- Durum
+  is_active BOOLEAN DEFAULT true,
+  is_default BOOLEAN DEFAULT false,
+  
+  -- Multi-tenant
+  organization_id UUID REFERENCES organizations(id),
+  exam_type_id UUID REFERENCES exam_types(id),
+  
+  -- Meta
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(organization_id, config_name, exam_type_id)
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 
@@ -258,6 +359,18 @@ CREATE INDEX IF NOT EXISTS idx_analytics_queue_status ON exam_analytics_queue(st
 CREATE INDEX IF NOT EXISTS idx_analytics_queue_exam ON exam_analytics_queue(exam_id);
 CREATE INDEX IF NOT EXISTS idx_analytics_queue_scheduled ON exam_analytics_queue(scheduled_at) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_analytics_queue_org ON exam_analytics_queue(organization_id);
+
+-- exam_question_topic_config indexes
+CREATE INDEX IF NOT EXISTS idx_question_topic_config_type ON exam_question_topic_config(exam_type_id);
+CREATE INDEX IF NOT EXISTS idx_question_topic_config_subject ON exam_question_topic_config(subject_id);
+CREATE INDEX IF NOT EXISTS idx_question_topic_config_template ON exam_question_topic_config(template_id);
+CREATE INDEX IF NOT EXISTS idx_question_topic_config_default ON exam_question_topic_config(is_default) WHERE is_default = true;
+CREATE INDEX IF NOT EXISTS idx_question_topic_config_org ON exam_question_topic_config(organization_id);
+
+-- exam_trend_config indexes
+CREATE INDEX IF NOT EXISTS idx_trend_config_org ON exam_trend_config(organization_id);
+CREATE INDEX IF NOT EXISTS idx_trend_config_type ON exam_trend_config(exam_type_id);
+CREATE INDEX IF NOT EXISTS idx_trend_config_default ON exam_trend_config(is_default) WHERE is_default = true;
 
 -- ============================================
 -- DEFAULT RISK CONFIG
@@ -286,6 +399,60 @@ INSERT INTO exam_risk_config (
 ) ON CONFLICT DO NOTHING;
 
 -- ============================================
+-- DEFAULT TREND CONFIG
+-- ============================================
+
+INSERT INTO exam_trend_config (
+  config_name,
+  description,
+  is_default,
+  window_size,
+  min_exams_required,
+  weight_distribution,
+  threshold_significant_up,
+  threshold_significant_down,
+  threshold_stable_range
+) VALUES (
+  'default',
+  'Varsayılan trend hesaplama konfigürasyonu. Son 5 sınav, son sınavlara daha fazla ağırlık.',
+  true,
+  5,
+  2,
+  '[0.1, 0.15, 0.2, 0.25, 0.3]',
+  3.0,
+  -3.0,
+  1.5
+) ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- DEFAULT LGS TOPIC CONFIG
+-- ============================================
+-- LGS için varsayılan soru-konu eşleştirmesi
+-- ============================================
+
+-- Not: Bu örnek veridir, gerçek topic_id'ler migration sonrası eklenmelidir
+-- INSERT INTO exam_question_topic_config (
+--   config_name,
+--   description,
+--   is_default,
+--   question_ranges
+-- ) VALUES (
+--   'lgs_default',
+--   'LGS sınavı için varsayılan soru-konu eşleştirmesi',
+--   true,
+--   '[
+--     {"start": 1, "end": 5, "topic_code": "TUR_SOZCUK_ANLAM", "topic_name": "Sözcükte Anlam"},
+--     {"start": 6, "end": 10, "topic_code": "TUR_CUMLEDE_ANLAM", "topic_name": "Cümlede Anlam"},
+--     {"start": 11, "end": 15, "topic_code": "TUR_PARAGRAF", "topic_name": "Paragraf"},
+--     {"start": 16, "end": 20, "topic_code": "TUR_DIL_BILGISI", "topic_name": "Dil Bilgisi"},
+--     {"start": 21, "end": 25, "topic_code": "MAT_SAYI_PROBLEMLERI", "topic_name": "Sayı Problemleri"},
+--     {"start": 26, "end": 30, "topic_code": "MAT_CEBIR", "topic_name": "Cebir"},
+--     {"start": 31, "end": 35, "topic_code": "MAT_GEOMETRI", "topic_name": "Geometri"},
+--     {"start": 36, "end": 40, "topic_code": "MAT_OLASILIK", "topic_name": "Olasılık ve Veri"}
+--   ]'
+-- );
+
+-- ============================================
 -- COMMENTS
 -- ============================================
 COMMENT ON TABLE exam_student_analytics IS 'Öğrenci analitik snapshot cache - Tek seferde hesaplanır, sonra okunur';
@@ -301,6 +468,17 @@ COMMENT ON COLUMN exam_student_analytics.study_recommendations IS 'AI-ready çal
 
 COMMENT ON COLUMN exam_risk_config.weight_net_drop IS 'Net düşüşü risk faktörü ağırlığı (0-1)';
 COMMENT ON COLUMN exam_risk_config.threshold_risk_high IS 'Bu değerin üstü yüksek risk sayılır';
+
+COMMENT ON TABLE exam_question_topic_config IS 'Soru-Konu eşleştirme konfigürasyonu - Her soru aralığı bir konuya bağlanır';
+COMMENT ON TABLE exam_trend_config IS 'Trend hesaplama konfigürasyonu - Normalizasyon ve eşik değerleri';
+
+COMMENT ON COLUMN exam_student_analytics.ai_metadata IS 'AI modeli çıkarımları için esnek JSONB alanı';
+COMMENT ON COLUMN exam_student_analytics.calculation_metadata IS 'Hesaplama parametreleri ve debug bilgisi';
+
+COMMENT ON COLUMN exam_question_topic_config.question_ranges IS 'Soru aralığı -> Konu eşleştirmesi JSON dizisi';
+COMMENT ON COLUMN exam_question_topic_config.difficulty_mapping IS 'Soru no -> Zorluk (0-1) eşleştirmesi';
+
+COMMENT ON COLUMN exam_trend_config.weight_distribution IS 'Trend ağırlıkları - eski sınavlardan yeniye doğru artan';
 
 -- ============================================
 -- TRIGGER: Sonuç değişince analytics stale yap
@@ -326,6 +504,67 @@ CREATE TRIGGER trg_result_update_stale_analytics
   AFTER UPDATE ON exam_student_results
   FOR EACH ROW
   EXECUTE FUNCTION mark_analytics_stale();
+
+-- ============================================
+-- TRIGGER: Sonuç silinince analytics sil (invalidateCache)
+-- ============================================
+CREATE OR REPLACE FUNCTION invalidate_analytics_cache()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Sonuç silinince ilgili analytics'i tamamen sil
+  DELETE FROM exam_student_analytics
+  WHERE exam_id = OLD.exam_id AND student_id = OLD.student_id;
+  
+  -- Audit log
+  INSERT INTO exam_audit_log (action, entity_type, entity_id, exam_id, student_id, description, performed_at)
+  VALUES ('DELETE', 'analytics', OLD.id, OLD.exam_id, OLD.student_id, 'Analytics cache invalidated due to result deletion', NOW())
+  ON CONFLICT DO NOTHING;
+  
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger: exam_student_results silinince
+DROP TRIGGER IF EXISTS trg_result_delete_invalidate_analytics ON exam_student_results;
+CREATE TRIGGER trg_result_delete_invalidate_analytics
+  AFTER DELETE ON exam_student_results
+  FOR EACH ROW
+  EXECUTE FUNCTION invalidate_analytics_cache();
+
+-- ============================================
+-- TRIGGER: Cevap silinince/güncellenince sonuç ve analytics invalidate
+-- ============================================
+CREATE OR REPLACE FUNCTION invalidate_on_answer_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    -- Cevap silinince sonuç ve analytics'i invalidate
+    UPDATE exam_student_results
+    SET updated_at = NOW()
+    WHERE exam_id = OLD.exam_id AND student_id = OLD.student_id;
+    
+    UPDATE exam_student_analytics
+    SET is_stale = true, invalidated_at = NOW(), invalidation_reason = 'Answer deleted'
+    WHERE exam_id = OLD.exam_id AND student_id = OLD.student_id;
+    
+    RETURN OLD;
+  ELSE
+    -- Cevap güncellenince analytics'i stale yap
+    UPDATE exam_student_analytics
+    SET is_stale = true, invalidated_at = NOW(), invalidation_reason = 'Answer updated'
+    WHERE exam_id = NEW.exam_id AND student_id = NEW.student_id;
+    
+    RETURN NEW;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger: exam_student_answers değişince
+DROP TRIGGER IF EXISTS trg_answer_change_invalidate ON exam_student_answers;
+CREATE TRIGGER trg_answer_change_invalidate
+  AFTER UPDATE OR DELETE ON exam_student_answers
+  FOR EACH ROW
+  EXECUTE FUNCTION invalidate_on_answer_change();
 
 -- ============================================
 -- FUNCTION: Get or Calculate Analytics

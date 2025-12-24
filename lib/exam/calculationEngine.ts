@@ -306,6 +306,74 @@ export interface StatisticsResult {
 }
 
 /**
+ * Standart sapma hesaplar (Pure Function)
+ * Population standard deviation kullanır
+ * @param values - Sayı dizisi
+ * @param mean - Ortalama (opsiyonel, verilmezse hesaplanır)
+ * @returns Standart sapma değeri (2 ondalık)
+ */
+export function calculateStandardDeviation(values: number[], mean?: number): number {
+  if (values.length === 0) return 0;
+  if (values.length === 1) return 0;
+  
+  const avg = mean ?? values.reduce((a, b) => a + b, 0) / values.length;
+  const squaredDiffs = values.map(v => Math.pow(v - avg, 2));
+  const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  
+  return Math.round(stdDev * 100) / 100;
+}
+
+/**
+ * Yüzdelik dilim hesaplar (Pure Function)
+ * Verilen değerin dizideki yüzdelik konumunu bulur
+ * @param value - Yüzdeliği hesaplanacak değer
+ * @param allValues - Tüm değerler dizisi
+ * @returns 0-100 arası yüzdelik dilim
+ */
+export function calculatePercentile(value: number, allValues: number[]): number {
+  if (allValues.length === 0) return 0;
+  if (allValues.length === 1) return 100;
+  
+  const sorted = [...allValues].sort((a, b) => a - b);
+  
+  // Değerden küçük olanları say
+  const belowCount = sorted.filter(v => v < value).length;
+  const equalCount = sorted.filter(v => v === value).length;
+  
+  // Yüzdelik dilim formülü: (L + 0.5 * S) / N * 100
+  // L = daha düşük değer sayısı, S = eşit değer sayısı, N = toplam
+  const percentile = ((belowCount + 0.5 * equalCount) / sorted.length) * 100;
+  
+  return Math.round(percentile * 100) / 100;
+}
+
+/**
+ * Belirli bir yüzdelik dilime karşılık gelen değeri bulur (Pure Function)
+ * @param percentile - Yüzdelik dilim (0-100)
+ * @param values - Değerler dizisi
+ * @returns O yüzdeliğe karşılık gelen değer
+ */
+export function getValueAtPercentile(percentile: number, values: number[]): number {
+  if (values.length === 0) return 0;
+  if (percentile <= 0) return Math.min(...values);
+  if (percentile >= 100) return Math.max(...values);
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (percentile / 100) * (sorted.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  
+  if (lower === upper) {
+    return sorted[lower];
+  }
+  
+  // Interpolasyon
+  const fraction = index - lower;
+  return Math.round((sorted[lower] + fraction * (sorted[upper] - sorted[lower])) * 100) / 100;
+}
+
+/**
  * Temel istatistikleri hesaplar
  */
 export function calculateStatistics(values: number[]): StatisticsResult {
@@ -338,10 +406,8 @@ export function calculateStatistics(values: number[]): StatisticsResult {
     median = sorted[mid];
   }
   
-  // Standart sapma
-  const squaredDiffs = values.map(v => Math.pow(v - avg, 2));
-  const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / count;
-  const stdDeviation = Math.sqrt(avgSquaredDiff);
+  // Standart sapma (pure function kullan)
+  const stdDeviation = calculateStandardDeviation(values, avg);
   
   return {
     count,
@@ -350,7 +416,7 @@ export function calculateStatistics(values: number[]): StatisticsResult {
     min: Math.round(min * 100) / 100,
     max: Math.round(max * 100) / 100,
     median: Math.round(median * 100) / 100,
-    stdDeviation: Math.round(stdDeviation * 100) / 100
+    stdDeviation
   };
 }
 
@@ -539,6 +605,9 @@ export default {
   calculateTopicResults,
   calculateRankings,
   calculateStatistics,
+  calculateStandardDeviation,
+  calculatePercentile,
+  getValueAtPercentile,
   calculateDifficultyIndex,
   calculateDiscriminationIndex,
   calculateFullExamResults

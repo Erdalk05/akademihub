@@ -836,6 +836,283 @@ export interface ExamValidationRule {
   updatedAt: Date;
 }
 
+// ==================== SORU-KONU CONFIG ====================
+
+export interface ExamQuestionTopicConfig {
+  id: string;
+  examTypeId?: string;
+  subjectId?: string;
+  templateId?: string;
+  
+  configName: string;
+  description?: string;
+  
+  // Soru aralığı -> Konu eşleştirme
+  questionRanges: Array<{
+    start: number;
+    end: number;
+    topicId?: string;
+    topicCode?: string;
+    topicName?: string;
+  }>;
+  
+  // Tekil soru eşleştirme
+  questionMapping: Record<number, string>;
+  
+  // Zorluk eşleştirme
+  difficultyMapping: Record<number, number>;
+  
+  // Kazanım eşleştirme
+  outcomeMapping: Record<number, string>;
+  
+  isActive: boolean;
+  isDefault: boolean;
+  
+  organizationId?: string;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== TREND CONFIG ====================
+
+export interface ExamTrendConfig {
+  id: string;
+  configName: string;
+  description?: string;
+  
+  // Trend penceresi
+  windowSize: number;
+  minExamsRequired: number;
+  
+  // Ağırlık dağılımı [eski -> yeni]
+  weightDistribution: number[];
+  
+  // Normalizasyon
+  normalizeByClass: boolean;
+  normalizeByExamType: boolean;
+  
+  // Eşikler
+  thresholdSignificantUp: number;
+  thresholdSignificantDown: number;
+  thresholdStableRange: number;
+  
+  isActive: boolean;
+  isDefault: boolean;
+  
+  organizationId?: string;
+  examTypeId?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== STUDENT ANALYTICS (SNAPSHOT) ====================
+
+export interface ExamStudentAnalytics {
+  id: string;
+  examId: string;
+  studentId: string;
+  resultId?: string;
+  
+  // Denormalize öğrenci bilgileri
+  studentNo?: string;
+  studentName?: string;
+  className?: string;
+  
+  // Temel metrikler
+  totalNet: number;
+  totalCorrect: number;
+  totalWrong: number;
+  totalEmpty: number;
+  
+  // Sıralama
+  rankInExam?: number;
+  rankInClass?: number;
+  rankInSchool?: number;
+  percentile?: number;
+  
+  // Performans (JSONB)
+  subjectPerformance: Record<string, {
+    net: number;
+    correct: number;
+    wrong: number;
+    empty: number;
+    rate: number;
+    rank?: number;
+  }>;
+  
+  topicPerformance: Record<string, {
+    name: string;
+    correct: number;
+    total: number;
+    rate: number;
+    status: 'excellent' | 'good' | 'average' | 'weak' | 'critical';
+  }>;
+  
+  outcomePerformance: Record<string, {
+    name: string;
+    achieved: boolean;
+    rate: number;
+  }>;
+  
+  difficultyPerformance: {
+    easy: { correct: number; total: number; rate: number };
+    medium: { correct: number; total: number; rate: number };
+    hard: { correct: number; total: number; rate: number };
+  };
+  
+  // Tutarlılık
+  consistencyScore?: number;
+  
+  // AI-ready alanlar
+  strengths: Array<{
+    topic?: string;
+    subject?: string;
+    rate: number;
+    rank?: number;
+  }>;
+  
+  weaknesses: Array<{
+    topic?: string;
+    subject?: string;
+    rate: number;
+    priority?: 'high' | 'medium' | 'low';
+  }>;
+  
+  improvementPriorities: Array<{
+    topic: string;
+    priority: number;
+    reason: string;
+  }>;
+  
+  studyRecommendations: string[];
+  
+  // Risk
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskScore?: number;
+  riskFactors: string[];
+  
+  // Karşılaştırmalar
+  vsClassAvg?: number;
+  vsSchoolAvg?: number;
+  vsPreviousExam?: number;
+  
+  // Trend
+  netTrend?: number[];
+  rankTrend?: number[];
+  trendDirection?: 'up' | 'down' | 'stable';
+  trendChange?: number;
+  
+  // Genel değerlendirme
+  overallAssessment?: 'excellent' | 'good' | 'average' | 'below_average' | 'needs_improvement';
+  assessmentSummary?: string;
+  
+  // AI Metadata
+  aiMetadata: Record<string, any>;
+  calculationMetadata: Record<string, any>;
+  
+  // Cache kontrolü
+  calculationVersion: string;
+  calculatedAt: Date;
+  calculationDurationMs?: number;
+  isStale: boolean;
+  invalidatedAt?: Date;
+  invalidationReason?: string;
+  
+  organizationId?: string;
+  academicYearId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== RISK CONFIG ====================
+
+export interface ExamRiskConfig {
+  id: string;
+  configName: string;
+  configVersion: string;
+  description?: string;
+  
+  // Ağırlıklar
+  weightNetDrop: number;
+  weightConsistency: number;
+  weightWeakTopics: number;
+  weightDifficultyGap: number;
+  weightRankDrop: number;
+  weightEmptyRate: number;
+  
+  // Eşikler
+  thresholdNetDropCritical: number;
+  thresholdNetDropWarning: number;
+  thresholdWeakTopicRate: number;
+  thresholdConsistencyLow: number;
+  thresholdRiskHigh: number;
+  thresholdRiskMedium: number;
+  
+  // Trend
+  trendPeriodCount: number;
+  trendSignificantChange: number;
+  
+  isActive: boolean;
+  isDefault: boolean;
+  
+  organizationId?: string;
+  examTypeId?: string;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== ANALYTICS QUEUE ====================
+
+export type AnalyticsJobType = 
+  | 'student_analytics'
+  | 'exam_analytics'
+  | 'class_analytics'
+  | 'trend_update'
+  | 'bulk_recalculate';
+
+export type AnalyticsJobStatus = 
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface ExamAnalyticsQueue {
+  id: string;
+  jobType: AnalyticsJobType;
+  
+  examId?: string;
+  studentId?: string;
+  className?: string;
+  
+  params: Record<string, any>;
+  
+  status: AnalyticsJobStatus;
+  priority: number;
+  
+  progressPercent: number;
+  progressMessage?: string;
+  
+  result?: Record<string, any>;
+  errorMessage?: string;
+  errorStack?: string;
+  
+  scheduledAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  
+  retryCount: number;
+  maxRetries: number;
+  nextRetryAt?: Date;
+  
+  organizationId?: string;
+  createdBy?: string;
+  createdAt: Date;
+}
+
 // ==================== EXPORT ====================
 
 export default {
