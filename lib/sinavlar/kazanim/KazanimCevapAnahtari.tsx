@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -18,8 +18,11 @@ import {
   ChevronUp,
   BookOpen,
   Target,
-  Lightbulb
+  Lightbulb,
+  Loader2,
+  FileUp
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { CevapAnahtariSatir, DERS_RENKLERI, DERS_ISIMLERI, BLOOM_SEVIYELERI } from './types';
 
 interface KazanimCevapAnahtariProps {
@@ -41,6 +44,9 @@ export default function KazanimCevapAnahtari({
   const [errors, setErrors] = useState<string[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Yapıştırılan veriyi parse et
   const parseClipboardData = useCallback((content: string) => {
@@ -99,18 +105,164 @@ export default function KazanimCevapAnahtari({
     }
   }, []);
 
-  // Dosya yükle
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  // Excel/CSV dosya yükle
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      parseClipboardData(content);
-    };
-    reader.readAsText(file);
+    setIsUploading(true);
+    setUploadedFileName(file.name);
+    setErrors([]);
+
+    try {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Excel dosyası
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Excel'i JSON'a dönüştür
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
+        
+        const parsed: CevapAnahtariSatir[] = [];
+        const parseErrors: string[] = [];
+        
+        jsonData.forEach((row: any[], index: number) => {
+          // İlk satır başlık olabilir
+          if (index === 0 && (
+            String(row[0]).toLowerCase().includes('soru') ||
+            String(row[0]).toLowerCase().includes('no')
+          )) {
+            return;
+          }
+          
+          if (!row || row.length < 3) return;
+          
+          const soruNo = parseInt(String(row[0]));
+          if (isNaN(soruNo)) {
+            parseErrors.push(`Satır ${index + 1}: Geçersiz soru numarası`);
+            return;
+          }
+          
+          const dogruCevap = String(row[1] || '').toUpperCase().trim() as 'A' | 'B' | 'C' | 'D' | 'E';
+          if (!['A', 'B', 'C', 'D', 'E'].includes(dogruCevap)) {
+            parseErrors.push(`Satır ${index + 1}: Geçersiz cevap (${row[1]})`);
+            return;
+          }
+          
+          const dersKodu = String(row[2] || '').toUpperCase().trim();
+          // Ders kodunu esnek kabul et
+          const normalizedDersKodu = normalizeDersKodu(dersKodu);
+          
+          parsed.push({
+            soruNo,
+            dogruCevap,
+            dersKodu: normalizedDersKodu || dersKodu,
+            kazanimKodu: row[3] ? String(row[3]).trim() : undefined,
+            kazanimMetni: row[4] ? String(row[4]).trim() : undefined,
+            konuAdi: row[5] ? String(row[5]).trim() : undefined,
+            zorluk: row[6] ? parseFloat(String(row[6])) : 0.5
+          });
+        });
+        
+        setParsedData(parsed);
+        setErrors(parseErrors);
+        
+        if (parsed.length > 0) {
+          setIsPreviewOpen(true);
+        }
+        
+      } else {
+        // CSV veya TXT dosyası
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          parseClipboardData(content);
+        };
+        reader.readAsText(file);
+      }
+    } catch (error: any) {
+      setErrors([`Dosya okuma hatası: ${error.message}`]);
+    } finally {
+      setIsUploading(false);
+    }
   }, [parseClipboardData]);
+
+  // Ders kodunu normalize et
+  const normalizeDersKodu = (kod: string): string | null => {
+    const mapping: Record<string, string> = {
+      'TÜRKÇE': 'TUR',
+      'TURKCE': 'TUR',
+      'TÜR': 'TUR',
+      'TUR': 'TUR',
+      'TR': 'TUR',
+      'MATEMATİK': 'MAT',
+      'MATEMATIK': 'MAT',
+      'MAT': 'MAT',
+      'MT': 'MAT',
+      'FEN BİLİMLERİ': 'FEN',
+      'FEN BILIMLERI': 'FEN',
+      'FEN': 'FEN',
+      'FB': 'FEN',
+      'SOSYAL BİLGİLER': 'SOS',
+      'SOSYAL BILGILER': 'SOS',
+      'SOSYAL': 'SOS',
+      'SOS': 'SOS',
+      'SB': 'SOS',
+      'İNKILAP': 'SOS',
+      'İNGİLİZCE': 'ING',
+      'INGILIZCE': 'ING',
+      'ING': 'ING',
+      'İNG': 'ING',
+      'EN': 'ING',
+      'DİN KÜLTÜRÜ': 'DIN',
+      'DIN KULTURU': 'DIN',
+      'DİN': 'DIN',
+      'DIN': 'DIN',
+      'DK': 'DIN',
+      'DKAB': 'DIN',
+    };
+    return mapping[kod.toUpperCase()] || null;
+  };
+
+  // Örnek Excel dosyası indir
+  const downloadSampleExcel = useCallback(() => {
+    // Örnek veri
+    const sampleData = [
+      ['Soru No', 'Cevap', 'Ders Kodu', 'Kazanım Kodu', 'Kazanım Metni', 'Konu Adı'],
+      [1, 'A', 'TUR', 'T.8.1.1', 'Dinlediklerinin ana fikrini belirler', 'Dinleme'],
+      [2, 'B', 'TUR', 'T.8.1.2', 'Sözcüğün mecaz anlamını kavrar', 'Kelime Bilgisi'],
+      [3, 'C', 'TUR', 'T.8.2.1', 'Paragrafta ana düşünceyi bulur', 'Okuma'],
+      [4, 'D', 'TUR', 'T.8.3.1', 'Yazım kurallarını uygular', 'Yazım Kuralları'],
+      [5, 'A', 'MAT', 'M.8.1.1', 'Tam sayılarla işlem yapar', 'Tam Sayılar'],
+      [6, 'B', 'MAT', 'M.8.2.1', 'Cebirsel ifadeleri sadeleştirir', 'Cebir'],
+      [7, 'C', 'FEN', 'F.8.1.1', 'DNA yapısını açıklar', 'DNA ve Genetik'],
+      [8, 'D', 'FEN', 'F.8.2.1', 'Basınç kavramını tanımlar', 'Basınç'],
+      [9, 'A', 'SOS', 'S.8.1.1', 'Atatürk ilkelerini açıklar', 'İnkılap Tarihi'],
+      [10, 'B', 'ING', 'I.8.1.1', 'Günlük diyalogları anlar', 'Daily Routines'],
+    ];
+
+    // Workbook oluştur
+    const ws = XLSX.utils.aoa_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Cevap Anahtarı');
+
+    // Sütun genişliklerini ayarla
+    ws['!cols'] = [
+      { wch: 10 }, // Soru No
+      { wch: 8 },  // Cevap
+      { wch: 12 }, // Ders Kodu
+      { wch: 15 }, // Kazanım Kodu
+      { wch: 40 }, // Kazanım Metni
+      { wch: 20 }, // Konu Adı
+    ];
+
+    // Excel dosyasını indir
+    XLSX.writeFile(wb, 'cevap_anahtari_sablonu.xlsx');
+  }, []);
 
   // Ders bazlı gruplama
   const groupedByDers = useMemo(() => {
@@ -219,18 +371,90 @@ export default function KazanimCevapAnahtari({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
           >
-            <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all">
-              <FileSpreadsheet className="w-12 h-12 text-slate-400 mb-4" />
-              <p className="text-lg font-medium text-slate-600">Excel veya CSV Dosyası Yükle</p>
-              <p className="text-sm text-slate-400 mt-1">.xlsx, .xls, .csv formatları desteklenir</p>
+            {/* Excel Format Bilgisi */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex gap-3">
+                <FileSpreadsheet className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <strong>Excel Formatı:</strong> Sütunlar sırasıyla şu şekilde olmalı:
+                  <div className="mt-2 grid grid-cols-7 gap-1 text-xs font-mono">
+                    <div className="bg-white/70 px-2 py-1 rounded text-center">A: Soru No</div>
+                    <div className="bg-white/70 px-2 py-1 rounded text-center">B: Cevap</div>
+                    <div className="bg-white/70 px-2 py-1 rounded text-center">C: Ders</div>
+                    <div className="bg-white/70 px-2 py-1 rounded text-center">D: Kazanım Kodu</div>
+                    <div className="bg-white/70 px-2 py-1 rounded text-center col-span-3">E: Kazanım Metni</div>
+                  </div>
+                  <p className="mt-2 text-xs text-blue-600">
+                    💡 Ders kodları otomatik tanınır: Türkçe, Matematik, Fen, Sosyal, İngilizce, Din
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dosya Yükleme Alanı */}
+            <label 
+              className={`flex flex-col items-center justify-center w-full h-52 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                isUploading 
+                  ? 'border-emerald-500 bg-emerald-50' 
+                  : uploadedFileName 
+                    ? 'border-emerald-500 bg-emerald-50/50'
+                    : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/30'
+              }`}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-12 h-12 text-emerald-500 mb-4 animate-spin" />
+                  <p className="text-lg font-medium text-emerald-600">Dosya Okunuyor...</p>
+                </>
+              ) : uploadedFileName ? (
+                <>
+                  <Check className="w-12 h-12 text-emerald-500 mb-4" />
+                  <p className="text-lg font-medium text-emerald-600">{uploadedFileName}</p>
+                  <p className="text-sm text-emerald-500 mt-1">
+                    {parsedData.length} soru başarıyla okundu
+                  </p>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Başka bir dosya yüklemek için tıklayın
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="p-4 bg-emerald-100 rounded-2xl mb-4">
+                    <FileUp className="w-10 h-10 text-emerald-600" />
+                  </div>
+                  <p className="text-lg font-semibold text-slate-700">Excel Dosyası Yükle</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Dosyayı sürükleyip bırakın veya tıklayın
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">.xlsx</span>
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">.xls</span>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">.csv</span>
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium">.txt</span>
+                  </div>
+                </>
+              )}
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls,.csv,.txt"
                 onChange={handleFileUpload}
                 className="hidden"
               />
             </label>
+
+            {/* Örnek İndir Butonu */}
+            <div className="flex items-center justify-center gap-4">
+              <button 
+                onClick={() => downloadSampleExcel()}
+                className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              >
+                <FileSpreadsheet size={16} />
+                Örnek Excel İndir
+              </button>
+            </div>
           </motion.div>
         )}
 
