@@ -93,7 +93,12 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
     setIsBackdatedPayment(selectedDate < today);
   };
 
+  // Modal ilk açıldığında veya taksit ID'si değiştiğinde çalışacak
+  // installment nesnesinin referansı değil, ID'si takip ediliyor
+  const installmentId = installment?.id;
+  
   useEffect(() => {
+    // Sadece modal AÇILDIĞINDA ve taksit varsa tarihi sıfırla
     if (open && installment) {
       setAmountPaid(String(installment.amount ?? 0));
       setPaymentDate(new Date().toISOString().slice(0, 10));
@@ -102,7 +107,8 @@ export default function TakePaymentModal({ open, onClose, installment, onSuccess
       setIsBackdatedPayment(false);
       setNotes('');
     }
-  }, [installment, open]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installmentId, open]); // installment yerine installmentId kullan
 
   const handleSubmit = () => {
     if (!installment?.id) {
