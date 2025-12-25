@@ -46,6 +46,7 @@ export default function KazanimCevapAnahtari({
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Yapıştırılan veriyi parse et
@@ -453,12 +454,36 @@ export default function KazanimCevapAnahtari({
   const stats = useMemo(() => {
     const dersler = Object.keys(groupedByDers);
     const kazanimSayisi = new Set(parsedData.filter(d => d.kazanimKodu).map(d => d.kazanimKodu)).size;
+    
+    // Ders bazlı soru sayıları
+    const dersBazliSoruSayisi = Object.entries(groupedByDers).map(([kod, sorular]) => ({
+      dersKodu: kod,
+      dersAdi: DERS_ISIMLERI[kod] || kod,
+      soruSayisi: sorular.length,
+      color: DERS_RENKLERI[kod] || '#64748B'
+    }));
+    
     return {
       toplamSoru: parsedData.length,
       dersSayisi: dersler.length,
-      kazanimSayisi
+      kazanimSayisi,
+      dersBazliSoruSayisi
     };
   }, [parsedData, groupedByDers]);
+
+  // Kaydet fonksiyonu
+  const handleSave = useCallback(() => {
+    if (parsedData.length === 0) {
+      alert('Kaydedilecek veri yok!');
+      return;
+    }
+    
+    onSave?.(parsedData);
+    setIsSaved(true);
+    
+    // 3 saniye sonra kayıt mesajını gizle
+    setTimeout(() => setIsSaved(false), 3000);
+  }, [parsedData, onSave]);
 
   return (
     <div className="space-y-6">
@@ -700,18 +725,49 @@ export default function KazanimCevapAnahtari({
                 className="border-t border-slate-200"
               >
                 {/* İstatistikler */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50">
-                  <div className="text-center p-3 bg-white rounded-xl">
-                    <div className="text-2xl font-bold text-emerald-600">{stats.toplamSoru}</div>
-                    <div className="text-sm text-slate-500">Toplam Soru</div>
+                <div className="p-4 bg-slate-50 space-y-4">
+                  {/* Özet Kartları */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-3 bg-white rounded-xl">
+                      <div className="text-2xl font-bold text-emerald-600">{stats.toplamSoru}</div>
+                      <div className="text-sm text-slate-500">Toplam Soru</div>
+                    </div>
+                    <div className="text-center p-3 bg-white rounded-xl">
+                      <div className="text-2xl font-bold text-blue-600">{stats.dersSayisi}</div>
+                      <div className="text-sm text-slate-500">Ders</div>
+                    </div>
+                    <div className="text-center p-3 bg-white rounded-xl">
+                      <div className="text-2xl font-bold text-purple-600">{stats.kazanimSayisi}</div>
+                      <div className="text-sm text-slate-500">Kazanım</div>
+                    </div>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-xl">
-                    <div className="text-2xl font-bold text-blue-600">{stats.dersSayisi}</div>
-                    <div className="text-sm text-slate-500">Ders</div>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-xl">
-                    <div className="text-2xl font-bold text-purple-600">{stats.kazanimSayisi}</div>
-                    <div className="text-sm text-slate-500">Kazanım</div>
+                  
+                  {/* Ders Bazlı Soru Sayıları */}
+                  <div className="bg-white rounded-xl p-4">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">📊 Ders Bazlı Soru Dağılımı</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {stats.dersBazliSoruSayisi.map((ders) => (
+                        <div 
+                          key={ders.dersKodu}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                          style={{ backgroundColor: `${ders.color}15` }}
+                        >
+                          <div 
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: ders.color }}
+                          />
+                          <span className="text-sm font-medium" style={{ color: ders.color }}>
+                            {ders.dersAdi}
+                          </span>
+                          <span 
+                            className="text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: ders.color, color: 'white' }}
+                          >
+                            {ders.soruSayisi}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -777,15 +833,50 @@ export default function KazanimCevapAnahtari({
                   ))}
                 </div>
 
-                {/* Kaydet Butonu */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50">
+                {/* Kaydet Butonu ve Onay */}
+                <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+                  {/* Kayıt Onayı */}
+                  {isSaved && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-center gap-2 p-3 bg-emerald-100 text-emerald-700 rounded-xl"
+                    >
+                      <Check size={20} />
+                      <span className="font-medium">✅ Cevap anahtarı başarıyla kaydedildi! Şimdi "Devam Et" butonuna tıklayabilirsiniz.</span>
+                    </motion.div>
+                  )}
+                  
                   <button
-                    onClick={() => onSave?.(parsedData)}
-                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+                    onClick={handleSave}
+                    className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${
+                      isSaved 
+                        ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
+                        : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white'
+                    }`}
                   >
-                    <Save size={18} />
-                    Cevap Anahtarını Kaydet
+                    {isSaved ? (
+                      <>
+                        <Check size={20} />
+                        Kaydedildi! ({stats.toplamSoru} soru, {stats.dersSayisi} ders)
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18} />
+                        Cevap Anahtarını Kaydet
+                      </>
+                    )}
                   </button>
+                  
+                  {/* Özet Bilgi */}
+                  <div className="text-center text-sm text-slate-500">
+                    {stats.dersBazliSoruSayisi.map((d, i) => (
+                      <span key={d.dersKodu}>
+                        {d.dersAdi}: <strong>{d.soruSayisi}</strong>
+                        {i < stats.dersBazliSoruSayisi.length - 1 ? ' • ' : ''}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             )}
