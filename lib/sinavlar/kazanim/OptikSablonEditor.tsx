@@ -68,12 +68,19 @@ export default function OptikSablonEditor({
   const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
   const [activeAlanTipi, setActiveAlanTipi] = useState<string | null>(null);
   
+  // İki tıklama modu
+  const [clickMode, setClickMode] = useState<'first' | 'second'>('first');
+  
   // UI states
   const [inputMode, setInputMode] = useState<'visual' | 'manual' | 'auto'>('visual');
   const [showHelp, setShowHelp] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   
+  // Otomatik bölünmüş alanlar
+  const [autoSegments, setAutoSegments] = useState<{start: number, end: number, text: string}[]>([]);
+  
   const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Cevap anahtarından bilgi al
   const cevapAnahtariInfo = useMemo(() => {
@@ -110,14 +117,32 @@ export default function OptikSablonEditor({
     };
   }, [selectionStart, selectionEnd]);
 
-  // Mouse olayları - Seçim scroll sırasında korunuyor
+  // İKİ TIKLAMA SİSTEMİ - Sürükleme yok!
+  const handleCharClick = useCallback((index: number) => {
+    if (!activeAlanTipi) return;
+    
+    if (clickMode === 'first') {
+      // İlk tıklama - başlangıç pozisyonu
+      setSelectionStart(index);
+      setSelectionEnd(index);
+      setClickMode('second');
+    } else {
+      // İkinci tıklama - bitiş pozisyonu
+      setSelectionEnd(index);
+      setClickMode('first');
+    }
+  }, [activeAlanTipi, clickMode]);
+
+  // Eski sürükleme sistemi (yedek olarak)
   const handleMouseDown = useCallback((index: number, e: React.MouseEvent) => {
     if (!activeAlanTipi) return;
-    e.preventDefault(); // Scroll ile çakışmayı önle
-    setIsSelecting(true);
-    setSelectionStart(index);
-    setSelectionEnd(index);
-  }, [activeAlanTipi]);
+    // Shift ile hızlı seçim
+    if (e.shiftKey && selectionStart !== null) {
+      setSelectionEnd(index);
+      return;
+    }
+    handleCharClick(index);
+  }, [activeAlanTipi, selectionStart, handleCharClick]);
 
   const handleMouseMove = useCallback((index: number) => {
     if (isSelecting && selectionStart !== null) {
@@ -126,17 +151,109 @@ export default function OptikSablonEditor({
   }, [isSelecting, selectionStart]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    // Sadece seçim modunu kapat, seçimi silme!
     if (isSelecting) {
       setIsSelecting(false);
     }
   }, [isSelecting]);
 
-  // Seçimi temizle - sadece kullanıcı istediğinde
+  // Seçimi temizle
   const clearSelection = useCallback(() => {
     setSelectionStart(null);
     setSelectionEnd(null);
     setActiveAlanTipi(null);
+    setClickMode('first');
+  }, []);
+
+  // Örnek satırı otomatik bölme (boşluklara göre)
+  const analyzeAndSplit = useCallback(() => {
+    if (!ornekSatir) return;
+    
+    const segments: {start: number, end: number, text: string}[] = [];
+    let inWord = false;
+    let wordStart = 0;
+    
+    for (let i = 0; i < ornekSatir.length; i++) {
+      const char = ornekSatir[i];
+      const isSpace = char === ' ';
+      
+      if (!isSpace && !inWord) {
+        // Yeni kelime başladı
+        inWord = true;
+        wordStart = i;
+      } else if (isSpace && inWord) {
+        // Kelime bitti
+        inWord = false;
+        const text = ornekSatir.substring(wordStart, i).trim();
+        if (text.length > 0) {
+          segments.push({
+            start: wordStart + 1, // 1-indexed
+            end: i,
+            text
+          });
+        }
+      }
+    }
+    
+    // Son kelime
+    if (inWord) {
+      const text = ornekSatir.substring(wordStart).trim();
+      if (text.length > 0) {
+        segments.push({
+          start: wordStart + 1,
+          end: ornekSatir.length,
+          text
+        });
+      }
+    }
+    
+    // Ardışık boşluk bloklarını birleştir
+    const mergedSegments: typeof segments = [];
+    let currentSegment: typeof segments[0] | null = null;
+    
+    segments.forEach((seg, i) => {
+      if (!currentSegment) {
+        currentSegment = { ...seg };
+      } else if (seg.start - currentSegment.end <= 3) {
+        // 3 karakterden az boşluk varsa birleştir
+        currentSegment.end = seg.end;
+        currentSegment.text += ' ' + seg.text;
+      } else {
+        mergedSegments.push(currentSegment);
+        currentSegment = { ...seg };
+      }
+    });
+    
+    if (currentSegment) {
+      mergedSegments.push(currentSegment);
+    }
+    
+    setAutoSegments(mergedSegments);
+  }, [ornekSatir]);
+
+  // Örnek satır değiştiğinde otomatik analiz
+  useEffect(() => {
+    if (ornekSatir) {
+      analyzeAndSplit();
+    }
+  }, [ornekSatir, analyzeAndSplit]);
+
+  // Segment'i alan olarak ekle
+  const addSegmentAsField = useCallback((segment: {start: number, end: number}, tipId: string) => {
+    const alanTipi = ALAN_TIPLERI.find(t => t.id === tipId);
+    if (!alanTipi) return;
+
+    const yeniAlan: OptikAlanTanimi = {
+      alan: tipId as any,
+      baslangic: segment.start,
+      bitis: segment.end,
+      label: alanTipi.label,
+      color: alanTipi.color
+    };
+
+    setAlanlar(prev => {
+      const filtered = prev.filter(a => a.alan !== tipId);
+      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+    });
   }, []);
 
   // Seçimi alan olarak ekle
@@ -381,7 +498,7 @@ export default function OptikSablonEditor({
           <div className="bg-slate-50 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-slate-700">
-                1️⃣ Alan tipi seçin, 2️⃣ Aşağıda karakterleri sürükleyerek seçin
+                1️⃣ Alan tipi seçin, 2️⃣ Başlangıç için tıklayın, 3️⃣ Bitiş için tıklayın
               </label>
               {activeAlanTipi && (
                 <button
@@ -440,8 +557,14 @@ export default function OptikSablonEditor({
                 )}
               </div>
               {activeAlanTipi && (
-                <span className="text-sm text-slate-500">
-                  🖱️ Sürükleyerek seçin, sonra Enter veya "Ekle" butonuna tıklayın
+                <span className={`text-sm px-3 py-1 rounded-full font-medium ${
+                  clickMode === 'first' 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-orange-100 text-orange-700'
+                }`}>
+                  {clickMode === 'first' 
+                    ? '🎯 1. Başlangıç için tıklayın' 
+                    : '🏁 2. Bitiş için tıklayın (veya Shift+tıklama)'}
                 </span>
               )}
             </div>
@@ -607,37 +730,65 @@ export default function OptikSablonEditor({
         </div>
       )}
 
-      {/* OTOMATİK MOD */}
+      {/* OTOMATİK MOD - Akıllı Bölme */}
       {inputMode === 'auto' && ornekSatir && (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-purple-700 flex items-center gap-2">
               <Sparkles size={18} />
-              Otomatik Algılama
+              Akıllı Bölme ({autoSegments.length} bölüm algılandı)
             </h3>
             <button
-              onClick={() => {
-                // Basit otomatik algılama
-                const patterns = [
-                  { pattern: /^\d{6}/, field: 'ogrenci_no' },
-                  { pattern: /[A-ZÇĞİÖŞÜ]{2,}/, field: 'ogrenci_adi' },
-                  { pattern: /\d{11}/, field: 'tc' },
-                  { pattern: /\d[A-Z]/, field: 'sinif' },
-                ];
-                // TODO: Gelişmiş otomatik algılama
-                alert('Otomatik algılama geliştirme aşamasında. Lütfen manuel veya görsel seçim kullanın.');
-              }}
+              onClick={analyzeAndSplit}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
             >
               <RefreshCw size={16} />
-              Algıla
+              Yeniden Analiz Et
             </button>
           </div>
           
-          <div className="text-sm text-purple-600 bg-white/50 rounded-lg p-3">
-            <p>⚠️ Bu özellik geliştirme aşamasındadır.</p>
-            <p className="mt-1">Şimdilik <strong>Görsel Seçim</strong> veya <strong>Manuel Giriş</strong> modlarını kullanın.</p>
+          {/* Algılanan Bölümler */}
+          <div className="space-y-2">
+            <p className="text-sm text-purple-600">Her bölüm için alan tipi seçin:</p>
+            <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+              {autoSegments.map((segment, i) => (
+                <div 
+                  key={i}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-purple-500 font-mono bg-purple-100 px-2 py-1 rounded">
+                      {segment.start}-{segment.end}
+                    </span>
+                    <code className="text-sm font-mono text-slate-700 max-w-xs truncate">
+                      "{segment.text}"
+                    </code>
+                  </div>
+                  <div className="flex gap-1">
+                    {ALAN_TIPLERI.filter(t => t.id !== 'bos').map((tip) => (
+                      <button
+                        key={tip.id}
+                        onClick={() => addSegmentAsField(segment, tip.id)}
+                        className="p-1.5 hover:bg-slate-100 rounded text-lg"
+                        title={tip.label}
+                        style={{ 
+                          opacity: alanlar.find(a => a.alan === tip.id) ? 0.3 : 1
+                        }}
+                      >
+                        {tip.icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+          
+          {autoSegments.length === 0 && (
+            <div className="text-sm text-purple-600 bg-white/50 rounded-lg p-3 text-center">
+              <p>Veri analiz edilemedi. Boşluklarla ayrılmış metin bekleniyor.</p>
+            </div>
+          )}
         </div>
       )}
 
