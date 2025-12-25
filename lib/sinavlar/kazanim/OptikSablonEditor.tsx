@@ -321,29 +321,43 @@ export default function OptikSablonEditor({
     return charIndex >= selectedRange.start && charIndex <= selectedRange.end;
   }, [selectedRange]);
 
+  // Kayıt durumu
+  const [isSaved, setIsSaved] = useState(false);
+
   // Şablonu kaydet
   const handleSave = () => {
     if (!sablonAdi.trim()) {
-      alert('Lütfen şablon adı girin');
+      alert('❌ Lütfen şablon adı girin');
       return;
     }
     if (alanlar.length === 0) {
-      alert('En az bir alan tanımlamalısınız');
+      alert('❌ En az bir alan tanımlamalısınız');
       return;
     }
 
     const cevaplarAlani = alanlar.find(a => a.alan === 'cevaplar');
+    
+    // Cevaplar alanı zorunlu!
+    if (!cevaplarAlani) {
+      alert('❌ CEVAPLAR alanı zorunludur!\n\nLütfen optik verideki cevap bölümünü (53-173 arası gibi) "Cevaplar" olarak tanımlayın.');
+      return;
+    }
 
     const sablon: Omit<OptikSablon, 'id'> = {
       sablonAdi,
       alanTanimlari: alanlar,
-      cevapBaslangic: cevaplarAlani?.baslangic || 0,
+      cevapBaslangic: cevaplarAlani.baslangic,
       toplamSoru,
       isDefault: false,
       isActive: true
     };
 
+    console.log('✅ Şablon kaydediliyor:', sablon);
     onSave?.(sablon);
+    setIsSaved(true);
+    
+    // 1 saniye sonra kayıt mesajını gizle
+    setTimeout(() => setIsSaved(false), 2000);
   };
 
   // İstatistikler
@@ -948,14 +962,47 @@ export default function OptikSablonEditor({
         </div>
       )}
 
+      {/* Cevaplar Alanı Uyarısı */}
+      {alanlar.length > 0 && !alanlar.find(a => a.alan === 'cevaplar') && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-700">⚠️ CEVAPLAR Alanı Eksik!</p>
+            <p className="text-sm text-red-600 mt-1">
+              Şablonu kaydetmeden önce öğrenci cevaplarının bulunduğu bölümü tanımlamanız gerekiyor.
+              <br />
+              Örnek: Karakter 53-173 arası (90 soru için)
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Kaydet Butonu */}
       {alanlar.length > 0 && (
         <button
           onClick={handleSave}
-          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+          disabled={!alanlar.find(a => a.alan === 'cevaplar')}
+          className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${
+            isSaved
+              ? 'bg-emerald-500 text-white'
+              : alanlar.find(a => a.alan === 'cevaplar')
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+          }`}
         >
-          <Save size={20} />
-          Şablonu Kaydet ve Devam Et
+          {isSaved ? (
+            <>
+              <Check size={20} />
+              ✅ Şablon Kaydedildi! Şimdi "Devam Et" butonuna tıklayın
+            </>
+          ) : (
+            <>
+              <Save size={20} />
+              {alanlar.find(a => a.alan === 'cevaplar') 
+                ? 'Şablonu Kaydet ve Devam Et' 
+                : 'Önce Cevaplar Alanını Tanımlayın'}
+            </>
+          )}
         </button>
       )}
     </div>
