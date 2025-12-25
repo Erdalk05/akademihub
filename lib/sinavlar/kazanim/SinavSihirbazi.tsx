@@ -25,7 +25,9 @@ import {
 import KazanimCevapAnahtari from './KazanimCevapAnahtari';
 import OptikSablonEditor from './OptikSablonEditor';
 import OptikVeriParser from './OptikVeriParser';
+import SablonKutuphanesi from './SablonKutuphanesi';
 import { CevapAnahtariSatir, OptikSablon, ParsedOptikSatir, DERS_ISIMLERI } from './types';
+import { SINAV_KONFIGURASYONLARI, SINIF_BILGILERI, SinavTuru, SinifSeviyesi } from './sinavKonfigurasyonlari';
 
 interface SinavSihirbaziProps {
   organizationId: string;
@@ -42,7 +44,8 @@ interface SinavSihirbaziProps {
 interface SinavBilgisi {
   ad: string;
   tarih: string;
-  tip: 'LGS' | 'TYT' | 'AYT' | 'DENEME';
+  tip: SinavTuru;
+  sinifSeviyesi: SinifSeviyesi;
   aciklama?: string;
 }
 
@@ -71,8 +74,10 @@ export default function SinavSihirbazi({
   const [sinavBilgisi, setSinavBilgisi] = useState<SinavBilgisi>({
     ad: '',
     tarih: new Date().toISOString().split('T')[0],
-    tip: 'LGS'
+    tip: 'LGS',
+    sinifSeviyesi: '8'
   });
+  const [sablonModu, setSablonModu] = useState<'kutuphane' | 'ozel'>('kutuphane');
   const [cevapAnahtari, setCevapAnahtari] = useState<CevapAnahtariSatir[]>([]);
   const [selectedSablon, setSelectedSablon] = useState<OptikSablon | null>(savedSablonlar[0] || null);
   const [customSablon, setCustomSablon] = useState<Omit<OptikSablon, 'id'> | null>(null);
@@ -348,51 +353,66 @@ export default function SinavSihirbazi({
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              {/* Kayıtlı Şablonlar */}
-              {savedSablonlar.length > 0 && (
+              {/* Mod Seçimi */}
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                <button
+                  onClick={() => setSablonModu('kutuphane')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    sablonModu === 'kutuphane'
+                      ? 'bg-white shadow-md text-purple-600'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <ListChecks size={18} />
+                  Hazır Şablonlar
+                </button>
+                <button
+                  onClick={() => setSablonModu('ozel')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    sablonModu === 'ozel'
+                      ? 'bg-white shadow-md text-emerald-600'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Grid3X3 size={18} />
+                  Özel Şablon Oluştur
+                </button>
+              </div>
+
+              {/* Şablon Kütüphanesi Modu */}
+              {sablonModu === 'kutuphane' && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                  <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                    <ListChecks size={18} />
-                    Kayıtlı Şablonlar
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {savedSablonlar.map((sablon) => (
-                      <button
-                        key={sablon.id}
-                        onClick={() => {
-                          setSelectedSablon(sablon);
-                          setCustomSablon(null);
-                        }}
-                        className={`p-4 rounded-xl border-2 transition-all text-left ${
-                          selectedSablon?.id === sablon.id
-                            ? 'border-emerald-500 bg-emerald-50'
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <p className="font-medium text-slate-700">{sablon.sablonAdi}</p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {sablon.toplamSoru} soru · {sablon.alanTanimlari.length} alan
-                        </p>
-                      </button>
-                    ))}
-                  </div>
+                  <SablonKutuphanesi
+                    sinifSeviyesi={sinavBilgisi.sinifSeviyesi}
+                    sinavTuru={sinavBilgisi.tip}
+                    onSelect={(sablon) => {
+                      console.log('📦 Kütüphaneden şablon seçildi:', sablon.sablonAdi);
+                      setSelectedSablon(sablon);
+                      setCustomSablon(null);
+                      // OTOMATİK OLARAK SONRAKİ ADIMA GEÇ
+                      setTimeout(() => setCurrentStep(4), 500);
+                    }}
+                    onCustom={() => setSablonModu('ozel')}
+                  />
                 </div>
               )}
 
-              {/* Yeni Şablon Oluştur */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <OptikSablonEditor
-                  initialSablon={selectedSablon || undefined}
-                  cevapAnahtari={cevapAnahtari}
-                  onSave={(sablon) => {
-                    console.log('🔧 Şablon kaydedildi, sonraki adıma geçiliyor...');
-                    setCustomSablon(sablon);
-                    setSelectedSablon(null);
-                    // OTOMATİK OLARAK SONRAKİ ADIMA GEÇ
-                    setCurrentStep(4);
-                  }}
-                />
-              </div>
+              {/* Özel Şablon Modu */}
+              {sablonModu === 'ozel' && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                  <OptikSablonEditor
+                    initialSablon={selectedSablon || undefined}
+                    cevapAnahtari={cevapAnahtari}
+                    onSave={(sablon) => {
+                      console.log('🔧 Özel şablon kaydedildi, sonraki adıma geçiliyor...');
+                      setCustomSablon(sablon);
+                      setSelectedSablon(null);
+                      // OTOMATİK OLARAK SONRAKİ ADIMA GEÇ
+                      setCurrentStep(4);
+                    }}
+                  />
+                </div>
+              )}
             </motion.div>
           )}
 

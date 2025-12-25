@@ -11,10 +11,15 @@
  * - Veli paneli (basitleştirilmiş görünüm)
  * - AI takviye önerileri (kişiselleştirilmiş plan)
  * - Ana sınav sihirbazı (tüm adımları birleştirir)
+ * - Sınav konfigürasyonları (LGS, TYT, AYT, DENEME)
+ * - Şablon kütüphanesi (hazır optik form şablonları)
  */
 
 // Tipler
 export * from './types';
+
+// Sınav Konfigürasyonları
+export * from './sinavKonfigurasyonlari';
 
 // Temel Bileşenler
 export { default as KazanimCevapAnahtari } from './KazanimCevapAnahtari';
@@ -22,6 +27,7 @@ export { default as OptikSablonEditor } from './OptikSablonEditor';
 export { default as OptikVeriParser } from './OptikVeriParser';
 export { default as KazanimKarnesi } from './KazanimKarnesi';
 export { default as SinavSihirbazi } from './SinavSihirbazi';
+export { default as SablonKutuphanesi } from './SablonKutuphanesi';
 
 // Gelişmiş Modüller
 export { default as GelismisOptikEditor } from './GelismisOptikEditor';
