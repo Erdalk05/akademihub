@@ -58,6 +58,20 @@ const STEPS = [
   { id: 5, title: 'Önizleme', icon: BarChart3, description: 'Sonuçları gör' },
 ];
 
+// Öğrenci adını temizle - sayıları kaldır
+const cleanName = (name: string): string => {
+  if (!name) return '';
+  // Baştaki sayıları kaldır
+  let cleaned = name.replace(/^[\d\s]+/, '').trim();
+  // Ortadaki sayıları da kaldır
+  cleaned = cleaned.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Başharfleri büyük yap
+  return cleaned.split(' ')
+    .filter(w => w.length > 0)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ') || name;
+};
+
 export default function SinavSihirbazi({
   organizationId,
   academicYearId,
@@ -492,7 +506,7 @@ export default function SinavSihirbazi({
                           {sonuclar.slice(0, 5).map((sonuc, i) => (
                             <tr key={i} className="border-t border-slate-100">
                               <td className="px-4 py-3 font-bold text-emerald-600">{sonuc.siralama}</td>
-                              <td className="px-4 py-3">{sonuc.ogrenciAdi || sonuc.ogrenciNo}</td>
+                              <td className="px-4 py-3">{cleanName(sonuc.ogrenciAdi) || sonuc.ogrenciNo}</td>
                               <td className="px-4 py-3 text-center font-semibold">{sonuc.toplamNet.toFixed(2)}</td>
                               <td className="px-4 py-3 text-center text-emerald-600 font-bold">
                                 {(sonuc.toplamNet * 5).toFixed(2)}

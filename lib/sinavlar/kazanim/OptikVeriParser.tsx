@@ -78,22 +78,37 @@ export default function OptikVeriParser({
   const cleanStudentName = useCallback((name: string): string => {
     if (!name) return '';
     
-    // 1. Baştaki sayıları kaldır (örn: "00292SUDEN TÜR" -> "SUDEN TÜR")
-    let cleaned = name.replace(/^\d+/, '').trim();
+    let cleaned = name;
     
-    // 2. Sondaki gereksiz karakterleri kaldır
+    // 1. Baştaki TÜM sayıları kaldır (örn: "99999ÖYKÜ" -> "ÖYKÜ", "00292SUDEN" -> "SUDEN")
+    cleaned = cleaned.replace(/^[\d\s]+/, '').trim();
+    
+    // 2. Ortadaki sayıları da kaldır (eğer harflerle birleşikse)
+    // Örn: "ÖYKÜ123ELİ" -> "ÖYKÜ ELİ"
+    cleaned = cleaned.replace(/\d+/g, ' ').trim();
+    
+    // 3. Sondaki gereksiz karakterleri kaldır
     cleaned = cleaned.replace(/[\d\s]+$/, '').trim();
     
-    // 3. Birden fazla boşluğu tek boşluğa indir
+    // 4. Birden fazla boşluğu tek boşluğa indir
     cleaned = cleaned.replace(/\s+/g, ' ');
     
-    // 4. Türkçe karakterleri düzelt
+    // 5. Türkçe karakterleri düzelt
     cleaned = fixTurkishChars(cleaned);
     
-    // 5. Ad Soyad formatına dönüştür (başharfler büyük)
-    cleaned = cleaned.split(' ').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ');
+    // 6. Çok kısa isimleri filtrele (en az 2 karakter)
+    if (cleaned.length < 2) return name; // Orijinali döndür
+    
+    // 7. Ad Soyad formatına dönüştür (başharfler büyük)
+    cleaned = cleaned.split(' ')
+      .filter(word => word.length > 0) // Boş kelimelerı filtrele
+      .map(word => {
+        // Türkçe karakterler için özel işlem
+        const firstChar = word.charAt(0).toUpperCase();
+        const rest = word.slice(1).toLowerCase();
+        return firstChar + rest;
+      })
+      .join(' ');
     
     return cleaned;
   }, [fixTurkishChars]);

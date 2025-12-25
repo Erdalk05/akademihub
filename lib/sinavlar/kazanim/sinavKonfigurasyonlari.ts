@@ -248,21 +248,40 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
     id: 'nar-lgs-90',
     ad: 'NAR Yayınları - LGS 90 Soru',
     yayinevi: 'NAR Yayınları',
-    aciklama: 'NAR Yayınları standart LGS deneme optik formu',
+    aciklama: 'NAR Yayınları standart LGS deneme optik formu - Format: [Sınıf Kodu 4kr][Öğrenci No 5kr][Ad 10kr][Soyad 12kr][Sınıf][Kitapçık][Cevaplar]',
     sinifSeviyeleri: ['8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
     satirUzunlugu: 173,
     alanlar: {
-      ogrenciNo: { baslangic: 1, bitis: 8 },
-      ogrenciAdi: { baslangic: 9, bitis: 28 },
-      tcKimlik: { baslangic: 29, bitis: 40 },
-      kitapcik: { baslangic: 41, bitis: 41 },
-      sinif: { baslangic: 42, bitis: 42 },
-      cevaplar: { baslangic: 53, bitis: 142 },
+      ogrenciNo: { baslangic: 5, bitis: 10 },      // 99999 gibi - 5 karakter
+      ogrenciAdi: { baslangic: 11, bitis: 35 },    // ÖYKÜ ELİBÜYÜK - 25 karakter
+      sinif: { baslangic: 36, bitis: 37 },         // 8
+      kitapcik: { baslangic: 38, bitis: 38 },      // K
+      cevaplar: { baslangic: 53, bitis: 142 },     // 90 cevap
     },
     onerilenIcon: '📗',
     renk: '#10B981'
+  },
+  {
+    id: 'dikmen-lgs-90',
+    ad: 'Dikmen Çözüm - LGS 90 Soru',
+    yayinevi: 'Dikmen Çözüm',
+    aciklama: 'Dikmen Çözüm Kurs optik formu - Format: [Sınıf Kodu][Öğr No][Ad Soyad][TC][Sınıf][Kitapçık][Cevaplar]',
+    sinifSeviyeleri: ['8'],
+    sinavTurleri: ['LGS', 'DENEME'],
+    toplamSoru: 90,
+    satirUzunlugu: 180,
+    alanlar: {
+      ogrenciNo: { baslangic: 5, bitis: 10 },      // Öğrenci numarası
+      ogrenciAdi: { baslangic: 11, bitis: 35 },    // Ad Soyad (25 karakter)
+      tcKimlik: { baslangic: 36, bitis: 47 },      // TC (11 karakter)
+      sinif: { baslangic: 48, bitis: 49 },         // Sınıf
+      kitapcik: { baslangic: 50, bitis: 50 },      // Kitapçık
+      cevaplar: { baslangic: 53, bitis: 142 },     // 90 cevap
+    },
+    onerilenIcon: '🏫',
+    renk: '#059669'
   },
   {
     id: 'netbil-lgs-90',
