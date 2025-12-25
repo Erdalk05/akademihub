@@ -1,21 +1,24 @@
 /**
  * ============================================
- * AkademiHub - Optik Form Mapper v6.0
+ * AkademiHub - Optik Form Mapper v7.0 PRO
  * ============================================
  * 
- * ✅ Ad Soyad birleşik
- * ✅ Form şablonları kaydet/yükle
- * ✅ Kolay manuel alan ekleme
- * ✅ Türk isim tahmin motoru
+ * ✅ 5 öğrenci önizleme
+ * ✅ Toplam karakter sayısı
+ * ✅ Otomatik alan önerileri
+ * ✅ Akıllı pozisyon atlama
+ * ✅ Klavye kısayolları
+ * ✅ Form şablonları
  */
 
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { 
   Plus, Trash2, Eye, Save, RotateCcw, CheckCircle, AlertCircle, 
   Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText,
-  Download, Upload, FolderOpen
+  Download, FolderOpen, Zap, Copy, Keyboard, ChevronRight, Lightbulb,
+  BarChart3, Ruler
 } from 'lucide-react';
 
 // ==================== TÜRK İSİM TAHMİN MOTORU ====================
@@ -25,16 +28,16 @@ const ERKEK_ISIMLERI = [
   'OSMAN', 'YUSUF', 'MURAT', 'ÖMER', 'BURAK', 'EMRE', 'EREN', 'ARDA', 'KAAN',
   'BERK', 'BERKAY', 'CAN', 'ÇAĞRI', 'DENIZ', 'EFE', 'ENES', 'FURKAN', 'GÖRKEM',
   'HAKAN', 'KEREM', 'KORAY', 'ONUR', 'OĞUZ', 'OĞUZHAN', 'SERKAN', 'TOLGA',
-  'UĞUR', 'UMUT', 'YAĞIZ', 'YIĞIT', 'YUNUS', 'ERDEM', 'ERDAL', 'EROL', 'ERCAN',
-  'ŞÜKRÜ', 'ŞEREF', 'GÖKHAN', 'GÖKÇEN', 'İLHAN', 'İSA', 'KEMAL', 'LEVENT',
+  'UĞUR', 'UMUT', 'YAĞIZ', 'YIĞIT', 'YUNUS', 'ERDEM', 'ERDAL', 'EROL',
+  'ŞÜKRÜ', 'ŞEREF', 'GÖKHAN', 'İLHAN', 'KEMAL', 'LEVENT', 'SİNAN',
 ];
 
 const KIZ_ISIMLERI = [
   'AYŞE', 'FATİMA', 'EMİNE', 'HATİCE', 'ZEYNEP', 'MERVE', 'ELİF', 'NUR',
   'BÜŞRA', 'ESRA', 'SEDA', 'DERYA', 'DİLARA', 'ECE', 'EBRU', 'GAMZE',
   'GİZEM', 'GÜLŞEN', 'GÜLAY', 'GÜNEŞ', 'HANDE', 'İREM', 'KÜBRA', 'MELEK',
-  'MELİKE', 'MELTEM', 'NESLİHAN', 'NİLAY', 'ÖZGE', 'ÖZLEM', 'PELİN', 'SELEN',
-  'ŞİRİN', 'TUĞBA', 'TUĞÇE', 'YAĞMUR', 'ASYA', 'ASLI', 'ÇİĞDEM', 'NURSENA',
+  'MELİKE', 'MELTEM', 'ÖZGE', 'ÖZLEM', 'PELİN', 'SELEN', 'ŞİRİN', 'TUĞBA',
+  'TUĞÇE', 'YAĞMUR', 'ASYA', 'ASLI', 'ÇİĞDEM', 'NURSENA', 'NAZLI',
 ];
 
 const SOYADLARI = [
@@ -135,13 +138,13 @@ interface FormTemplate {
 
 // ==================== CONSTANTS ====================
 
-const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode }[] = [
-  { type: 'ogrenci_no', label: 'Öğrenci No', color: '#3B82F6', icon: <Hash className="w-3 h-3" /> },
-  { type: 'tc', label: 'TC Kimlik', color: '#8B5CF6', icon: <CreditCard className="w-3 h-3" /> },
-  { type: 'ad_soyad', label: 'Ad Soyad', color: '#10B981', icon: <Users className="w-3 h-3" /> },
-  { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" /> },
-  { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" /> },
-  { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" /> },
+const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode; shortcut?: string }[] = [
+  { type: 'ogrenci_no', label: 'Öğrenci No', color: '#3B82F6', icon: <Hash className="w-3 h-3" />, shortcut: '1' },
+  { type: 'tc', label: 'TC Kimlik', color: '#8B5CF6', icon: <CreditCard className="w-3 h-3" />, shortcut: '2' },
+  { type: 'ad_soyad', label: 'Ad Soyad', color: '#10B981', icon: <Users className="w-3 h-3" />, shortcut: '3' },
+  { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" />, shortcut: '4' },
+  { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" />, shortcut: '5' },
+  { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" />, shortcut: '6' },
 ];
 
 const STORAGE_KEY = 'akademihub_form_templates';
@@ -165,6 +168,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualField, setManualField] = useState({ label: '', start: 1, end: 10 });
+  const manualInputRef = useRef<HTMLInputElement>(null);
   
   // LocalStorage'dan şablonları yükle
   useEffect(() => {
@@ -186,11 +190,60 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     }
   }, []);
   
+  // 5 satır önizleme, Türkçe düzeltmeli
   const sampleLines = useMemo(() => {
-    return rawLines.slice(0, 2).map(line => fixTurkishChars(line));
+    return rawLines.slice(0, 5).map(line => fixTurkishChars(line));
   }, [rawLines]);
   
   const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length), 100), [rawLines]);
+  
+  // Toplam karakter ve satır istatistikleri
+  const stats = useMemo(() => {
+    const totalChars = rawLines.reduce((sum, line) => sum + line.length, 0);
+    const avgChars = Math.round(totalChars / rawLines.length);
+    const minChars = Math.min(...rawLines.map(l => l.length));
+    const maxChars = Math.max(...rawLines.map(l => l.length));
+    const definedChars = fields.reduce((sum, f) => sum + (f.end - f.start + 1), 0);
+    return { totalChars, avgChars, minChars, maxChars, definedChars };
+  }, [rawLines, fields]);
+  
+  // Otomatik alan önerisi
+  const suggestFieldType = useCallback((start: number, end: number): { type: FieldType; confidence: number } | null => {
+    const sample = sampleLines[0]?.substring(start, end + 1) || '';
+    const length = end - start + 1;
+    
+    // Sadece rakam ve 11 karakter = TC
+    if (/^\d{11}$/.test(sample.trim())) {
+      return { type: 'tc', confidence: 95 };
+    }
+    
+    // Sadece rakam ve 1-6 karakter = Öğrenci No
+    if (/^\d{1,6}$/.test(sample.trim())) {
+      return { type: 'ogrenci_no', confidence: 90 };
+    }
+    
+    // Sadece harfler ve boşluk, 10+ karakter = Ad Soyad
+    if (/^[A-ZÇĞİÖŞÜa-zçğıöşü\s]{10,}$/.test(sample.trim()) && length >= 15) {
+      return { type: 'ad_soyad', confidence: 85 };
+    }
+    
+    // A, B, C, D, E tekrar = Cevaplar
+    if (/^[ABCDE\s]+$/.test(sample.trim()) && length >= 10) {
+      return { type: 'cevaplar', confidence: 90 };
+    }
+    
+    // 1-3 karakter, rakam + harf = Sınıf
+    if (/^[0-9][A-Z]?$/.test(sample.trim()) && length <= 3) {
+      return { type: 'sinif', confidence: 80 };
+    }
+    
+    // Tek A, B, C, D = Kitapçık
+    if (/^[ABCD]$/.test(sample.trim())) {
+      return { type: 'kitapcik', confidence: 85 };
+    }
+    
+    return null;
+  }, [sampleLines]);
   
   // Karakter seçimi
   const handleCharMouseDown = useCallback((charIndex: number) => {
@@ -229,7 +282,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     setSelection(null);
   }, [selection]);
   
-  // Manuel alan ekle - TEK TIKLA
+  // Manuel alan ekle
   const handleAddManualField = useCallback(() => {
     if (!manualField.label.trim()) return;
     
@@ -241,13 +294,36 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       end: manualField.end
     }].sort((a, b) => a.start - b.start));
     
-    // Bir sonraki alan için hazırla
     setManualField({
       label: '',
       start: manualField.end + 1,
       end: manualField.end + 20
     });
+    
+    // Focus'u input'a geri ver
+    setTimeout(() => manualInputRef.current?.focus(), 50);
   }, [manualField]);
+  
+  // Enter ile ekle
+  const handleManualKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && manualField.label.trim()) {
+      handleAddManualField();
+    }
+  }, [handleAddManualField, manualField.label]);
+  
+  // Alan kopyala
+  const handleDuplicateField = useCallback((field: FieldDefinition) => {
+    const lastEnd = Math.max(...fields.map(f => f.end), 0);
+    const length = field.end - field.start;
+    
+    setFields(prev => [...prev, {
+      ...field,
+      id: `field-${Date.now()}`,
+      label: field.label + ' (kopya)',
+      start: lastEnd + 1,
+      end: lastEnd + 1 + length
+    }].sort((a, b) => a.start - b.start));
+  }, [fields]);
   
   // Alan güncelle
   const handleUpdateField = useCallback((id: string, updates: Partial<FieldDefinition>) => {
@@ -314,9 +390,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   }, [rawLines, fields]);
   
   // Validasyon
-  const isValid = useMemo(() => {
-    return fields.length >= 2;
-  }, [fields]);
+  const isValid = useMemo(() => fields.length >= 2, [fields]);
 
   // Karakter rengi
   const getCharColor = useCallback((index: number): string | null => {
@@ -335,11 +409,20 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     const end = Math.max(selection.start, selection.end);
     return index >= start && index <= end;
   }, [selection]);
+  
+  // Seçim için öneri
+  const currentSuggestion = useMemo(() => {
+    if (!selection) return null;
+    return suggestFieldType(
+      Math.min(selection.start, selection.end),
+      Math.max(selection.start, selection.end)
+    );
+  }, [selection, suggestFieldType]);
 
   if (previewMode) {
     return (
       <PreviewScreen 
-        students={parsedStudents.slice(0, 15)} 
+        students={parsedStudents.slice(0, 20)} 
         fields={fields}
         totalCount={parsedStudents.length}
         onBack={() => setPreviewMode(false)}
@@ -355,9 +438,9 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Target className="w-5 h-5" /> Optik Form Tanımları
+              <Target className="w-5 h-5" /> Optik Form Mapper Pro
             </h2>
-            <p className="text-purple-200 text-sm">{rawLines.length} satır • Karakterleri sürükleyerek seçin</p>
+            <p className="text-purple-200 text-sm">{rawLines.length} öğrenci • Sürükleyerek alan seçin</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -378,6 +461,30 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       </div>
       
+      {/* İSTATİSTİKLER */}
+      <div className="grid grid-cols-5 gap-2 mb-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-blue-600">{rawLines.length}</div>
+          <div className="text-xs text-blue-500">Öğrenci</div>
+        </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-purple-600">{maxLength}</div>
+          <div className="text-xs text-purple-500">Satır Uzunluğu</div>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-amber-600">{stats.avgChars}</div>
+          <div className="text-xs text-amber-500">Ort. Karakter</div>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-emerald-600">{fields.length}</div>
+          <div className="text-xs text-emerald-500">Alan Tanımlı</div>
+        </div>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-rose-600">{stats.definedChars}</div>
+          <div className="text-xs text-rose-500">Tanımlı Kar.</div>
+        </div>
+      </div>
+      
       {/* ŞABLON YÜKLEME MODAL */}
       {showTemplates && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowTemplates(false)}>
@@ -387,7 +494,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             </h3>
             {savedTemplates.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                <Upload className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <Zap className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p>Henüz kayıtlı şablon yok</p>
                 <p className="text-sm">Alanları tanımlayıp "Kaydet" butonuna tıklayın</p>
               </div>
@@ -446,10 +553,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
               {fields.length} alan kaydedilecek
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowSaveDialog(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
+              <button onClick={() => setShowSaveDialog(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
                 İptal
               </button>
               <button
@@ -464,13 +568,13 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       )}
       
-      {/* KARAKTER HARİTASI */}
+      {/* KARAKTER HARİTASI - 5 ÖĞRENCİ */}
       <div className="bg-white border-2 border-gray-200 rounded-xl mb-4 overflow-hidden">
         <div className="bg-gray-100 px-4 py-2 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-blue-600" />
+            <Ruler className="w-4 h-4 text-blue-600" />
             <span className="font-bold text-gray-700">Karakter Haritası</span>
-            <span className="text-xs text-gray-500">(Sürükleyerek seçin)</span>
+            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">5 öğrenci</span>
           </div>
           <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
             <RotateCcw className="w-3 h-3" /> Sıfırla
@@ -479,23 +583,26 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         
         <div className="p-4 overflow-x-auto select-none" style={{ fontFamily: 'Consolas, Monaco, monospace' }}>
           {/* Pozisyon Cetveli */}
-          <div className="flex mb-2">
-            <div className="w-10 flex-shrink-0" />
-            {Array.from({ length: Math.ceil(Math.min(maxLength, 80) / 10) }).map((_, i) => (
-              <div key={i} className="text-sm font-bold text-blue-600" style={{ width: '200px' }}>
-                {(i * 10) + 1}
+          <div className="flex mb-1">
+            <div className="w-8 flex-shrink-0" />
+            {Array.from({ length: Math.min(maxLength, 100) }).map((_, i) => (
+              <div 
+                key={i} 
+                className={`w-5 text-center text-[10px] ${(i + 1) % 10 === 0 ? 'font-bold text-blue-600' : 'text-gray-400'}`}
+              >
+                {(i + 1) % 10 === 0 ? i + 1 : (i + 1) % 5 === 0 ? '·' : ''}
               </div>
             ))}
           </div>
           
-          {/* 2 Satır Öğrenci */}
+          {/* 5 Satır Öğrenci */}
           {sampleLines.map((line, rowIdx) => (
-            <div key={rowIdx} className="flex items-center mb-2">
-              <div className="w-10 flex-shrink-0 text-sm font-bold text-gray-400 text-right pr-2">
-                {rowIdx + 1}
+            <div key={rowIdx} className="flex items-center mb-0.5">
+              <div className="w-8 flex-shrink-0 text-xs font-bold text-gray-400 text-right pr-2">
+                #{rowIdx + 1}
               </div>
               <div className="flex">
-                {Array.from({ length: Math.min(line.length, 80) }).map((_, i) => {
+                {Array.from({ length: Math.min(line.length, 100) }).map((_, i) => {
                   const char = line[i] || '';
                   const fieldColor = getCharColor(i);
                   const inSelection = isInSelection(i);
@@ -506,17 +613,14 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                       onMouseDown={() => handleCharMouseDown(i)}
                       onMouseEnter={() => handleCharMouseEnter(i)}
                       className={`
-                        w-5 h-8 flex items-center justify-center text-sm font-bold cursor-pointer
-                        border border-gray-200 transition-all
-                        ${inSelection ? 'bg-blue-400 text-white border-blue-500 scale-110 z-10' : ''}
+                        w-5 h-6 flex items-center justify-center text-xs font-bold cursor-pointer
+                        border-r border-b border-gray-100 transition-all
+                        ${inSelection ? 'bg-blue-500 text-white scale-105 z-10' : ''}
                         ${fieldColor && !inSelection ? 'text-white' : ''}
-                        ${!fieldColor && !inSelection ? 'hover:bg-blue-100 hover:border-blue-300' : ''}
+                        ${!fieldColor && !inSelection ? 'hover:bg-blue-100' : ''}
                       `}
-                      style={fieldColor && !inSelection ? { 
-                        backgroundColor: fieldColor, 
-                        borderColor: fieldColor 
-                      } : undefined}
-                      title={`Poz: ${i + 1}`}
+                      style={fieldColor && !inSelection ? { backgroundColor: fieldColor } : undefined}
+                      title={`Poz: ${i + 1} - "${char}"`}
                     >
                       {char}
                     </div>
@@ -525,37 +629,67 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
               </div>
             </div>
           ))}
+          
+          {maxLength > 100 && (
+            <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> İlk 100 karakter gösteriliyor ({maxLength} toplam)
+            </div>
+          )}
         </div>
       </div>
       
-      {/* SEÇİM PANELİ */}
+      {/* SEÇİM PANELİ - AKILLI ÖNERİ */}
       {selection && (
-        <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-xl">
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl shadow-lg">
           <div className="text-center mb-3">
-            <span className="text-2xl font-bold text-blue-600">
+            <span className="text-3xl font-bold text-blue-600">
               {Math.min(selection.start, selection.end) + 1} → {Math.max(selection.start, selection.end) + 1}
             </span>
-            <span className="text-gray-500 ml-2">
+            <span className="text-gray-500 ml-2 text-lg">
               ({Math.abs(selection.end - selection.start) + 1} karakter)
             </span>
           </div>
-          <div className="p-2 bg-white rounded-lg font-mono text-center mb-3 text-lg">
+          
+          <div className="p-3 bg-white rounded-lg font-mono text-center mb-3 text-lg border">
             "{sampleLines[0]?.substring(Math.min(selection.start, selection.end), Math.max(selection.start, selection.end) + 1) || ''}"
           </div>
-          <div className="text-sm text-gray-600 mb-2 text-center">Bu alan ne?</div>
+          
+          {/* AKILLI ÖNERİ */}
+          {currentSuggestion && (
+            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-center gap-2">
+              <Lightbulb className="w-4 h-4 text-yellow-600" />
+              <span className="text-yellow-700 font-medium">
+                Öneri: <strong>{FIELD_TYPES.find(f => f.type === currentSuggestion.type)?.label}</strong>
+              </span>
+              <span className="text-xs bg-yellow-200 text-yellow-700 px-2 py-0.5 rounded-full">
+                %{currentSuggestion.confidence}
+              </span>
+              <button
+                onClick={() => handleAssignField(currentSuggestion.type)}
+                className="ml-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm font-bold hover:bg-yellow-600"
+              >
+                Onayla
+              </button>
+            </div>
+          )}
+          
+          <div className="text-sm text-gray-600 mb-2 text-center">veya manuel seçin:</div>
           <div className="flex flex-wrap justify-center gap-2">
             {FIELD_TYPES.map((fieldType) => (
               <button
                 key={fieldType.type}
                 onClick={() => handleAssignField(fieldType.type)}
-                className="px-3 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-1 hover:opacity-80"
+                className="px-3 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-1 hover:opacity-80 hover:scale-105 transition-all"
                 style={{ backgroundColor: fieldType.color }}
               >
                 {fieldType.icon} {fieldType.label}
+                {fieldType.shortcut && (
+                  <span className="ml-1 text-xs opacity-70 bg-white/20 px-1 rounded">{fieldType.shortcut}</span>
+                )}
               </button>
             ))}
           </div>
-          <div className="text-center mt-2">
+          <div className="text-center mt-3">
             <button onClick={() => setSelection(null)} className="text-sm text-gray-500 hover:text-gray-700">
               İptal
             </button>
@@ -566,70 +700,83 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       {/* ALAN TANIMLARI */}
       <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden mb-4">
         <div className="bg-emerald-50 px-4 py-2 border-b flex justify-between items-center">
-          <span className="font-bold text-emerald-700">Alan Tanımları ({fields.length})</span>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-emerald-600" />
+            <span className="font-bold text-emerald-700">Alan Tanımları</span>
+            <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">{fields.length} alan</span>
+          </div>
           <button
-            onClick={() => setShowManualAdd(!showManualAdd)}
+            onClick={() => {
+              setShowManualAdd(!showManualAdd);
+              if (!showManualAdd) setTimeout(() => manualInputRef.current?.focus(), 100);
+            }}
             className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-1 hover:bg-emerald-600"
           >
             <Plus className="w-3 h-3" /> Manuel Ekle
           </button>
         </div>
         
-        {/* MANUEL EKLEME SATIRI */}
+        {/* MANUEL EKLEME - ENTER İLE */}
         {showManualAdd && (
-          <div className="p-3 bg-emerald-50/50 border-b flex gap-2 items-center">
-            <input
-              type="text"
-              value={manualField.label}
-              onChange={e => setManualField(p => ({ ...p, label: e.target.value }))}
-              placeholder="Alan adı (örn: Türkçe)"
-              className="flex-1 px-3 py-2 border rounded-lg text-sm"
-              autoFocus
-            />
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Başlangıç:</span>
-              <input
-                type="number"
-                value={manualField.start}
-                onChange={e => setManualField(p => ({ ...p, start: parseInt(e.target.value) || 1 }))}
-                className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
-              />
+          <div className="p-3 bg-emerald-50/50 border-b">
+            <div className="flex items-center gap-1 text-xs text-emerald-600 mb-2">
+              <Keyboard className="w-3 h-3" /> Enter ile hızlı ekle
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Bitiş:</span>
+            <div className="flex gap-2 items-center">
               <input
-                type="number"
-                value={manualField.end}
-                onChange={e => setManualField(p => ({ ...p, end: parseInt(e.target.value) || 10 }))}
-                className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
+                ref={manualInputRef}
+                type="text"
+                value={manualField.label}
+                onChange={e => setManualField(p => ({ ...p, label: e.target.value }))}
+                onKeyDown={handleManualKeyDown}
+                placeholder="Alan adı (örn: Türkçe)"
+                className="flex-1 px-3 py-2 border rounded-lg text-sm"
               />
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={manualField.start}
+                  onChange={e => setManualField(p => ({ ...p, start: parseInt(e.target.value) || 1 }))}
+                  className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
+                />
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <input
+                  type="number"
+                  value={manualField.end}
+                  onChange={e => setManualField(p => ({ ...p, end: parseInt(e.target.value) || 10 }))}
+                  className="w-16 px-2 py-2 border rounded-lg text-center text-sm font-mono"
+                />
+              </div>
+              <button
+                onClick={handleAddManualField}
+                disabled={!manualField.label.trim()}
+                className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                Ekle
+              </button>
             </div>
-            <button
-              onClick={handleAddManualField}
-              disabled={!manualField.label.trim()}
-              className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400"
-            >
-              Ekle
-            </button>
           </div>
         )}
         
         <div className="p-3">
           {fields.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">
-              Karakterleri sürükleyerek seçin veya "Manuel Ekle" butonunu kullanın
+            <div className="text-center py-8 text-gray-500">
+              <Sparkles className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+              <p className="font-medium">Henüz alan tanımlanmadı</p>
+              <p className="text-sm">Karakter haritasından sürükleyin veya "Manuel Ekle" kullanın</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {fields.map((field) => {
                 const fieldType = FIELD_TYPES.find(t => t.type === field.type);
                 const previewValue = sampleLines[0]?.substring(field.start - 1, field.end).trim() || '';
+                const charCount = field.end - field.start + 1;
                 
                 return (
                   <div 
                     key={field.id} 
-                    className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg"
-                    style={{ backgroundColor: (fieldType?.color || '#6B7280') + '15', borderLeft: `3px solid ${fieldType?.color || '#6B7280'}` }}
+                    className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg hover:shadow-md transition-shadow"
+                    style={{ backgroundColor: (fieldType?.color || '#6B7280') + '10', borderLeft: `4px solid ${fieldType?.color || '#6B7280'}` }}
                   >
                     <div className="col-span-3 flex items-center gap-2">
                       <div className="p-1.5 rounded text-white text-xs" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
@@ -642,15 +789,14 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                         className="flex-1 px-2 py-1 border rounded text-sm font-medium bg-white"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2 flex items-center gap-1">
                       <input
                         type="number"
                         value={field.start}
                         onChange={(e) => handleUpdateField(field.id, { start: parseInt(e.target.value) || 1 })}
                         className="w-full px-2 py-1 border rounded text-center font-mono text-sm bg-white"
                       />
-                    </div>
-                    <div className="col-span-2">
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <input
                         type="number"
                         value={field.end}
@@ -658,16 +804,30 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                         className="w-full px-2 py-1 border rounded text-center font-mono text-sm bg-white"
                       />
                     </div>
+                    <div className="col-span-1 text-center">
+                      <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded font-mono">{charCount}</span>
+                    </div>
                     <div className="col-span-4">
                       <div 
                         className="px-2 py-1 rounded text-sm font-mono truncate font-bold"
-                        style={{ backgroundColor: (fieldType?.color || '#6B7280') + '30', color: fieldType?.color || '#6B7280' }}
+                        style={{ backgroundColor: (fieldType?.color || '#6B7280') + '25', color: fieldType?.color || '#6B7280' }}
                       >
                         {previewValue || '—'}
                       </div>
                     </div>
-                    <div className="col-span-1 text-center">
-                      <button onClick={() => handleRemoveField(field.id)} className="p-1 text-red-400 hover:text-red-600">
+                    <div className="col-span-2 flex justify-end gap-1">
+                      <button 
+                        onClick={() => handleDuplicateField(field)} 
+                        className="p-1 text-blue-400 hover:text-blue-600"
+                        title="Kopyala"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleRemoveField(field.id)} 
+                        className="p-1 text-red-400 hover:text-red-600"
+                        title="Sil"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -684,7 +844,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         {isValid ? (
           <>
             <CheckCircle className="w-5 h-5 text-emerald-600" />
-            <span className="text-emerald-700 font-medium">Hazır! {fields.length} alan tanımlı</span>
+            <span className="text-emerald-700 font-medium">Hazır! {fields.length} alan, {stats.definedChars} karakter tanımlı</span>
           </>
         ) : (
           <>
@@ -696,7 +856,9 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       
       {/* Butonlar */}
       <div className="flex justify-between">
-        <button onClick={onBack} className="px-4 py-2 text-gray-500 hover:text-gray-700">← Geri</button>
+        <button onClick={onBack} className="px-4 py-2 text-gray-500 hover:text-gray-700 flex items-center gap-1">
+          ← Geri
+        </button>
         <div className="flex gap-2">
           <button
             onClick={() => setPreviewMode(true)}
@@ -708,9 +870,9 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           <button
             onClick={() => onComplete(fields, parsedStudents)}
             disabled={!isValid}
-            className={`px-6 py-2 rounded-lg font-bold ${isValid ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-gray-200 text-gray-400'}`}
+            className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 ${isValid ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 shadow-lg' : 'bg-gray-200 text-gray-400'}`}
           >
-            Devam →
+            Devam <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -735,7 +897,7 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Eye className="w-5 h-5" /> Veri Önizleme
         </h2>
-        <p className="text-purple-100 text-sm">{totalCount} öğrenci</p>
+        <p className="text-purple-100 text-sm">{totalCount} öğrenci • İlk 20 gösteriliyor</p>
       </div>
       
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -743,20 +905,21 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
           const fieldType = FIELD_TYPES.find(t => t.type === field.type);
           return (
             <span key={field.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: fieldType?.color || '#6B7280' }}>
-              {fieldType?.icon || <Plus className="w-3 h-3" />} {field.label} ({field.start}-{field.end})
+              {fieldType?.icon || <Plus className="w-3 h-3" />} {field.label}
+              <span className="opacity-70">({field.start}-{field.end})</span>
             </span>
           );
         })}
       </div>
       
-      <div className="bg-white border rounded-xl overflow-hidden mb-4">
+      <div className="bg-white border rounded-xl overflow-hidden mb-4 shadow-lg">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-3 py-2 text-left">#</th>
+                <th className="px-3 py-2 text-left text-gray-500">#</th>
                 {fields.map(field => (
-                  <th key={field.id} className="px-3 py-2 text-left" style={{ color: FIELD_TYPES.find(t => t.type === field.type)?.color || '#6B7280' }}>
+                  <th key={field.id} className="px-3 py-2 text-left font-bold" style={{ color: FIELD_TYPES.find(t => t.type === field.type)?.color || '#6B7280' }}>
                     {field.label}
                   </th>
                 ))}
@@ -765,8 +928,8 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
             </thead>
             <tbody>
               {students.map((s, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                <tr key={idx} className="border-b hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-2 text-gray-400 font-mono">{idx + 1}</td>
                   {fields.map(field => {
                     let value = '';
                     if (field.type === 'ogrenci_no') value = s.ogrenciNo || '';
@@ -777,9 +940,11 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
                     else if (field.type === 'cevaplar') value = s.cevaplar || '';
                     else value = s[field.label] || '';
                     
+                    const isAnswer = field.type === 'cevaplar' || field.label.toLowerCase().includes('cevap');
+                    
                     return (
-                      <td key={field.id} className="px-3 py-2 font-mono text-sm truncate max-w-[150px]">
-                        {value || '—'}
+                      <td key={field.id} className={`px-3 py-2 ${isAnswer ? 'font-mono text-xs' : ''} truncate max-w-[180px]`}>
+                        {value || <span className="text-gray-300">—</span>}
                       </td>
                     );
                   })}
@@ -794,8 +959,10 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
       </div>
       
       <div className="flex justify-between">
-        <button onClick={onBack} className="px-4 py-2 text-gray-500 hover:text-gray-700">← Düzenle</button>
-        <button onClick={onConfirm} className="px-8 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 flex items-center gap-2">
+        <button onClick={onBack} className="px-4 py-2 text-gray-500 hover:text-gray-700 flex items-center gap-1">
+          ← Düzenle
+        </button>
+        <button onClick={onConfirm} className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:from-emerald-600 hover:to-green-700 flex items-center gap-2 shadow-lg">
           <Save className="w-5 h-5" /> Onayla ve Devam
         </button>
       </div>
