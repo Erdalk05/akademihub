@@ -21,6 +21,9 @@ export * from './types';
 // Sınav Konfigürasyonları
 export * from './sinavKonfigurasyonlari';
 
+// Puanlama Motoru
+export * from './PuanlamaMotoru';
+
 // Temel Bileşenler
 export { default as KazanimCevapAnahtari } from './KazanimCevapAnahtari';
 export { default as OptikSablonEditor } from './OptikSablonEditor';
