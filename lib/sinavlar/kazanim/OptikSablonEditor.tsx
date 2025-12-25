@@ -299,11 +299,97 @@ export default function OptikSablonEditor({
         </p>
       </div>
 
-      {/* Alan Tipi Seçici */}
+      {/* Hızlı Alan Ekleme - Manuel Giriş */}
+      {ornekSatir && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-4">
+          <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+            ⚡ Hızlı Alan Tanımlama (Sayı Girerek)
+          </h3>
+          
+          <div className="grid grid-cols-6 gap-3">
+            {ALAN_TIPLERI.filter(t => t.id !== 'bos').map((tip) => {
+              const existingField = alanlar.find(a => a.alan === tip.id);
+              return (
+                <div key={tip.id} className="space-y-1">
+                  <label className="text-xs font-medium flex items-center gap-1" style={{ color: tip.color }}>
+                    {tip.icon} {tip.label}
+                  </label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      placeholder="Baş"
+                      min={1}
+                      max={ornekSatir.length}
+                      defaultValue={existingField?.baslangic || ''}
+                      className="w-14 px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-300"
+                      id={`field-start-${tip.id}`}
+                    />
+                    <span className="text-slate-400 self-center">-</span>
+                    <input
+                      type="number"
+                      placeholder="Son"
+                      min={1}
+                      max={ornekSatir.length}
+                      defaultValue={existingField?.bitis || ''}
+                      className="w-14 px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-300"
+                      id={`field-end-${tip.id}`}
+                    />
+                    <button
+                      onClick={() => {
+                        const startInput = document.getElementById(`field-start-${tip.id}`) as HTMLInputElement;
+                        const endInput = document.getElementById(`field-end-${tip.id}`) as HTMLInputElement;
+                        const start = parseInt(startInput?.value);
+                        const end = parseInt(endInput?.value);
+                        
+                        if (!start || !end || start > end || start < 1 || end > ornekSatir.length) {
+                          alert('Geçersiz aralık!');
+                          return;
+                        }
+                        
+                        // Mevcut alanı güncelle veya yeni ekle
+                        setAlanlar(prev => {
+                          const filtered = prev.filter(a => a.alan !== tip.id);
+                          return [...filtered, {
+                            alan: tip.id as any,
+                            baslangic: start,
+                            bitis: end,
+                            label: tip.label,
+                            color: tip.color
+                          }].sort((a, b) => a.baslangic - b.baslangic);
+                        });
+                        
+                        if (tip.id === 'cevaplar') {
+                          setCevapBaslangic(start);
+                        }
+                      }}
+                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs"
+                      title="Ekle"
+                    >
+                      ✓
+                    </button>
+                  </div>
+                  {existingField && (
+                    <div className="text-[10px] text-slate-500 truncate">
+                      "{ornekSatir.substring(existingField.baslangic - 1, existingField.bitis)}"
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="text-xs text-emerald-600 bg-emerald-100 rounded-lg p-2">
+            💡 <strong>İpucu:</strong> Her alan için başlangıç ve bitiş karakter numarasını girin. 
+            Örnek: Öğrenci No için 1-6 arası, Ad için 7-20 arası gibi.
+          </div>
+        </div>
+      )}
+
+      {/* Alan Tipi Seçici - Görsel Seçim İçin */}
       {ornekSatir && (
         <div className="space-y-3">
           <label className="block text-sm font-medium text-slate-700">
-            Alan Tipi Seçin (sonra karakterleri işaretleyin)
+            Alternatif: Görsel Seçim (Alan tipini seç, sonra aşağıda karakterleri işaretle)
           </label>
           <div className="flex flex-wrap gap-2">
             {ALAN_TIPLERI.map((tip) => (
