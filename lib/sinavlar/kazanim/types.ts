@@ -19,9 +19,20 @@ export interface Kazanim {
 
 // Cevap Anahtarı Satırı (Excel'den)
 export interface CevapAnahtariSatir {
-  soruNo: number;
+  soruNo: number;                          // Ana soru numarası
   dogruCevap: 'A' | 'B' | 'C' | 'D' | 'E';
   dersKodu: string;
+  dersAdi?: string;                        // Ders adı (Excel'den)
+  testKodu?: string;                       // Test kodu (Excel'den)
+  
+  // Kitapçık bazlı soru numaraları
+  kitapcikSoruNo?: {
+    A?: number;
+    B?: number;
+    C?: number;
+    D?: number;
+  };
+  
   kazanimKodu?: string;
   kazanimMetni?: string;
   konuAdi?: string;

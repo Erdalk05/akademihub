@@ -106,7 +106,7 @@ export default function KazanimCevapAnahtari({
     }
   }, []);
 
-  // Excel/CSV dosya yükle
+  // Excel/CSV dosya yükle - GELİŞMİŞ KİTAPÇIK DESTEĞİ
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -119,129 +119,157 @@ export default function KazanimCevapAnahtari({
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       
       if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        // Excel dosyası
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // Excel'i JSON'a dönüştür
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
         
         const parsed: CevapAnahtariSatir[] = [];
         const parseErrors: string[] = [];
         
-        // Akıllı sütun algılama - başlık satırını analiz et
+        // GELİŞMİŞ SÜTUN ALGILAMA
         let columnMap = {
-          soruNo: -1,
+          testKodu: -1,
+          dersAdi: -1,
+          soruNoA: -1,      // A kitapçığı soru no
+          soruNoB: -1,      // B kitapçığı soru no
+          soruNoC: -1,      // C kitapçığı soru no
+          soruNoD: -1,      // D kitapçığı soru no
           cevap: -1,
-          ders: -1,
           kazanimKodu: -1,
           kazanimMetni: -1,
-          konuAdi: -1
         };
         
-        // İlk satırı başlık olarak kontrol et
         const firstRow = jsonData[0] as any[];
         let startIndex = 0;
+        let hasHeader = false;
         
+        // Başlık satırını analiz et
         if (firstRow) {
           firstRow.forEach((cell: any, idx: number) => {
             const cellStr = String(cell || '').toLowerCase().trim();
+            const cellStrUpper = String(cell || '').toUpperCase().trim();
             
-            // Soru numarası sütunu
-            if (cellStr.includes('soru') && (cellStr.includes('no') || cellStr.includes('nu'))) {
-              if (columnMap.soruNo === -1) columnMap.soruNo = idx;
-            } else if (cellStr === 'no' || cellStr === 'sıra' || cellStr === 'sira') {
-              if (columnMap.soruNo === -1) columnMap.soruNo = idx;
+            // TEST KODU
+            if (cellStr.includes('test') && cellStr.includes('kod')) {
+              columnMap.testKodu = idx;
+              hasHeader = true;
             }
             
-            // Cevap sütunu
-            if (cellStr.includes('cevap') || cellStr.includes('yanıt') || cellStr.includes('yanit') || cellStr === 'cvp') {
+            // DERS ADI
+            if (cellStr.includes('ders') && (cellStr.includes('ad') || cellStr.includes('adi'))) {
+              columnMap.dersAdi = idx;
+              hasHeader = true;
+            }
+            
+            // A SORU NO / B SORU NO / C SORU NO / D SORU NO
+            if ((cellStr.includes('a') && cellStr.includes('soru')) || cellStrUpper === 'A SORU NO' || cellStr === 'a soru no') {
+              columnMap.soruNoA = idx;
+              hasHeader = true;
+            }
+            if ((cellStr.includes('b') && cellStr.includes('soru')) || cellStrUpper === 'B SORU NO' || cellStr === 'b soru no') {
+              columnMap.soruNoB = idx;
+              hasHeader = true;
+            }
+            if ((cellStr.includes('c') && cellStr.includes('soru')) || cellStrUpper === 'C SORU NO' || cellStr === 'c soru no') {
+              columnMap.soruNoC = idx;
+              hasHeader = true;
+            }
+            if ((cellStr.includes('d') && cellStr.includes('soru')) || cellStrUpper === 'D SORU NO' || cellStr === 'd soru no') {
+              columnMap.soruNoD = idx;
+              hasHeader = true;
+            }
+            
+            // CEVAP / DOĞRU CEVAP
+            if (cellStr.includes('cevap') || cellStr.includes('doğru') || cellStr.includes('dogru')) {
               columnMap.cevap = idx;
+              hasHeader = true;
             }
             
-            // Ders sütunu
-            if (cellStr.includes('ders') || cellStr.includes('alan') || cellStr.includes('konu')) {
-              if (columnMap.ders === -1) columnMap.ders = idx;
-            }
-            
-            // Kazanım kodu
-            if (cellStr.includes('kazanım') && cellStr.includes('kod')) {
+            // KAZANIM KODU
+            if ((cellStr.includes('kazanım') || cellStr.includes('kazanim')) && cellStr.includes('kod')) {
               columnMap.kazanimKodu = idx;
-            } else if (cellStr.includes('kazanim') && cellStr.includes('kod')) {
-              columnMap.kazanimKodu = idx;
-            } else if (cellStr === 'kod' || cellStr === 'kodu') {
-              if (columnMap.kazanimKodu === -1) columnMap.kazanimKodu = idx;
+              hasHeader = true;
             }
             
-            // Kazanım metni
+            // KAZANIM METNİ / AÇIKLAMASI
             if ((cellStr.includes('kazanım') || cellStr.includes('kazanim')) && 
-                (cellStr.includes('metin') || cellStr.includes('açıklama') || cellStr.includes('aciklama'))) {
-              columnMap.kazanimMetni = idx;
+                !cellStr.includes('kod')) {
+              // Kazanım kodu değilse, kazanım metnidir
+              if (columnMap.kazanimKodu !== idx) {
+                columnMap.kazanimMetni = idx;
+                hasHeader = true;
+              }
             }
           });
           
-          // Eğer başlık bulunduysa ilk satırı atla
-          if (columnMap.cevap !== -1 || columnMap.soruNo !== -1) {
+          if (hasHeader) {
             startIndex = 1;
           }
         }
         
-        // Başlık bulunamadıysa, veri yapısını analiz et
-        if (columnMap.cevap === -1) {
-          // İkinci satırı analiz et
-          const sampleRow = jsonData[1] as any[] || jsonData[0] as any[];
-          if (sampleRow) {
-            sampleRow.forEach((cell: any, idx: number) => {
-              const cellStr = String(cell || '').toUpperCase().trim();
-              
-              // A, B, C, D, E ise cevap sütunu
-              if (['A', 'B', 'C', 'D', 'E'].includes(cellStr) && columnMap.cevap === -1) {
-                columnMap.cevap = idx;
-              }
-              
-              // Ders adı içeriyorsa
-              if (normalizeDersKodu(cellStr) && columnMap.ders === -1) {
-                columnMap.ders = idx;
-              }
-              
-              // Kazanım kodu formatı (ör: T.8.1.2, M.8.2.1)
-              if (/^[A-Z]\.\d+\.\d+\.\d+/.test(cellStr) && columnMap.kazanimKodu === -1) {
-                columnMap.kazanimKodu = idx;
-              }
-            });
-          }
-        }
-        
-        // Varsayılan sütun indeksleri (eğer algılanamadıysa)
-        // Format: TEST_KODU | DERS | SORU_NO_SINAV | SORU_NO_GENEL | CEVAP | KAZANIM_KODU | KAZANIM_METNI
-        if (columnMap.soruNo === -1) {
-          // Sayı içeren ilk sütunu bul
-          const sampleRow = jsonData[1] as any[] || [];
-          for (let i = 0; i < sampleRow.length; i++) {
-            const val = parseInt(String(sampleRow[i]));
-            if (!isNaN(val) && val > 0 && val <= 200) {
-              columnMap.soruNo = i;
-              break;
-            }
-          }
-        }
-        
-        console.log('Algılanan sütun haritası:', columnMap);
+        console.log('📊 Algılanan sütun haritası:', columnMap);
+        console.log('📊 Başlık satırı:', firstRow);
         
         // Veriyi parse et
         jsonData.forEach((row: any[], index: number) => {
-          if (index < startIndex) return; // Başlık satırını atla
+          if (index < startIndex) return;
           if (!row || row.length < 3) return;
           
-          // Soru numarasını bul
-          let soruNo: number;
-          if (columnMap.soruNo !== -1) {
-            soruNo = parseInt(String(row[columnMap.soruNo]));
+          // Test kodu
+          const testKodu = columnMap.testKodu !== -1 
+            ? String(row[columnMap.testKodu] || '').trim() 
+            : undefined;
+          
+          // Ders adı
+          let dersAdi = columnMap.dersAdi !== -1 
+            ? String(row[columnMap.dersAdi] || '').trim() 
+            : '';
+          
+          // Ders kodu
+          let dersKodu = '';
+          if (dersAdi) {
+            dersKodu = normalizeDersKodu(dersAdi) || dersAdi;
           } else {
-            // Satırdaki ilk sayıyı bul
-            soruNo = index - startIndex + 1;
+            // Ders sütunu bulunamadıysa satırda ara
+            for (let i = 0; i < row.length; i++) {
+              const val = String(row[i] || '').toUpperCase().trim();
+              const normalized = normalizeDersKodu(val);
+              if (normalized) {
+                dersKodu = normalized;
+                dersAdi = val;
+                break;
+              }
+            }
+          }
+          
+          // Kitapçık bazlı soru numaraları
+          const kitapcikSoruNo: { A?: number; B?: number; C?: number; D?: number } = {};
+          
+          if (columnMap.soruNoA !== -1) {
+            const val = parseInt(String(row[columnMap.soruNoA]));
+            if (!isNaN(val) && val > 0) kitapcikSoruNo.A = val;
+          }
+          if (columnMap.soruNoB !== -1) {
+            const val = parseInt(String(row[columnMap.soruNoB]));
+            if (!isNaN(val) && val > 0) kitapcikSoruNo.B = val;
+          }
+          if (columnMap.soruNoC !== -1) {
+            const val = parseInt(String(row[columnMap.soruNoC]));
+            if (!isNaN(val) && val > 0) kitapcikSoruNo.C = val;
+          }
+          if (columnMap.soruNoD !== -1) {
+            const val = parseInt(String(row[columnMap.soruNoD]));
+            if (!isNaN(val) && val > 0) kitapcikSoruNo.D = val;
+          }
+          
+          // Ana soru numarası (A kitapçığından veya B'den)
+          let soruNo = kitapcikSoruNo.A || kitapcikSoruNo.B || (index - startIndex + 1);
+          
+          // Eğer kitapçık sütunu yoksa satırda sayı ara
+          if (!kitapcikSoruNo.A && !kitapcikSoruNo.B) {
             for (let i = 0; i < row.length; i++) {
               const val = parseInt(String(row[i]));
               if (!isNaN(val) && val > 0 && val <= 200) {
@@ -251,22 +279,16 @@ export default function KazanimCevapAnahtari({
             }
           }
           
-          if (isNaN(soruNo) || soruNo <= 0) {
-            parseErrors.push(`Satır ${index + 1}: Geçersiz soru numarası`);
-            return;
-          }
-          
-          // Cevabı bul
+          // Cevap
           let dogruCevap: string = '';
           if (columnMap.cevap !== -1) {
             dogruCevap = String(row[columnMap.cevap] || '').toUpperCase().trim();
           } else {
-            // A, B, C, D, E içeren sütunu bul
+            // Satırda A, B, C, D, E ara
             for (let i = 0; i < row.length; i++) {
               const val = String(row[i] || '').toUpperCase().trim();
               if (['A', 'B', 'C', 'D', 'E'].includes(val)) {
                 dogruCevap = val;
-                if (columnMap.cevap === -1) columnMap.cevap = i;
                 break;
               }
             }
@@ -277,51 +299,34 @@ export default function KazanimCevapAnahtari({
             return;
           }
           
-          // Ders kodunu bul
-          let dersKodu = '';
-          if (columnMap.ders !== -1) {
-            dersKodu = String(row[columnMap.ders] || '').toUpperCase().trim();
-          } else {
-            // Ders adı içeren sütunu bul
-            for (let i = 0; i < row.length; i++) {
-              const val = String(row[i] || '').toUpperCase().trim();
-              const normalized = normalizeDersKodu(val);
-              if (normalized) {
-                dersKodu = val;
-                if (columnMap.ders === -1) columnMap.ders = i;
-                break;
-              }
-            }
-          }
-          
-          const normalizedDersKodu = normalizeDersKodu(dersKodu) || dersKodu;
-          
-          // Kazanım kodunu bul
+          // Kazanım kodu (opsiyonel)
           let kazanimKodu = '';
           if (columnMap.kazanimKodu !== -1) {
             kazanimKodu = String(row[columnMap.kazanimKodu] || '').trim();
           } else {
-            // Kazanım kodu formatı ara (ör: T.8.1.2)
+            // Satırda kazanım kodu formatı ara
             for (let i = 0; i < row.length; i++) {
               const val = String(row[i] || '').trim();
-              if (/^[A-Z]\.\d+\.\d+\.\d+/.test(val) || /^[A-Z]\d+\.\d+\.\d+/.test(val)) {
+              if (/^[A-ZİÇŞĞÜÖ]+\.\d+\.\d+/.test(val)) {
                 kazanimKodu = val;
-                if (columnMap.kazanimKodu === -1) columnMap.kazanimKodu = i;
                 break;
               }
             }
           }
           
-          // Kazanım metnini bul (en uzun string sütunu)
+          // Kazanım metni (opsiyonel - en uzun string)
           let kazanimMetni = '';
           if (columnMap.kazanimMetni !== -1) {
             kazanimMetni = String(row[columnMap.kazanimMetni] || '').trim();
           } else {
-            // En uzun string'i bul (muhtemelen kazanım metni)
+            // En uzun string'i bul
             let maxLen = 0;
             for (let i = 0; i < row.length; i++) {
               const val = String(row[i] || '').trim();
-              if (val.length > maxLen && val.length > 20 && i !== columnMap.ders) {
+              if (val.length > maxLen && val.length > 25 && 
+                  i !== columnMap.dersAdi && 
+                  i !== columnMap.testKodu &&
+                  i !== columnMap.kazanimKodu) {
                 maxLen = val.length;
                 kazanimMetni = val;
               }
@@ -331,16 +336,21 @@ export default function KazanimCevapAnahtari({
           parsed.push({
             soruNo,
             dogruCevap: dogruCevap as 'A' | 'B' | 'C' | 'D' | 'E',
-            dersKodu: normalizedDersKodu,
+            dersKodu,
+            dersAdi: dersAdi || undefined,
+            testKodu: testKodu || undefined,
+            kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 0 ? kitapcikSoruNo : undefined,
             kazanimKodu: kazanimKodu || undefined,
             kazanimMetni: kazanimMetni || undefined,
-            konuAdi: undefined,
             zorluk: 0.5
           });
         });
         
         // Soru numarasına göre sırala
         parsed.sort((a, b) => a.soruNo - b.soruNo);
+        
+        console.log('✅ Parse edildi:', parsed.length, 'soru');
+        console.log('📋 Örnek veri:', parsed[0]);
         
         setParsedData(parsed);
         setErrors(parseErrors);
@@ -450,7 +460,7 @@ export default function KazanimCevapAnahtari({
     return groups;
   }, [parsedData]);
 
-  // İstatistikler
+  // İstatistikler - GELİŞMİŞ
   const stats = useMemo(() => {
     const dersler = Object.keys(groupedByDers);
     const kazanimSayisi = new Set(parsedData.filter(d => d.kazanimKodu).map(d => d.kazanimKodu)).size;
@@ -463,11 +473,30 @@ export default function KazanimCevapAnahtari({
       color: DERS_RENKLERI[kod] || '#64748B'
     }));
     
+    // Kitapçık analizi
+    const hasKitapcikA = parsedData.some(s => s.kitapcikSoruNo?.A);
+    const hasKitapcikB = parsedData.some(s => s.kitapcikSoruNo?.B);
+    const hasKitapcikC = parsedData.some(s => s.kitapcikSoruNo?.C);
+    const hasKitapcikD = parsedData.some(s => s.kitapcikSoruNo?.D);
+    
+    const kitapciklar: string[] = [];
+    if (hasKitapcikA) kitapciklar.push('A');
+    if (hasKitapcikB) kitapciklar.push('B');
+    if (hasKitapcikC) kitapciklar.push('C');
+    if (hasKitapcikD) kitapciklar.push('D');
+    
+    // Kazanım analizi
+    const hasKazanim = parsedData.some(s => s.kazanimKodu);
+    const testKodlari = new Set(parsedData.filter(d => d.testKodu).map(d => d.testKodu));
+    
     return {
       toplamSoru: parsedData.length,
       dersSayisi: dersler.length,
       kazanimSayisi,
-      dersBazliSoruSayisi
+      dersBazliSoruSayisi,
+      kitapciklar,
+      hasKazanim,
+      testKodlari: Array.from(testKodlari)
     };
   }, [parsedData, groupedByDers]);
 
@@ -571,22 +600,26 @@ export default function KazanimCevapAnahtari({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
-            {/* Excel Format Bilgisi */}
+            {/* Excel Format Bilgisi - GELİŞMİŞ */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <div className="flex gap-3">
                 <FileSpreadsheet className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <strong>Excel Formatı:</strong> Sütunlar sırasıyla şu şekilde olmalı:
-                  <div className="mt-2 grid grid-cols-7 gap-1 text-xs font-mono">
-                    <div className="bg-white/70 px-2 py-1 rounded text-center">A: Soru No</div>
-                    <div className="bg-white/70 px-2 py-1 rounded text-center">B: Cevap</div>
-                    <div className="bg-white/70 px-2 py-1 rounded text-center">C: Ders</div>
-                    <div className="bg-white/70 px-2 py-1 rounded text-center">D: Kazanım Kodu</div>
-                    <div className="bg-white/70 px-2 py-1 rounded text-center col-span-3">E: Kazanım Metni</div>
+                <div className="text-sm text-blue-800 w-full">
+                  <strong>Excel Formatı:</strong> Desteklenen sütunlar (herhangi bir sırada olabilir):
+                  <div className="mt-2 grid grid-cols-4 gap-1 text-xs font-mono">
+                    <div className="bg-slate-100 px-2 py-1.5 rounded text-center">TEST KODU</div>
+                    <div className="bg-orange-100 px-2 py-1.5 rounded text-center">DERS ADI</div>
+                    <div className="bg-blue-100 px-2 py-1.5 rounded text-center">A SORU NO</div>
+                    <div className="bg-green-100 px-2 py-1.5 rounded text-center">B SORU NO</div>
+                    <div className="bg-emerald-200 px-2 py-1.5 rounded text-center font-bold">DOĞRU CEVAP ✓</div>
+                    <div className="bg-purple-100 px-2 py-1.5 rounded text-center">KAZANIM KODU</div>
+                    <div className="bg-purple-100 px-2 py-1.5 rounded text-center col-span-2">KAZANIM METNİ</div>
                   </div>
-                  <p className="mt-2 text-xs text-blue-600">
-                    💡 Ders kodları otomatik tanınır: Türkçe, Matematik, Fen, Sosyal, İngilizce, Din
-                  </p>
+                  <div className="mt-3 text-xs text-blue-600 space-y-1">
+                    <p>📚 <strong>Kitapçık Desteği:</strong> A, B, C, D kitapçık soru numaraları otomatik algılanır</p>
+                    <p>📝 <strong>Opsiyonel Alanlar:</strong> Kazanım kodu/metni yoksa o sütunlar gösterilmez</p>
+                    <p>💡 <strong>Ders Tanıma:</strong> Türkçe, Matematik, Fen, Sosyal, İngilizce, Din otomatik tanınır</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -724,21 +757,27 @@ export default function KazanimCevapAnahtari({
                 exit={{ height: 0, opacity: 0 }}
                 className="border-t border-slate-200"
               >
-                {/* İstatistikler */}
+                {/* İstatistikler - GELİŞMİŞ */}
                 <div className="p-4 bg-slate-50 space-y-4">
                   {/* Özet Kartları */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-3 bg-white rounded-xl">
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="text-center p-3 bg-white rounded-xl shadow-sm">
                       <div className="text-2xl font-bold text-emerald-600">{stats.toplamSoru}</div>
-                      <div className="text-sm text-slate-500">Toplam Soru</div>
+                      <div className="text-xs text-slate-500">Toplam Soru</div>
                     </div>
-                    <div className="text-center p-3 bg-white rounded-xl">
+                    <div className="text-center p-3 bg-white rounded-xl shadow-sm">
                       <div className="text-2xl font-bold text-blue-600">{stats.dersSayisi}</div>
-                      <div className="text-sm text-slate-500">Ders</div>
+                      <div className="text-xs text-slate-500">Ders</div>
                     </div>
-                    <div className="text-center p-3 bg-white rounded-xl">
+                    <div className="text-center p-3 bg-white rounded-xl shadow-sm">
                       <div className="text-2xl font-bold text-purple-600">{stats.kazanimSayisi}</div>
-                      <div className="text-sm text-slate-500">Kazanım</div>
+                      <div className="text-xs text-slate-500">Kazanım</div>
+                    </div>
+                    <div className="text-center p-3 bg-white rounded-xl shadow-sm">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {stats.kitapciklar.length > 0 ? stats.kitapciklar.join('/') : '-'}
+                      </div>
+                      <div className="text-xs text-slate-500">Kitapçık</div>
                     </div>
                   </div>
                   
@@ -771,66 +810,118 @@ export default function KazanimCevapAnahtari({
                   </div>
                 </div>
 
-                {/* Ders Bazlı Gruplar */}
-                <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
-                  {Object.entries(groupedByDers).map(([dersKodu, sorular]) => (
-                    <div key={dersKodu} className="border border-slate-200 rounded-xl overflow-hidden">
-                      <div 
-                        className="flex items-center gap-3 p-3"
-                        style={{ backgroundColor: `${DERS_RENKLERI[dersKodu]}15` }}
-                      >
+                {/* Ders Bazlı Gruplar - GENİŞLETİLMİŞ TABLO */}
+                <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                  {Object.entries(groupedByDers).map(([dersKodu, sorular]) => {
+                    // Kitapçık sütunlarını kontrol et
+                    const hasKitapcikA = sorular.some(s => s.kitapcikSoruNo?.A);
+                    const hasKitapcikB = sorular.some(s => s.kitapcikSoruNo?.B);
+                    const hasKitapcikC = sorular.some(s => s.kitapcikSoruNo?.C);
+                    const hasKitapcikD = sorular.some(s => s.kitapcikSoruNo?.D);
+                    const hasTestKodu = sorular.some(s => s.testKodu);
+                    const hasKazanim = sorular.some(s => s.kazanimKodu);
+                    
+                    return (
+                      <div key={dersKodu} className="border border-slate-200 rounded-xl overflow-hidden">
                         <div 
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: DERS_RENKLERI[dersKodu] }}
-                        />
-                        <span className="font-semibold" style={{ color: DERS_RENKLERI[dersKodu] }}>
-                          {DERS_ISIMLERI[dersKodu] || dersKodu}
-                        </span>
-                        <span className="text-sm text-slate-500">({sorular.length} soru)</span>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-100">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-slate-600">No</th>
-                              <th className="px-3 py-2 text-center text-slate-600">Cevap</th>
-                              <th className="px-3 py-2 text-left text-slate-600">Kazanım Kodu</th>
-                              <th className="px-3 py-2 text-left text-slate-600">Kazanım Metni</th>
-                              <th className="px-3 py-2 text-center text-slate-600">İşlem</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sorular.map((soru, idx) => (
-                              <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
-                                <td className="px-3 py-2 font-medium">{soru.soruNo}</td>
-                                <td className="px-3 py-2 text-center">
-                                  <span className="w-7 h-7 inline-flex items-center justify-center bg-emerald-100 text-emerald-700 rounded-full font-bold">
-                                    {soru.dogruCevap}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <code className="px-2 py-0.5 bg-slate-100 rounded text-xs">
-                                    {soru.kazanimKodu || '-'}
-                                  </code>
-                                </td>
-                                <td className="px-3 py-2 text-slate-600 max-w-xs truncate">
-                                  {soru.kazanimMetni || '-'}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  <button
-                                    onClick={() => setParsedData(prev => prev.filter((_, i) => i !== parsedData.indexOf(soru)))}
-                                    className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
+                          className="flex items-center gap-3 p-3"
+                          style={{ backgroundColor: `${DERS_RENKLERI[dersKodu]}15` }}
+                        >
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: DERS_RENKLERI[dersKodu] }}
+                          />
+                          <span className="font-semibold" style={{ color: DERS_RENKLERI[dersKodu] }}>
+                            {DERS_ISIMLERI[dersKodu] || dersKodu}
+                          </span>
+                          <span className="text-sm text-slate-500">({sorular.length} soru)</span>
+                          
+                          {/* Kitapçık bilgisi varsa göster */}
+                          {(hasKitapcikA || hasKitapcikB) && (
+                            <div className="flex gap-1 ml-auto">
+                              {hasKitapcikA && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">A</span>}
+                              {hasKitapcikB && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">B</span>}
+                              {hasKitapcikC && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">C</span>}
+                              {hasKitapcikD && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">D</span>}
+                            </div>
+                          )}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-100">
+                              <tr>
+                                {hasTestKodu && <th className="px-2 py-2 text-left text-slate-600 text-xs">Test Kodu</th>}
+                                <th className="px-2 py-2 text-center text-slate-600 text-xs">
+                                  {hasKitapcikA ? 'A' : 'No'}
+                                </th>
+                                {hasKitapcikB && <th className="px-2 py-2 text-center text-slate-600 text-xs">B</th>}
+                                {hasKitapcikC && <th className="px-2 py-2 text-center text-slate-600 text-xs">C</th>}
+                                {hasKitapcikD && <th className="px-2 py-2 text-center text-slate-600 text-xs">D</th>}
+                                <th className="px-2 py-2 text-center text-slate-600 text-xs">Cevap</th>
+                                {hasKazanim && <th className="px-2 py-2 text-left text-slate-600 text-xs">Kazanım Kodu</th>}
+                                {hasKazanim && <th className="px-2 py-2 text-left text-slate-600 text-xs">Kazanım Metni</th>}
+                                <th className="px-2 py-2 text-center text-slate-600 text-xs">Sil</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {sorular.map((soru, idx) => (
+                                <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
+                                  {hasTestKodu && (
+                                    <td className="px-2 py-1.5 text-xs text-slate-500">
+                                      {soru.testKodu || '-'}
+                                    </td>
+                                  )}
+                                  <td className="px-2 py-1.5 text-center font-medium text-blue-700">
+                                    {soru.kitapcikSoruNo?.A || soru.soruNo}
+                                  </td>
+                                  {hasKitapcikB && (
+                                    <td className="px-2 py-1.5 text-center font-medium text-green-700">
+                                      {soru.kitapcikSoruNo?.B || '-'}
+                                    </td>
+                                  )}
+                                  {hasKitapcikC && (
+                                    <td className="px-2 py-1.5 text-center font-medium text-orange-700">
+                                      {soru.kitapcikSoruNo?.C || '-'}
+                                    </td>
+                                  )}
+                                  {hasKitapcikD && (
+                                    <td className="px-2 py-1.5 text-center font-medium text-purple-700">
+                                      {soru.kitapcikSoruNo?.D || '-'}
+                                    </td>
+                                  )}
+                                  <td className="px-2 py-1.5 text-center">
+                                    <span className="w-6 h-6 inline-flex items-center justify-center bg-emerald-100 text-emerald-700 rounded-full font-bold text-xs">
+                                      {soru.dogruCevap}
+                                    </span>
+                                  </td>
+                                  {hasKazanim && (
+                                    <td className="px-2 py-1.5">
+                                      <code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">
+                                        {soru.kazanimKodu || '-'}
+                                      </code>
+                                    </td>
+                                  )}
+                                  {hasKazanim && (
+                                    <td className="px-2 py-1.5 text-slate-600 text-xs max-w-[200px] truncate" title={soru.kazanimMetni}>
+                                      {soru.kazanimMetni || '-'}
+                                    </td>
+                                  )}
+                                  <td className="px-2 py-1.5 text-center">
+                                    <button
+                                      onClick={() => setParsedData(prev => prev.filter((_, i) => i !== parsedData.indexOf(soru)))}
+                                      className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Kaydet Butonu ve Onay */}
