@@ -139,6 +139,105 @@ function fixTurkishChars(text: string): string {
   return r.split(/\s+/).map(w => findClosestName(w)).join(' ');
 }
 
+// ==================== VALIDATION PATTERNS ====================
+
+const VALIDATION_PATTERNS = {
+  tc: /^\d{11}$/,                    // TC Kimlik: Tam 11 rakam
+  ogrenci_no: /^\d{1,10}$/,          // Öğrenci No: 1-10 rakam
+  sinif: /^([1-9]|1[0-2])[A-Z]?$/,   // Sınıf: 1-12 + opsiyonel harf (8A, 11B)
+  kitapcik: /^[ABCD]$/i,             // Kitapçık: A, B, C veya D
+  cevaplar: /^[ABCDE\s\-]+$/i,       // Cevaplar: A,B,C,D,E ve boşluk/tire
+};
+
+// Validasyon fonksiyonu
+function validateField(value: string, type: FieldType): { valid: boolean; error?: string } {
+  const trimmed = value.trim();
+  
+  if (!trimmed) {
+    return { valid: false, error: 'Boş değer' };
+  }
+  
+  switch (type) {
+    case 'tc':
+      if (!VALIDATION_PATTERNS.tc.test(trimmed)) {
+        return { valid: false, error: 'TC 11 rakam olmalı' };
+      }
+      // TC algoritma kontrolü
+      if (!validateTCAlgorithm(trimmed)) {
+        return { valid: false, error: 'Geçersiz TC' };
+      }
+      return { valid: true };
+      
+    case 'ogrenci_no':
+      if (!VALIDATION_PATTERNS.ogrenci_no.test(trimmed)) {
+        return { valid: false, error: 'Geçersiz öğrenci no' };
+      }
+      return { valid: true };
+      
+    case 'sinif':
+      if (!VALIDATION_PATTERNS.sinif.test(trimmed)) {
+        return { valid: false, error: 'Geçersiz sınıf (örn: 8A)' };
+      }
+      return { valid: true };
+      
+    case 'kitapcik':
+      if (!VALIDATION_PATTERNS.kitapcik.test(trimmed)) {
+        return { valid: false, error: 'Kitapçık A,B,C,D olmalı' };
+      }
+      return { valid: true };
+      
+    case 'cevaplar':
+      if (!VALIDATION_PATTERNS.cevaplar.test(trimmed)) {
+        return { valid: false, error: 'Geçersiz cevap formatı' };
+      }
+      return { valid: true };
+      
+    default:
+      return { valid: true };
+  }
+}
+
+// TC Kimlik algoritma doğrulaması
+function validateTCAlgorithm(tc: string): boolean {
+  if (tc.length !== 11 || tc[0] === '0') return false;
+  
+  const digits = tc.split('').map(Number);
+  
+  // 10. hane kontrolü
+  const oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+  const evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+  const check10 = ((oddSum * 7) - evenSum) % 10;
+  if (check10 !== digits[9]) return false;
+  
+  // 11. hane kontrolü
+  const sum10 = digits.slice(0, 10).reduce((a, b) => a + b, 0);
+  if (sum10 % 10 !== digits[10]) return false;
+  
+  return true;
+}
+
+// ==================== OVERLAP DETECTION ====================
+
+function checkOverlap(fields: FieldDefinition[], newStart: number, newEnd: number, excludeId?: string): boolean {
+  for (const field of fields) {
+    if (excludeId && field.id === excludeId) continue;
+    
+    // Overlap kontrolü: yeni alanın başı veya sonu mevcut alanla çakışıyor mu?
+    const overlap = !(newEnd < field.start || newStart > field.end);
+    if (overlap) return true;
+  }
+  return false;
+}
+
+function getOverlapMessage(fields: FieldDefinition[], start: number, end: number): string | null {
+  for (const field of fields) {
+    if (!(end < field.start || start > field.end)) {
+      return `"${field.label}" alanı ile çakışıyor (${field.start}-${field.end})`;
+    }
+  }
+  return null;
+}
+
 // ==================== TYPES ====================
 
 type FieldType = 'ogrenci_no' | 'tc' | 'ad_soyad' | 'sinif' | 'kitapcik' | 'cevaplar' | 'custom';
@@ -147,7 +246,7 @@ interface FieldDefinition {
   id: string;
   type: FieldType;
   label: string;
-  start: number;
+  start: number; // inclusive (1-based)
   end: number;
 }
 
@@ -158,7 +257,22 @@ interface ParsedStudent {
   sinif?: string;
   kitapcik?: string;
   cevaplar?: string;
-  [key: string]: string | undefined;
+  answers?: Record<string, string>; // { "Türkçe": "ABCDA...", "Matematik": "BCDAB..." }
+  validationErrors?: string[];
+  isValid?: boolean;
+  [key: string]: string | string[] | Record<string, string> | boolean | undefined;
+}
+
+// Structured output for export
+interface StructuredOutput {
+  studentNo: string;
+  fullName: string;
+  tc: string;
+  class: string;
+  booklet: string;
+  answers: Record<string, string>;
+  validationStatus: 'valid' | 'warning' | 'error';
+  errors: string[];
 }
 
 interface FormTemplate {
@@ -307,21 +421,70 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const sampleLines = useMemo(() => rawLines.slice(0, 3).map(l => fixTurkishChars(l)), [rawLines]);
   const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length), 100), [rawLines]);
   
-  // Parse edilmiş öğrenciler
+  // Parse edilmiş öğrenciler - FIXED-WIDTH PARSING
   const parsedStudents = useMemo((): ParsedStudent[] => {
     return rawLines.map(line => {
-      const c = fixTurkishChars(line);
+      // FIXED-WIDTH: Karakter pozisyonlarına göre ayıkla, SPACE SPLIT YAPMA
+      const correctedLine = fixTurkishChars(line);
       const s: ParsedStudent = {};
+      const errors: string[] = [];
+      const answers: Record<string, string> = {};
+      
       fields.forEach(f => {
-        const v = c.substring(f.start - 1, f.end).trim();
-        if (f.type === 'ogrenci_no') s.ogrenciNo = v;
-        else if (f.type === 'tc') s.tc = v;
-        else if (f.type === 'ad_soyad') s.adSoyad = v;
-        else if (f.type === 'sinif') s.sinif = v;
-        else if (f.type === 'kitapcik') s.kitapcik = v;
-        else if (f.type === 'cevaplar') s.cevaplar = v;
-        else s[f.label] = v;
+        // CRITICAL: substring ile tam pozisyon çıkarımı
+        // start-1 çünkü UI'da 1-based, JS'te 0-based
+        const rawValue = correctedLine.substring(f.start - 1, f.end);
+        const trimmedValue = rawValue.trim();
+        
+        // Validasyon kontrolü
+        const validation = validateField(trimmedValue, f.type);
+        if (!validation.valid && validation.error) {
+          errors.push(`${f.label}: ${validation.error}`);
+        }
+        
+        // Alan tipine göre atama
+        switch (f.type) {
+          case 'ogrenci_no':
+            s.ogrenciNo = trimmedValue;
+            break;
+          case 'tc':
+            s.tc = trimmedValue;
+            // TC geçersizse, ad-soyad ile eşleştirme yapılacak (fallback)
+            if (!validation.valid) {
+              s.tc = undefined; // Geçersiz TC'yi temizle
+            }
+            break;
+          case 'ad_soyad':
+            s.adSoyad = trimmedValue;
+            break;
+          case 'sinif':
+            s.sinif = trimmedValue.toUpperCase();
+            break;
+          case 'kitapcik':
+            s.kitapcik = trimmedValue.toUpperCase();
+            break;
+          case 'cevaplar':
+            s.cevaplar = trimmedValue.toUpperCase().replace(/\s+/g, '');
+            answers[f.label] = trimmedValue.toUpperCase().replace(/\s+/g, '');
+            break;
+          default:
+            // Custom alanlar - ders bazlı cevaplar olabilir
+            if (f.label.toLowerCase().includes('türkçe') || 
+                f.label.toLowerCase().includes('matematik') ||
+                f.label.toLowerCase().includes('fen') ||
+                f.label.toLowerCase().includes('sosyal') ||
+                f.label.toLowerCase().includes('ingilizce') ||
+                f.label.toLowerCase().includes('din')) {
+              answers[f.label] = trimmedValue.toUpperCase().replace(/\s+/g, '');
+            }
+            s[f.label] = trimmedValue;
+        }
       });
+      
+      s.answers = answers;
+      s.validationErrors = errors;
+      s.isValid = errors.length === 0;
+      
       return s;
     });
   }, [rawLines, fields]);
@@ -356,6 +519,11 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     return Math.min(100, score);
   }, [fields, duplicates, maxLength]);
   
+  // Validasyon hataları sayısı
+  const validationErrors = useMemo(() => {
+    return parsedStudents.filter(s => !s.isValid).length;
+  }, [parsedStudents]);
+  
   // İstatistikler
   const stats = useMemo(() => ({
     students: rawLines.length,
@@ -365,7 +533,8 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     coverage: Math.round((fields.reduce((s, f) => s + (f.end - f.start + 1), 0) / maxLength) * 100),
     duplicateCount: duplicates.size,
     qualityScore,
-  }), [rawLines, fields, maxLength, duplicates, qualityScore]);
+    validationErrors,
+  }), [rawLines, fields, maxLength, duplicates, qualityScore, validationErrors]);
   
   // OTOMATİK ALAN ALGILAMA
   const autoDetectFields = useCallback(() => {
@@ -413,11 +582,20 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     }, 500);
   }, [sampleLines, pushHistory]);
   
-  // Alan ata
+  // Alan ata - OVERLAP KONTROLÜ İLE
   const handleAssignField = useCallback((type: FieldType, label?: string) => {
     if (!selection) return;
     const s = Math.min(selection.start, selection.end) + 1;
     const e = Math.max(selection.start, selection.end) + 1;
+    
+    // OVERLAP KONTROLÜ
+    if (checkOverlap(fields, s, e)) {
+      const overlapMsg = getOverlapMessage(fields, s, e);
+      playSound('error');
+      alert(`⚠️ Çakışma Hatası!\n\n${overlapMsg}\n\nAlanlar üst üste binemez.`);
+      return;
+    }
+    
     const ft = FIELD_TYPES.find(f => f.type === type);
     const newFields = [...fields, { id: `f-${Date.now()}`, type, label: label || ft?.label || 'Özel', start: s, end: e }].sort((a, b) => a.start - b.start);
     setFields(newFields);
@@ -440,9 +618,18 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   
   const handleMouseUp = useCallback(() => setIsSelecting(false), []);
   
-  // Manuel ekle
+  // Manuel ekle - OVERLAP KONTROLÜ İLE
   const handleAddManualField = useCallback(() => {
     if (!manualField.label.trim()) return;
+    
+    // OVERLAP KONTROLÜ
+    if (checkOverlap(fields, manualField.start, manualField.end)) {
+      const overlapMsg = getOverlapMessage(fields, manualField.start, manualField.end);
+      playSound('error');
+      alert(`⚠️ Çakışma Hatası!\n\n${overlapMsg}\n\nAlanlar üst üste binemez.`);
+      return;
+    }
+    
     const newFields = [...fields, { id: `f-${Date.now()}`, type: 'custom' as FieldType, label: manualField.label, start: manualField.start, end: manualField.end }].sort((a, b) => a.start - b.start);
     setFields(newFields);
     pushHistory(newFields);
@@ -579,7 +766,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       )}
       
       {/* METRİKLER */}
-      <div className="grid grid-cols-7 gap-2 mb-4">
+      <div className="grid grid-cols-8 gap-2 mb-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
           <div className="text-lg font-bold text-blue-600">{stats.students}</div>
           <div className="text-[10px] text-blue-500">Öğrenci</div>
@@ -610,6 +797,13 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             <Award className="w-4 h-4" />{stats.qualityScore}
           </div>
           <div className={`text-[10px] ${stats.qualityScore >= 80 ? 'text-emerald-500' : stats.qualityScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>Kalite</div>
+        </div>
+        <div className={`border rounded-xl p-2 text-center ${stats.validationErrors > 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+          <div className={`text-lg font-bold flex items-center justify-center gap-1 ${stats.validationErrors > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+            {stats.validationErrors > 0 ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+            {stats.validationErrors}
+          </div>
+          <div className={`text-[10px] ${stats.validationErrors > 0 ? 'text-orange-500' : 'text-green-500'}`}>Hatalı</div>
         </div>
         <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-2 text-center">
           <div className="text-lg font-bold text-indigo-600">{zoom}%</div>
@@ -901,7 +1095,10 @@ function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore,
                       else if (f.type === 'sinif') v = s.sinif || '';
                       else if (f.type === 'kitapcik') v = s.kitapcik || '';
                       else if (f.type === 'cevaplar') v = s.cevaplar || '';
-                      else v = s[f.label] || '';
+                      else {
+                        const val = s[f.label];
+                        v = typeof val === 'string' ? val : '';
+                      }
                       return <td key={f.id} className="px-3 py-2 font-mono text-sm truncate max-w-[180px]">{v || '—'}</td>;
                     })}
                     <td className="px-3 py-2 text-center">
