@@ -54,6 +54,24 @@ export {
   TeacherReportTemplate
 } from './templates';
 
+export { ExamReportCard } from './templates/examReportCard';
+
+// ==================== BATCH GENERATOR ====================
+
+export {
+  generateSinglePDF,
+  generateBatchPDFs,
+  estimatePDFSize,
+  estimateDuration,
+  formatFileSize,
+} from './batchGenerator';
+
+export type {
+  BatchGeneratorInput,
+  BatchGeneratorResult,
+  SinglePDFResult,
+} from './batchGenerator';
+
 // ==================== SECTIONS ====================
 
 export {

@@ -10,4 +10,5 @@ export * from './theme';
 export { ExamWizard } from './ExamWizard';
 export { Dashboard } from './Dashboard';
 export { ResultsExplorer } from './ResultsExplorer';
+export { StudentProfile } from './StudentProfile';
 
