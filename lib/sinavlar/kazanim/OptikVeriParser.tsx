@@ -77,6 +77,16 @@ export default function OptikVeriParser({
   // Veriyi parse et
   const parseData = useCallback(() => {
     if (!sablon || !rawContent.trim()) return;
+    
+    // Alan tanımı kontrolü
+    if (!sablon.alanTanimlari || sablon.alanTanimlari.length === 0) {
+      alert('Şablonda alan tanımı yok! Lütfen geri dönüp şablonu tamamlayın.');
+      return;
+    }
+
+    console.log('📊 Parse başlatılıyor...');
+    console.log('Şablon:', sablon.sablonAdi);
+    console.log('Alan tanımları:', sablon.alanTanimlari);
 
     setIsParsing(true);
     const lines = rawContent.trim().split('\n');
@@ -94,13 +104,35 @@ export default function OptikVeriParser({
         isValid: true
       };
 
+      // Debug: İlk satır için detaylı log
+      if (index === 0) {
+        console.log('📝 İlk satır:', line);
+        console.log('📏 Uzunluk:', line.length);
+      }
+
       // Her alanı parse et
       sablon.alanTanimlari.forEach((alan) => {
-        const value = line.substring(alan.baslangic - 1, alan.bitis).trim();
+        // 0-indexed için -1
+        const startIdx = alan.baslangic - 1;
+        const endIdx = alan.bitis;
+        
+        // Satır yeterince uzun mu?
+        if (startIdx >= line.length) {
+          hatalar.push(`${alan.label}: Satır çok kısa (${line.length} karakter)`);
+          return;
+        }
+        
+        const value = line.substring(startIdx, endIdx).trim();
         const fixedValue = fixTurkishChars(value);
+
+        // Debug: İlk satır için alan değerlerini logla
+        if (index === 0) {
+          console.log(`  ${alan.label} [${alan.baslangic}-${alan.bitis}]: "${value}"`);
+        }
 
         switch (alan.alan) {
           case 'sinif_no':
+          case 'sinif':
             parsed.sinifNo = fixedValue;
             break;
           case 'ogrenci_no':
@@ -122,23 +154,32 @@ export default function OptikVeriParser({
             }
             break;
           case 'kitapcik':
-            const kitapcik = fixedValue.toUpperCase();
+            // Kitapçık tek karakter olabilir
+            const kitapcikRaw = value.trim();
+            const kitapcik = kitapcikRaw.length > 0 ? kitapcikRaw[kitapcikRaw.length - 1].toUpperCase() : '';
             if (['A', 'B', 'C', 'D'].includes(kitapcik)) {
               parsed.kitapcik = kitapcik as 'A' | 'B' | 'C' | 'D';
             } else if (kitapcik) {
-              hatalar.push(`Geçersiz kitapçık: ${kitapcik}`);
+              // Sayıdan sonra harf varsa onu al (örn: "8C" -> "C")
+              const match = kitapcikRaw.match(/[A-D]$/i);
+              if (match) {
+                parsed.kitapcik = match[0].toUpperCase() as 'A' | 'B' | 'C' | 'D';
+              }
             }
             break;
           case 'cevaplar':
-            // Cevapları ayrıştır
-            for (let i = 0; i < sablon.toplamSoru && i < fixedValue.length; i++) {
-              const cevap = fixedValue[i]?.toUpperCase();
+            // Cevapları ayrıştır - boşlukları da dahil et
+            const cevapStr = line.substring(startIdx, Math.min(endIdx, line.length));
+            for (let i = 0; i < sablon.toplamSoru; i++) {
+              if (i >= cevapStr.length) {
+                parsed.cevaplar.push(null);
+                continue;
+              }
+              const cevap = cevapStr[i]?.toUpperCase();
               if (['A', 'B', 'C', 'D', 'E'].includes(cevap)) {
                 parsed.cevaplar.push(cevap);
-              } else if (cevap === ' ' || cevap === '-' || cevap === '_' || cevap === '*') {
-                parsed.cevaplar.push(null); // Boş
               } else {
-                parsed.cevaplar.push(cevap || null);
+                parsed.cevaplar.push(null); // Boş veya geçersiz
               }
             }
             break;
@@ -151,17 +192,18 @@ export default function OptikVeriParser({
       }
 
       parsed.hatalar = hatalar;
-      parsed.isValid = hatalar.length === 0;
+      parsed.isValid = hatalar.length === 0 && parsed.ogrenciNo && parsed.ogrenciAdi;
       results.push(parsed);
     });
 
+    console.log('✅ Parse tamamlandı:', results.length, 'satır');
     setParsedData(results);
     setIsParsing(false);
     onParsed?.(results);
 
     // Öğrenci eşleştirme
     matchStudents(results);
-  }, [sablon, rawContent, fixTurkishChars, onParsed]);
+  }, [sablon, rawContent, fixTurkishChars, onParsed, matchStudents]);
 
   // Öğrenci eşleştirme
   const matchStudents = useCallback((data: ParsedOptikSatir[]) => {
@@ -255,6 +297,17 @@ export default function OptikVeriParser({
     );
   }
 
+  // Şablon alan sayısı kontrolü
+  if (!sablon.alanTanimlari || sablon.alanTanimlari.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 bg-red-50 rounded-xl border-2 border-dashed border-red-300">
+        <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-lg font-medium text-red-800">Şablon Eksik!</p>
+        <p className="text-sm text-red-600 mt-1">Şablonda hiç alan tanımlanmamış. Lütfen geri dönüp alan tanımlayın.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Başlık */}
@@ -264,8 +317,34 @@ export default function OptikVeriParser({
         </div>
         <div>
           <h2 className="text-xl font-bold text-slate-800">Optik Veri Yükle</h2>
-          <p className="text-sm text-slate-500">Şablon: {sablon.sablonAdi}</p>
+          <p className="text-sm text-slate-500">Şablon: {sablon.sablonAdi || 'Adsız'}</p>
         </div>
+      </div>
+
+      {/* Şablon Bilgisi */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+            <Eye size={16} />
+            Aktif Şablon Bilgisi
+          </h3>
+          <span className="text-sm text-blue-600">{sablon.toplamSoru} soru</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {sablon.alanTanimlari.map((alan, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+              style={{ backgroundColor: `${alan.color || '#64748B'}20`, color: alan.color || '#64748B' }}
+            >
+              <span className="font-medium">{alan.label}</span>
+              <span className="text-xs opacity-70">({alan.baslangic}-{alan.bitis})</span>
+            </div>
+          ))}
+        </div>
+        {sablon.alanTanimlari.length === 0 && (
+          <p className="text-sm text-red-600 mt-2">⚠️ Şablonda alan tanımı yok!</p>
+        )}
       </div>
 
       {/* Dosya Yükleme */}
