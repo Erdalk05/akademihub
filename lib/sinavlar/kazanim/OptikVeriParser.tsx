@@ -74,6 +74,47 @@ export default function OptikVeriParser({
     return result;
   }, []);
 
+  // Öğrenci eşleştirme - parseData'dan ÖNCE tanımlanmalı
+  const matchStudentsInternal = useCallback((data: ParsedOptikSatir[]) => {
+    if (ogrenciListesi.length === 0) return;
+
+    const matches = new Map<number, { ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }>();
+
+    data.forEach((satir, index) => {
+      // Önce öğrenci numarasıyla eşleştir
+      const byNo = ogrenciListesi.find(o => o.ogrenciNo === satir.ogrenciNo);
+      
+      if (byNo) {
+        matches.set(index, { ogrenciId: byNo.id, status: 'matched' });
+      } else {
+        // İsim benzerliğiyle eşleştir (fuzzy)
+        const byName = ogrenciListesi.find(o => {
+          const fullName = `${o.ad} ${o.soyad}`.toLowerCase();
+          const satirAd = satir.ogrenciAdi?.toLowerCase() || '';
+          return fullName.includes(satirAd) || satirAd.includes(fullName);
+        });
+
+        if (byName) {
+          matches.set(index, { ogrenciId: byName.id, status: 'matched' });
+        } else {
+          matches.set(index, { status: 'unmatched' });
+        }
+      }
+    });
+
+    setMatchResults(matches);
+    
+    // Callback'i çağır
+    if (onMatchStudents) {
+      const matchArray = data.map((satir, i) => ({
+        satir,
+        ogrenciId: matches.get(i)?.ogrenciId,
+        status: matches.get(i)?.status || 'unmatched'
+      }));
+      onMatchStudents(matchArray);
+    }
+  }, [ogrenciListesi, onMatchStudents]);
+
   // Veriyi parse et
   const parseData = useCallback(() => {
     if (!sablon || !rawContent.trim()) return;
@@ -202,39 +243,9 @@ export default function OptikVeriParser({
     onParsed?.(results);
 
     // Öğrenci eşleştirme
-    matchStudents(results);
-  }, [sablon, rawContent, fixTurkishChars, onParsed, matchStudents]);
+    matchStudentsInternal(results);
+  }, [sablon, rawContent, fixTurkishChars, onParsed, matchStudentsInternal]);
 
-  // Öğrenci eşleştirme
-  const matchStudents = useCallback((data: ParsedOptikSatir[]) => {
-    if (ogrenciListesi.length === 0) return;
-
-    const matches = new Map<number, { ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }>();
-
-    data.forEach((satir, index) => {
-      // Önce öğrenci numarasıyla eşleştir
-      const byNo = ogrenciListesi.find(o => o.ogrenciNo === satir.ogrenciNo);
-      
-      if (byNo) {
-        matches.set(index, { ogrenciId: byNo.id, status: 'matched' });
-      } else {
-        // İsim benzerliğiyle eşleştir (fuzzy)
-        const byName = ogrenciListesi.find(o => {
-          const fullName = `${o.ad} ${o.soyad}`.toLowerCase();
-          const satırAd = satir.ogrenciAdi?.toLowerCase() || '';
-          return fullName.includes(satırAd) || satırAd.includes(fullName);
-        });
-
-        if (byName) {
-          matches.set(index, { ogrenciId: byName.id, status: 'matched' });
-        } else {
-          matches.set(index, { status: 'unmatched' });
-        }
-      }
-    });
-
-    setMatchResults(matches);
-  }, [ogrenciListesi]);
 
   // Dosya yükle
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
