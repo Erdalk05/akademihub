@@ -179,20 +179,15 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
     }
   };
 
-  // Modal ilk açıldığında veya taksit ID'si değiştiğinde çalışacak
-  // installment nesnesinin referansı değil, ID'si takip ediliyor
-  const installmentId = installment?.id;
-  
   useEffect(() => {
-    // Sadece modal AÇILDIĞINDA ve taksit varsa tarihi sıfırla
-    if (isOpen && installment) {
+    if (installment) {
       const totalAmt = Number(installment.amount) || 0;
       const paidAmt = Number(installment.paid_amount) || 0;
       // Kalan tutarı kuruş hassasiyeti ile hesapla
       const remaining = Math.round((totalAmt - paidAmt) * 100) / 100;
       setAmount(remaining.toString()); // Varsayılan: kalan borcun tamamı
       
-      // Tarih varsayılan bugün - SADECE modal açıldığında ayarlanır
+      // Tarih varsayılan bugün
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setIsBackdatedPayment(false);
       
@@ -210,16 +205,14 @@ export default function PaymentCollectionModal({ isOpen, onClose, installment, s
           setPenaltyAmount(0);
         }
       }
-    } else if (!isOpen) {
-      // Modal kapandığında state'leri sıfırla
+    } else {
       setAmount('');
       setDelayDays(0);
       setPenaltyAmount(0);
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setIsBackdatedPayment(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installmentId, isOpen]); // installment yerine installmentId kullan
+  }, [installment, isOpen]);
 
   const handlePayment = async () => {
     if (!installment) return;
