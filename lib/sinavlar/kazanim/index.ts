@@ -28,6 +28,7 @@ export { default as OptikVeriParser } from './OptikVeriParser';
 export { default as KazanimKarnesi } from './KazanimKarnesi';
 export { default as SinavSihirbazi } from './SinavSihirbazi';
 export { default as SablonKutuphanesi } from './SablonKutuphanesi';
+export { default as DetayliOgrenciKarnesi } from './DetayliOgrenciKarnesi';
 
 // Gelişmiş Modüller
 export { default as GelismisOptikEditor } from './GelismisOptikEditor';

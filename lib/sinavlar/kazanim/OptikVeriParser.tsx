@@ -74,6 +74,30 @@ export default function OptikVeriParser({
     return result;
   }, []);
 
+  // Öğrenci adını temizle - baştaki sayıları ve gereksiz karakterleri kaldır
+  const cleanStudentName = useCallback((name: string): string => {
+    if (!name) return '';
+    
+    // 1. Baştaki sayıları kaldır (örn: "00292SUDEN TÜR" -> "SUDEN TÜR")
+    let cleaned = name.replace(/^\d+/, '').trim();
+    
+    // 2. Sondaki gereksiz karakterleri kaldır
+    cleaned = cleaned.replace(/[\d\s]+$/, '').trim();
+    
+    // 3. Birden fazla boşluğu tek boşluğa indir
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    
+    // 4. Türkçe karakterleri düzelt
+    cleaned = fixTurkishChars(cleaned);
+    
+    // 5. Ad Soyad formatına dönüştür (başharfler büyük)
+    cleaned = cleaned.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+    
+    return cleaned;
+  }, [fixTurkishChars]);
+
   // Öğrenci eşleştirme - parseData'dan ÖNCE tanımlanmalı
   const matchStudentsInternal = useCallback((data: ParsedOptikSatir[]) => {
     if (ogrenciListesi.length === 0) return;
@@ -183,8 +207,9 @@ export default function OptikVeriParser({
             }
             break;
           case 'ogrenci_adi':
-            parsed.ogrenciAdi = fixedValue;
-            if (!fixedValue || fixedValue.length < 2) {
+            // Öğrenci adını temizle - baştaki sayıları kaldır
+            parsed.ogrenciAdi = cleanStudentName(fixedValue);
+            if (!parsed.ogrenciAdi || parsed.ogrenciAdi.length < 2) {
               hatalar.push('Öğrenci adı eksik veya çok kısa');
             }
             break;
@@ -244,7 +269,7 @@ export default function OptikVeriParser({
 
     // Öğrenci eşleştirme
     matchStudentsInternal(results);
-  }, [sablon, rawContent, fixTurkishChars, onParsed, matchStudentsInternal]);
+  }, [sablon, rawContent, fixTurkishChars, cleanStudentName, onParsed, matchStudentsInternal]);
 
 
   // Dosya yükle
