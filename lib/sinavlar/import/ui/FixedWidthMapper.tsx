@@ -26,10 +26,11 @@ import {
 const ERKEK_ISIMLERI = [
   'ALİ', 'AHMET', 'MEHMET', 'MUSTAFA', 'HASAN', 'HÜSEYİN', 'İBRAHİM', 'İSMAİL',
   'OSMAN', 'YUSUF', 'MURAT', 'ÖMER', 'BURAK', 'EMRE', 'EREN', 'ARDA', 'KAAN',
-  'BERK', 'BERKAY', 'CAN', 'ÇAĞRI', 'DENIZ', 'EFE', 'ENES', 'FURKAN', 'GÖRKEM',
+  'BERK', 'BERKAY', 'CAN', 'ÇAĞRI', 'DENİZ', 'EFE', 'ENES', 'FURKAN', 'GÖRKEM',
   'HAKAN', 'KEREM', 'KORAY', 'ONUR', 'OĞUZ', 'OĞUZHAN', 'SERKAN', 'TOLGA',
   'UĞUR', 'UMUT', 'YAĞIZ', 'YIĞIT', 'YUNUS', 'ERDEM', 'ERDAL', 'EROL',
   'ŞÜKRÜ', 'ŞEREF', 'GÖKHAN', 'İLHAN', 'KEMAL', 'LEVENT', 'SİNAN',
+  'NEHİR', 'BARIŞ', 'BATUHAN', 'DORUK', 'KAYRA', 'KUTAY', 'POYRAZ',
 ];
 
 const KIZ_ISIMLERI = [
@@ -38,22 +39,69 @@ const KIZ_ISIMLERI = [
   'GİZEM', 'GÜLŞEN', 'GÜLAY', 'GÜNEŞ', 'HANDE', 'İREM', 'KÜBRA', 'MELEK',
   'MELİKE', 'MELTEM', 'ÖZGE', 'ÖZLEM', 'PELİN', 'SELEN', 'ŞİRİN', 'TUĞBA',
   'TUĞÇE', 'YAĞMUR', 'ASYA', 'ASLI', 'ÇİĞDEM', 'NURSENA', 'NAZLI',
+  'ALMİNA', 'ASMİN', 'NEHİR', 'İDİL', 'EYLÜL', 'GÜL', 'IRMAK', 'ADA',
+  'DEFNE', 'DURU', 'LARA', 'MİRA', 'MAYA', 'AZRA', 'BEREN', 'CEREN',
 ];
 
 const SOYADLARI = [
   'YILMAZ', 'KAYA', 'DEMİR', 'ÇELİK', 'ŞAHIN', 'YILDIZ', 'YILDIRIM', 'ÖZTÜRK',
-  'AYDIN', 'ÖZDEMIR', 'ARSLAN', 'DOĞAN', 'KILIÇ', 'ASLAN', 'ÇETIN', 'KARA',
+  'AYDIN', 'ÖZDEMİR', 'ARSLAN', 'DOĞAN', 'KILIÇ', 'ASLAN', 'ÇETİN', 'KARA',
   'KOÇAK', 'KURT', 'ÖZKAN', 'ŞİMŞEK', 'POLAT', 'KORKMAZ', 'GÜNEŞ', 'GÜLER',
   'KILIÇOĞLU', 'TÜRKMEN', 'TÜRK', 'ÖZCAN', 'ERDOĞAN', 'ATEŞ', 'BULUT',
+  'TAŞDEMİR', 'SÖZER', 'KARAKAYA', 'ÖNLÜ', 'ÖNCÜALTUN', 'BAYUK', 'NACAK',
+  'YAZAR', 'ALTUN', 'SAYGILI', 'PAKSOY', 'ÇİNAR', 'BBDA', 'KARAKAŞ',
 ];
 
 const TUM_ISIMLER = [...ERKEK_ISIMLERI, ...KIZ_ISIMLERI, ...SOYADLARI];
 
 function fixOCRErrors(text: string): string {
-  let result = text.toUpperCase();
-  result = result.replace(/0/g, 'O').replace(/1/g, 'I').replace(/3/g, 'E');
-  result = result.replace(/\$/g, 'Ş').replace(/@/g, 'A').replace(/\+/g, 'Ö');
-  return result;
+  let result = text;
+  
+  // ◆ ve � karakterlerini Türkçe harflere çevir (context'e göre)
+  // Bu karakterler genellikle İ, Ö, Ü, Ş, Ğ, Ç yerine çıkıyor
+  
+  // Önce yaygın kalıpları düzelt
+  result = result
+    // İ düzeltmeleri
+    .replace(/◆NAR/gi, 'İNAR')
+    .replace(/◆INAR/gi, 'ÇİNAR')
+    .replace(/AL◆/gi, 'ALİ')
+    .replace(/◆L/gi, 'İL')
+    .replace(/◆R/gi, 'İR')
+    .replace(/◆N/gi, 'İN')
+    .replace(/◆S/gi, 'İS')
+    .replace(/◆Z/gi, 'İZ')
+    .replace(/YA◆/gi, 'YAĞ')
+    .replace(/A◆/gi, 'Aİ')
+    .replace(/E◆/gi, 'Eİ')
+    .replace(/◆/g, 'İ') // Kalan ◆ → İ
+    
+    // � (replacement character) düzeltmeleri
+    .replace(/�NAR/gi, 'İNAR')
+    .replace(/AL�/gi, 'ALİ')
+    .replace(/YA�/gi, 'YAĞ')
+    .replace(/�L/gi, 'ÜL')
+    .replace(/�R/gi, 'ÜR')
+    .replace(/G�/gi, 'GÜ')
+    .replace(/�/g, 'İ') // Kalan � → İ
+    
+    // Sayı → Harf
+    .replace(/0/g, 'O')
+    .replace(/1/g, 'I')
+    .replace(/3/g, 'E')
+    .replace(/4/g, 'A')
+    .replace(/5/g, 'S')
+    .replace(/8/g, 'B')
+    
+    // Özel karakterler
+    .replace(/\$/g, 'Ş')
+    .replace(/@/g, 'A')
+    .replace(/\+/g, 'Ö')
+    .replace(/\*/g, 'Ü')
+    .replace(/~/g, 'Ğ')
+    .replace(/\^/g, 'Ç');
+  
+  return result.toUpperCase();
 }
 
 function levenshtein(a: string, b: string): number {
@@ -89,21 +137,63 @@ function findClosestName(text: string): string {
 }
 
 function fixTurkishChars(text: string): string {
-  const words = text.split(/\s+/);
+  // Önce tüm metni düzelt
+  let result = fixOCRErrors(text);
+  
+  // Yaygın Türk ismi kalıplarını düzelt
+  const namePatterns: [RegExp, string][] = [
+    // İsimler
+    [/AL[I1◆�][ ]?[C◆�]?[I1◆�]?NAR/gi, 'ALİ ÇİNAR'],
+    [/ALM[I1◆�]NA/gi, 'ALMİNA'],
+    [/ASM[I1◆�]N/gi, 'ASMİN'],
+    [/NEH[I1◆�]R/gi, 'NEHİR'],
+    [/YA[G◆�][I1◆�]Z/gi, 'YAĞIZ'],
+    [/ZEYNEP/gi, 'ZEYNEP'],
+    [/NURSENA/gi, 'NURSENA'],
+    [/ASYA/gi, 'ASYA'],
+    [/BURAK/gi, 'BURAK'],
+    [/IRMAK/gi, 'IRMAK'],
+    [/EHMET/gi, 'AHMET'],
+    [/[◆�]D[◆�]L/gi, 'İDİL'],
+    [/EYL[◆�]L/gi, 'EYLÜL'],
+    [/G[◆�]L/gi, 'GÜL'],
+    [/N[◆�]R/gi, 'NUR'],
+    
+    // Soyadlar
+    [/K[I1]L[I1◆�]?[C◆�]O[G◆�]LU/gi, 'KILIÇOĞLU'],
+    [/[O◆�]ZCAN/gi, 'ÖZCAN'],
+    [/T[◆�]RKMEN/gi, 'TÜRKMEN'],
+    [/KARAKA[Y◆�]/gi, 'KARAKAYA'],
+    [/TA[S◆�]DEM[I1◆�]R/gi, 'TAŞDEMİR'],
+    [/S[O◆�]ZER/gi, 'SÖZER'],
+    [/[◆�]NL[◆�]/gi, 'ÖNLÜ'],
+    [/KARAKA[◆�]/gi, 'KARAKAYA'],
+    [/[◆�]NC[◆�]?ALTUN/gi, 'ÖNCÜALTUN'],
+    [/YILDIRIM/gi, 'YILDIRIM'],
+    [/ARSLAN/gi, 'ARSLAN'],
+    [/PAKSOY/gi, 'PAKSOY'],
+    [/BAYUK/gi, 'BAYUK'],
+    [/NACAK/gi, 'NACAK'],
+    [/YAZAR/gi, 'YAZAR'],
+    [/ALTUN/gi, 'ALTUN'],
+    [/SAYGILI/gi, 'SAYGILI'],
+    
+    // Genel düzeltmeler
+    [/[◆�]([AEIOU])/gi, 'İ$1'],
+    [/([AEIOU])[◆�]/gi, '$1İ'],
+  ];
+  
+  for (const [pattern, replacement] of namePatterns) {
+    result = result.replace(pattern, replacement);
+  }
+  
+  // Kelime kelime işle
+  const words = result.split(/\s+/);
   const corrected = words.map(word => {
-    let cleaned = fixOCRErrors(word);
-    const matched = findClosestName(cleaned);
-    if (matched === cleaned) {
-      cleaned = cleaned
-        .replace(/OZCAN/g, 'ÖZCAN').replace(/OZGUR/g, 'ÖZGÜR').replace(/OZLEM/g, 'ÖZLEM')
-        .replace(/CIGDEM/g, 'ÇİĞDEM').replace(/GUNES/g, 'GÜNEŞ').replace(/GULER/g, 'GÜLER')
-        .replace(/SUKRU/g, 'ŞÜKRÜ').replace(/ILHAN/g, 'İLHAN').replace(/ISMAIL/g, 'İSMAİL')
-        .replace(/TURKMEN/g, 'TÜRKMEN').replace(/KILICOGLU/g, 'KILIÇOĞLU').replace(/KILIC/g, 'KILIÇ')
-        .replace(/YAGIZ/g, 'YAĞIZ').replace(/YAGMUR/g, 'YAĞMUR').replace(/SIRIN/g, 'ŞİRİN');
-      return cleaned;
-    }
+    const matched = findClosestName(word);
     return matched;
   });
+  
   return corrected.join(' ');
 }
 
