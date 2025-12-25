@@ -257,10 +257,10 @@ interface ParsedStudent {
   sinif?: string;
   kitapcik?: string;
   cevaplar?: string;
-  answers?: Record<string, string>; // { "Türkçe": "ABCDA...", "Matematik": "BCDAB..." }
+  answers?: Record<string, string>;
   validationErrors?: string[];
   isValid?: boolean;
-  [key: string]: string | string[] | Record<string, string> | boolean | undefined;
+  customFields?: Record<string, string>;
 }
 
 // Structured output for export
@@ -279,6 +279,130 @@ interface FormTemplate {
   id: string;
   name: string;
   fields: FieldDefinition[];
+}
+
+// ==================== CEVAP ANAHTARI & NET HESAPLAMA ====================
+
+interface AnswerKey {
+  subject: string;
+  answers: string;
+  questionCount: number;
+  startIndex?: number;
+  endIndex?: number;
+}
+
+interface SubjectResult {
+  subject: string;
+  correct: number;
+  wrong: number;
+  empty: number;
+  net: number;
+  total: number;
+}
+
+interface StudentResult extends ParsedStudent {
+  results?: SubjectResult[];
+  totalNet?: number;
+  totalCorrect?: number;
+  totalWrong?: number;
+  totalEmpty?: number;
+}
+
+// LGS Sınav Yapısı (90 soru)
+const LGS_STRUCTURE: AnswerKey[] = [
+  { subject: 'Türkçe', answers: '', questionCount: 20, startIndex: 0, endIndex: 20 },
+  { subject: 'Matematik', answers: '', questionCount: 20, startIndex: 20, endIndex: 40 },
+  { subject: 'Fen Bilimleri', answers: '', questionCount: 20, startIndex: 40, endIndex: 60 },
+  { subject: 'T.C. İnkılap Tarihi', answers: '', questionCount: 10, startIndex: 60, endIndex: 70 },
+  { subject: 'Din Kültürü', answers: '', questionCount: 10, startIndex: 70, endIndex: 80 },
+  { subject: 'İngilizce', answers: '', questionCount: 10, startIndex: 80, endIndex: 90 },
+];
+
+// TYT Sınav Yapısı (120 soru)
+const TYT_STRUCTURE: AnswerKey[] = [
+  { subject: 'Türkçe', answers: '', questionCount: 40, startIndex: 0, endIndex: 40 },
+  { subject: 'Sosyal Bilimler', answers: '', questionCount: 20, startIndex: 40, endIndex: 60 },
+  { subject: 'Matematik', answers: '', questionCount: 40, startIndex: 60, endIndex: 100 },
+  { subject: 'Fen Bilimleri', answers: '', questionCount: 20, startIndex: 100, endIndex: 120 },
+];
+
+// Net hesaplama (4 yanlış = 1 doğru götürür)
+function calculateNet(correct: number, wrong: number, wrongPenalty: number = 4): number {
+  const net = correct - (wrong / wrongPenalty);
+  return Math.round(net * 100) / 100; // 2 ondalık
+}
+
+// Öğrenci cevaplarını değerlendir
+function evaluateAnswers(
+  studentAnswers: string, 
+  answerKey: string, 
+  booklet: string = 'A'
+): { correct: number; wrong: number; empty: number } {
+  let correct = 0;
+  let wrong = 0;
+  let empty = 0;
+  
+  // Kitapçık rotasyonu (basit versiyon - A baz alınır)
+  const rotatedKey = rotateAnswerKey(answerKey, booklet);
+  
+  for (let i = 0; i < rotatedKey.length; i++) {
+    const studentAnswer = (studentAnswers[i] || ' ').toUpperCase().trim();
+    const correctAnswer = rotatedKey[i].toUpperCase();
+    
+    if (!studentAnswer || studentAnswer === ' ' || studentAnswer === '-') {
+      empty++;
+    } else if (studentAnswer === correctAnswer) {
+      correct++;
+    } else {
+      wrong++;
+    }
+  }
+  
+  return { correct, wrong, empty };
+}
+
+// Kitapçık rotasyonu (A→B→C→D)
+function rotateAnswerKey(key: string, booklet: string): string {
+  if (booklet.toUpperCase() === 'A') return key;
+  
+  const rotation: Record<string, Record<string, string>> = {
+    'B': { 'A': 'B', 'B': 'C', 'C': 'D', 'D': 'A' },
+    'C': { 'A': 'C', 'B': 'D', 'C': 'A', 'D': 'B' },
+    'D': { 'A': 'D', 'B': 'A', 'C': 'B', 'D': 'C' },
+  };
+  
+  const rotationMap = rotation[booklet.toUpperCase()];
+  if (!rotationMap) return key;
+  
+  return key.split('').map(c => rotationMap[c.toUpperCase()] || c).join('');
+}
+
+// Ders bazlı sonuç hesapla
+function calculateSubjectResults(
+  studentAnswers: string,
+  answerKeys: AnswerKey[],
+  booklet: string = 'A'
+): SubjectResult[] {
+  return answerKeys.map(subject => {
+    const studentSubjectAnswers = studentAnswers.substring(
+      subject.startIndex || 0, 
+      subject.endIndex || subject.questionCount
+    );
+    const { correct, wrong, empty } = evaluateAnswers(
+      studentSubjectAnswers, 
+      subject.answers, 
+      booklet
+    );
+    
+    return {
+      subject: subject.subject,
+      correct,
+      wrong,
+      empty,
+      net: calculateNet(correct, wrong),
+      total: subject.questionCount,
+    };
+  });
 }
 
 // ==================== CONSTANTS ====================
@@ -342,11 +466,26 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   
+  // CEVAP ANAHTARI
+  const [examType, setExamType] = useState<'lgs' | 'tyt' | 'custom'>('lgs');
+  const [answerKeys, setAnswerKeys] = useState<AnswerKey[]>(LGS_STRUCTURE.map(s => ({ ...s })));
+  const [showAnswerKeyModal, setShowAnswerKeyModal] = useState(false);
+  const [resultsMode, setResultsMode] = useState(false);
+  
   // UNDO/REDO
   const [history, setHistory] = useState<FieldDefinition[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
   
   const manualInputRef = useRef<HTMLInputElement>(null);
+  
+  // Sınav tipi değiştiğinde cevap anahtarı yapısını güncelle
+  useEffect(() => {
+    if (examType === 'lgs') {
+      setAnswerKeys(LGS_STRUCTURE.map(s => ({ ...s })));
+    } else if (examType === 'tyt') {
+      setAnswerKeys(TYT_STRUCTURE.map(s => ({ ...s })));
+    }
+  }, [examType]);
   
   // Undo/Redo fonksiyonları
   const pushHistory = useCallback((newFields: FieldDefinition[]) => {
@@ -477,7 +616,8 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                 f.label.toLowerCase().includes('din')) {
               answers[f.label] = trimmedValue.toUpperCase().replace(/\s+/g, '');
             }
-            s[f.label] = trimmedValue;
+            if (!s.customFields) s.customFields = {};
+            s.customFields[f.label] = trimmedValue;
         }
       });
       
@@ -678,6 +818,70 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     playSound('success');
   }, [pushHistory]);
   
+  // Cevap anahtarı güncelle
+  const updateAnswerKey = useCallback((index: number, answers: string) => {
+    setAnswerKeys(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], answers: answers.toUpperCase().replace(/[^ABCDE]/g, '') };
+      return updated;
+    });
+  }, []);
+  
+  // Sonuçları hesapla
+  const studentResults = useMemo((): StudentResult[] => {
+    const hasAnswerKeys = answerKeys.some(k => k.answers.length > 0);
+    if (!hasAnswerKeys) return parsedStudents as StudentResult[];
+    
+    return parsedStudents.map(student => {
+      const studentAnswers = student.cevaplar || '';
+      const booklet = student.kitapcik || 'A';
+      
+      const results = calculateSubjectResults(studentAnswers, answerKeys, booklet);
+      
+      const totalCorrect = results.reduce((s, r) => s + r.correct, 0);
+      const totalWrong = results.reduce((s, r) => s + r.wrong, 0);
+      const totalEmpty = results.reduce((s, r) => s + r.empty, 0);
+      const totalNet = results.reduce((s, r) => s + r.net, 0);
+      
+      return {
+        ...student,
+        results,
+        totalCorrect,
+        totalWrong,
+        totalEmpty,
+        totalNet,
+      };
+    });
+  }, [parsedStudents, answerKeys]);
+  
+  // Sınıf ortalamaları
+  const classStats = useMemo(() => {
+    if (studentResults.length === 0) return null;
+    
+    const hasResults = studentResults.some(s => s.totalNet !== undefined);
+    if (!hasResults) return null;
+    
+    const validStudents = studentResults.filter(s => s.totalNet !== undefined);
+    const avgNet = validStudents.reduce((s, r) => s + (r.totalNet || 0), 0) / validStudents.length;
+    const maxNet = Math.max(...validStudents.map(s => s.totalNet || 0));
+    const minNet = Math.min(...validStudents.map(s => s.totalNet || 0));
+    
+    // Ders bazlı ortalamalar
+    const subjectAverages: Record<string, number> = {};
+    answerKeys.forEach((key, idx) => {
+      const avg = validStudents.reduce((s, r) => s + (r.results?.[idx]?.net || 0), 0) / validStudents.length;
+      subjectAverages[key.subject] = Math.round(avg * 100) / 100;
+    });
+    
+    return {
+      avgNet: Math.round(avgNet * 100) / 100,
+      maxNet,
+      minNet,
+      studentCount: validStudents.length,
+      subjectAverages,
+    };
+  }, [studentResults, answerKeys]);
+  
   const handleDeleteTemplate = useCallback((id: string) => saveTemplates(savedTemplates.filter(t => t.id !== id)), [savedTemplates, saveTemplates]);
   
   const handleComplete = useCallback(() => {
@@ -703,11 +907,13 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   if (previewMode) {
     return (
       <PreviewScreen 
-        students={parsedStudents.slice(0, 20)} 
+        students={studentResults.slice(0, 20) as StudentResult[]} 
         fields={fields}
-        totalCount={parsedStudents.length}
+        totalCount={studentResults.length}
         duplicates={duplicates}
         qualityScore={qualityScore}
+        answerKeys={answerKeys}
+        classStats={classStats}
         onBack={() => setPreviewMode(false)}
         onConfirm={handleComplete}
       />
@@ -743,6 +949,62 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           </div>
         </div>
       </div>
+      
+      {/* CEVAP ANAHTARI MODAL */}
+      {showAnswerKeyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAnswerKeyModal(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              📝 Cevap Anahtarı - {examType.toUpperCase()}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">Her ders için doğru cevapları girin (örn: ABCDABCDA...)</p>
+            
+            <div className="space-y-4">
+              {answerKeys.map((key, idx) => (
+                <div key={idx} className="p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-gray-700">{key.subject}</span>
+                    <span className="text-xs text-gray-500">{key.questionCount} soru</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={key.answers}
+                      onChange={e => updateAnswerKey(idx, e.target.value)}
+                      placeholder={`${key.questionCount} cevap girin (ABCDA...)`}
+                      maxLength={key.questionCount}
+                      className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg font-mono text-sm uppercase tracking-wider focus:border-indigo-500"
+                    />
+                    <div className={`px-3 py-2 rounded-lg text-sm font-bold ${key.answers.length === key.questionCount ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {key.answers.length}/{key.questionCount}
+                    </div>
+                  </div>
+                  {key.answers.length > 0 && key.answers.length !== key.questionCount && (
+                    <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {key.questionCount - key.answers.length} cevap eksik
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+              <strong>💡 İpucu:</strong> Cevap anahtarını kopyala-yapıştır ile girebilirsiniz. Sadece A, B, C, D, E karakterleri kabul edilir.
+            </div>
+            
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setShowAnswerKeyModal(false)} className="flex-1 py-2 bg-gray-100 rounded-lg">İptal</button>
+              <button 
+                onClick={() => { setShowAnswerKeyModal(false); playSound('success'); }}
+                className="flex-1 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold"
+              >
+                ✅ Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* KLAVYE YARDIMI */}
       {showKeyboardHelp && (
@@ -809,6 +1071,40 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           <div className="text-lg font-bold text-indigo-600">{zoom}%</div>
           <div className="text-[10px] text-indigo-500">Zoom</div>
         </div>
+      </div>
+      
+      {/* SINAV TİPİ VE CEVAP ANAHTARI */}
+      <div className="flex gap-2 mb-4 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-indigo-700">Sınav Tipi:</span>
+          <select 
+            value={examType} 
+            onChange={e => setExamType(e.target.value as 'lgs' | 'tyt' | 'custom')}
+            className="px-3 py-1.5 border-2 border-indigo-300 rounded-lg text-sm font-medium bg-white focus:border-indigo-500"
+          >
+            <option value="lgs">LGS (90 Soru)</option>
+            <option value="tyt">TYT (120 Soru)</option>
+            <option value="custom">Özel</option>
+          </select>
+        </div>
+        <button 
+          onClick={() => setShowAnswerKeyModal(true)}
+          className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:from-indigo-600 hover:to-purple-600 shadow"
+        >
+          📝 Cevap Anahtarı Gir
+        </button>
+        {answerKeys.some(k => k.answers.length > 0) && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm">
+            <CheckCircle className="w-4 h-4" />
+            Cevap anahtarı hazır
+          </div>
+        )}
+        {classStats && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-gray-600">Sınıf Ort:</span>
+            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">{classStats.avgNet} Net</span>
+          </div>
+        )}
       </div>
       
       {/* HIZLI EYLEMLER */}
@@ -1032,16 +1328,20 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
 // ==================== PREVIEW ====================
 
 interface PreviewScreenProps {
-  students: ParsedStudent[];
+  students: StudentResult[];
   fields: FieldDefinition[];
   totalCount: number;
   duplicates: Set<string>;
   qualityScore: number;
+  answerKeys: AnswerKey[];
+  classStats: { avgNet: number; maxNet: number; minNet: number; studentCount: number; subjectAverages: Record<string, number> } | null;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore, onBack, onConfirm }: PreviewScreenProps) {
+function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore, answerKeys, classStats, onBack, onConfirm }: PreviewScreenProps) {
+  const hasResults = answerKeys.some(k => k.answers.length > 0);
+  
   return (
     <div>
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 -mx-6 -mt-6 px-6 py-4 mb-4 rounded-t-2xl">
@@ -1063,6 +1363,41 @@ function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore,
         </div>
       </div>
       
+      {/* SINIF İSTATİSTİKLERİ */}
+      {hasResults && classStats && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+          <h3 className="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+            📊 Sınıf İstatistikleri
+          </h3>
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+              <div className="text-2xl font-bold text-emerald-600">{classStats.avgNet}</div>
+              <div className="text-xs text-gray-500">Ortalama Net</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+              <div className="text-2xl font-bold text-blue-600">{classStats.maxNet}</div>
+              <div className="text-xs text-gray-500">En Yüksek</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+              <div className="text-2xl font-bold text-amber-600">{classStats.minNet}</div>
+              <div className="text-xs text-gray-500">En Düşük</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+              <div className="text-2xl font-bold text-purple-600">{classStats.studentCount}</div>
+              <div className="text-xs text-gray-500">Öğrenci</div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(classStats.subjectAverages).map(([subject, avg]) => (
+              <div key={subject} className="px-3 py-1 bg-white rounded-lg text-sm">
+                <span className="text-gray-600">{subject}:</span>
+                <span className="ml-1 font-bold text-emerald-600">{avg}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       <div className="mb-4 flex flex-wrap gap-1.5">
         {fields.map(f => {
           const ft = FIELD_TYPES.find(t => t.type === f.type);
@@ -1076,7 +1411,17 @@ function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore,
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-3 py-2 text-left">#</th>
-                {fields.map(f => <th key={f.id} className="px-3 py-2 text-left" style={{ color: FIELD_TYPES.find(t => t.type === f.type)?.color }}>{f.label}</th>)}
+                <th className="px-3 py-2 text-left text-blue-600">Öğrenci No</th>
+                <th className="px-3 py-2 text-left text-emerald-600">Ad Soyad</th>
+                <th className="px-3 py-2 text-left text-amber-600">Sınıf</th>
+                {hasResults && (
+                  <>
+                    <th className="px-3 py-2 text-center text-green-600">Doğru</th>
+                    <th className="px-3 py-2 text-center text-red-600">Yanlış</th>
+                    <th className="px-3 py-2 text-center text-gray-600">Boş</th>
+                    <th className="px-3 py-2 text-center text-indigo-600 font-bold">Net</th>
+                  </>
+                )}
                 <th className="px-3 py-2 text-center">Durum</th>
               </tr>
             </thead>
@@ -1087,20 +1432,29 @@ function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore,
                 return (
                   <tr key={idx} className={`border-b ${isDupe ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                     <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
-                    {fields.map(f => {
-                      let v = '';
-                      if (f.type === 'ogrenci_no') v = s.ogrenciNo || '';
-                      else if (f.type === 'tc') v = s.tc || '';
-                      else if (f.type === 'ad_soyad') v = s.adSoyad || '';
-                      else if (f.type === 'sinif') v = s.sinif || '';
-                      else if (f.type === 'kitapcik') v = s.kitapcik || '';
-                      else if (f.type === 'cevaplar') v = s.cevaplar || '';
-                      else {
-                        const val = s[f.label];
-                        v = typeof val === 'string' ? val : '';
-                      }
-                      return <td key={f.id} className="px-3 py-2 font-mono text-sm truncate max-w-[180px]">{v || '—'}</td>;
-                    })}
+                    <td className="px-3 py-2 font-mono font-bold text-blue-700">{s.ogrenciNo || '—'}</td>
+                    <td className="px-3 py-2 font-medium">{s.adSoyad || '—'}</td>
+                    <td className="px-3 py-2">
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold">{s.sinif || '—'}</span>
+                    </td>
+                    {hasResults && (
+                      <>
+                        <td className="px-3 py-2 text-center">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-bold">{s.totalCorrect || 0}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded font-bold">{s.totalWrong || 0}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">{s.totalEmpty || 0}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`px-3 py-1 rounded-lg font-bold text-white ${(s.totalNet || 0) >= (classStats?.avgNet || 0) ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}>
+                            {s.totalNet?.toFixed(2) || '0.00'}
+                          </span>
+                        </td>
+                      </>
+                    )}
                     <td className="px-3 py-2 text-center">
                       {isDupe ? <AlertTriangle className="w-4 h-4 text-red-500 mx-auto" /> : <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />}
                     </td>
