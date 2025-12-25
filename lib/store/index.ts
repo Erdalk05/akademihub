@@ -5,3 +5,4 @@ export { useStudentStore } from './studentStore';
 export { useFinanceStore } from './financeStore';
 export { useContractStore } from './contractStore';
 export { useAcademicYearStore } from './academicYearStore';
+export { useOrganizationStore } from './organizationStore';
