@@ -24,7 +24,6 @@ import {
   normalizeText,
   normalizeName,
   extractFixedWidth,
-  extractWithRegex,
   parseAnswers,
   parseBooklet,
   validateTC,

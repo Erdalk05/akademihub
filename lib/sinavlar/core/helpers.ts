@@ -20,40 +20,28 @@ const TURKISH_CHAR_MAP: Record<string, string> = {
   '\u0000': '',
   '\ufffd': '',
   
-  // Küçük harfler
+  // Küçük harfler - birleşik karakterler
   'i̇': 'i',
   'ı̇': 'i',
   
-  // Büyük harfler
-  'I': 'I', // Türkçe'de I -> I kalır, büyük ı
+  // Büyük I sorunları
+  'I': 'I', // Türkçe'de I -> I kalır
   
-  // Özel karakterler
-  'Ý': 'İ',
-  'Þ': 'Ş',
-  'ý': 'ı',
-  'þ': 'ş',
-  'Ð': 'Ğ',
-  'ð': 'ğ',
-  'Ç': 'Ç',
-  'ç': 'ç',
-  'Ö': 'Ö',
-  'ö': 'ö',
-  'Ü': 'Ü',
-  'ü': 'ü',
+  // ISO-8859-9 (Latin-5) ve Windows-1254 hataları
+  'Ý': 'İ',  // 0xDD
+  'Þ': 'Ş',  // 0xDE
+  'ý': 'ı',  // 0xFD
+  'þ': 'ş',  // 0xFE
+  'Ð': 'Ğ',  // 0xD0
+  'ð': 'ğ',  // 0xF0
   
-  // Latin-1 hataları
-  '\xc7': 'Ç',
-  '\xe7': 'ç',
-  '\xd6': 'Ö',
-  '\xf6': 'ö',
-  '\xdc': 'Ü',
-  '\xfc': 'ü',
-  '\xde': 'Ş',
-  '\xfe': 'ş',
-  '\xd0': 'Ğ',
-  '\xf0': 'ğ',
-  '\xdd': 'İ',
-  '\xfd': 'ı',
+  // Windows-1252 sorunları
+  '\u0130': 'İ', // Turkish capital I with dot
+  '\u0131': 'ı', // Turkish lowercase dotless i
+  '\u015e': 'Ş', // S with cedilla
+  '\u015f': 'ş', // s with cedilla
+  '\u011e': 'Ğ', // G with breve
+  '\u011f': 'ğ', // g with breve
 };
 
 /**
