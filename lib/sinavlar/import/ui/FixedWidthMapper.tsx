@@ -21,8 +21,12 @@ import {
   Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText,
   Download, FolderOpen, Zap, ChevronRight,
   BarChart3, ZoomIn, ZoomOut, Wand2, Layout, Percent,
-  Undo2, Redo2, Keyboard, Award, AlertTriangle, TrendingUp, Copy
+  Undo2, Redo2, Keyboard, Award, AlertTriangle, TrendingUp, Copy,
+  Link2, Unlink, UserCheck, UserX, Search, FileSpreadsheet
 } from 'lucide-react';
+import { useStudentStore } from '@/lib/store/studentStore';
+import { Student } from '@/types/student.types';
+import * as XLSX from 'xlsx';
 
 // ==================== CONFETTI ====================
 function createConfetti() {
@@ -405,6 +409,158 @@ function calculateSubjectResults(
   });
 }
 
+// ==================== ÖĞRENCİ EŞLEŞTİRME ====================
+
+interface MatchResult {
+  parsedIndex: number;
+  parsedStudent: StudentResult;
+  matchedStudent: Student | null;
+  matchType: 'tc' | 'ogrenciNo' | 'name' | 'fuzzy' | 'none';
+  confidence: number; // 0-100
+  suggestions: Student[];
+}
+
+// Levenshtein distance for fuzzy matching
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+  const aLen = a.length;
+  const bLen = b.length;
+  
+  if (aLen === 0) return bLen;
+  if (bLen === 0) return aLen;
+  
+  for (let i = 0; i <= bLen; i++) matrix[i] = [i];
+  for (let j = 0; j <= aLen; j++) matrix[0][j] = j;
+  
+  for (let i = 1; i <= bLen; i++) {
+    for (let j = 1; j <= aLen; j++) {
+      const cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  
+  return matrix[bLen][aLen];
+}
+
+// Normalize name for comparison
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Match students
+function matchStudents(
+  parsedStudents: StudentResult[],
+  systemStudents: Student[]
+): MatchResult[] {
+  return parsedStudents.map((parsed, idx) => {
+    // 1. TC ile eşleştir (en güvenilir)
+    if (parsed.tc) {
+      const tcMatch = systemStudents.find(s => s.tcKimlik === parsed.tc);
+      if (tcMatch) {
+        return {
+          parsedIndex: idx,
+          parsedStudent: parsed,
+          matchedStudent: tcMatch,
+          matchType: 'tc',
+          confidence: 100,
+          suggestions: [],
+        };
+      }
+    }
+    
+    // 2. Öğrenci No ile eşleştir
+    if (parsed.ogrenciNo) {
+      const noMatch = systemStudents.find(s => s.ogrenciNo === parsed.ogrenciNo);
+      if (noMatch) {
+        return {
+          parsedIndex: idx,
+          parsedStudent: parsed,
+          matchedStudent: noMatch,
+          matchType: 'ogrenciNo',
+          confidence: 95,
+          suggestions: [],
+        };
+      }
+    }
+    
+    // 3. Ad Soyad ile eşleştir
+    if (parsed.adSoyad) {
+      const normalizedParsed = normalizeName(parsed.adSoyad);
+      
+      // Tam eşleşme
+      const exactMatch = systemStudents.find(s => 
+        normalizeName(`${s.ad} ${s.soyad}`) === normalizedParsed
+      );
+      if (exactMatch) {
+        return {
+          parsedIndex: idx,
+          parsedStudent: parsed,
+          matchedStudent: exactMatch,
+          matchType: 'name',
+          confidence: 90,
+          suggestions: [],
+        };
+      }
+      
+      // Fuzzy matching
+      const matches = systemStudents.map(s => {
+        const systemName = normalizeName(`${s.ad} ${s.soyad}`);
+        const distance = levenshteinDistance(normalizedParsed, systemName);
+        const maxLen = Math.max(normalizedParsed.length, systemName.length);
+        const similarity = Math.round((1 - distance / maxLen) * 100);
+        return { student: s, similarity };
+      }).filter(m => m.similarity >= 70)
+        .sort((a, b) => b.similarity - a.similarity);
+      
+      if (matches.length > 0 && matches[0].similarity >= 85) {
+        return {
+          parsedIndex: idx,
+          parsedStudent: parsed,
+          matchedStudent: matches[0].student,
+          matchType: 'fuzzy',
+          confidence: matches[0].similarity,
+          suggestions: matches.slice(1, 4).map(m => m.student),
+        };
+      }
+      
+      // Öneriler var ama kesin eşleşme yok
+      if (matches.length > 0) {
+        return {
+          parsedIndex: idx,
+          parsedStudent: parsed,
+          matchedStudent: null,
+          matchType: 'none',
+          confidence: 0,
+          suggestions: matches.slice(0, 5).map(m => m.student),
+        };
+      }
+    }
+    
+    // Eşleşme bulunamadı
+    return {
+      parsedIndex: idx,
+      parsedStudent: parsed,
+      matchedStudent: null,
+      matchType: 'none',
+      confidence: 0,
+      suggestions: [],
+    };
+  });
+}
+
 // ==================== CONSTANTS ====================
 
 const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode; shortcut: string }[] = [
@@ -449,9 +605,10 @@ interface FixedWidthMapperProps {
   rawLines: string[];
   onComplete: (fields: FieldDefinition[], parsedStudents: ParsedStudent[]) => void;
   onBack: () => void;
+  onFileDropped?: (file: File) => void; // Drag & Drop desteği
 }
 
-export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMapperProps) {
+export function FixedWidthMapper({ rawLines, onComplete, onBack, onFileDropped }: FixedWidthMapperProps) {
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
@@ -465,12 +622,28 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const [zoom, setZoom] = useState(100);
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Mobil algılama
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // CEVAP ANAHTARI
   const [examType, setExamType] = useState<'lgs' | 'tyt' | 'custom'>('lgs');
   const [answerKeys, setAnswerKeys] = useState<AnswerKey[]>(LGS_STRUCTURE.map(s => ({ ...s })));
   const [showAnswerKeyModal, setShowAnswerKeyModal] = useState(false);
   const [resultsMode, setResultsMode] = useState(false);
+  
+  // ÖĞRENCİ EŞLEŞTİRME
+  const { students: systemStudents, getStudents } = useStudentStore();
+  const [showMatchingModal, setShowMatchingModal] = useState(false);
+  const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
+  const [matchingDone, setMatchingDone] = useState(false);
   
   // UNDO/REDO
   const [history, setHistory] = useState<FieldDefinition[][]>([[]]);
@@ -882,6 +1055,175 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
     };
   }, [studentResults, answerKeys]);
   
+  // Öğrenci eşleştirme başlat
+  const startMatching = useCallback(() => {
+    const allStudents = getStudents();
+    const results = matchStudents(studentResults, allStudents);
+    setMatchResults(results);
+    setShowMatchingModal(true);
+  }, [studentResults, getStudents]);
+  
+  // Manuel eşleştirme
+  const manualMatch = useCallback((parsedIndex: number, student: Student | null) => {
+    setMatchResults(prev => prev.map(r => 
+      r.parsedIndex === parsedIndex 
+        ? { ...r, matchedStudent: student, matchType: student ? 'name' : 'none', confidence: student ? 100 : 0, suggestions: [] }
+        : r
+    ));
+  }, []);
+  
+  // Eşleştirme istatistikleri
+  const matchStats = useMemo(() => {
+    const matched = matchResults.filter(r => r.matchedStudent !== null).length;
+    const unmatched = matchResults.filter(r => r.matchedStudent === null).length;
+    const tcMatched = matchResults.filter(r => r.matchType === 'tc').length;
+    const noMatched = matchResults.filter(r => r.matchType === 'ogrenciNo').length;
+    const nameMatched = matchResults.filter(r => r.matchType === 'name' || r.matchType === 'fuzzy').length;
+    const avgConfidence = matchResults.length > 0 
+      ? Math.round(matchResults.reduce((s, r) => s + r.confidence, 0) / matchResults.length)
+      : 0;
+    
+    return { matched, unmatched, tcMatched, noMatched, nameMatched, avgConfidence };
+  }, [matchResults]);
+  
+  // EXCEL EXPORT
+  const exportToExcel = useCallback(() => {
+    const hasResults = answerKeys.some(k => k.answers.length > 0);
+    
+    const data = studentResults.map((s, idx) => {
+      const row: Record<string, string | number> = {
+        'No': idx + 1,
+        'Öğrenci No': s.ogrenciNo || '',
+        'Ad Soyad': s.adSoyad || '',
+        'Sınıf': s.sinif || '',
+        'Kitapçık': s.kitapcik || '',
+      };
+      
+      if (hasResults && s.results) {
+        s.results.forEach(r => {
+          row[`${r.subject} D`] = r.correct;
+          row[`${r.subject} Y`] = r.wrong;
+          row[`${r.subject} B`] = r.empty;
+          row[`${r.subject} Net`] = r.net;
+        });
+        row['Toplam Doğru'] = s.totalCorrect || 0;
+        row['Toplam Yanlış'] = s.totalWrong || 0;
+        row['Toplam Boş'] = s.totalEmpty || 0;
+        row['Toplam Net'] = s.totalNet || 0;
+      } else {
+        row['Cevaplar'] = s.cevaplar || '';
+      }
+      
+      return row;
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    
+    // Sütun genişlikleri
+    ws['!cols'] = [
+      { wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 8 },
+    ];
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sonuçlar');
+    
+    // İstatistik sayfası
+    if (classStats) {
+      const statsData = [
+        { 'Metrik': 'Öğrenci Sayısı', 'Değer': classStats.studentCount },
+        { 'Metrik': 'Ortalama Net', 'Değer': classStats.avgNet },
+        { 'Metrik': 'En Yüksek Net', 'Değer': classStats.maxNet },
+        { 'Metrik': 'En Düşük Net', 'Değer': classStats.minNet },
+        ...Object.entries(classStats.subjectAverages).map(([subject, avg]) => ({
+          'Metrik': `${subject} Ort.`,
+          'Değer': avg,
+        })),
+      ];
+      const statsWs = XLSX.utils.json_to_sheet(statsData);
+      XLSX.utils.book_append_sheet(wb, statsWs, 'İstatistikler');
+    }
+    
+    const filename = `Sinav_Sonuclari_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    playSound('success');
+  }, [studentResults, answerKeys, classStats]);
+  
+  // DRAG & DROP HANDLERS
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file && onFileDropped) {
+      const validTypes = ['.txt', '.csv', '.xlsx', '.xls'];
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (validTypes.includes(ext)) {
+        onFileDropped(file);
+        playSound('success');
+      } else {
+        playSound('error');
+        alert('Desteklenen dosya türleri: TXT, CSV, Excel');
+      }
+    }
+  }, [onFileDropped]);
+  
+  // CSV EXPORT
+  const exportToCSV = useCallback(() => {
+    const hasResults = answerKeys.some(k => k.answers.length > 0);
+    
+    const headers = ['No', 'Öğrenci No', 'Ad Soyad', 'Sınıf', 'Kitapçık'];
+    if (hasResults) {
+      answerKeys.forEach(k => {
+        headers.push(`${k.subject} D`, `${k.subject} Y`, `${k.subject} B`, `${k.subject} Net`);
+      });
+      headers.push('Toplam D', 'Toplam Y', 'Toplam B', 'Toplam Net');
+    } else {
+      headers.push('Cevaplar');
+    }
+    
+    const rows = studentResults.map((s, idx) => {
+      const row = [
+        idx + 1,
+        s.ogrenciNo || '',
+        s.adSoyad || '',
+        s.sinif || '',
+        s.kitapcik || '',
+      ];
+      
+      if (hasResults && s.results) {
+        s.results.forEach(r => {
+          row.push(r.correct, r.wrong, r.empty, r.net);
+        });
+        row.push(s.totalCorrect || 0, s.totalWrong || 0, s.totalEmpty || 0, s.totalNet || 0);
+      } else {
+        row.push(s.cevaplar || '');
+      }
+      
+      return row.join(';');
+    });
+    
+    const csv = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Sinav_Sonuclari_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    playSound('success');
+  }, [studentResults, answerKeys]);
+  
   const handleDeleteTemplate = useCallback((id: string) => saveTemplates(savedTemplates.filter(t => t.id !== id)), [savedTemplates, saveTemplates]);
   
   const handleComplete = useCallback(() => {
@@ -924,7 +1266,24 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const charWidth = Math.max(14, Math.round(18 * (zoom / 100)));
 
   return (
-    <div className="min-h-[600px]" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+    <div 
+      className={`min-h-[600px] relative transition-all ${isDragging ? 'ring-4 ring-blue-400 ring-offset-2 bg-blue-50/50' : ''}`}
+      onMouseUp={handleMouseUp} 
+      onMouseLeave={handleMouseUp}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* DRAG & DROP OVERLAY */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl border-4 border-dashed border-blue-500">
+          <div className="text-center">
+            <FolderOpen className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-bounce" />
+            <p className="text-xl font-bold text-blue-700">Dosyayı Buraya Bırakın</p>
+            <p className="text-blue-500">TXT, CSV veya Excel</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 -mx-6 -mt-6 px-6 py-4 mb-4 rounded-t-2xl">
         <div className="flex justify-between items-start">
@@ -949,6 +1308,147 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           </div>
         </div>
       </div>
+      
+      {/* ÖĞRENCİ EŞLEŞTİRME MODAL */}
+      {showMatchingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowMatchingModal(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Link2 className="w-5 h-5" /> Öğrenci Eşleştirme
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm">
+                  <UserCheck className="w-4 h-4" /> {matchStats.matched} Eşleşti
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm">
+                  <UserX className="w-4 h-4" /> {matchStats.unmatched} Eşleşmedi
+                </div>
+              </div>
+            </div>
+            
+            {/* İstatistikler */}
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              <div className="p-2 bg-blue-50 rounded-lg text-center">
+                <div className="text-lg font-bold text-blue-600">{matchStats.tcMatched}</div>
+                <div className="text-xs text-blue-500">TC ile</div>
+              </div>
+              <div className="p-2 bg-purple-50 rounded-lg text-center">
+                <div className="text-lg font-bold text-purple-600">{matchStats.noMatched}</div>
+                <div className="text-xs text-purple-500">Öğr No ile</div>
+              </div>
+              <div className="p-2 bg-emerald-50 rounded-lg text-center">
+                <div className="text-lg font-bold text-emerald-600">{matchStats.nameMatched}</div>
+                <div className="text-xs text-emerald-500">İsim ile</div>
+              </div>
+              <div className="p-2 bg-amber-50 rounded-lg text-center">
+                <div className="text-lg font-bold text-amber-600">{matchStats.avgConfidence}%</div>
+                <div className="text-xs text-amber-500">Ort. Güven</div>
+              </div>
+              <div className="p-2 bg-gray-50 rounded-lg text-center">
+                <div className="text-lg font-bold text-gray-600">{systemStudents.length}</div>
+                <div className="text-xs text-gray-500">Sistemde</div>
+              </div>
+            </div>
+            
+            {/* Eşleştirme listesi */}
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left">#</th>
+                    <th className="px-3 py-2 text-left">Optik Form</th>
+                    <th className="px-3 py-2 text-center">Eşleşme</th>
+                    <th className="px-3 py-2 text-left">Sistemdeki Öğrenci</th>
+                    <th className="px-3 py-2 text-center">Güven</th>
+                    <th className="px-3 py-2 text-center">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchResults.map((r, idx) => (
+                    <tr key={idx} className={`border-b ${r.matchedStudent ? 'hover:bg-green-50' : 'bg-red-50 hover:bg-red-100'}`}>
+                      <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{r.parsedStudent.adSoyad || '—'}</div>
+                        <div className="text-xs text-gray-500">{r.parsedStudent.ogrenciNo || r.parsedStudent.tc || '—'}</div>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.matchedStudent ? (
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            r.matchType === 'tc' ? 'bg-blue-100 text-blue-700' :
+                            r.matchType === 'ogrenciNo' ? 'bg-purple-100 text-purple-700' :
+                            r.matchType === 'name' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {r.matchType === 'tc' ? 'TC' : r.matchType === 'ogrenciNo' ? 'NO' : r.matchType === 'name' ? 'İSİM' : 'FUZZY'}
+                          </span>
+                        ) : (
+                          <span className="text-red-500 text-xs font-bold">YOK</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.matchedStudent ? (
+                          <div>
+                            <div className="font-medium text-emerald-700">{r.matchedStudent.ad} {r.matchedStudent.soyad}</div>
+                            <div className="text-xs text-gray-500">{r.matchedStudent.sinif} • {r.matchedStudent.ogrenciNo}</div>
+                          </div>
+                        ) : r.suggestions.length > 0 ? (
+                          <select 
+                            onChange={e => {
+                              const selected = r.suggestions.find(s => s.id === e.target.value);
+                              if (selected) manualMatch(r.parsedIndex, selected);
+                            }}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="">Öneri seç...</option>
+                            {r.suggestions.map(s => (
+                              <option key={s.id} value={s.id}>{s.ad} {s.soyad} ({s.sinif})</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-red-400 text-xs">Öneri yok</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.matchedStudent && (
+                          <span className={`px-2 py-1 rounded font-bold text-xs ${
+                            r.confidence >= 90 ? 'bg-emerald-100 text-emerald-700' :
+                            r.confidence >= 70 ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {r.confidence}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.matchedStudent ? (
+                          <button onClick={() => manualMatch(r.parsedIndex, null)} className="text-red-500 hover:text-red-700">
+                            <Unlink className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button className="text-gray-400 cursor-not-allowed">
+                            <Search className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="flex gap-2 mt-4 pt-4 border-t">
+              <button onClick={() => setShowMatchingModal(false)} className="flex-1 py-2 bg-gray-100 rounded-lg">İptal</button>
+              <button 
+                onClick={() => { setShowMatchingModal(false); setMatchingDone(true); playSound('success'); }}
+                className="flex-1 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-bold"
+              >
+                ✅ Eşleştirmeyi Onayla ({matchStats.matched}/{matchResults.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* CEVAP ANAHTARI MODAL */}
       {showAnswerKeyModal && (
@@ -1099,12 +1599,41 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             Cevap anahtarı hazır
           </div>
         )}
-        {classStats && (
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-gray-600">Sınıf Ort:</span>
-            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">{classStats.avgNet} Net</span>
+        <button 
+          onClick={startMatching}
+          disabled={parsedStudents.length === 0}
+          className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:from-emerald-600 hover:to-teal-600 shadow disabled:opacity-50"
+        >
+          <Link2 className="w-4 h-4" /> Öğrenci Eşleştir
+        </button>
+        {matchingDone && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm">
+            <UserCheck className="w-4 h-4" />
+            {matchStats.matched} eşleşti
           </div>
         )}
+        <div className="flex items-center gap-2 ml-auto">
+          <button 
+            onClick={exportToExcel}
+            disabled={parsedStudents.length === 0}
+            className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:from-green-600 hover:to-emerald-600 shadow disabled:opacity-50"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Excel
+          </button>
+          <button 
+            onClick={exportToCSV}
+            disabled={parsedStudents.length === 0}
+            className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 shadow disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          {classStats && (
+            <>
+              <span className="text-sm text-gray-600 ml-2">Sınıf Ort:</span>
+              <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">{classStats.avgNet} Net</span>
+            </>
+          )}
+        </div>
       </div>
       
       {/* HIZLI EYLEMLER */}
