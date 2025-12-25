@@ -494,11 +494,98 @@ export default function OptikSablonEditor({
       {/* GÖRSEL SEÇİM MODU */}
       {inputMode === 'visual' && ornekSatir && (
         <div className="space-y-4">
-          {/* Alan Tipi Seçici */}
+          {/* HIZLI SAYI GİRİŞİ - EN KOLAY YÖNTEM */}
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200">
+            <h3 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
+              ⚡ Hızlı Alan Tanımlama (Sayı Girin)
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {ALAN_TIPLERI.filter(t => t.id !== 'bos').map((tip) => {
+                const existingField = alanlar.find(a => a.alan === tip.id);
+                return (
+                  <div 
+                    key={tip.id} 
+                    className="flex items-center gap-2 p-2 bg-white rounded-lg border"
+                    style={{ borderColor: existingField ? tip.color : '#e2e8f0' }}
+                  >
+                    <span className="text-lg">{tip.icon}</span>
+                    <span className="text-xs font-medium text-slate-700 w-16 truncate">{tip.label}</span>
+                    <input
+                      type="number"
+                      placeholder="Baş"
+                      defaultValue={existingField?.baslangic || ''}
+                      min={1}
+                      max={ornekSatir.length}
+                      className="w-14 px-2 py-1 text-xs border rounded focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                      onBlur={(e) => {
+                        const start = parseInt(e.target.value);
+                        const endInput = e.target.nextElementSibling as HTMLInputElement;
+                        const end = parseInt(endInput?.value) || start;
+                        if (start > 0 && end >= start) {
+                          const yeniAlan: OptikAlanTanimi = {
+                            alan: tip.id as any,
+                            baslangic: start,
+                            bitis: end,
+                            label: tip.label,
+                            color: tip.color
+                          };
+                          setAlanlar(prev => {
+                            const filtered = prev.filter(a => a.alan !== tip.id);
+                            return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                          });
+                        }
+                      }}
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input
+                      type="number"
+                      placeholder="Bit"
+                      defaultValue={existingField?.bitis || ''}
+                      min={1}
+                      max={ornekSatir.length}
+                      className="w-14 px-2 py-1 text-xs border rounded focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                      onBlur={(e) => {
+                        const end = parseInt(e.target.value);
+                        const startInput = e.target.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                        const start = parseInt(startInput?.value) || 1;
+                        if (start > 0 && end >= start) {
+                          const yeniAlan: OptikAlanTanimi = {
+                            alan: tip.id as any,
+                            baslangic: start,
+                            bitis: end,
+                            label: tip.label,
+                            color: tip.color
+                          };
+                          setAlanlar(prev => {
+                            const filtered = prev.filter(a => a.alan !== tip.id);
+                            return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                          });
+                        }
+                      }}
+                    />
+                    {existingField && (
+                      <button
+                        onClick={() => setAlanlar(prev => prev.filter(a => a.alan !== tip.id))}
+                        className="p-1 text-red-500 hover:bg-red-100 rounded"
+                        title="Sil"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-emerald-600 mt-2">
+              💡 Başlangıç ve bitiş numaralarını girin, Tab ile geçin. Otomatik kaydedilir.
+            </p>
+          </div>
+
+          {/* Veya Karakter Haritasından Seç */}
           <div className="bg-slate-50 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-slate-700">
-                1️⃣ Alan tipi seçin, 2️⃣ Başlangıç için tıklayın, 3️⃣ Bitiş için tıklayın
+                🖱️ Veya karakter haritasından seçin (opsiyonel)
               </label>
               {activeAlanTipi && (
                 <button
@@ -517,7 +604,7 @@ export default function OptikSablonEditor({
                   <button
                     key={tip.id}
                     onClick={() => setActiveAlanTipi(activeAlanTipi === tip.id ? null : tip.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${
                       activeAlanTipi === tip.id
                         ? 'border-current shadow-lg scale-105'
                         : existingField
@@ -530,9 +617,8 @@ export default function OptikSablonEditor({
                       color: activeAlanTipi === tip.id || existingField ? tip.color : undefined
                     }}
                   >
-                    <span className="text-lg">{tip.icon}</span>
+                    <span>{tip.icon}</span>
                     <span className="font-medium">{tip.label}</span>
-                    <span className="text-xs opacity-60">({tip.shortcut})</span>
                     {existingField && (
                       <span className="text-xs bg-current/20 px-1.5 py-0.5 rounded">
                         {existingField.baslangic}-{existingField.bitis}
