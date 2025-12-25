@@ -383,6 +383,7 @@ export default function SinavSihirbazi({
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <OptikSablonEditor
                   initialSablon={selectedSablon || undefined}
+                  cevapAnahtari={cevapAnahtari}
                   onSave={(sablon) => {
                     setCustomSablon(sablon);
                     setSelectedSablon(null);

@@ -21,124 +21,160 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  Download
+  Download,
+  MousePointer2,
+  Type,
+  Hash,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
-import { OptikAlanTanimi, OptikSablon, ALAN_RENKLERI } from './types';
+import { OptikAlanTanimi, OptikSablon, CevapAnahtariSatir, DERS_ISIMLERI } from './types';
 
 interface OptikSablonEditorProps {
   onSave?: (sablon: Omit<OptikSablon, 'id'>) => void;
   onLoad?: () => Promise<OptikSablon[]>;
   initialSablon?: OptikSablon;
   sampleData?: string;
+  cevapAnahtari?: CevapAnahtariSatir[]; // Cevap anahtarından yapı al
 }
 
-// Alan tipleri
+// Alan tipleri ve renkleri
 const ALAN_TIPLERI = [
-  { id: 'sinif_no', label: 'Sınıf No', icon: '🏫', color: '#EF4444' },
-  { id: 'ogrenci_no', label: 'Öğrenci No', icon: '🔢', color: '#F59E0B' },
-  { id: 'ogrenci_adi', label: 'Öğrenci Adı', icon: '👤', color: '#10B981' },
-  { id: 'tc', label: 'TC Kimlik', icon: '🆔', color: '#3B82F6' },
-  { id: 'kitapcik', label: 'Kitapçık Tipi', icon: '📖', color: '#8B5CF6' },
-  { id: 'cevaplar', label: 'Cevaplar', icon: '✅', color: '#25D366' },
-  { id: 'bos', label: 'Boş Alan', icon: '⬜', color: '#9CA3AF' },
+  { id: 'ogrenci_no', label: 'Öğrenci No', icon: '🔢', color: '#F59E0B', shortcut: '1' },
+  { id: 'ogrenci_adi', label: 'Öğrenci Adı', icon: '👤', color: '#10B981', shortcut: '2' },
+  { id: 'tc', label: 'TC Kimlik', icon: '🆔', color: '#3B82F6', shortcut: '3' },
+  { id: 'sinif', label: 'Sınıf', icon: '🏫', color: '#8B5CF6', shortcut: '4' },
+  { id: 'kitapcik', label: 'Kitapçık', icon: '📖', color: '#EC4899', shortcut: '5' },
+  { id: 'cevaplar', label: 'Cevaplar', icon: '✅', color: '#25D366', shortcut: '6' },
+  { id: 'bos', label: 'Boş/Atla', icon: '⬜', color: '#9CA3AF', shortcut: '0' },
 ];
 
 export default function OptikSablonEditor({
   onSave,
   onLoad,
   initialSablon,
-  sampleData
+  sampleData,
+  cevapAnahtari = []
 }: OptikSablonEditorProps) {
   // States
   const [sablonAdi, setSablonAdi] = useState(initialSablon?.sablonAdi || '');
   const [alanlar, setAlanlar] = useState<OptikAlanTanimi[]>(initialSablon?.alanTanimlari || []);
-  const [cevapBaslangic, setCevapBaslangic] = useState(initialSablon?.cevapBaslangic || 0);
-  const [toplamSoru, setToplamSoru] = useState(initialSablon?.toplamSoru || 90);
+  const [toplamSoru, setToplamSoru] = useState(initialSablon?.toplamSoru || cevapAnahtari.length || 90);
   const [ornekSatir, setOrnekSatir] = useState(sampleData || '');
-  const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
-  const [activeAlanTipi, setActiveAlanTipi] = useState<string | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [showRuler, setShowRuler] = useState(true);
-  const [showHelp, setShowHelp] = useState(false);
-  const [savedSablonlar, setSavedSablonlar] = useState<OptikSablon[]>([]);
   
-  const textContainerRef = useRef<HTMLDivElement>(null);
+  // Seçim states
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionStart, setSelectionStart] = useState<number | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
+  const [activeAlanTipi, setActiveAlanTipi] = useState<string | null>(null);
+  
+  // UI states
+  const [inputMode, setInputMode] = useState<'visual' | 'manual' | 'auto'>('visual');
+  const [showHelp, setShowHelp] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Örnek satır değiştiğinde alanları temizle
+  // Cevap anahtarından bilgi al
+  const cevapAnahtariInfo = useMemo(() => {
+    if (!cevapAnahtari.length) return null;
+    
+    const dersler = [...new Set(cevapAnahtari.map(c => c.dersKodu))];
+    const dersBazliSayilar = dersler.map(d => ({
+      dersKodu: d,
+      dersAdi: DERS_ISIMLERI[d] || d,
+      soruSayisi: cevapAnahtari.filter(c => c.dersKodu === d).length
+    }));
+    
+    return {
+      toplamSoru: cevapAnahtari.length,
+      dersSayisi: dersler.length,
+      dersBazliSayilar
+    };
+  }, [cevapAnahtari]);
+
+  // Toplam soru sayısını cevap anahtarından güncelle
   useEffect(() => {
-    if (sampleData && sampleData !== ornekSatir) {
-      setOrnekSatir(sampleData);
+    if (cevapAnahtariInfo) {
+      setToplamSoru(cevapAnahtariInfo.toplamSoru);
     }
-  }, [sampleData]);
+  }, [cevapAnahtariInfo]);
 
-  // Karakter seçimi
-  const handleCharClick = useCallback((index: number, isShift: boolean) => {
-    if (isShift && selectedRange) {
-      // Shift ile seçim genişlet
-      setSelectedRange({
-        start: Math.min(selectedRange.start, index),
-        end: Math.max(selectedRange.end, index)
-      });
-    } else {
-      // Yeni seçim başlat
-      setSelectedRange({ start: index, end: index });
-      setIsSelecting(true);
-    }
-  }, [selectedRange]);
+  // Seçim aralığı
+  const selectedRange = useMemo(() => {
+    if (selectionStart === null) return null;
+    const end = selectionEnd ?? selectionStart;
+    return {
+      start: Math.min(selectionStart, end),
+      end: Math.max(selectionStart, end)
+    };
+  }, [selectionStart, selectionEnd]);
 
-  const handleCharMouseEnter = useCallback((index: number) => {
-    if (isSelecting && selectedRange) {
-      setSelectedRange({
-        start: selectedRange.start,
-        end: index
-      });
+  // Mouse olayları
+  const handleMouseDown = useCallback((index: number) => {
+    if (!activeAlanTipi) return;
+    setIsSelecting(true);
+    setSelectionStart(index);
+    setSelectionEnd(index);
+  }, [activeAlanTipi]);
+
+  const handleMouseMove = useCallback((index: number) => {
+    if (isSelecting) {
+      setSelectionEnd(index);
     }
-  }, [isSelecting, selectedRange]);
+  }, [isSelecting]);
 
   const handleMouseUp = useCallback(() => {
     setIsSelecting(false);
   }, []);
 
-  // Seçili aralığı alan olarak ekle
+  // Seçimi alan olarak ekle
   const addSelectedAsField = useCallback(() => {
     if (!selectedRange || !activeAlanTipi) return;
-
-    const start = Math.min(selectedRange.start, selectedRange.end) + 1; // 1-indexed
-    const end = Math.max(selectedRange.start, selectedRange.end) + 1;
 
     const alanTipi = ALAN_TIPLERI.find(t => t.id === activeAlanTipi);
     if (!alanTipi) return;
 
     const yeniAlan: OptikAlanTanimi = {
       alan: activeAlanTipi as any,
-      baslangic: start,
-      bitis: end,
+      baslangic: selectedRange.start + 1, // 1-indexed
+      bitis: selectedRange.end + 1,
       label: alanTipi.label,
       color: alanTipi.color
     };
 
-    // Örtüşen alanları kontrol et
-    const overlapping = alanlar.find(a => 
-      (start <= a.bitis && end >= a.baslangic)
-    );
+    // Örtüşen alanları kontrol et ve kaldır
+    setAlanlar(prev => {
+      const filtered = prev.filter(a => 
+        !(yeniAlan.baslangic <= a.bitis && yeniAlan.bitis >= a.baslangic)
+      );
+      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+    });
 
-    if (overlapping) {
-      if (!confirm(`Bu aralık "${overlapping.label}" ile çakışıyor. Üzerine yazmak istiyor musunuz?`)) {
-        return;
-      }
-      // Örtüşen alanı kaldır
-      setAlanlar(prev => prev.filter(a => a !== overlapping));
-    }
-
-    setAlanlar(prev => [...prev, yeniAlan].sort((a, b) => a.baslangic - b.baslangic));
-    setSelectedRange(null);
+    // Seçimi temizle
+    setSelectionStart(null);
+    setSelectionEnd(null);
     setActiveAlanTipi(null);
+  }, [selectedRange, activeAlanTipi]);
 
-    // Cevaplar alanı ise başlangıç pozisyonunu güncelle
-    if (activeAlanTipi === 'cevaplar') {
-      setCevapBaslangic(start);
-    }
-  }, [selectedRange, activeAlanTipi, alanlar]);
+  // Manuel alan ekleme
+  const addManualField = useCallback((tipId: string, baslangic: number, bitis: number) => {
+    const alanTipi = ALAN_TIPLERI.find(t => t.id === tipId);
+    if (!alanTipi || baslangic > bitis || baslangic < 1) return;
+
+    const yeniAlan: OptikAlanTanimi = {
+      alan: tipId as any,
+      baslangic,
+      bitis,
+      label: alanTipi.label,
+      color: alanTipi.color
+    };
+
+    setAlanlar(prev => {
+      const filtered = prev.filter(a => a.alan !== tipId);
+      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+    });
+  }, []);
 
   // Alan sil
   const removeField = useCallback((index: number) => {
@@ -154,9 +190,7 @@ export default function OptikSablonEditor({
   // Karakter seçili mi?
   const isCharSelected = useCallback((charIndex: number): boolean => {
     if (!selectedRange) return false;
-    const min = Math.min(selectedRange.start, selectedRange.end);
-    const max = Math.max(selectedRange.start, selectedRange.end);
-    return charIndex >= min && charIndex <= max;
+    return charIndex >= selectedRange.start && charIndex <= selectedRange.end;
   }, [selectedRange]);
 
   // Şablonu kaydet
@@ -170,10 +204,12 @@ export default function OptikSablonEditor({
       return;
     }
 
+    const cevaplarAlani = alanlar.find(a => a.alan === 'cevaplar');
+
     const sablon: Omit<OptikSablon, 'id'> = {
       sablonAdi,
       alanTanimlari: alanlar,
-      cevapBaslangic,
+      cevapBaslangic: cevaplarAlani?.baslangic || 0,
       toplamSoru,
       isDefault: false,
       isActive: true
@@ -194,9 +230,31 @@ export default function OptikSablonEditor({
     };
   }, [ornekSatir, alanlar]);
 
+  // Klavye kısayolları
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key;
+      const alanTipi = ALAN_TIPLERI.find(t => t.shortcut === key);
+      if (alanTipi && ornekSatir) {
+        setActiveAlanTipi(alanTipi.id);
+      }
+      if (key === 'Escape') {
+        setActiveAlanTipi(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+      }
+      if (key === 'Enter' && selectedRange && activeAlanTipi) {
+        addSelectedAsField();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [ornekSatir, selectedRange, activeAlanTipi, addSelectedAsField]);
+
   return (
     <div className="space-y-6" onMouseUp={handleMouseUp}>
-      {/* Başlık */}
+      {/* Başlık ve Modlar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
@@ -204,368 +262,410 @@ export default function OptikSablonEditor({
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-800">Optik Şablon Editörü</h2>
-            <p className="text-sm text-slate-500">Karakter aralıklarını tanımlayın</p>
+            <p className="text-sm text-slate-500">Karakterleri seçerek alan tanımlayın</p>
           </div>
         </div>
         
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowRuler(!showRuler)}
-            className={`p-2 rounded-lg transition-colors ${
-              showRuler ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
-            }`}
-            title="Cetvel Göster/Gizle"
-          >
-            <Ruler size={20} />
-          </button>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200"
-            title="Yardım"
-          >
-            <Info size={20} />
-          </button>
+        {/* Mod Seçici */}
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+          {[
+            { id: 'visual', label: 'Görsel Seçim', icon: MousePointer2 },
+            { id: 'manual', label: 'Manuel Giriş', icon: Type },
+            { id: 'auto', label: 'Otomatik', icon: Sparkles },
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setInputMode(mode.id as any)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                inputMode === mode.id
+                  ? 'bg-white shadow-md text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <mode.icon size={16} />
+              {mode.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Yardım Paneli */}
-      <AnimatePresence>
-        {showHelp && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-blue-50 border border-blue-200 rounded-xl p-4"
-          >
-            <h4 className="font-semibold text-blue-800 mb-2">Nasıl Kullanılır?</h4>
-            <ol className="list-decimal list-inside text-sm text-blue-700 space-y-1">
-              <li>Örnek bir optik satırı yapıştırın</li>
-              <li>Aşağıdaki alan tiplerinden birini seçin</li>
-              <li>Karakter görünümünde ilgili karakterleri seçin</li>
-              <li>"Bu Alanı Ekle" butonuna tıklayın</li>
-              <li>Tüm alanları tanımladıktan sonra şablonu kaydedin</li>
-            </ol>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Cevap Anahtarı Bilgisi */}
+      {cevapAnahtariInfo && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Check className="w-5 h-5 text-emerald-600" />
+              <div>
+                <p className="font-medium text-emerald-800">Cevap Anahtarı Algılandı</p>
+                <p className="text-sm text-emerald-600">
+                  {cevapAnahtariInfo.toplamSoru} soru, {cevapAnahtariInfo.dersSayisi} ders
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {cevapAnahtariInfo.dersBazliSayilar.map(d => (
+                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+                  {d.dersAdi}: {d.soruSayisi}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Şablon Adı ve Ayarlar */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Şablon Adı ve Soru Sayısı */}
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Şablon Adı</label>
           <input
             type="text"
             value={sablonAdi}
             onChange={(e) => setSablonAdi(e.target.value)}
-            placeholder="Örn: Dikmen Çözüm LGS"
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            placeholder="Örn: LGS 90 Soru Şablonu"
+            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Toplam Soru</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Toplam Soru Sayısı</label>
           <input
             type="number"
             value={toplamSoru}
             onChange={(e) => setToplamSoru(parseInt(e.target.value) || 90)}
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             min={1}
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Cevap Başlangıç</label>
-          <input
-            type="number"
-            value={cevapBaslangic}
-            onChange={(e) => setCevapBaslangic(parseInt(e.target.value) || 0)}
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            min={0}
-          />
-        </div>
       </div>
 
-      {/* Örnek Veri Girişi */}
+      {/* Örnek Satır Girişi */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-slate-700">
-          Örnek Optik Satırı
+          Örnek Optik Satırı <span className="text-slate-400">(TXT dosyasından bir satır yapıştırın)</span>
         </label>
         <textarea
           value={ornekSatir}
-          onChange={(e) => setOrnekSatir(e.target.value.split('\n')[0] || '')} // Sadece ilk satır
+          onChange={(e) => {
+            const firstLine = e.target.value.split('\n')[0] || '';
+            setOrnekSatir(firstLine);
+          }}
           placeholder="Optik okuyucudan gelen örnek bir satırı buraya yapıştırın..."
-          className="w-full h-20 px-4 py-3 font-mono text-sm border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          className="w-full h-20 px-4 py-3 font-mono text-sm border-2 border-dashed border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
         />
         <p className="text-xs text-slate-500">
-          Toplam karakter: {ornekSatir.length}
+          Toplam: <strong>{ornekSatir.length}</strong> karakter
         </p>
       </div>
 
-      {/* Hızlı Alan Ekleme - Manuel Giriş */}
-      {ornekSatir && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-4">
-          <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
-            ⚡ Hızlı Alan Tanımlama (Sayı Girerek)
+      {/* GÖRSEL SEÇİM MODU */}
+      {inputMode === 'visual' && ornekSatir && (
+        <div className="space-y-4">
+          {/* Alan Tipi Seçici */}
+          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700">
+                1️⃣ Alan tipi seçin, 2️⃣ Aşağıda karakterleri sürükleyerek seçin
+              </label>
+              {activeAlanTipi && (
+                <button
+                  onClick={() => setActiveAlanTipi(null)}
+                  className="text-xs text-slate-500 hover:text-slate-700"
+                >
+                  İptal (ESC)
+                </button>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {ALAN_TIPLERI.map((tip) => {
+                const existingField = alanlar.find(a => a.alan === tip.id);
+                return (
+                  <button
+                    key={tip.id}
+                    onClick={() => setActiveAlanTipi(activeAlanTipi === tip.id ? null : tip.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all ${
+                      activeAlanTipi === tip.id
+                        ? 'border-current shadow-lg scale-105'
+                        : existingField
+                          ? 'border-current opacity-60'
+                          : 'border-transparent bg-white hover:shadow-md'
+                    }`}
+                    style={{
+                      borderColor: activeAlanTipi === tip.id || existingField ? tip.color : undefined,
+                      backgroundColor: activeAlanTipi === tip.id ? `${tip.color}15` : undefined,
+                      color: activeAlanTipi === tip.id || existingField ? tip.color : undefined
+                    }}
+                  >
+                    <span className="text-lg">{tip.icon}</span>
+                    <span className="font-medium">{tip.label}</span>
+                    <span className="text-xs opacity-60">({tip.shortcut})</span>
+                    {existingField && (
+                      <span className="text-xs bg-current/20 px-1.5 py-0.5 rounded">
+                        {existingField.baslangic}-{existingField.bitis}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Karakter Haritası - TEK SATIR YATAY */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Ruler size={16} className="text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">Karakter Haritası</span>
+                {selectedRange && (
+                  <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                    Seçili: {selectedRange.start + 1} - {selectedRange.end + 1} ({selectedRange.end - selectedRange.start + 1} karakter)
+                  </span>
+                )}
+              </div>
+              {activeAlanTipi && (
+                <span className="text-sm text-slate-500">
+                  🖱️ Sürükleyerek seçin, sonra Enter veya "Ekle" butonuna tıklayın
+                </span>
+              )}
+            </div>
+            
+            {/* Cetvel */}
+            <div 
+              className="overflow-x-auto"
+              style={{ cursor: activeAlanTipi ? 'crosshair' : 'default' }}
+            >
+              {/* Numara cetveli */}
+              <div className="flex border-b border-slate-100 bg-slate-50 min-w-max">
+                {Array.from({ length: ornekSatir.length }, (_, i) => (
+                  <div
+                    key={i}
+                    className="w-7 h-5 flex-shrink-0 text-center text-[10px] text-slate-400"
+                  >
+                    {(i + 1) % 10 === 0 ? (i + 1) : ((i + 1) % 5 === 0 ? '·' : '')}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Karakterler - TEK SATIR */}
+              <div 
+                ref={containerRef}
+                className="flex min-w-max p-2 select-none"
+              >
+                {Array.from(ornekSatir).map((char, i) => {
+                  const field = getCharField(i);
+                  const isSelected = isCharSelected(i);
+                  
+                  return (
+                    <div
+                      key={i}
+                      onMouseDown={() => handleMouseDown(i)}
+                      onMouseMove={() => handleMouseMove(i)}
+                      className={`w-7 h-9 flex items-center justify-center font-mono text-sm rounded transition-all flex-shrink-0 ${
+                        isSelected
+                          ? 'bg-blue-500 text-white ring-2 ring-blue-300 scale-110 z-10'
+                          : field
+                            ? 'text-white'
+                            : activeAlanTipi
+                              ? 'hover:bg-slate-200 cursor-crosshair'
+                              : 'hover:bg-slate-100'
+                      }`}
+                      style={{
+                        backgroundColor: isSelected ? undefined : (field?.color || undefined),
+                      }}
+                      title={`${i + 1}: "${char}" ${field ? `(${field.label})` : ''}`}
+                    >
+                      {char === ' ' ? '·' : char}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Seçim Onay Butonu */}
+            {selectedRange && activeAlanTipi && (
+              <div className="p-3 bg-blue-50 border-t border-blue-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.icon}</span>
+                  <div>
+                    <p className="font-medium text-blue-800">
+                      {ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.label}
+                    </p>
+                    <p className="text-sm text-blue-600">
+                      Karakter {selectedRange.start + 1} - {selectedRange.end + 1} 
+                      <span className="ml-2 font-mono bg-blue-100 px-2 py-0.5 rounded">
+                        "{ornekSatir.substring(selectedRange.start, selectedRange.end + 1)}"
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setSelectionStart(null); setSelectionEnd(null); }}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={addSelectedAsField}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                  >
+                    <Plus size={18} />
+                    Bu Alanı Ekle
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MANUEL GİRİŞ MODU */}
+      {inputMode === 'manual' && ornekSatir && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
+          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+            <Type size={18} />
+            Manuel Alan Tanımlama
           </h3>
           
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {ALAN_TIPLERI.filter(t => t.id !== 'bos').map((tip) => {
               const existingField = alanlar.find(a => a.alan === tip.id);
               return (
-                <div key={tip.id} className="space-y-1">
-                  <label className="text-xs font-medium flex items-center gap-1" style={{ color: tip.color }}>
-                    {tip.icon} {tip.label}
+                <div 
+                  key={tip.id} 
+                  className="p-3 rounded-xl border"
+                  style={{ 
+                    backgroundColor: existingField ? `${tip.color}10` : undefined,
+                    borderColor: existingField ? tip.color : '#e2e8f0'
+                  }}
+                >
+                  <label className="flex items-center gap-2 text-sm font-medium mb-2" style={{ color: tip.color }}>
+                    <span className="text-lg">{tip.icon}</span>
+                    {tip.label}
                   </label>
-                  <div className="flex gap-1">
+                  <div className="flex gap-2">
                     <input
                       type="number"
-                      placeholder="Baş"
+                      placeholder="Başlangıç"
                       min={1}
                       max={ornekSatir.length}
                       defaultValue={existingField?.baslangic || ''}
-                      className="w-14 px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-300"
-                      id={`field-start-${tip.id}`}
+                      className="flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2"
+                      id={`manual-start-${tip.id}`}
                     />
-                    <span className="text-slate-400 self-center">-</span>
+                    <span className="text-slate-400 self-center">—</span>
                     <input
                       type="number"
-                      placeholder="Son"
+                      placeholder="Bitiş"
                       min={1}
                       max={ornekSatir.length}
                       defaultValue={existingField?.bitis || ''}
-                      className="w-14 px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-300"
-                      id={`field-end-${tip.id}`}
+                      className="flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2"
+                      id={`manual-end-${tip.id}`}
                     />
                     <button
                       onClick={() => {
-                        const startInput = document.getElementById(`field-start-${tip.id}`) as HTMLInputElement;
-                        const endInput = document.getElementById(`field-end-${tip.id}`) as HTMLInputElement;
-                        const start = parseInt(startInput?.value);
-                        const end = parseInt(endInput?.value);
-                        
-                        if (!start || !end || start > end || start < 1 || end > ornekSatir.length) {
-                          alert('Geçersiz aralık!');
-                          return;
-                        }
-                        
-                        // Mevcut alanı güncelle veya yeni ekle
-                        setAlanlar(prev => {
-                          const filtered = prev.filter(a => a.alan !== tip.id);
-                          return [...filtered, {
-                            alan: tip.id as any,
-                            baslangic: start,
-                            bitis: end,
-                            label: tip.label,
-                            color: tip.color
-                          }].sort((a, b) => a.baslangic - b.baslangic);
-                        });
-                        
-                        if (tip.id === 'cevaplar') {
-                          setCevapBaslangic(start);
+                        const startEl = document.getElementById(`manual-start-${tip.id}`) as HTMLInputElement;
+                        const endEl = document.getElementById(`manual-end-${tip.id}`) as HTMLInputElement;
+                        const start = parseInt(startEl?.value);
+                        const end = parseInt(endEl?.value);
+                        if (start && end) {
+                          addManualField(tip.id, start, end);
                         }
                       }}
-                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs"
-                      title="Ekle"
+                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
                     >
-                      ✓
+                      <Check size={16} />
                     </button>
                   </div>
                   {existingField && (
-                    <div className="text-[10px] text-slate-500 truncate">
+                    <p className="text-xs mt-2 font-mono truncate" style={{ color: tip.color }}>
                       "{ornekSatir.substring(existingField.baslangic - 1, existingField.bitis)}"
-                    </div>
+                    </p>
                   )}
                 </div>
               );
             })}
           </div>
-          
-          <div className="text-xs text-emerald-600 bg-emerald-100 rounded-lg p-2">
-            💡 <strong>İpucu:</strong> Her alan için başlangıç ve bitiş karakter numarasını girin. 
-            Örnek: Öğrenci No için 1-6 arası, Ad için 7-20 arası gibi.
-          </div>
         </div>
       )}
 
-      {/* Alan Tipi Seçici - Görsel Seçim İçin */}
-      {ornekSatir && (
-        <div className="space-y-3">
-          <label className="block text-sm font-medium text-slate-700">
-            Alternatif: Görsel Seçim (Alan tipini seç, sonra aşağıda karakterleri işaretle)
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {ALAN_TIPLERI.map((tip) => (
-              <button
-                key={tip.id}
-                onClick={() => setActiveAlanTipi(activeAlanTipi === tip.id ? null : tip.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
-                  activeAlanTipi === tip.id
-                    ? 'border-current shadow-md'
-                    : 'border-transparent bg-slate-100 hover:bg-slate-200'
-                }`}
-                style={{
-                  borderColor: activeAlanTipi === tip.id ? tip.color : undefined,
-                  backgroundColor: activeAlanTipi === tip.id ? `${tip.color}15` : undefined,
-                  color: activeAlanTipi === tip.id ? tip.color : undefined
-                }}
-              >
-                <span>{tip.icon}</span>
-                <span className="font-medium">{tip.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Karakter Görünümü */}
-      {ornekSatir && (
-        <div className="space-y-2">
+      {/* OTOMATİK MOD */}
+      {inputMode === 'auto' && ornekSatir && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium text-slate-700">
-              Karakter Haritası
-              {activeAlanTipi && (
-                <span className="ml-2 text-blue-600">
-                  (Karakterleri seçin, sonra "Bu Alanı Ekle")
-                </span>
-              )}
-            </label>
-            {selectedRange && (
-              <span className="text-sm text-slate-500">
-                Seçili: {Math.min(selectedRange.start, selectedRange.end) + 1} - {Math.max(selectedRange.start, selectedRange.end) + 1}
-                ({Math.abs(selectedRange.end - selectedRange.start) + 1} karakter)
-              </span>
-            )}
-          </div>
-
-          {/* Cetvel */}
-          {showRuler && (
-            <div className="flex font-mono text-[10px] text-slate-400 select-none overflow-x-auto">
-              {Array.from({ length: ornekSatir.length }, (_, i) => (
-                <div
-                  key={i}
-                  className="w-6 flex-shrink-0 text-center"
-                >
-                  {(i + 1) % 10 === 0 ? (i + 1) : ((i + 1) % 5 === 0 ? '·' : '')}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Karakterler */}
-          <div 
-            ref={textContainerRef}
-            className="flex flex-wrap font-mono text-sm bg-slate-50 rounded-xl p-2 border border-slate-200 overflow-x-auto select-none"
-            style={{ cursor: activeAlanTipi ? 'crosshair' : 'default' }}
-          >
-            {Array.from(ornekSatir).map((char, i) => {
-              const field = getCharField(i);
-              const isSelected = isCharSelected(i);
-              
-              return (
-                <div
-                  key={i}
-                  onClick={(e) => activeAlanTipi && handleCharClick(i, e.shiftKey)}
-                  onMouseEnter={() => handleCharMouseEnter(i)}
-                  className={`w-6 h-8 flex items-center justify-center rounded transition-all ${
-                    isSelected
-                      ? 'bg-blue-500 text-white ring-2 ring-blue-300'
-                      : field
-                        ? 'text-white'
-                        : 'hover:bg-slate-200'
-                  } ${activeAlanTipi ? 'cursor-crosshair' : ''}`}
-                  style={{
-                    backgroundColor: isSelected ? undefined : (field?.color || undefined),
-                  }}
-                  title={`Karakter ${i + 1}: "${char}" ${field ? `(${field.label})` : ''}`}
-                >
-                  {char === ' ' ? '·' : char}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Seçili Alan Ekle Butonu */}
-          {selectedRange && activeAlanTipi && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl"
+            <h3 className="font-semibold text-purple-700 flex items-center gap-2">
+              <Sparkles size={18} />
+              Otomatik Algılama
+            </h3>
+            <button
+              onClick={() => {
+                // Basit otomatik algılama
+                const patterns = [
+                  { pattern: /^\d{6}/, field: 'ogrenci_no' },
+                  { pattern: /[A-ZÇĞİÖŞÜ]{2,}/, field: 'ogrenci_adi' },
+                  { pattern: /\d{11}/, field: 'tc' },
+                  { pattern: /\d[A-Z]/, field: 'sinif' },
+                ];
+                // TODO: Gelişmiş otomatik algılama
+                alert('Otomatik algılama geliştirme aşamasında. Lütfen manuel veya görsel seçim kullanın.');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
             >
-              <div className="flex-1">
-                <p className="text-sm text-blue-800">
-                  <strong>{ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.label}</strong> olarak 
-                  <span className="mx-1 font-mono bg-blue-100 px-2 py-0.5 rounded">
-                    {Math.min(selectedRange.start, selectedRange.end) + 1} - {Math.max(selectedRange.start, selectedRange.end) + 1}
-                  </span>
-                  aralığı eklenecek
-                </p>
-              </div>
-              <button
-                onClick={addSelectedAsField}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <Plus size={18} />
-                Bu Alanı Ekle
-              </button>
-              <button
-                onClick={() => { setSelectedRange(null); setActiveAlanTipi(null); }}
-                className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg"
-              >
-                <X size={18} />
-              </button>
-            </motion.div>
-          )}
+              <RefreshCw size={16} />
+              Algıla
+            </button>
+          </div>
+          
+          <div className="text-sm text-purple-600 bg-white/50 rounded-lg p-3">
+            <p>⚠️ Bu özellik geliştirme aşamasındadır.</p>
+            <p className="mt-1">Şimdilik <strong>Görsel Seçim</strong> veya <strong>Manuel Giriş</strong> modlarını kullanın.</p>
+          </div>
         </div>
       )}
 
-      {/* Tanımlı Alanlar Listesi */}
+      {/* Tanımlı Alanlar Özeti */}
       {alanlar.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium text-slate-700">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+              <Layers size={16} />
               Tanımlı Alanlar ({alanlar.length})
-            </label>
-            <div className="text-xs text-slate-500">
-              {stats.mappedChars}/{stats.totalChars} karakter eşlendi
+            </h3>
+            <div className="text-sm text-slate-500">
+              {stats.mappedChars} / {stats.totalChars} karakter eşlendi
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          
+          <div className="p-3 space-y-2">
             {alanlar.map((alan, index) => (
-              <motion.div
+              <div
                 key={index}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="flex items-center justify-between p-3 rounded-xl border"
-                style={{
-                  backgroundColor: `${alan.color}10`,
-                  borderColor: `${alan.color}40`
-                }}
+                className="flex items-center justify-between p-3 rounded-lg"
+                style={{ backgroundColor: `${alan.color}10` }}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: alan.color }}
-                  />
+                  <span className="text-xl">{ALAN_TIPLERI.find(t => t.id === alan.alan)?.icon}</span>
                   <div>
-                    <p className="font-medium text-slate-700">{alan.label}</p>
+                    <p className="font-medium" style={{ color: alan.color }}>{alan.label}</p>
                     <p className="text-xs text-slate-500">
-                      Karakter: {alan.baslangic} - {alan.bitis} ({alan.bitis - alan.baslangic + 1} karakter)
+                      Karakter {alan.baslangic} - {alan.bitis} ({alan.bitis - alan.baslangic + 1} karakter)
                     </p>
-                    {ornekSatir && (
-                      <p className="text-xs font-mono text-slate-400 mt-0.5">
-                        "{ornekSatir.substring(alan.baslangic - 1, alan.bitis)}"
-                      </p>
-                    )}
                   </div>
                 </div>
-                <button
-                  onClick={() => removeField(index)}
-                  className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </motion.div>
+                <div className="flex items-center gap-3">
+                  {ornekSatir && (
+                    <code className="text-xs bg-white px-2 py-1 rounded border max-w-xs truncate">
+                      {ornekSatir.substring(alan.baslangic - 1, alan.bitis)}
+                    </code>
+                  )}
+                  <button
+                    onClick={() => removeField(index)}
+                    className="p-2 text-red-500 hover:bg-red-100 rounded-lg"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -600,10 +700,9 @@ export default function OptikSablonEditor({
           className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
         >
           <Save size={20} />
-          Şablonu Kaydet
+          Şablonu Kaydet ve Devam Et
         </button>
       )}
     </div>
   );
 }
-
