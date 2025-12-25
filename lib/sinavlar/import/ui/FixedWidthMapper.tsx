@@ -1,13 +1,16 @@
 /**
  * ============================================
- * AkademiHub - Optik Form Mapper v8.0 ULTRA
+ * AkademiHub - Optik Form Mapper v9.0 ELITE
  * ============================================
  * 
  * ✅ TÜM KARAKTERLER GÖRÜNÜR
  * ✅ OTOMATİK ALAN ALGILAMA
- * ✅ HAZIR LGS/TYT ŞABLONLARI
- * ✅ ZOOM ÖZELLİĞİ
- * ✅ PERFORMANS METRİKLERİ
+ * ✅ KLAVYE KISAYOLLARI
+ * ✅ UNDO/REDO
+ * ✅ ANLIK İSTATİSTİKLER
+ * ✅ DUPLICATE ALGILAMA
+ * ✅ VERİ KALİTESİ SKORU
+ * ✅ BAŞARI KONFETİ
  */
 
 'use client';
@@ -16,9 +19,78 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { 
   Plus, Trash2, Eye, Save, RotateCcw, CheckCircle, AlertCircle, 
   Sparkles, Target, Users, Hash, CreditCard, School, BookOpen, FileText,
-  Download, FolderOpen, Zap, Copy, ChevronRight, Lightbulb,
-  BarChart3, ZoomIn, ZoomOut, Wand2, Layout, Clock, Percent
+  Download, FolderOpen, Zap, ChevronRight,
+  BarChart3, ZoomIn, ZoomOut, Wand2, Layout, Percent,
+  Undo2, Redo2, Keyboard, Award, AlertTriangle, TrendingUp, Copy
 } from 'lucide-react';
+
+// ==================== CONFETTI ====================
+function createConfetti() {
+  const colors = ['#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B'];
+  const confettiCount = 100;
+  
+  for (let i = 0; i < confettiCount; i++) {
+    const confetti = document.createElement('div');
+    confetti.style.cssText = `
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      left: ${Math.random() * 100}vw;
+      top: -10px;
+      opacity: 1;
+      border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
+      pointer-events: none;
+      z-index: 9999;
+      animation: confetti-fall ${2 + Math.random() * 2}s linear forwards;
+    `;
+    document.body.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 4000);
+  }
+  
+  // Add keyframes if not exists
+  if (!document.querySelector('#confetti-style')) {
+    const style = document.createElement('style');
+    style.id = 'confetti-style';
+    style.textContent = `
+      @keyframes confetti-fall {
+        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// ==================== SOUND EFFECTS ====================
+function playSound(type: 'success' | 'error' | 'click') {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'success') {
+      osc.frequency.value = 523.25; // C5
+      gain.gain.value = 0.1;
+      osc.start();
+      setTimeout(() => { osc.frequency.value = 659.25; }, 100); // E5
+      setTimeout(() => { osc.frequency.value = 783.99; }, 200); // G5
+      setTimeout(() => osc.stop(), 400);
+    } else if (type === 'error') {
+      osc.frequency.value = 200;
+      gain.gain.value = 0.1;
+      osc.start();
+      setTimeout(() => osc.stop(), 200);
+    } else {
+      osc.frequency.value = 800;
+      gain.gain.value = 0.05;
+      osc.start();
+      setTimeout(() => osc.stop(), 50);
+    }
+  } catch (e) { /* Audio not supported */ }
+}
 
 // ==================== TÜRK İSİM MOTORU ====================
 
@@ -97,20 +169,19 @@ interface FormTemplate {
 
 // ==================== CONSTANTS ====================
 
-const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode }[] = [
-  { type: 'ogrenci_no', label: 'Öğrenci No', color: '#3B82F6', icon: <Hash className="w-3 h-3" /> },
-  { type: 'tc', label: 'TC Kimlik', color: '#8B5CF6', icon: <CreditCard className="w-3 h-3" /> },
-  { type: 'ad_soyad', label: 'Ad Soyad', color: '#10B981', icon: <Users className="w-3 h-3" /> },
-  { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" /> },
-  { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" /> },
-  { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" /> },
+const FIELD_TYPES: { type: FieldType; label: string; color: string; icon: React.ReactNode; shortcut: string }[] = [
+  { type: 'ogrenci_no', label: 'Öğrenci No', color: '#3B82F6', icon: <Hash className="w-3 h-3" />, shortcut: '1' },
+  { type: 'tc', label: 'TC Kimlik', color: '#8B5CF6', icon: <CreditCard className="w-3 h-3" />, shortcut: '2' },
+  { type: 'ad_soyad', label: 'Ad Soyad', color: '#10B981', icon: <Users className="w-3 h-3" />, shortcut: '3' },
+  { type: 'sinif', label: 'Sınıf', color: '#F59E0B', icon: <School className="w-3 h-3" />, shortcut: '4' },
+  { type: 'kitapcik', label: 'Kitapçık', color: '#EC4899', icon: <BookOpen className="w-3 h-3" />, shortcut: '5' },
+  { type: 'cevaplar', label: 'Cevaplar', color: '#EF4444', icon: <FileText className="w-3 h-3" />, shortcut: '6' },
 ];
 
-// HAZIR ŞABLONLAR
 const PRESET_TEMPLATES: FormTemplate[] = [
   {
     id: 'lgs-standard',
-    name: 'LGS Standart (90 Soru)',
+    name: 'LGS Standart',
     fields: [
       { id: 'f1', type: 'ogrenci_no', label: 'Öğrenci No', start: 1, end: 5 },
       { id: 'f2', type: 'ad_soyad', label: 'Ad Soyad', start: 6, end: 25 },
@@ -121,7 +192,7 @@ const PRESET_TEMPLATES: FormTemplate[] = [
   },
   {
     id: 'tyt-standard',
-    name: 'TYT Standart (120 Soru)',
+    name: 'TYT Standart',
     fields: [
       { id: 'f1', type: 'ogrenci_no', label: 'Öğrenci No', start: 1, end: 6 },
       { id: 'f2', type: 'ad_soyad', label: 'Ad Soyad', start: 7, end: 30 },
@@ -153,9 +224,72 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualField, setManualField] = useState({ label: '', start: 1, end: 10 });
-  const [zoom, setZoom] = useState(100); // Zoom yüzdesi
+  const [zoom, setZoom] = useState(100);
   const [autoDetecting, setAutoDetecting] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  
+  // UNDO/REDO
+  const [history, setHistory] = useState<FieldDefinition[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  
   const manualInputRef = useRef<HTMLInputElement>(null);
+  
+  // Undo/Redo fonksiyonları
+  const pushHistory = useCallback((newFields: FieldDefinition[]) => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(newFields);
+      return newHistory.slice(-20); // Max 20 history
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 19));
+  }, [historyIndex]);
+  
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      setHistoryIndex(prev => prev - 1);
+      setFields(history[historyIndex - 1] || []);
+      playSound('click');
+    }
+  }, [historyIndex, history]);
+  
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(prev => prev + 1);
+      setFields(history[historyIndex + 1] || []);
+      playSound('click');
+    }
+  }, [historyIndex, history]);
+  
+  // Klavye kısayolları
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Z = Undo
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      // Ctrl+Y = Redo
+      if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+      // 1-6 = Alan seçimi (selection varken)
+      if (selection && ['1', '2', '3', '4', '5', '6'].includes(e.key)) {
+        const fieldType = FIELD_TYPES[parseInt(e.key) - 1];
+        if (fieldType) {
+          handleAssignField(fieldType.type);
+          playSound('success');
+        }
+      }
+      // Escape = İptal
+      if (e.key === 'Escape') {
+        setSelection(null);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selection, undo, redo]);
   
   // LocalStorage
   useEffect(() => {
@@ -173,153 +307,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
   const sampleLines = useMemo(() => rawLines.slice(0, 3).map(l => fixTurkishChars(l)), [rawLines]);
   const maxLength = useMemo(() => Math.max(...rawLines.map(l => l.length), 100), [rawLines]);
   
-  // İstatistikler
-  const stats = useMemo(() => ({
-    students: rawLines.length,
-    maxChars: maxLength,
-    avgChars: Math.round(rawLines.reduce((s, l) => s + l.length, 0) / rawLines.length),
-    definedFields: fields.length,
-    definedChars: fields.reduce((s, f) => s + (f.end - f.start + 1), 0),
-    coverage: Math.round((fields.reduce((s, f) => s + (f.end - f.start + 1), 0) / maxLength) * 100),
-  }), [rawLines, fields, maxLength]);
-  
-  // OTOMATİK ALAN ALGILAMA
-  const autoDetectFields = useCallback(() => {
-    setAutoDetecting(true);
-    
-    const sample = sampleLines[0] || '';
-    const detected: FieldDefinition[] = [];
-    
-    // 1. İlk 5-6 karakter genellikle öğrenci no
-    const firstPart = sample.substring(0, 6).trim();
-    if (/^\d{3,6}$/.test(firstPart.replace(/\s/g, ''))) {
-      const numEnd = sample.search(/[A-ZÇĞİÖŞÜa-zçğıöşü]/) - 1;
-      detected.push({
-        id: `auto-${Date.now()}-1`,
-        type: 'ogrenci_no',
-        label: 'Öğrenci No',
-        start: 1,
-        end: numEnd > 0 ? numEnd : 5
-      });
-    }
-    
-    // 2. İsim bölgesini bul (harfler ve boşluk)
-    const nameMatch = sample.match(/[A-ZÇĞİÖŞÜa-zçğıöşü\s]{10,}/);
-    if (nameMatch) {
-      const nameStart = sample.indexOf(nameMatch[0]) + 1;
-      const nameEnd = nameStart + nameMatch[0].length - 1;
-      detected.push({
-        id: `auto-${Date.now()}-2`,
-        type: 'ad_soyad',
-        label: 'Ad Soyad',
-        start: nameStart,
-        end: nameEnd
-      });
-    }
-    
-    // 3. Sınıf (8A, 8B gibi)
-    const classMatch = sample.match(/\d[A-Z](?=\s|[ABCD]{2,})/);
-    if (classMatch) {
-      const classStart = sample.indexOf(classMatch[0]) + 1;
-      detected.push({
-        id: `auto-${Date.now()}-3`,
-        type: 'sinif',
-        label: 'Sınıf',
-        start: classStart,
-        end: classStart + 1
-      });
-    }
-    
-    // 4. Kitapçık (tek A, B, C, D)
-    const bookletMatch = sample.match(/(?<=[A-Z\s])[ABCD](?=[ABCD]{5,})/);
-    if (bookletMatch) {
-      const bookletStart = sample.lastIndexOf(bookletMatch[0], sample.lastIndexOf(bookletMatch[0])) + 1;
-      detected.push({
-        id: `auto-${Date.now()}-4`,
-        type: 'kitapcik',
-        label: 'Kitapçık',
-        start: bookletStart,
-        end: bookletStart
-      });
-    }
-    
-    // 5. Cevaplar (ABCD tekrarı)
-    const answerMatch = sample.match(/[ABCD\s]{20,}/);
-    if (answerMatch) {
-      const ansStart = sample.indexOf(answerMatch[0]) + 1;
-      detected.push({
-        id: `auto-${Date.now()}-5`,
-        type: 'cevaplar',
-        label: 'Cevaplar',
-        start: ansStart,
-        end: sample.length
-      });
-    }
-    
-    setTimeout(() => {
-      setFields(detected.sort((a, b) => a.start - b.start));
-      setAutoDetecting(false);
-    }, 500);
-  }, [sampleLines]);
-  
-  // Karakter seçimi
-  const handleCharMouseDown = useCallback((i: number) => {
-    if (fields.find(f => i >= f.start - 1 && i < f.end)) return;
-    setIsSelecting(true);
-    setSelection({ start: i, end: i });
-  }, [fields]);
-  
-  const handleCharMouseEnter = useCallback((i: number) => {
-    if (isSelecting) setSelection(p => p ? { ...p, end: i } : null);
-  }, [isSelecting]);
-  
-  const handleMouseUp = useCallback(() => setIsSelecting(false), []);
-  
-  // Alan ata
-  const handleAssignField = useCallback((type: FieldType, label?: string) => {
-    if (!selection) return;
-    const s = Math.min(selection.start, selection.end) + 1;
-    const e = Math.max(selection.start, selection.end) + 1;
-    const ft = FIELD_TYPES.find(f => f.type === type);
-    setFields(p => [...p, { id: `f-${Date.now()}`, type, label: label || ft?.label || 'Özel', start: s, end: e }].sort((a, b) => a.start - b.start));
-    setSelection(null);
-  }, [selection]);
-  
-  // Manuel ekle
-  const handleAddManualField = useCallback(() => {
-    if (!manualField.label.trim()) return;
-    setFields(p => [...p, { id: `f-${Date.now()}`, type: 'custom', label: manualField.label, start: manualField.start, end: manualField.end }].sort((a, b) => a.start - b.start));
-    setManualField({ label: '', start: manualField.end + 1, end: manualField.end + 20 });
-    setTimeout(() => manualInputRef.current?.focus(), 50);
-  }, [manualField]);
-  
-  const handleManualKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && manualField.label.trim()) handleAddManualField();
-  }, [handleAddManualField, manualField.label]);
-  
-  const handleUpdateField = useCallback((id: string, u: Partial<FieldDefinition>) => {
-    setFields(p => p.map(f => f.id === id ? { ...f, ...u } : f));
-  }, []);
-  
-  const handleRemoveField = useCallback((id: string) => setFields(p => p.filter(f => f.id !== id)), []);
-  const handleReset = useCallback(() => { setFields([]); setSelection(null); }, []);
-  
-  // Şablon
-  const handleSaveTemplate = useCallback(() => {
-    if (!newTemplateName.trim() || !fields.length) return;
-    saveTemplates([...savedTemplates, { id: `t-${Date.now()}`, name: newTemplateName, fields }]);
-    setNewTemplateName('');
-    setShowSaveDialog(false);
-  }, [newTemplateName, fields, savedTemplates, saveTemplates]);
-  
-  const handleLoadTemplate = useCallback((t: FormTemplate) => {
-    setFields(t.fields.map(f => ({ ...f, id: `f-${Date.now()}-${Math.random()}` })));
-    setShowTemplates(false);
-  }, []);
-  
-  const handleDeleteTemplate = useCallback((id: string) => saveTemplates(savedTemplates.filter(t => t.id !== id)), [savedTemplates, saveTemplates]);
-  
-  // Parse
+  // Parse edilmiş öğrenciler
   const parsedStudents = useMemo((): ParsedStudent[] => {
     return rawLines.map(line => {
       const c = fixTurkishChars(line);
@@ -337,6 +325,179 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       return s;
     });
   }, [rawLines, fields]);
+  
+  // DUPLICATE ALGILAMA
+  const duplicates = useMemo(() => {
+    const ids = parsedStudents.map(s => s.ogrenciNo || s.tc || '').filter(Boolean);
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    ids.forEach(id => {
+      if (seen.has(id)) dupes.add(id);
+      seen.add(id);
+    });
+    return dupes;
+  }, [parsedStudents]);
+  
+  // VERİ KALİTESİ SKORU
+  const qualityScore = useMemo(() => {
+    let score = 0;
+    const checks = {
+      hasId: fields.some(f => f.type === 'ogrenci_no' || f.type === 'tc'),
+      hasName: fields.some(f => f.type === 'ad_soyad'),
+      hasAnswers: fields.some(f => f.type === 'cevaplar'),
+      noDuplicates: duplicates.size === 0,
+      coverage: fields.reduce((s, f) => s + (f.end - f.start + 1), 0) / maxLength,
+    };
+    if (checks.hasId) score += 25;
+    if (checks.hasName) score += 20;
+    if (checks.hasAnswers) score += 30;
+    if (checks.noDuplicates) score += 15;
+    score += Math.round(checks.coverage * 10);
+    return Math.min(100, score);
+  }, [fields, duplicates, maxLength]);
+  
+  // İstatistikler
+  const stats = useMemo(() => ({
+    students: rawLines.length,
+    maxChars: maxLength,
+    definedFields: fields.length,
+    definedChars: fields.reduce((s, f) => s + (f.end - f.start + 1), 0),
+    coverage: Math.round((fields.reduce((s, f) => s + (f.end - f.start + 1), 0) / maxLength) * 100),
+    duplicateCount: duplicates.size,
+    qualityScore,
+  }), [rawLines, fields, maxLength, duplicates, qualityScore]);
+  
+  // OTOMATİK ALAN ALGILAMA
+  const autoDetectFields = useCallback(() => {
+    setAutoDetecting(true);
+    playSound('click');
+    
+    const sample = sampleLines[0] || '';
+    const detected: FieldDefinition[] = [];
+    
+    // Öğrenci no
+    const numEnd = sample.search(/[A-ZÇĞİÖŞÜa-zçğıöşü]/) - 1;
+    if (numEnd > 2) {
+      detected.push({ id: `auto-${Date.now()}-1`, type: 'ogrenci_no', label: 'Öğrenci No', start: 1, end: numEnd });
+    }
+    
+    // Ad Soyad
+    const nameMatch = sample.match(/[A-ZÇĞİÖŞÜa-zçğıöşü\s]{10,}/);
+    if (nameMatch) {
+      const start = sample.indexOf(nameMatch[0]) + 1;
+      detected.push({ id: `auto-${Date.now()}-2`, type: 'ad_soyad', label: 'Ad Soyad', start, end: start + nameMatch[0].length - 1 });
+    }
+    
+    // Sınıf
+    const classMatch = sample.match(/\d[A-Z](?=\s|[ABCD]{2,})/);
+    if (classMatch) {
+      const start = sample.indexOf(classMatch[0]) + 1;
+      detected.push({ id: `auto-${Date.now()}-3`, type: 'sinif', label: 'Sınıf', start, end: start + 1 });
+    }
+    
+    // Cevaplar
+    const answerMatch = sample.match(/[ABCD\s]{20,}/);
+    if (answerMatch) {
+      const start = sample.indexOf(answerMatch[0]) + 1;
+      detected.push({ id: `auto-${Date.now()}-5`, type: 'cevaplar', label: 'Cevaplar', start, end: sample.length });
+    }
+    
+    setTimeout(() => {
+      const sorted = detected.sort((a, b) => a.start - b.start);
+      setFields(sorted);
+      pushHistory(sorted);
+      setAutoDetecting(false);
+      if (sorted.length > 0) {
+        playSound('success');
+      }
+    }, 500);
+  }, [sampleLines, pushHistory]);
+  
+  // Alan ata
+  const handleAssignField = useCallback((type: FieldType, label?: string) => {
+    if (!selection) return;
+    const s = Math.min(selection.start, selection.end) + 1;
+    const e = Math.max(selection.start, selection.end) + 1;
+    const ft = FIELD_TYPES.find(f => f.type === type);
+    const newFields = [...fields, { id: `f-${Date.now()}`, type, label: label || ft?.label || 'Özel', start: s, end: e }].sort((a, b) => a.start - b.start);
+    setFields(newFields);
+    pushHistory(newFields);
+    setSelection(null);
+    playSound('success');
+  }, [selection, fields, pushHistory]);
+  
+  // Karakter seçimi
+  const handleCharMouseDown = useCallback((i: number) => {
+    if (fields.find(f => i >= f.start - 1 && i < f.end)) return;
+    setIsSelecting(true);
+    setSelection({ start: i, end: i });
+    playSound('click');
+  }, [fields]);
+  
+  const handleCharMouseEnter = useCallback((i: number) => {
+    if (isSelecting) setSelection(p => p ? { ...p, end: i } : null);
+  }, [isSelecting]);
+  
+  const handleMouseUp = useCallback(() => setIsSelecting(false), []);
+  
+  // Manuel ekle
+  const handleAddManualField = useCallback(() => {
+    if (!manualField.label.trim()) return;
+    const newFields = [...fields, { id: `f-${Date.now()}`, type: 'custom' as FieldType, label: manualField.label, start: manualField.start, end: manualField.end }].sort((a, b) => a.start - b.start);
+    setFields(newFields);
+    pushHistory(newFields);
+    setManualField({ label: '', start: manualField.end + 1, end: manualField.end + 20 });
+    playSound('success');
+    setTimeout(() => manualInputRef.current?.focus(), 50);
+  }, [manualField, fields, pushHistory]);
+  
+  const handleManualKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && manualField.label.trim()) handleAddManualField();
+  }, [handleAddManualField, manualField.label]);
+  
+  const handleUpdateField = useCallback((id: string, u: Partial<FieldDefinition>) => {
+    const newFields = fields.map(f => f.id === id ? { ...f, ...u } : f);
+    setFields(newFields);
+  }, [fields]);
+  
+  const handleRemoveField = useCallback((id: string) => {
+    const newFields = fields.filter(f => f.id !== id);
+    setFields(newFields);
+    pushHistory(newFields);
+    playSound('click');
+  }, [fields, pushHistory]);
+  
+  const handleReset = useCallback(() => {
+    setFields([]);
+    pushHistory([]);
+    setSelection(null);
+    playSound('click');
+  }, [pushHistory]);
+  
+  // Şablon
+  const handleSaveTemplate = useCallback(() => {
+    if (!newTemplateName.trim() || !fields.length) return;
+    saveTemplates([...savedTemplates, { id: `t-${Date.now()}`, name: newTemplateName, fields }]);
+    setNewTemplateName('');
+    setShowSaveDialog(false);
+    playSound('success');
+  }, [newTemplateName, fields, savedTemplates, saveTemplates]);
+  
+  const handleLoadTemplate = useCallback((t: FormTemplate) => {
+    const newFields = t.fields.map(f => ({ ...f, id: `f-${Date.now()}-${Math.random()}` }));
+    setFields(newFields);
+    pushHistory(newFields);
+    setShowTemplates(false);
+    playSound('success');
+  }, [pushHistory]);
+  
+  const handleDeleteTemplate = useCallback((id: string) => saveTemplates(savedTemplates.filter(t => t.id !== id)), [savedTemplates, saveTemplates]);
+  
+  const handleComplete = useCallback(() => {
+    createConfetti();
+    playSound('success');
+    setTimeout(() => onComplete(fields, parsedStudents), 500);
+  }, [fields, parsedStudents, onComplete]);
   
   const isValid = useMemo(() => fields.length >= 2, [fields]);
   
@@ -358,8 +519,10 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         students={parsedStudents.slice(0, 20)} 
         fields={fields}
         totalCount={parsedStudents.length}
+        duplicates={duplicates}
+        qualityScore={qualityScore}
         onBack={() => setPreviewMode(false)}
-        onConfirm={() => onComplete(fields, parsedStudents)}
+        onConfirm={handleComplete}
       />
     );
   }
@@ -374,11 +537,14 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Target className="w-5 h-5" /> Optik Form Mapper Ultra
+              <Target className="w-5 h-5" /> Optik Form Mapper Elite
             </h2>
             <p className="text-purple-200 text-sm">{rawLines.length} öğrenci • {maxLength} karakter</p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowKeyboardHelp(true)} className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30" title="Klavye Kısayolları">
+              <Keyboard className="w-4 h-4" />
+            </button>
             <button onClick={() => setShowTemplates(true)} className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-white/30">
               <FolderOpen className="w-4 h-4" /> Şablon
             </button>
@@ -391,56 +557,87 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       </div>
       
+      {/* KLAVYE YARDIMI */}
+      {showKeyboardHelp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowKeyboardHelp(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Keyboard className="w-5 h-5" /> Klavye Kısayolları</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Geri Al</span><kbd className="px-2 py-1 bg-gray-200 rounded">Ctrl + Z</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Yinele</span><kbd className="px-2 py-1 bg-gray-200 rounded">Ctrl + Y</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Öğrenci No</span><kbd className="px-2 py-1 bg-blue-100 text-blue-700 rounded">1</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>TC Kimlik</span><kbd className="px-2 py-1 bg-purple-100 text-purple-700 rounded">2</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Ad Soyad</span><kbd className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded">3</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Sınıf</span><kbd className="px-2 py-1 bg-amber-100 text-amber-700 rounded">4</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Kitapçık</span><kbd className="px-2 py-1 bg-pink-100 text-pink-700 rounded">5</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>Cevaplar</span><kbd className="px-2 py-1 bg-red-100 text-red-700 rounded">6</kbd></div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded"><span>İptal</span><kbd className="px-2 py-1 bg-gray-200 rounded">Esc</kbd></div>
+            </div>
+            <button onClick={() => setShowKeyboardHelp(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 rounded-lg">Kapat</button>
+          </div>
+        </div>
+      )}
+      
       {/* METRİKLER */}
-      <div className="grid grid-cols-6 gap-2 mb-4">
+      <div className="grid grid-cols-7 gap-2 mb-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-blue-600">{stats.students}</div>
+          <div className="text-lg font-bold text-blue-600">{stats.students}</div>
           <div className="text-[10px] text-blue-500">Öğrenci</div>
         </div>
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-purple-600">{stats.maxChars}</div>
+          <div className="text-lg font-bold text-purple-600">{stats.maxChars}</div>
           <div className="text-[10px] text-purple-500">Karakter</div>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-amber-600">{stats.definedFields}</div>
+          <div className="text-lg font-bold text-amber-600">{stats.definedFields}</div>
           <div className="text-[10px] text-amber-500">Alan</div>
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-emerald-600">{stats.definedChars}</div>
-          <div className="text-[10px] text-emerald-500">Tanımlı</div>
-        </div>
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-rose-600 flex items-center justify-center gap-1">
-            <Percent className="w-4 h-4" />{stats.coverage}
+          <div className="text-lg font-bold text-emerald-600 flex items-center justify-center gap-0.5">
+            <Percent className="w-3 h-3" />{stats.coverage}
           </div>
-          <div className="text-[10px] text-rose-500">Kapsam</div>
+          <div className="text-[10px] text-emerald-500">Kapsam</div>
+        </div>
+        <div className={`border rounded-xl p-2 text-center ${stats.duplicateCount > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+          <div className={`text-lg font-bold flex items-center justify-center gap-1 ${stats.duplicateCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {stats.duplicateCount > 0 ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+            {stats.duplicateCount}
+          </div>
+          <div className={`text-[10px] ${stats.duplicateCount > 0 ? 'text-red-500' : 'text-green-500'}`}>Mükerrer</div>
+        </div>
+        <div className={`border rounded-xl p-2 text-center ${stats.qualityScore >= 80 ? 'bg-emerald-50 border-emerald-200' : stats.qualityScore >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+          <div className={`text-lg font-bold flex items-center justify-center gap-1 ${stats.qualityScore >= 80 ? 'text-emerald-600' : stats.qualityScore >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+            <Award className="w-4 h-4" />{stats.qualityScore}
+          </div>
+          <div className={`text-[10px] ${stats.qualityScore >= 80 ? 'text-emerald-500' : stats.qualityScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>Kalite</div>
         </div>
         <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-2 text-center">
-          <div className="text-xl font-bold text-indigo-600">{zoom}%</div>
+          <div className="text-lg font-bold text-indigo-600">{zoom}%</div>
           <div className="text-[10px] text-indigo-500">Zoom</div>
         </div>
       </div>
       
       {/* HIZLI EYLEMLER */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button
-          onClick={autoDetectFields}
-          disabled={autoDetecting}
-          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold flex items-center gap-2 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 shadow-lg"
-        >
+        <button onClick={autoDetectFields} disabled={autoDetecting} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold flex items-center gap-2 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 shadow-lg">
           <Wand2 className={`w-4 h-4 ${autoDetecting ? 'animate-spin' : ''}`} />
           {autoDetecting ? 'Algılanıyor...' : '🪄 Otomatik Algıla'}
         </button>
         
         {PRESET_TEMPLATES.map(t => (
-          <button
-            key={t.id}
-            onClick={() => handleLoadTemplate(t)}
-            className="px-3 py-2 bg-white border-2 border-gray-200 rounded-xl text-sm font-medium flex items-center gap-1 hover:border-blue-400 hover:bg-blue-50"
-          >
+          <button key={t.id} onClick={() => handleLoadTemplate(t)} className="px-3 py-2 bg-white border-2 border-gray-200 rounded-xl text-sm font-medium flex items-center gap-1 hover:border-blue-400 hover:bg-blue-50">
             <Layout className="w-4 h-4 text-blue-500" /> {t.name}
           </button>
         ))}
+        
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 hover:bg-gray-200 rounded disabled:opacity-30" title="Geri Al (Ctrl+Z)">
+            <Undo2 className="w-4 h-4" />
+          </button>
+          <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-1.5 hover:bg-gray-200 rounded disabled:opacity-30" title="Yinele (Ctrl+Y)">
+            <Redo2 className="w-4 h-4" />
+          </button>
+        </div>
         
         <div className="flex items-center gap-1 ml-auto bg-gray-100 rounded-lg p-1">
           <button onClick={() => setZoom(z => Math.max(50, z - 25))} className="p-1.5 hover:bg-gray-200 rounded">
@@ -453,26 +650,18 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       </div>
       
-      {/* ŞABLONLAR MODAL */}
+      {/* ŞABLONLAR */}
       {showTemplates && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowTemplates(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-purple-600" /> Kayıtlı Şablonlar
-            </h3>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4"><FolderOpen className="w-5 h-5 inline mr-2" />Kayıtlı Şablonlar</h3>
             {savedTemplates.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Zap className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>Henüz kayıtlı şablon yok</p>
-              </div>
+              <div className="text-center py-8 text-gray-500"><Zap className="w-12 h-12 mx-auto mb-3 text-gray-300" /><p>Henüz kayıtlı şablon yok</p></div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {savedTemplates.map(t => (
                   <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-bold">{t.name}</div>
-                      <div className="text-xs text-gray-500">{t.fields.length} alan</div>
-                    </div>
+                    <div><div className="font-bold">{t.name}</div><div className="text-xs text-gray-500">{t.fields.length} alan</div></div>
                     <div className="flex gap-2">
                       <button onClick={() => handleLoadTemplate(t)} className="px-3 py-1 bg-blue-500 text-white rounded text-sm">Yükle</button>
                       <button onClick={() => handleDeleteTemplate(t.id)} className="p-1 text-red-400"><Trash2 className="w-4 h-4" /></button>
@@ -486,7 +675,6 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       )}
       
-      {/* KAYDET MODAL */}
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSaveDialog(false)}>
           <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
@@ -500,7 +688,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
         </div>
       )}
       
-      {/* KARAKTER HARİTASI - TÜM KARAKTERLER */}
+      {/* KARAKTER HARİTASI */}
       <div className="bg-white border-2 border-gray-200 rounded-xl mb-4 overflow-hidden">
         <div className="bg-gray-100 px-4 py-2 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -508,12 +696,9 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
             <span className="font-bold text-gray-700">Karakter Haritası</span>
             <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">Tüm karakterler</span>
           </div>
-          <button onClick={handleReset} className="text-xs text-red-500 flex items-center gap-1">
-            <RotateCcw className="w-3 h-3" /> Sıfırla
-          </button>
+          <button onClick={handleReset} className="text-xs text-red-500 flex items-center gap-1"><RotateCcw className="w-3 h-3" /> Sıfırla</button>
         </div>
         
-        {/* SARMALI (WRAP) GÖRÜNÜM */}
         <div className="p-4 select-none" style={{ fontFamily: 'Consolas, Monaco, monospace' }}>
           {sampleLines.map((line, rowIdx) => (
             <div key={rowIdx} className="mb-4">
@@ -522,37 +707,20 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
                 {Array.from(line).map((char, i) => {
                   const color = getCharColor(i);
                   const inSel = isInSelection(i);
-                  
                   return (
                     <div
                       key={i}
                       onMouseDown={() => handleCharMouseDown(i)}
                       onMouseEnter={() => handleCharMouseEnter(i)}
-                      className={`
-                        flex items-center justify-center cursor-pointer border
-                        transition-all font-bold
+                      className={`flex items-center justify-center cursor-pointer border transition-all font-bold
                         ${inSel ? 'bg-blue-500 text-white border-blue-600 scale-110 z-10' : ''}
                         ${color && !inSel ? 'text-white' : ''}
-                        ${!color && !inSel ? 'hover:bg-blue-100 border-gray-200' : ''}
-                      `}
-                      style={{
-                        width: `${charWidth}px`,
-                        height: `${charWidth + 4}px`,
-                        fontSize: `${charSize}px`,
-                        backgroundColor: color && !inSel ? color : undefined,
-                        borderColor: color && !inSel ? color : undefined,
-                      }}
+                        ${!color && !inSel ? 'hover:bg-blue-100 border-gray-200' : ''}`}
+                      style={{ width: `${charWidth}px`, height: `${charWidth + 4}px`, fontSize: `${charSize}px`, backgroundColor: color && !inSel ? color : undefined, borderColor: color && !inSel ? color : undefined }}
                       title={`Pozisyon: ${i + 1}`}
-                    >
-                      {char}
-                    </div>
+                    >{char}</div>
                   );
                 })}
-              </div>
-              <div className="flex mt-1 text-[9px] text-gray-400">
-                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130].filter(n => n <= line.length).map(n => (
-                  <span key={n} style={{ marginLeft: `${(n - 1) * charWidth - 10}px`, position: 'absolute' }}>{n}</span>
-                ))}
               </div>
             </div>
           ))}
@@ -563,24 +731,21 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       {selection && (
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl shadow-lg">
           <div className="text-center mb-3">
-            <span className="text-3xl font-bold text-blue-600">
-              {Math.min(selection.start, selection.end) + 1} → {Math.max(selection.start, selection.end) + 1}
-            </span>
+            <span className="text-3xl font-bold text-blue-600">{Math.min(selection.start, selection.end) + 1} → {Math.max(selection.start, selection.end) + 1}</span>
             <span className="text-gray-500 ml-2">({Math.abs(selection.end - selection.start) + 1} karakter)</span>
           </div>
           <div className="p-3 bg-white rounded-lg font-mono text-center mb-3 text-lg border">
             "{sampleLines[0]?.substring(Math.min(selection.start, selection.end), Math.max(selection.start, selection.end) + 1) || ''}"
           </div>
+          <div className="text-xs text-gray-500 text-center mb-2">Klavye: 1-6 ile hızlı seç</div>
           <div className="flex flex-wrap justify-center gap-2">
             {FIELD_TYPES.map((ft) => (
               <button key={ft.type} onClick={() => handleAssignField(ft.type)} className="px-3 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-1 hover:opacity-80" style={{ backgroundColor: ft.color }}>
-                {ft.icon} {ft.label}
+                {ft.icon} {ft.label} <kbd className="ml-1 text-xs opacity-70 bg-white/20 px-1 rounded">{ft.shortcut}</kbd>
               </button>
             ))}
           </div>
-          <div className="text-center mt-2">
-            <button onClick={() => setSelection(null)} className="text-sm text-gray-500">İptal</button>
-          </div>
+          <div className="text-center mt-2"><button onClick={() => setSelection(null)} className="text-sm text-gray-500">İptal (Esc)</button></div>
         </div>
       )}
       
@@ -648,7 +813,7 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
       {/* VALİDASYON */}
       <div className={`p-3 rounded-xl mb-4 flex items-center gap-2 ${isValid ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
         {isValid ? (
-          <><CheckCircle className="w-5 h-5 text-emerald-600" /><span className="text-emerald-700 font-medium">Hazır! {fields.length} alan, %{stats.coverage} kapsam</span></>
+          <><CheckCircle className="w-5 h-5 text-emerald-600" /><span className="text-emerald-700 font-medium">Hazır! Kalite Skoru: {qualityScore}/100</span></>
         ) : (
           <><AlertCircle className="w-5 h-5 text-amber-600" /><span className="text-amber-700 text-sm">En az 2 alan tanımlanmalı</span></>
         )}
@@ -661,8 +826,8 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack }: FixedWidthMap
           <button onClick={() => setPreviewMode(true)} disabled={!isValid} className={`px-4 py-2 rounded-lg text-sm flex items-center gap-1 ${isValid ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
             <Eye className="w-4 h-4" /> Önizleme
           </button>
-          <button onClick={() => onComplete(fields, parsedStudents)} disabled={!isValid} className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 ${isValid ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`}>
-            Devam <ChevronRight className="w-4 h-4" />
+          <button onClick={handleComplete} disabled={!isValid} className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 ${isValid ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`}>
+            🎉 Tamamla <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -676,16 +841,32 @@ interface PreviewScreenProps {
   students: ParsedStudent[];
   fields: FieldDefinition[];
   totalCount: number;
+  duplicates: Set<string>;
+  qualityScore: number;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: PreviewScreenProps) {
+function PreviewScreen({ students, fields, totalCount, duplicates, qualityScore, onBack, onConfirm }: PreviewScreenProps) {
   return (
     <div>
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 -mx-6 -mt-6 px-6 py-4 mb-4 rounded-t-2xl">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2"><Eye className="w-5 h-5" /> Veri Önizleme</h2>
-        <p className="text-purple-100 text-sm">{totalCount} öğrenci</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Eye className="w-5 h-5" /> Veri Önizleme</h2>
+            <p className="text-purple-100 text-sm">{totalCount} öğrenci</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 ${qualityScore >= 80 ? 'bg-emerald-400 text-emerald-900' : qualityScore >= 50 ? 'bg-amber-400 text-amber-900' : 'bg-red-400 text-red-900'}`}>
+              <Award className="w-4 h-4" /> {qualityScore}/100
+            </div>
+            {duplicates.size > 0 && (
+              <div className="px-3 py-1 bg-red-400 text-red-900 rounded-full text-sm font-bold flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" /> {duplicates.size} Mükerrer
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -702,27 +883,33 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
               <tr>
                 <th className="px-3 py-2 text-left">#</th>
                 {fields.map(f => <th key={f.id} className="px-3 py-2 text-left" style={{ color: FIELD_TYPES.find(t => t.type === f.type)?.color }}>{f.label}</th>)}
-                <th className="px-3 py-2 text-center">✓</th>
+                <th className="px-3 py-2 text-center">Durum</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((s, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
-                  {fields.map(f => {
-                    let v = '';
-                    if (f.type === 'ogrenci_no') v = s.ogrenciNo || '';
-                    else if (f.type === 'tc') v = s.tc || '';
-                    else if (f.type === 'ad_soyad') v = s.adSoyad || '';
-                    else if (f.type === 'sinif') v = s.sinif || '';
-                    else if (f.type === 'kitapcik') v = s.kitapcik || '';
-                    else if (f.type === 'cevaplar') v = s.cevaplar || '';
-                    else v = s[f.label] || '';
-                    return <td key={f.id} className="px-3 py-2 font-mono text-sm truncate max-w-[180px]">{v || '—'}</td>;
-                  })}
-                  <td className="px-3 py-2 text-center"><CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" /></td>
-                </tr>
-              ))}
+              {students.map((s, idx) => {
+                const id = s.ogrenciNo || s.tc || '';
+                const isDupe = duplicates.has(id);
+                return (
+                  <tr key={idx} className={`border-b ${isDupe ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                    <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                    {fields.map(f => {
+                      let v = '';
+                      if (f.type === 'ogrenci_no') v = s.ogrenciNo || '';
+                      else if (f.type === 'tc') v = s.tc || '';
+                      else if (f.type === 'ad_soyad') v = s.adSoyad || '';
+                      else if (f.type === 'sinif') v = s.sinif || '';
+                      else if (f.type === 'kitapcik') v = s.kitapcik || '';
+                      else if (f.type === 'cevaplar') v = s.cevaplar || '';
+                      else v = s[f.label] || '';
+                      return <td key={f.id} className="px-3 py-2 font-mono text-sm truncate max-w-[180px]">{v || '—'}</td>;
+                    })}
+                    <td className="px-3 py-2 text-center">
+                      {isDupe ? <AlertTriangle className="w-4 h-4 text-red-500 mx-auto" /> : <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -731,7 +918,7 @@ function PreviewScreen({ students, fields, totalCount, onBack, onConfirm }: Prev
       <div className="flex justify-between">
         <button onClick={onBack} className="px-4 py-2 text-gray-500">← Düzenle</button>
         <button onClick={onConfirm} className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold shadow-lg flex items-center gap-2">
-          <Save className="w-5 h-5" /> Onayla
+          🎉 Onayla ve Bitir
         </button>
       </div>
     </div>
