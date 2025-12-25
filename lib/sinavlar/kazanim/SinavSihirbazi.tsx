@@ -385,8 +385,11 @@ export default function SinavSihirbazi({
                   initialSablon={selectedSablon || undefined}
                   cevapAnahtari={cevapAnahtari}
                   onSave={(sablon) => {
+                    console.log('🔧 Şablon kaydedildi, sonraki adıma geçiliyor...');
                     setCustomSablon(sablon);
                     setSelectedSablon(null);
+                    // OTOMATİK OLARAK SONRAKİ ADIMA GEÇ
+                    setCurrentStep(4);
                   }}
                 />
               </div>
