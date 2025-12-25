@@ -2,169 +2,236 @@
 
 /**
  * Akademik Analiz - Sonuçlar
- * Sınav sonuçlarını görüntüleme
+ * Sınav sonuçlarını görüntüleme - Supabase entegreli
  */
 
-import React, { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ResultsExplorer } from '@/lib/sinavlar/ui';
 import { StudentResult, Conflict } from '@/lib/sinavlar/core/types';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 function SonuclarContent() {
   const searchParams = useSearchParams();
-  const examId = searchParams.get('examId') || '1';
+  const router = useRouter();
+  const examId = searchParams.get('examId');
+  const { selectedOrganization } = useOrganizationStore();
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<StudentResult[]>([]);
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [examName, setExamName] = useState('Sınav Sonuçları');
 
-  // Demo veriler
-  const demoResults: StudentResult[] = [
-    {
-      studentNo: '2024001',
-      tc: '12345678901',
-      name: 'Ali Yılmaz',
-      booklet: 'A',
-      totalCorrect: 72,
-      totalWrong: 12,
-      totalEmpty: 6,
-      totalNet: 68.0,
-      totalScore: 456.8,
-      rank: 1,
-      percentile: 99,
-      subjects: [
-        { subjectId: 'turkce', subjectName: 'Türkçe', correct: 18, wrong: 2, empty: 0, net: 17.33, weightedScore: 69.33, percentage: 90 },
-        { subjectId: 'matematik', subjectName: 'Matematik', correct: 17, wrong: 2, empty: 1, net: 16.33, weightedScore: 65.33, percentage: 85 },
-        { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 16, wrong: 3, empty: 1, net: 15.0, weightedScore: 60.0, percentage: 80 },
-        { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 8, wrong: 1, empty: 1, net: 7.67, weightedScore: 7.67, percentage: 80 },
-        { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-        { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-      ],
-      evaluatedAt: new Date(),
-      examId: '1',
-    },
-    {
-      studentNo: '2024002',
-      tc: '12345678902',
-      name: 'Ayşe Kaya',
-      booklet: 'B',
-      totalCorrect: 68,
-      totalWrong: 15,
-      totalEmpty: 7,
-      totalNet: 63.0,
-      totalScore: 432.5,
-      rank: 2,
-      percentile: 97,
-      subjects: [
-        { subjectId: 'turkce', subjectName: 'Türkçe', correct: 17, wrong: 2, empty: 1, net: 16.33, weightedScore: 65.33, percentage: 85 },
-        { subjectId: 'matematik', subjectName: 'Matematik', correct: 15, wrong: 4, empty: 1, net: 13.67, weightedScore: 54.67, percentage: 75 },
-        { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 15, wrong: 4, empty: 1, net: 13.67, weightedScore: 54.67, percentage: 75 },
-        { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 9, wrong: 1, empty: 0, net: 8.67, weightedScore: 8.67, percentage: 90 },
-        { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-        { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-      ],
-      evaluatedAt: new Date(),
-      examId: '1',
-    },
-    {
-      studentNo: '2024003',
-      tc: '12345678903',
-      name: 'Mehmet Demir',
-      booklet: 'A',
-      totalCorrect: 65,
-      totalWrong: 18,
-      totalEmpty: 7,
-      totalNet: 59.0,
-      totalScore: 398.2,
-      rank: 3,
-      percentile: 95,
-      subjects: [
-        { subjectId: 'turkce', subjectName: 'Türkçe', correct: 16, wrong: 3, empty: 1, net: 15.0, weightedScore: 60.0, percentage: 80 },
-        { subjectId: 'matematik', subjectName: 'Matematik', correct: 14, wrong: 5, empty: 1, net: 12.33, weightedScore: 49.33, percentage: 70 },
-        { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 14, wrong: 5, empty: 1, net: 12.33, weightedScore: 49.33, percentage: 70 },
-        { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 8, wrong: 2, empty: 0, net: 7.33, weightedScore: 7.33, percentage: 80 },
-        { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-        { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 1, empty: 3, net: 5.67, weightedScore: 5.67, percentage: 60 },
-      ],
-      evaluatedAt: new Date(),
-      examId: '1',
-    },
-    {
-      studentNo: '2024004',
-      tc: '12345678904',
-      name: 'Zeynep Öztürk',
-      booklet: 'B',
-      totalCorrect: 60,
-      totalWrong: 20,
-      totalEmpty: 10,
-      totalNet: 53.33,
-      totalScore: 365.4,
-      rank: 4,
-      percentile: 92,
-      subjects: [
-        { subjectId: 'turkce', subjectName: 'Türkçe', correct: 15, wrong: 4, empty: 1, net: 13.67, weightedScore: 54.67, percentage: 75 },
-        { subjectId: 'matematik', subjectName: 'Matematik', correct: 12, wrong: 5, empty: 3, net: 10.33, weightedScore: 41.33, percentage: 60 },
-        { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 13, wrong: 5, empty: 2, net: 11.33, weightedScore: 45.33, percentage: 65 },
-        { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-        { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-        { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-      ],
-      evaluatedAt: new Date(),
-      examId: '1',
-    },
-    {
-      studentNo: '2024005',
-      tc: '12345678905',
-      name: 'Emre Çelik',
-      booklet: 'A',
-      totalCorrect: 55,
-      totalWrong: 25,
-      totalEmpty: 10,
-      totalNet: 46.67,
-      totalScore: 312.8,
-      rank: 5,
-      percentile: 88,
-      subjects: [
-        { subjectId: 'turkce', subjectName: 'Türkçe', correct: 14, wrong: 5, empty: 1, net: 12.33, weightedScore: 49.33, percentage: 70 },
-        { subjectId: 'matematik', subjectName: 'Matematik', correct: 10, wrong: 7, empty: 3, net: 7.67, weightedScore: 30.67, percentage: 50 },
-        { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 12, wrong: 6, empty: 2, net: 10.0, weightedScore: 40.0, percentage: 60 },
-        { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-        { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 6, wrong: 3, empty: 1, net: 5.0, weightedScore: 5.0, percentage: 60 },
-        { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-      ],
-      evaluatedAt: new Date(),
-      examId: '1',
-    },
-  ];
+  useEffect(() => {
+    async function fetchResults() {
+      if (!examId) {
+        setLoading(false);
+        return;
+      }
 
-  // Demo çakışmalar
-  const demoConflicts: Conflict[] = [
-    {
-      type: 'TC_NAME_MISMATCH',
-      studentNo: '2024006',
-      tc: '12345678906',
-      name: 'Ahmet Yıldız',
-      lineNumber: 6,
-      description: 'TC numarası veritabanında farklı bir isimle kayıtlı: "Ahmet Yıldırım"',
-      existingData: {
-        name: 'Ahmet Yıldırım',
-        studentNo: '2024006',
-      },
-      severity: 'HIGH',
-      autoResolvable: false,
-      suggestedAction: 'Öğrenci kaydını manuel olarak kontrol edin',
-    },
-  ];
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Sınav detaylarını çek
+        const examResponse = await fetch(`/api/akademik-analiz/exams/${examId}`);
+        if (examResponse.ok) {
+          const { exam } = await examResponse.json();
+          setExamName(exam?.name || 'Sınav Sonuçları');
+        }
+
+        // Sonuçları çek
+        const resultsResponse = await fetch(`/api/akademik-analiz/results?examId=${examId}`);
+        if (!resultsResponse.ok) {
+          throw new Error('Sonuçlar yüklenemedi');
+        }
+
+        const { results: apiResults } = await resultsResponse.json();
+        
+        // API verisini StudentResult formatına dönüştür
+        const formattedResults: StudentResult[] = (apiResults || []).map((r: any) => ({
+          studentNo: r.student?.student_number || '',
+          studentId: r.student_id,
+          tc: '',
+          name: r.student ? `${r.student.first_name} ${r.student.last_name}` : 'Bilinmeyen Öğrenci',
+          booklet: 'A',
+          totalCorrect: r.total_correct || 0,
+          totalWrong: r.total_wrong || 0,
+          totalEmpty: r.total_empty || 0,
+          totalNet: parseFloat(r.total_net) || 0,
+          totalScore: parseFloat(r.raw_score) || 0,
+          rank: r.rank_in_exam || 0,
+          percentile: parseFloat(r.percentile) || 0,
+          subjects: Object.entries(r.subject_results || {}).map(([code, data]: [string, any]) => ({
+            subjectId: code,
+            subjectName: getSubjectName(code),
+            correct: data.correct || 0,
+            wrong: data.wrong || 0,
+            empty: data.empty || 0,
+            net: data.net || 0,
+            weightedScore: data.net * 4 || 0,
+            percentage: data.correct && (data.correct + data.wrong + data.empty) > 0 
+              ? Math.round((data.correct / (data.correct + data.wrong + data.empty)) * 100)
+              : 0,
+          })),
+          evaluatedAt: new Date(r.calculated_at),
+          examId: r.exam_id,
+        }));
+
+        setResults(formattedResults);
+
+        // Çakışmaları çek
+        if (selectedOrganization?.id) {
+          const conflictsResponse = await fetch(
+            `/api/akademik-analiz/conflicts?examId=${examId}&resolved=false`
+          );
+          if (conflictsResponse.ok) {
+            const { conflicts: apiConflicts } = await conflictsResponse.json();
+            setConflicts((apiConflicts || []).map((c: any) => ({
+              type: c.error_code || 'UNKNOWN',
+              studentNo: c.student?.student_number || '',
+              tc: '',
+              name: c.student ? `${c.student.first_name} ${c.student.last_name}` : '',
+              lineNumber: c.question_no || 0,
+              description: c.error_message || 'Bilinmeyen hata',
+              severity: c.error_type === 'critical' ? 'HIGH' : 'MEDIUM',
+              autoResolvable: false,
+              suggestedAction: 'Manuel kontrol gerekli',
+            })));
+          }
+        }
+
+      } catch (err) {
+        console.error('[Sonuçlar] Hata:', err);
+        setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchResults();
+  }, [examId, selectedOrganization?.id]);
+
+  // Yardımcı fonksiyon
+  function getSubjectName(code: string): string {
+    const names: Record<string, string> = {
+      TUR: 'Türkçe',
+      MAT: 'Matematik',
+      FEN: 'Fen Bilimleri',
+      SOS: 'Sosyal Bilimler',
+      ING: 'İngilizce',
+      DIN: 'Din Kültürü',
+    };
+    return names[code] || code;
+  }
+
+  // Yükleniyor
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '1rem',
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '4px solid #e5e7eb',
+          borderTopColor: '#25D366',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+        <p style={{ color: '#64748b' }}>Sonuçlar yükleniyor...</p>
+      </div>
+    );
+  }
+
+  // Sınav ID yok
+  if (!examId) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '1rem',
+        color: '#64748b',
+      }}>
+        <p>Sınav seçilmedi</p>
+        <button
+          onClick={() => router.push('/admin/akademik-analiz')}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#25D366',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          Dashboard'a Dön
+        </button>
+      </div>
+    );
+  }
+
+  // Hata
+  if (error) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '1rem',
+        color: '#ef4444',
+      }}>
+        <p>❌ {error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#25D366',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          Tekrar Dene
+        </button>
+      </div>
+    );
+  }
 
   return (
     <ResultsExplorer
-      results={demoResults}
-      conflicts={demoConflicts}
-      examName="LGS Deneme Sınavı 1 - Sonuçlar"
-      onRecalculate={() => {
+      results={results}
+      conflicts={conflicts}
+      examName={examName}
+      onRecalculate={async () => {
+        // Yeniden hesaplama
         console.log('Recalculating...');
+        window.location.reload();
       }}
       onExport={() => {
-        console.log('Exporting...');
+        // PDF karne sayfasına yönlendir
+        router.push(`/admin/akademik-analiz/karne?examId=${examId}`);
       }}
-      onResolveConflict={(conflict) => {
+      onResolveConflict={async (conflict) => {
         console.log('Resolving conflict:', conflict);
+        // TODO: Çakışma çözme API'si
       }}
     />
   );
@@ -181,11 +248,17 @@ export default function SonuclarPage() {
         height: '100vh',
         color: '#6B7280',
       }}>
-        Yükleniyor...
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '4px solid #e5e7eb',
+          borderTopColor: '#25D366',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
       </div>
     }>
       <SonuclarContent />
     </Suspense>
   );
 }
-

@@ -9,6 +9,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   Upload,
@@ -239,10 +240,22 @@ const styles = {
 };
 
 // ============================================
+// 📋 PROPS
+// ============================================
+
+interface ExamWizardProps {
+  organizationId?: string;
+  academicYearId?: string;
+  onComplete?: (examId: string) => void;
+}
+
+// ============================================
 // 📦 ANA BİLEŞEN
 // ============================================
 
-export function ExamWizard() {
+export function ExamWizard({ organizationId, academicYearId, onComplete }: ExamWizardProps) {
+  const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
   const [state, setState] = useState<WizardState>({
     step: 1,
     examInfo: {
@@ -320,6 +333,84 @@ export function ExamWizard() {
       }));
     }
   }, [state.examInfo.type]);
+
+  // ========== SINAVI KAYDET ==========
+  const handleSaveExam = useCallback(async () => {
+    if (!state.evaluationResult || !state.answerKey) return;
+    
+    setIsSaving(true);
+    setState(prev => ({ ...prev, error: null }));
+    
+    try {
+      const examConfig = EXAM_CONFIGS[state.examInfo.type];
+      
+      // 1. Sınavı oluştur
+      const examResponse = await fetch('/api/akademik-analiz/exams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: state.examInfo.name,
+          exam_type_id: null, // TODO: exam_types tablosundan al
+          academic_year_id: academicYearId,
+          organization_id: organizationId,
+          exam_date: state.examInfo.date,
+          total_questions: examConfig.totalQuestions,
+          duration_minutes: examConfig.duration,
+          answer_key: {
+            answers: state.answerKey.answers,
+            booklet: state.answerKey.booklet,
+          },
+        }),
+      });
+      
+      if (!examResponse.ok) {
+        throw new Error('Sınav oluşturulamadı');
+      }
+      
+      const { exam } = await examResponse.json();
+      
+      // 2. Sonuçları kaydet
+      const resultsResponse = await fetch('/api/akademik-analiz/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          examId: exam.id,
+          organizationId,
+          results: state.evaluationResult.results.map(r => ({
+            studentId: r.studentId || null, // TODO: Öğrenci eşleştirmesi
+            totalCorrect: r.totalCorrect,
+            totalWrong: r.totalWrong,
+            totalEmpty: r.totalEmpty,
+            totalNet: r.totalNet,
+            rawScore: r.totalScore,
+            rankInExam: r.rank,
+            percentile: r.percentile,
+            subjectResults: r.subjectResults,
+          })),
+        }),
+      });
+      
+      if (!resultsResponse.ok) {
+        throw new Error('Sonuçlar kaydedilemedi');
+      }
+      
+      // 3. Başarılı - yönlendir
+      if (onComplete) {
+        onComplete(exam.id);
+      } else {
+        router.push(`/admin/akademik-analiz/sonuclar?examId=${exam.id}`);
+      }
+      
+    } catch (error) {
+      console.error('[ExamWizard] Kaydetme hatası:', error);
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Kaydetme başarısız',
+      }));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [state.examInfo, state.answerKey, state.evaluationResult, organizationId, academicYearId, onComplete, router]);
 
   // ========== OPTİK VERİ YÜKLEME ==========
   const handleOpticalUpload = useCallback(async (file: File) => {
@@ -421,8 +512,10 @@ export function ExamWizard() {
               parseResult={state.parseResult}
               evaluationResult={state.evaluationResult}
               isProcessing={state.isProcessing}
+              isSaving={isSaving}
               error={state.error}
               onUpload={handleOpticalUpload}
+              onSave={handleSaveExam}
               onPrev={prevStep}
             />
           )}
@@ -792,15 +885,19 @@ function Step3DataImport({
   parseResult,
   evaluationResult,
   isProcessing,
+  isSaving,
   error,
   onUpload,
+  onSave,
   onPrev,
 }: {
   parseResult: ParseResult | null;
   evaluationResult: EvaluationResult | null;
   isProcessing: boolean;
+  isSaving: boolean;
   error: string | null;
   onUpload: (file: File) => void;
+  onSave: () => void;
   onPrev: () => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -975,14 +1072,27 @@ function Step3DataImport({
             textAlign: 'center',
           }}>
             <button
+              onClick={onSave}
+              disabled={isSaving}
               style={{
                 ...styles.button.primary,
                 padding: '1rem 2rem',
                 fontSize: '1.125rem',
+                opacity: isSaving ? 0.7 : 1,
+                cursor: isSaving ? 'not-allowed' : 'pointer',
               }}
             >
-              <CheckCircle size={24} />
-              Sınavı Kaydet ve Sonuçları Görüntüle
+              {isSaving ? (
+                <>
+                  <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                  Kaydediliyor...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={24} />
+                  Sınavı Kaydet ve Sonuçları Görüntüle
+                </>
+              )}
             </button>
           </div>
         </div>

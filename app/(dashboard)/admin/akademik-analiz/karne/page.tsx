@@ -2,115 +2,114 @@
 
 /**
  * Akademik Analiz - Karne Oluşturucu
- * Toplu ve tekil PDF karne üretimi
+ * Toplu ve tekil PDF karne üretimi - Supabase entegreli
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   FileText,
   Download,
-  Users,
   CheckCircle,
   Loader2,
-  AlertCircle,
   Eye,
   Printer,
+  ArrowLeft,
 } from 'lucide-react';
 import { colors } from '@/lib/sinavlar/ui/theme';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import type { StudentResult } from '@/lib/sinavlar/core/types';
 
-// Demo veriler
-const demoStudents: StudentResult[] = [
-  {
-    studentNo: '2024001',
-    tc: '12345678901',
-    name: 'Ali Yılmaz',
-    booklet: 'A',
-    totalCorrect: 72,
-    totalWrong: 12,
-    totalEmpty: 6,
-    totalNet: 68.0,
-    totalScore: 456.8,
-    rank: 1,
-    percentile: 99,
-    subjects: [
-      { subjectId: 'turkce', subjectName: 'Türkçe', correct: 18, wrong: 2, empty: 0, net: 17.33, weightedScore: 69.33, percentage: 90 },
-      { subjectId: 'matematik', subjectName: 'Matematik', correct: 17, wrong: 2, empty: 1, net: 16.33, weightedScore: 65.33, percentage: 85 },
-      { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 16, wrong: 3, empty: 1, net: 15.0, weightedScore: 60.0, percentage: 80 },
-      { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 8, wrong: 1, empty: 1, net: 7.67, weightedScore: 7.67, percentage: 80 },
-      { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-      { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-    ],
-    evaluatedAt: new Date(),
-    examId: '1',
-  },
-  {
-    studentNo: '2024002',
-    tc: '12345678902',
-    name: 'Ayşe Kaya',
-    booklet: 'B',
-    totalCorrect: 68,
-    totalWrong: 15,
-    totalEmpty: 7,
-    totalNet: 63.0,
-    totalScore: 432.5,
-    rank: 2,
-    percentile: 97,
-    subjects: [
-      { subjectId: 'turkce', subjectName: 'Türkçe', correct: 17, wrong: 2, empty: 1, net: 16.33, weightedScore: 65.33, percentage: 85 },
-      { subjectId: 'matematik', subjectName: 'Matematik', correct: 15, wrong: 4, empty: 1, net: 13.67, weightedScore: 54.67, percentage: 75 },
-      { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 15, wrong: 4, empty: 1, net: 13.67, weightedScore: 54.67, percentage: 75 },
-      { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 9, wrong: 1, empty: 0, net: 8.67, weightedScore: 8.67, percentage: 90 },
-      { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-      { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 2, empty: 2, net: 5.33, weightedScore: 5.33, percentage: 60 },
-    ],
-    evaluatedAt: new Date(),
-    examId: '1',
-  },
-  {
-    studentNo: '2024003',
-    tc: '12345678903',
-    name: 'Mehmet Demir',
-    booklet: 'A',
-    totalCorrect: 65,
-    totalWrong: 18,
-    totalEmpty: 7,
-    totalNet: 59.0,
-    totalScore: 398.2,
-    rank: 3,
-    percentile: 95,
-    subjects: [
-      { subjectId: 'turkce', subjectName: 'Türkçe', correct: 16, wrong: 3, empty: 1, net: 15.0, weightedScore: 60.0, percentage: 80 },
-      { subjectId: 'matematik', subjectName: 'Matematik', correct: 14, wrong: 5, empty: 1, net: 12.33, weightedScore: 49.33, percentage: 70 },
-      { subjectId: 'fen', subjectName: 'Fen Bilimleri', correct: 14, wrong: 5, empty: 1, net: 12.33, weightedScore: 49.33, percentage: 70 },
-      { subjectId: 'sosyal', subjectName: 'Sosyal Bilimler', correct: 8, wrong: 2, empty: 0, net: 7.33, weightedScore: 7.33, percentage: 80 },
-      { subjectId: 'ingilizce', subjectName: 'İngilizce', correct: 7, wrong: 2, empty: 1, net: 6.33, weightedScore: 6.33, percentage: 70 },
-      { subjectId: 'din', subjectName: 'Din Kültürü', correct: 6, wrong: 1, empty: 3, net: 5.67, weightedScore: 5.67, percentage: 60 },
-    ],
-    evaluatedAt: new Date(),
-    examId: '1',
-  },
-];
+function KarneContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const examId = searchParams.get('examId');
+  const { selectedOrganization } = useOrganizationStore();
 
-const examInfo = {
-  name: 'LGS Deneme Sınavı 1',
-  date: '20 Aralık 2024',
-  type: 'LGS',
-  totalStudents: 85,
-};
-
-const schoolInfo = {
-  name: 'Dikmen Çözüm Kurs',
-  address: 'Dikmen, Ankara',
-  phone: '0312 XXX XX XX',
-};
-
-export default function KarnePage() {
+  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState<StudentResult[]>([]);
+  const [examInfo, setExamInfo] = useState({ name: '', date: '', type: 'LGS', totalStudents: 0 });
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, name: '' });
   const [generated, setGenerated] = useState(false);
+
+  // Veri yükle
+  useEffect(() => {
+    async function fetchData() {
+      if (!examId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        // Sınav detaylarını çek
+        const examResponse = await fetch(`/api/akademik-analiz/exams/${examId}`);
+        if (examResponse.ok) {
+          const { exam } = await examResponse.json();
+          setExamInfo({
+            name: exam?.name || 'Sınav',
+            date: exam?.exam_date ? new Date(exam.exam_date).toLocaleDateString('tr-TR') : '',
+            type: exam?.exam_type?.code || 'LGS',
+            totalStudents: exam?.results?.length || 0,
+          });
+
+          // Sonuçları formatla
+          const formattedStudents: StudentResult[] = (exam?.results || []).map((r: any, index: number) => ({
+            studentNo: r.student?.student_number || `OGR-${index + 1}`,
+            studentId: r.student_id,
+            tc: '',
+            name: r.student ? `${r.student.first_name} ${r.student.last_name}` : 'Bilinmeyen Öğrenci',
+            booklet: 'A',
+            totalCorrect: r.total_correct || 0,
+            totalWrong: r.total_wrong || 0,
+            totalEmpty: r.total_empty || 0,
+            totalNet: parseFloat(r.total_net) || 0,
+            totalScore: parseFloat(r.raw_score) || 0,
+            rank: r.rank_in_exam || index + 1,
+            percentile: parseFloat(r.percentile) || 0,
+            subjects: Object.entries(r.subject_results || {}).map(([code, data]: [string, any]) => ({
+              subjectId: code,
+              subjectName: getSubjectName(code),
+              correct: data.correct || 0,
+              wrong: data.wrong || 0,
+              empty: data.empty || 0,
+              net: data.net || 0,
+              weightedScore: data.net * 4 || 0,
+              percentage: data.correct && (data.correct + data.wrong + data.empty) > 0
+                ? Math.round((data.correct / (data.correct + data.wrong + data.empty)) * 100)
+                : 0,
+            })),
+            evaluatedAt: new Date(r.calculated_at),
+            examId: r.exam_id,
+          }));
+
+          setStudents(formattedStudents);
+        }
+      } catch (err) {
+        console.error('[Karne] Veri yükleme hatası:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [examId]);
+
+  function getSubjectName(code: string): string {
+    const names: Record<string, string> = {
+      TUR: 'Türkçe',
+      MAT: 'Matematik',
+      FEN: 'Fen Bilimleri',
+      SOS: 'Sosyal Bilimler',
+      ING: 'İngilizce',
+      DIN: 'Din Kültürü',
+    };
+    return names[code] || code;
+  }
 
   const toggleStudent = (studentNo: string) => {
     const newSet = new Set(selectedStudents);
@@ -123,27 +122,27 @@ export default function KarnePage() {
   };
 
   const selectAll = () => {
-    if (selectedStudents.size === demoStudents.length) {
+    if (selectedStudents.size === students.length) {
       setSelectedStudents(new Set());
     } else {
-      setSelectedStudents(new Set(demoStudents.map(s => s.studentNo)));
+      setSelectedStudents(new Set(students.map(s => s.studentNo)));
     }
   };
 
   const generatePDFs = async () => {
     setIsGenerating(true);
     setGenerated(false);
-    
+
     const total = selectedStudents.size;
     let current = 0;
 
     for (const studentNo of selectedStudents) {
-      const student = demoStudents.find(s => s.studentNo === studentNo);
+      const student = students.find(s => s.studentNo === studentNo);
       if (student) {
         current++;
         setProgress({ current, total, name: student.name });
-        // Simüle delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Simüle delay (gerçek PDF üretimi için API çağrısı yapılabilir)
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 
@@ -151,17 +150,95 @@ export default function KarnePage() {
     setGenerated(true);
   };
 
+  // Yükleniyor
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '1rem',
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '4px solid #e5e7eb',
+          borderTopColor: '#25D366',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+        <p style={{ color: '#64748b' }}>Veriler yükleniyor...</p>
+      </div>
+    );
+  }
+
+  // Sınav ID yok
+  if (!examId) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px',
+        flexDirection: 'column',
+        gap: '1rem',
+        color: '#64748b',
+      }}>
+        <p>Sınav seçilmedi</p>
+        <button
+          onClick={() => router.push('/admin/akademik-analiz')}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#25D366',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          Dashboard'a Dön
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         style={{ marginBottom: '2rem' }}
       >
-        <h1 style={{ 
-          fontSize: '1.75rem', 
-          fontWeight: '700', 
+        <button
+          onClick={() => router.back()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '1rem',
+            padding: '0.5rem 1rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: colors.text.secondary,
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+          }}
+        >
+          <ArrowLeft size={18} />
+          Geri
+        </button>
+
+        <h1 style={{
+          fontSize: '1.75rem',
+          fontWeight: '700',
           color: colors.text.primary,
           display: 'flex',
           alignItems: 'center',
@@ -194,15 +271,12 @@ export default function KarnePage() {
             📚 {examInfo.name}
           </div>
           <div style={{ fontSize: '0.875rem', color: colors.primary[600], marginTop: '0.25rem' }}>
-            {examInfo.date} • {examInfo.type} • {examInfo.totalStudents} öğrenci
+            {examInfo.date} • {examInfo.type} • {students.length} öğrenci
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: '600', color: colors.primary[700] }}>
-            🏫 {schoolInfo.name}
-          </div>
-          <div style={{ fontSize: '0.875rem', color: colors.primary[600], marginTop: '0.25rem' }}>
-            {schoolInfo.address}
+            🏫 {selectedOrganization?.name || 'Kurum'}
           </div>
         </div>
       </motion.div>
@@ -243,8 +317,8 @@ export default function KarnePage() {
                 fontSize: '0.875rem',
               }}
             >
-              <CheckCircle size={18} color={selectedStudents.size === demoStudents.length ? colors.primary[500] : colors.text.muted} />
-              {selectedStudents.size === demoStudents.length ? 'Seçimi Kaldır' : 'Tümünü Seç'}
+              <CheckCircle size={18} color={selectedStudents.size === students.length ? colors.primary[500] : colors.text.muted} />
+              {selectedStudents.size === students.length ? 'Seçimi Kaldır' : 'Tümünü Seç'}
             </button>
             <span style={{ color: colors.text.secondary, fontSize: '0.875rem' }}>
               {selectedStudents.size} öğrenci seçildi
@@ -312,8 +386,8 @@ export default function KarnePage() {
 
         {/* Success Message */}
         {generated && !isGenerating && (
-          <div style={{ 
-            padding: '1rem 1.5rem', 
+          <div style={{
+            padding: '1rem 1.5rem',
             backgroundColor: '#DCFCE7',
             display: 'flex',
             alignItems: 'center',
@@ -327,108 +401,114 @@ export default function KarnePage() {
         )}
 
         {/* Student Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ backgroundColor: colors.secondary[50] }}>
-              <th style={{ padding: '1rem', textAlign: 'left', width: '50px' }}></th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Sıra</th>
-              <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Öğrenci</th>
-              <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Net</th>
-              <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Puan</th>
-              <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>İşlemler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {demoStudents.map((student, index) => (
-              <tr 
-                key={student.studentNo}
-                style={{ 
-                  borderBottom: `1px solid ${colors.secondary[100]}`,
-                  backgroundColor: selectedStudents.has(student.studentNo) ? colors.primary[50] : 'transparent',
-                }}
-              >
-                <td style={{ padding: '1rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedStudents.has(student.studentNo)}
-                    onChange={() => toggleStudent(student.studentNo)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    fontWeight: '700',
-                    fontSize: '0.875rem',
-                    backgroundColor: student.rank <= 3 
-                      ? student.rank === 1 ? '#FEF3C7' : student.rank === 2 ? '#E5E7EB' : '#FED7AA'
-                      : colors.secondary[100],
-                    color: student.rank <= 3
-                      ? student.rank === 1 ? '#92400E' : student.rank === 2 ? '#374151' : '#9A3412'
-                      : colors.text.primary,
-                  }}>
-                    {student.rank}
-                  </span>
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <div style={{ fontWeight: '600', color: colors.text.primary }}>{student.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: colors.text.muted }}>{student.studentNo}</div>
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>
-                  {student.totalNet.toFixed(2)}
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: colors.primary[600] }}>
-                  {student.totalScore.toFixed(1)}
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                    <button
-                      style={{
-                        padding: '0.5rem',
-                        backgroundColor: colors.secondary[100],
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                      }}
-                      title="Önizle"
-                    >
-                      <Eye size={18} color={colors.secondary[600]} />
-                    </button>
-                    <button
-                      style={{
-                        padding: '0.5rem',
-                        backgroundColor: colors.primary[100],
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                      }}
-                      title="PDF İndir"
-                    >
-                      <Download size={18} color={colors.primary[600]} />
-                    </button>
-                    <button
-                      style={{
-                        padding: '0.5rem',
-                        backgroundColor: colors.info + '20',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                      }}
-                      title="Yazdır"
-                    >
-                      <Printer size={18} color={colors.info} />
-                    </button>
-                  </div>
-                </td>
+        {students.length > 0 ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: colors.secondary[50] }}>
+                <th style={{ padding: '1rem', textAlign: 'left', width: '50px' }}></th>
+                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Sıra</th>
+                <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Öğrenci</th>
+                <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Net</th>
+                <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>Puan</th>
+                <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: colors.text.secondary }}>İşlemler</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {students.map((student) => (
+                <tr
+                  key={student.studentNo}
+                  style={{
+                    borderBottom: `1px solid ${colors.secondary[100]}`,
+                    backgroundColor: selectedStudents.has(student.studentNo) ? colors.primary[50] : 'transparent',
+                  }}
+                >
+                  <td style={{ padding: '1rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStudents.has(student.studentNo)}
+                      onChange={() => toggleStudent(student.studentNo)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '0.875rem',
+                      backgroundColor: student.rank <= 3
+                        ? student.rank === 1 ? '#FEF3C7' : student.rank === 2 ? '#E5E7EB' : '#FED7AA'
+                        : colors.secondary[100],
+                      color: student.rank <= 3
+                        ? student.rank === 1 ? '#92400E' : student.rank === 2 ? '#374151' : '#9A3412'
+                        : colors.text.primary,
+                    }}>
+                      {student.rank}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ fontWeight: '600', color: colors.text.primary }}>{student.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: colors.text.muted }}>{student.studentNo}</div>
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>
+                    {student.totalNet.toFixed(2)}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: colors.primary[600] }}>
+                    {student.totalScore.toFixed(1)}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                      <button
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: colors.secondary[100],
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                        }}
+                        title="Önizle"
+                      >
+                        <Eye size={18} color={colors.secondary[600]} />
+                      </button>
+                      <button
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: colors.primary[100],
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                        }}
+                        title="PDF İndir"
+                      >
+                        <Download size={18} color={colors.primary[600]} />
+                      </button>
+                      <button
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: colors.info + '20',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                        }}
+                        title="Yazdır"
+                      >
+                        <Printer size={18} color={colors.info} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: '3rem', textAlign: 'center', color: colors.text.secondary }}>
+            <p>Henüz sonuç bulunmuyor.</p>
+          </div>
+        )}
       </motion.div>
 
       {/* Ayarlar */}
@@ -476,3 +556,28 @@ export default function KarnePage() {
   );
 }
 
+// Suspense ile sarmalama
+export default function KarnePage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        color: '#6B7280',
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '4px solid #e5e7eb',
+          borderTopColor: '#25D366',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+      </div>
+    }>
+      <KarneContent />
+    </Suspense>
+  );
+}
