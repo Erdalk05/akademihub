@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   Brain,
   Target,
+  FileText,
 } from 'lucide-react';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useRole } from '@/lib/contexts/RoleContext';
@@ -132,10 +133,9 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       hideForSuperAdmin: true,
       submenu: [
         { label: 'Genel Bakış', href: '/admin/akademik-analiz', icon: <Target size={16} /> },
-        { label: 'Sınav Yönetimi', href: '/admin/akademik-analiz/sinavlar', icon: <FileSpreadsheet size={16} /> },
-        { label: 'Veri Aktarımı', href: '/admin/akademik-analiz/yukle', icon: <FileSpreadsheet size={16} /> },
-        { label: 'Akademik Röntgen', href: '/admin/akademik-analiz/rontgen', icon: <BarChart3 size={16} /> },
-        { label: 'AI Koç Merkezi', href: '/admin/akademik-analiz/ai-koc', icon: <Brain size={16} /> },
+        { label: 'Yeni Sınav', href: '/admin/akademik-analiz/sihirbaz', icon: <FileSpreadsheet size={16} /> },
+        { label: 'Sonuçlar', href: '/admin/akademik-analiz/sonuclar', icon: <BarChart3 size={16} /> },
+        { label: 'Karne Oluştur', href: '/admin/akademik-analiz/karne', icon: <FileText size={16} /> },
       ],
     },
     {
