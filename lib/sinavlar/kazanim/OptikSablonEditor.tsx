@@ -110,22 +110,33 @@ export default function OptikSablonEditor({
     };
   }, [selectionStart, selectionEnd]);
 
-  // Mouse olayları
-  const handleMouseDown = useCallback((index: number) => {
+  // Mouse olayları - Seçim scroll sırasında korunuyor
+  const handleMouseDown = useCallback((index: number, e: React.MouseEvent) => {
     if (!activeAlanTipi) return;
+    e.preventDefault(); // Scroll ile çakışmayı önle
     setIsSelecting(true);
     setSelectionStart(index);
     setSelectionEnd(index);
   }, [activeAlanTipi]);
 
   const handleMouseMove = useCallback((index: number) => {
-    if (isSelecting) {
+    if (isSelecting && selectionStart !== null) {
       setSelectionEnd(index);
+    }
+  }, [isSelecting, selectionStart]);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // Sadece seçim modunu kapat, seçimi silme!
+    if (isSelecting) {
+      setIsSelecting(false);
     }
   }, [isSelecting]);
 
-  const handleMouseUp = useCallback(() => {
-    setIsSelecting(false);
+  // Seçimi temizle - sadece kullanıcı istediğinde
+  const clearSelection = useCallback(() => {
+    setSelectionStart(null);
+    setSelectionEnd(null);
+    setActiveAlanTipi(null);
   }, []);
 
   // Seçimi alan olarak ekle
@@ -234,26 +245,33 @@ export default function OptikSablonEditor({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key;
+      
+      // Sayı tuşları ile alan tipi seçimi
       const alanTipi = ALAN_TIPLERI.find(t => t.shortcut === key);
       if (alanTipi && ornekSatir) {
+        e.preventDefault();
         setActiveAlanTipi(alanTipi.id);
       }
+      
+      // ESC ile seçimi temizle
       if (key === 'Escape') {
-        setActiveAlanTipi(null);
-        setSelectionStart(null);
-        setSelectionEnd(null);
+        e.preventDefault();
+        clearSelection();
       }
+      
+      // Enter ile seçimi onayla
       if (key === 'Enter' && selectedRange && activeAlanTipi) {
+        e.preventDefault();
         addSelectedAsField();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [ornekSatir, selectedRange, activeAlanTipi, addSelectedAsField]);
+  }, [ornekSatir, selectedRange, activeAlanTipi, addSelectedAsField, clearSelection]);
 
   return (
-    <div className="space-y-6" onMouseUp={handleMouseUp}>
+    <div className="space-y-6" onMouseUp={handleMouseUp} onMouseLeave={() => setIsSelecting(false)}>
       {/* Başlık ve Modlar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -367,10 +385,10 @@ export default function OptikSablonEditor({
               </label>
               {activeAlanTipi && (
                 <button
-                  onClick={() => setActiveAlanTipi(null)}
-                  className="text-xs text-slate-500 hover:text-slate-700"
+                  onClick={clearSelection}
+                  className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 bg-slate-100 rounded"
                 >
-                  İptal (ESC)
+                  ✕ Seçimi Temizle (ESC)
                 </button>
               )}
             </div>
@@ -457,8 +475,8 @@ export default function OptikSablonEditor({
                   return (
                     <div
                       key={i}
-                      onMouseDown={() => handleMouseDown(i)}
-                      onMouseMove={() => handleMouseMove(i)}
+                      onMouseDown={(e) => handleMouseDown(i, e)}
+                      onMouseEnter={() => handleMouseMove(i)}
                       className={`w-7 h-9 flex items-center justify-center font-mono text-sm rounded transition-all flex-shrink-0 ${
                         isSelected
                           ? 'bg-blue-500 text-white ring-2 ring-blue-300 scale-110 z-10'
@@ -499,17 +517,17 @@ export default function OptikSablonEditor({
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setSelectionStart(null); setSelectionEnd(null); }}
+                    onClick={clearSelection}
                     className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg"
                   >
-                    İptal
+                    İptal (ESC)
                   </button>
                   <button
                     onClick={addSelectedAsField}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                   >
                     <Plus size={18} />
-                    Bu Alanı Ekle
+                    Bu Alanı Ekle (Enter)
                   </button>
                 </div>
               </div>
