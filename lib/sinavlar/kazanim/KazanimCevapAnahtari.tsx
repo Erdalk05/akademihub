@@ -130,43 +130,216 @@ export default function KazanimCevapAnahtari({
         const parsed: CevapAnahtariSatir[] = [];
         const parseErrors: string[] = [];
         
-        jsonData.forEach((row: any[], index: number) => {
-          // İlk satır başlık olabilir
-          if (index === 0 && (
-            String(row[0]).toLowerCase().includes('soru') ||
-            String(row[0]).toLowerCase().includes('no')
-          )) {
-            return;
-          }
+        // Akıllı sütun algılama - başlık satırını analiz et
+        let columnMap = {
+          soruNo: -1,
+          cevap: -1,
+          ders: -1,
+          kazanimKodu: -1,
+          kazanimMetni: -1,
+          konuAdi: -1
+        };
+        
+        // İlk satırı başlık olarak kontrol et
+        const firstRow = jsonData[0] as any[];
+        let startIndex = 0;
+        
+        if (firstRow) {
+          firstRow.forEach((cell: any, idx: number) => {
+            const cellStr = String(cell || '').toLowerCase().trim();
+            
+            // Soru numarası sütunu
+            if (cellStr.includes('soru') && (cellStr.includes('no') || cellStr.includes('nu'))) {
+              if (columnMap.soruNo === -1) columnMap.soruNo = idx;
+            } else if (cellStr === 'no' || cellStr === 'sıra' || cellStr === 'sira') {
+              if (columnMap.soruNo === -1) columnMap.soruNo = idx;
+            }
+            
+            // Cevap sütunu
+            if (cellStr.includes('cevap') || cellStr.includes('yanıt') || cellStr.includes('yanit') || cellStr === 'cvp') {
+              columnMap.cevap = idx;
+            }
+            
+            // Ders sütunu
+            if (cellStr.includes('ders') || cellStr.includes('alan') || cellStr.includes('konu')) {
+              if (columnMap.ders === -1) columnMap.ders = idx;
+            }
+            
+            // Kazanım kodu
+            if (cellStr.includes('kazanım') && cellStr.includes('kod')) {
+              columnMap.kazanimKodu = idx;
+            } else if (cellStr.includes('kazanim') && cellStr.includes('kod')) {
+              columnMap.kazanimKodu = idx;
+            } else if (cellStr === 'kod' || cellStr === 'kodu') {
+              if (columnMap.kazanimKodu === -1) columnMap.kazanimKodu = idx;
+            }
+            
+            // Kazanım metni
+            if ((cellStr.includes('kazanım') || cellStr.includes('kazanim')) && 
+                (cellStr.includes('metin') || cellStr.includes('açıklama') || cellStr.includes('aciklama'))) {
+              columnMap.kazanimMetni = idx;
+            }
+          });
           
+          // Eğer başlık bulunduysa ilk satırı atla
+          if (columnMap.cevap !== -1 || columnMap.soruNo !== -1) {
+            startIndex = 1;
+          }
+        }
+        
+        // Başlık bulunamadıysa, veri yapısını analiz et
+        if (columnMap.cevap === -1) {
+          // İkinci satırı analiz et
+          const sampleRow = jsonData[1] as any[] || jsonData[0] as any[];
+          if (sampleRow) {
+            sampleRow.forEach((cell: any, idx: number) => {
+              const cellStr = String(cell || '').toUpperCase().trim();
+              
+              // A, B, C, D, E ise cevap sütunu
+              if (['A', 'B', 'C', 'D', 'E'].includes(cellStr) && columnMap.cevap === -1) {
+                columnMap.cevap = idx;
+              }
+              
+              // Ders adı içeriyorsa
+              if (normalizeDersKodu(cellStr) && columnMap.ders === -1) {
+                columnMap.ders = idx;
+              }
+              
+              // Kazanım kodu formatı (ör: T.8.1.2, M.8.2.1)
+              if (/^[A-Z]\.\d+\.\d+\.\d+/.test(cellStr) && columnMap.kazanimKodu === -1) {
+                columnMap.kazanimKodu = idx;
+              }
+            });
+          }
+        }
+        
+        // Varsayılan sütun indeksleri (eğer algılanamadıysa)
+        // Format: TEST_KODU | DERS | SORU_NO_SINAV | SORU_NO_GENEL | CEVAP | KAZANIM_KODU | KAZANIM_METNI
+        if (columnMap.soruNo === -1) {
+          // Sayı içeren ilk sütunu bul
+          const sampleRow = jsonData[1] as any[] || [];
+          for (let i = 0; i < sampleRow.length; i++) {
+            const val = parseInt(String(sampleRow[i]));
+            if (!isNaN(val) && val > 0 && val <= 200) {
+              columnMap.soruNo = i;
+              break;
+            }
+          }
+        }
+        
+        console.log('Algılanan sütun haritası:', columnMap);
+        
+        // Veriyi parse et
+        jsonData.forEach((row: any[], index: number) => {
+          if (index < startIndex) return; // Başlık satırını atla
           if (!row || row.length < 3) return;
           
-          const soruNo = parseInt(String(row[0]));
-          if (isNaN(soruNo)) {
+          // Soru numarasını bul
+          let soruNo: number;
+          if (columnMap.soruNo !== -1) {
+            soruNo = parseInt(String(row[columnMap.soruNo]));
+          } else {
+            // Satırdaki ilk sayıyı bul
+            soruNo = index - startIndex + 1;
+            for (let i = 0; i < row.length; i++) {
+              const val = parseInt(String(row[i]));
+              if (!isNaN(val) && val > 0 && val <= 200) {
+                soruNo = val;
+                break;
+              }
+            }
+          }
+          
+          if (isNaN(soruNo) || soruNo <= 0) {
             parseErrors.push(`Satır ${index + 1}: Geçersiz soru numarası`);
             return;
           }
           
-          const dogruCevap = String(row[1] || '').toUpperCase().trim() as 'A' | 'B' | 'C' | 'D' | 'E';
+          // Cevabı bul
+          let dogruCevap: string = '';
+          if (columnMap.cevap !== -1) {
+            dogruCevap = String(row[columnMap.cevap] || '').toUpperCase().trim();
+          } else {
+            // A, B, C, D, E içeren sütunu bul
+            for (let i = 0; i < row.length; i++) {
+              const val = String(row[i] || '').toUpperCase().trim();
+              if (['A', 'B', 'C', 'D', 'E'].includes(val)) {
+                dogruCevap = val;
+                if (columnMap.cevap === -1) columnMap.cevap = i;
+                break;
+              }
+            }
+          }
+          
           if (!['A', 'B', 'C', 'D', 'E'].includes(dogruCevap)) {
-            parseErrors.push(`Satır ${index + 1}: Geçersiz cevap (${row[1]})`);
+            parseErrors.push(`Satır ${index + 1}: Geçersiz cevap (${dogruCevap || 'boş'})`);
             return;
           }
           
-          const dersKodu = String(row[2] || '').toUpperCase().trim();
-          // Ders kodunu esnek kabul et
-          const normalizedDersKodu = normalizeDersKodu(dersKodu);
+          // Ders kodunu bul
+          let dersKodu = '';
+          if (columnMap.ders !== -1) {
+            dersKodu = String(row[columnMap.ders] || '').toUpperCase().trim();
+          } else {
+            // Ders adı içeren sütunu bul
+            for (let i = 0; i < row.length; i++) {
+              const val = String(row[i] || '').toUpperCase().trim();
+              const normalized = normalizeDersKodu(val);
+              if (normalized) {
+                dersKodu = val;
+                if (columnMap.ders === -1) columnMap.ders = i;
+                break;
+              }
+            }
+          }
+          
+          const normalizedDersKodu = normalizeDersKodu(dersKodu) || dersKodu;
+          
+          // Kazanım kodunu bul
+          let kazanimKodu = '';
+          if (columnMap.kazanimKodu !== -1) {
+            kazanimKodu = String(row[columnMap.kazanimKodu] || '').trim();
+          } else {
+            // Kazanım kodu formatı ara (ör: T.8.1.2)
+            for (let i = 0; i < row.length; i++) {
+              const val = String(row[i] || '').trim();
+              if (/^[A-Z]\.\d+\.\d+\.\d+/.test(val) || /^[A-Z]\d+\.\d+\.\d+/.test(val)) {
+                kazanimKodu = val;
+                if (columnMap.kazanimKodu === -1) columnMap.kazanimKodu = i;
+                break;
+              }
+            }
+          }
+          
+          // Kazanım metnini bul (en uzun string sütunu)
+          let kazanimMetni = '';
+          if (columnMap.kazanimMetni !== -1) {
+            kazanimMetni = String(row[columnMap.kazanimMetni] || '').trim();
+          } else {
+            // En uzun string'i bul (muhtemelen kazanım metni)
+            let maxLen = 0;
+            for (let i = 0; i < row.length; i++) {
+              const val = String(row[i] || '').trim();
+              if (val.length > maxLen && val.length > 20 && i !== columnMap.ders) {
+                maxLen = val.length;
+                kazanimMetni = val;
+              }
+            }
+          }
           
           parsed.push({
             soruNo,
-            dogruCevap,
-            dersKodu: normalizedDersKodu || dersKodu,
-            kazanimKodu: row[3] ? String(row[3]).trim() : undefined,
-            kazanimMetni: row[4] ? String(row[4]).trim() : undefined,
-            konuAdi: row[5] ? String(row[5]).trim() : undefined,
-            zorluk: row[6] ? parseFloat(String(row[6])) : 0.5
+            dogruCevap: dogruCevap as 'A' | 'B' | 'C' | 'D' | 'E',
+            dersKodu: normalizedDersKodu,
+            kazanimKodu: kazanimKodu || undefined,
+            kazanimMetni: kazanimMetni || undefined,
+            konuAdi: undefined,
+            zorluk: 0.5
           });
         });
+        
+        // Soru numarasına göre sırala
+        parsed.sort((a, b) => a.soruNo - b.soruNo);
         
         setParsedData(parsed);
         setErrors(parseErrors);
