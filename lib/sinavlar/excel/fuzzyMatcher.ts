@@ -11,21 +11,26 @@ import { FuzzyMatchConfig } from './types';
  * Predefined column configurations
  */
 export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
-  // DERS KODU (eski: TEST KODU)
+  // DERS KODU (yazım hataları dahil)
   TEST_KODU: {
     target: 'DERS_KODU',
     aliases: [
       'ders kodu',
       'derskodu',
+      'ders kod',
+      'dders kodu',     // yazım hatası
+      'derrs kodu',     // yazım hatası
+      'ders koduu',     // yazım hatası
       'test kodu',
       'testkodu',
       'test',
       'kod',
       'test no',
       'test numarası',
-      'test id'
+      'test id',
+      'kodu'
     ],
-    threshold: 0.7,
+    threshold: 0.65,  // daha toleranslı
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -39,18 +44,23 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'ders adı',
       'ders adi',
       'dersadi',
+      'ders adii',      // yazım hatası
+      'derss',          // yazım hatası
+      'derss adı',      // yazım hatası
       'subject',
       'lesson',
       'alan',
       'alan adı',
-      'test adı'
+      'test adı',
+      'branş',
+      'brans'
     ],
-    threshold: 0.7,
+    threshold: 0.65,  // daha toleranslı
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // SORU NO
+  // SORU NO (A Kitapçığı soru numarası)
   SORU_NO: {
     target: 'SORU_NO',
     aliases: [
@@ -58,43 +68,53 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'soru no',
       'soru numarası',
       'soru numarasi',
+      'soruno',
+      'soru numara',
       'question',
       'q no',
       'no',
       'sıra',
-      'sira'
+      'sira',
+      'sıra no'
     ],
-    threshold: 0.65,
+    threshold: 0.60,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // SORU DEĞERİ (yeni)
+  // SORU DEĞERİ
   SORU_DEGERI: {
     target: 'SORU_DEGERI',
     aliases: [
       'soru değeri',
       'soru degeri',
       'sorudegeri',
+      'soru degerı',     // yazım hatası
       'değer',
       'deger',
       'puan',
+      'puanı',
       'ağırlık',
-      'agirlik'
+      'agirlik',
+      'katsayı',
+      'katsayi'
     ],
-    threshold: 0.7,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // CEVAP (eski: DOĞRU CEVAP)
+  // CEVAP (A kitapçığı doğru cevabı)
   DOGRU_CEVAP: {
     target: 'CEVAP',
     aliases: [
       'cevap',
+      'cevab',           // yazım hatası
+      'cevapp',          // yazım hatası
       'doğru cevap',
       'dogru cevap',
       'dogrucevap',
+      'doğru cevab',     // yazım hatası
       'cevap anahtarı',
       'cevap anahtari',
       'doğru',
@@ -103,38 +123,50 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'correct answer',
       'key',
       'yanıt',
-      'yanit'
+      'yanit',
+      'a cevap',
+      'a cevabı',
+      'a cevabi'
     ],
-    threshold: 0.65,
+    threshold: 0.60,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // KİTAPÇIK A (eski: A SORU NO)
+  // KİTAPÇIK A (A kitapçığı soru numarası)
   A_SORU_NO: {
     target: 'KITAPCIK_A',
     aliases: [
       'kitapçık a',
       'kitapcik a',
+      'kitapcık a',      // yazım hatası
+      'kıtapçık a',      // yazım hatası
       'a kitapçık',
       'a kitapcik',
       'a soru no',
       'a soru',
       'a kitapçık soru',
       'soru no a',
-      'a no'
+      'a no',
+      'a kitapcigi',
+      'a kitapçığı'
     ],
-    threshold: 0.7,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // B KİTAPÇIĞI CEVAP (eski: B SORU NO)
+  // B KİTAPÇIĞI CEVAP
   B_SORU_NO: {
     target: 'B_KITAPCIGI_CEVAP',
     aliases: [
       'b kitapçığı cevap',
       'b kitapcigi cevap',
+      'b kitapçığı cevabı',
+      'b kitapcigi cevabi',
+      'b cevap',
+      'b cevabı',
+      'b cevabi',
       'kitapçık b',
       'kitapcik b',
       'b kitapçık',
@@ -145,7 +177,7 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'soru no b',
       'b no'
     ],
-    threshold: 0.7,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -156,6 +188,9 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     aliases: [
       'c kitapçığı cevap',
       'c kitapcigi cevap',
+      'c kitapçığı cevabı',
+      'c cevap',
+      'c cevabı',
       'kitapçık c',
       'kitapcik c',
       'c kitapçık',
@@ -166,7 +201,7 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'soru no c',
       'c no'
     ],
-    threshold: 0.7,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -177,6 +212,9 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     aliases: [
       'd kitapçığı cevap',
       'd kitapcigi cevap',
+      'd kitapçığı cevabı',
+      'd cevap',
+      'd cevabı',
       'kitapçık d',
       'kitapcik d',
       'd kitapçık',
@@ -187,7 +225,7 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'soru no d',
       'd no'
     ],
-    threshold: 0.7,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -231,10 +269,13 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'kazanim kodu',
       'kazanım',
       'kazanim',
+      'kazanm kodu',      // yazım hatası
+      'kazanıım kodu',    // yazım hatası
       'outcome code',
-      'kodu'
+      'kazanim kod',
+      'kzanim kodu'       // yazım hatası
     ],
-    threshold: 0.65,
+    threshold: 0.60,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -246,13 +287,17 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'kazanim metni',
       'kazanım açıklama',
       'kazanim aciklama',
+      'kazanım açıklaması',
+      'kazanim aciklamasi',
+      'kazanım metnı',    // yazım hatası
       'açıklama',
       'aciklama',
       'description',
-      'kazanım açıklaması',
-      'metin'
+      'metin',
+      'kazanım tanımı',
+      'kazanim tanimi'
     ],
-    threshold: 0.65,
+    threshold: 0.60,
     caseSensitive: false,
     turkishNormalize: true
   }

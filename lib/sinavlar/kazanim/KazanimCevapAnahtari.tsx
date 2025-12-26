@@ -905,9 +905,18 @@ export default function KazanimCevapAnahtari({
                     Fuzzy matching ile otomatik sütun algılama:
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {['DERS KODU', 'DERS', 'KİTAPÇIK A', 'SORU DEĞERİ', 'CEVAP', 'B KİTAPÇIĞI CEVAP', 'KAZANIM KODU', 'KAZANIM METNİ'].map(col => (
-                      <span key={col} className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-mono text-xs">
-                        {col}
+                    {[
+                      { code: 'DERS_KODU', display: 'Ders Kodu' },
+                      { code: 'DERS', display: 'Ders Adı' },
+                      { code: 'KITAPCIK_A', display: 'Kitapçık A' },
+                      { code: 'SORU_DEGERI', display: 'Soru Değeri' },
+                      { code: 'CEVAP', display: 'Doğru Cevap' },
+                      { code: 'B_CEVAP', display: 'B Kitapçığı Cevabı' },
+                      { code: 'KAZANIM_KODU', display: 'Kazanım Kodu' },
+                      { code: 'KAZANIM_METNI', display: 'Kazanım Metni' }
+                    ].map(col => (
+                      <span key={col.code} className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-mono text-xs">
+                        {col.display}
                       </span>
                     ))}
                   </div>
