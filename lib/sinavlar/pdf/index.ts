@@ -51,10 +51,32 @@ export {
 export {
   StudentReportTemplate,
   ParentReportTemplate,
-  TeacherReportTemplate
+  TeacherReportTemplate,
+  // Sınav Karneleri - YENİ
+  SinavKarnesiBasit,
+  SinavKarnesiDetayli
+} from './templates';
+
+export type { 
+  SinavKarnesiBasitProps, 
+  SinavKarnesiDetayliProps, 
+  DersKonuAnalizi, 
+  KazanimDetay 
 } from './templates';
 
 export { ExamReportCard } from './templates/examReportCard';
+
+// ==================== KARNE GENERATOR ====================
+
+export {
+  generateDemoBasitKarne,
+  generateDemoDetayliKarne,
+  createKarneFromStudentData
+} from './karneGenerator';
+
+// ==================== COMPONENTS ====================
+
+export { KarneDownloadButton } from './components/KarneDownloadButton';
 
 // ==================== BATCH GENERATOR ====================
 

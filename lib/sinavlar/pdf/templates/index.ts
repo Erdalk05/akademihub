@@ -16,3 +16,10 @@ export { default as ParentReport } from './parentReport';
 export { TeacherReportTemplate } from './teacherReport';
 export { default as TeacherReport } from './teacherReport';
 
+// Sınav Karneleri - YENİ
+export { default as SinavKarnesiBasit } from './SinavKarnesiBasit';
+export type { SinavKarnesiBasitProps } from './SinavKarnesiBasit';
+
+export { default as SinavKarnesiDetayli } from './SinavKarnesiDetayli';
+export type { SinavKarnesiDetayliProps, DersKonuAnalizi, KazanimDetay } from './SinavKarnesiDetayli';
+

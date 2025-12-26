@@ -18,6 +18,7 @@ import {
   ChevronRight, LayoutGrid, List, RefreshCw, FileText, BookMarked
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { KarneDownloadButton, generateDemoDetayliKarne } from '@/lib/sinavlar/pdf';
 
 // =============================================================================
 // TYPES
@@ -1027,10 +1028,13 @@ function OgrenciKarneContent() {
               <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200">
                 <Printer size={18} />
               </button>
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200">
-                <Download size={18} />
-                PDF
-              </button>
+              {/* PDF İndirme Butonu */}
+              <KarneDownloadButton
+                ogrenciAdi={profil.ogrenciAdi}
+                detayliKarneData={generateDemoDetayliKarne()}
+                size="md"
+                variant="primary"
+              />
             </div>
           </div>
         </div>
