@@ -90,20 +90,36 @@ export default function OptikSablonEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Cevap anahtarından bilgi al
+  // Cevap anahtarından bilgi al - EXCEL DİZİLİŞ SIRASINA GÖRE
   const cevapAnahtariInfo = useMemo(() => {
     if (!cevapAnahtari.length) return null;
     
-    const dersler = [...new Set(cevapAnahtari.map(c => c.dersKodu))];
-    const dersBazliSayilar = dersler.map(d => ({
-      dersKodu: d,
-      dersAdi: DERS_ISIMLERI[d] || d,
-      soruSayisi: cevapAnahtari.filter(c => c.dersKodu === d).length
-    }));
+    // Excel sırasına göre dersleri al (ilk görülme sırasını koru)
+    const derslerSirada: string[] = [];
+    cevapAnahtari.forEach(c => {
+      if (!derslerSirada.includes(c.dersKodu)) {
+        derslerSirada.push(c.dersKodu);
+      }
+    });
+    
+    // Her ders için başlangıç ve bitiş soru numaralarını hesapla
+    const dersBazliSayilar = derslerSirada.map(d => {
+      const dersSorulari = cevapAnahtari.filter(c => c.dersKodu === d);
+      const ilkSoruNo = dersSorulari[0]?.soruNo || 0;
+      const sonSoruNo = dersSorulari[dersSorulari.length - 1]?.soruNo || 0;
+      
+      return {
+        dersKodu: d,
+        dersAdi: DERS_ISIMLERI[d] || d,
+        soruSayisi: dersSorulari.length,
+        baslangicSoruNo: ilkSoruNo,
+        bitisSoruNo: sonSoruNo
+      };
+    });
     
     return {
       toplamSoru: cevapAnahtari.length,
-      dersSayisi: dersler.length,
+      dersSayisi: derslerSirada.length,
       dersBazliSayilar
     };
   }, [cevapAnahtari]);
@@ -483,10 +499,12 @@ export default function OptikSablonEditor({
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              {cevapAnahtariInfo.dersBazliSayilar.map(d => (
-                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">
+            <div className="flex flex-wrap gap-2">
+              {cevapAnahtariInfo.dersBazliSayilar.map((d, idx) => (
+                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
+                  <span className="font-bold">{idx + 1}.</span>
                   {d.dersAdi}: {d.soruSayisi}
+                  <span className="text-emerald-500">({d.baslangicSoruNo}-{d.bitisSoruNo})</span>
                 </span>
               ))}
             </div>
@@ -538,6 +556,15 @@ export default function OptikSablonEditor({
       </div>
 
       {/* GÖRSEL SEÇİM MODU */}
+      {inputMode === 'visual' && !ornekSatir && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+          <h3 className="font-semibold text-amber-800 mb-2">Örnek Optik Satırı Yapıştırın</h3>
+          <p className="text-sm text-amber-600">
+            Görsel seçim modunu kullanmak için yukarıdaki alana optik okuyucudan gelen bir satır yapıştırın.
+          </p>
+        </div>
+      )}
       {inputMode === 'visual' && ornekSatir && (
         <div className="space-y-4">
           {/* HIZLI SAYI GİRİŞİ - EN KOLAY YÖNTEM */}
@@ -902,6 +929,15 @@ export default function OptikSablonEditor({
       )}
 
       {/* MANUEL GİRİŞ MODU */}
+      {inputMode === 'manual' && !ornekSatir && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <Type className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+          <h3 className="font-semibold text-amber-800 mb-2">Örnek Optik Satırı Yapıştırın</h3>
+          <p className="text-sm text-amber-600">
+            Manuel giriş modunu kullanmak için yukarıdaki alana optik okuyucudan gelen bir satır yapıştırın.
+          </p>
+        </div>
+      )}
       {inputMode === 'manual' && ornekSatir && (
         <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
           <h3 className="font-semibold text-slate-700 flex items-center gap-2">
@@ -973,6 +1009,15 @@ export default function OptikSablonEditor({
       )}
 
       {/* OTOMATİK MOD - Akıllı Bölme */}
+      {inputMode === 'auto' && !ornekSatir && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 text-center">
+          <Sparkles className="w-10 h-10 text-purple-500 mx-auto mb-3" />
+          <h3 className="font-semibold text-purple-800 mb-2">Örnek Optik Satırı Yapıştırın</h3>
+          <p className="text-sm text-purple-600">
+            Otomatik modu kullanmak için yukarıdaki alana optik okuyucudan gelen bir satır yapıştırın.
+          </p>
+        </div>
+      )}
       {inputMode === 'auto' && ornekSatir && (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-4 space-y-4">
           <div className="flex items-center justify-between">
