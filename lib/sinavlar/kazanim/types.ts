@@ -207,3 +207,201 @@ export const BLOOM_SEVIYELERI = [
   { seviye: 6, ad: 'Oluşturma', renk: '#EF4444' },
 ];
 
+// ============================================================================
+// ESNEK SINAV MİMARİSİ - ÖZEL KURUM SINAVLARI İÇİN
+// ============================================================================
+// 
+// Bu mimari, Türkiye'deki özel eğitim kurumlarının gerçek ihtiyaçlarını karşılar:
+// - Sabit soru sayısı YOK (LGS 90, TYT 120 gibi varsayımlar yapılmaz)
+// - Her sınıf seviyesi desteklenir (4-12 + Mezun)
+// - Tek ders sınavları desteklenir
+// - Çoklu test (ders) içeren sınavlar desteklenir
+// - Her test için ayrı katsayı tanımlanabilir
+// - A-B-C-D kitapçıkları için tamamen farklı cevap anahtarları desteklenir
+//
+// ============================================================================
+
+/**
+ * SINAV (EXAM) - En üst seviye entity
+ * Bir sınav birden fazla TEST içerebilir
+ * 
+ * Örnek: "8. Sınıf 1. Deneme Sınavı" 
+ * - İçinde Türkçe Testi (20 soru), Matematik Testi (20 soru) vs. olabilir
+ */
+export interface Sinav {
+  id: string;
+  ad: string;                    // "8. Sınıf Aralık Denemesi"
+  tarih: string;                 // ISO date
+  sinifSeviyesi: string;         // "4" | "5" | ... | "12" | "mezun"
+  aciklama?: string;
+  
+  // Sınav türü
+  sinavTuru: 'KURUM' | 'LGS' | 'TYT' | 'AYT' | 'DGS' | 'KPSS' | 'DIGER';
+  
+  // Kitapçık türleri (hangi kitapçıklar var)
+  kitapciklar: ('A' | 'B' | 'C' | 'D')[];
+  
+  // Sınava ait testler (ayrı entity olarak yönetilir)
+  testler: SinavTesti[];
+  
+  // Meta
+  olusturmaTarihi: string;
+  guncellenmeTarihi?: string;
+  organizasyonId?: string;
+  akademikYilId?: string;
+}
+
+/**
+ * TEST - Sınav içindeki bir ders/bölüm
+ * Her test bağımsız soru sayısı, katsayı ve cevap anahtarına sahiptir
+ * 
+ * Örnek: Matematik Testi (30 soru, katsayı 1.5)
+ */
+export interface SinavTesti {
+  id: string;
+  sinavId: string;               // Hangi sınava ait
+  
+  // Test bilgileri
+  testAdi: string;               // "Matematik", "Türkçe", "Fen Bilimleri"
+  dersKodu: string;              // "MAT", "TUR", "FEN"
+  testSirasi: number;            // Sınavdaki sıra (1, 2, 3...)
+  
+  // Soru bilgileri
+  soruSayisi: number;            // Bu testteki toplam soru (değişken!)
+  baslangicSoruNo: number;       // Sınavdaki başlangıç sorusu (örn: 21)
+  bitisSoruNo: number;           // Sınavdaki bitiş sorusu (örn: 40)
+  
+  // Puanlama
+  katsayi: number;               // Bu testin ağırlık katsayısı (örn: 1.0, 1.5, 2.0)
+  yanlisKatsayisi: number;       // Kaç yanlış = 1 doğru (3 veya 4, 0 = ceza yok)
+  
+  // Her kitapçık için ayrı cevap anahtarı
+  cevapAnahtarlari: KitapcikCevapAnahtari[];
+}
+
+/**
+ * KİTAPÇIK CEVAP ANAHTARI
+ * Her kitapçık (A, B, C, D) tamamen farklı cevap sırasına sahip olabilir
+ * 
+ * Örnek: A Kitapçığı için Matematik cevapları: [B, A, C, D, A, ...]
+ */
+export interface KitapcikCevapAnahtari {
+  id: string;
+  testId: string;                // Hangi teste ait
+  kitapcikTuru: 'A' | 'B' | 'C' | 'D';
+  
+  // Cevaplar - index 0 = 1. soru
+  cevaplar: ('A' | 'B' | 'C' | 'D' | 'E')[];
+  
+  // Kazanım eşleştirmesi (opsiyonel)
+  kazanimEslestirme?: {
+    soruNo: number;
+    kazanimKodu?: string;
+    kazanimMetni?: string;
+    konuAdi?: string;
+  }[];
+}
+
+/**
+ * ÖĞRENCİ SINAV SONUCU
+ * Bir öğrencinin bir sınavdaki tüm sonuçları
+ */
+export interface OgrenciSinavSonucu {
+  id: string;
+  sinavId: string;
+  ogrenciId?: string;            // Sistemdeki öğrenci ID (opsiyonel)
+  
+  // Optik formdan gelen bilgiler
+  ogrenciNo: string;
+  ogrenciAdi: string;
+  sinif?: string;
+  kitapcik: 'A' | 'B' | 'C' | 'D';
+  
+  // Ham cevaplar
+  tumCevaplar: string[];         // Tüm cevaplar sırasıyla
+  
+  // Test bazlı sonuçlar
+  testSonuclari: OgrenciTestSonucu[];
+  
+  // Genel sonuç
+  toplamDogru: number;
+  toplamYanlis: number;
+  toplamBos: number;
+  toplamNet: number;
+  toplamPuan: number;            // Katsayılar uygulanmış puan
+  
+  // Sıralama
+  genelSiralama?: number;
+  sinifSiralamasi?: number;
+}
+
+/**
+ * ÖĞRENCİ TEST SONUCU
+ * Bir öğrencinin bir testteki (ders) sonuçları
+ */
+export interface OgrenciTestSonucu {
+  testId: string;
+  testAdi: string;
+  dersKodu: string;
+  
+  // Bu testteki cevaplar
+  cevaplar: string[];
+  
+  // Sonuçlar
+  dogru: number;
+  yanlis: number;
+  bos: number;
+  net: number;                   // dogru - (yanlis / yanlisKatsayisi)
+  
+  // Katsayılı puan
+  katsayi: number;
+  katsayiliPuan: number;         // net * katsayi
+  
+  // Kazanım analizi (opsiyonel)
+  kazanimAnalizi?: {
+    kazanimKodu: string;
+    dogru: number;
+    yanlis: number;
+    bos: number;
+    basariYuzdesi: number;
+  }[];
+}
+
+// ============================================================================
+// YARDIMCI FONKSİYONLAR
+// ============================================================================
+
+/**
+ * Sınıf seviyesi bilgileri
+ */
+export const SINIF_SEVIYELERI = {
+  '4': { ad: '4. Sınıf', grup: 'ilkokul' },
+  '5': { ad: '5. Sınıf', grup: 'ortaokul' },
+  '6': { ad: '6. Sınıf', grup: 'ortaokul' },
+  '7': { ad: '7. Sınıf', grup: 'ortaokul' },
+  '8': { ad: '8. Sınıf', grup: 'ortaokul' },
+  '9': { ad: '9. Sınıf', grup: 'lise' },
+  '10': { ad: '10. Sınıf', grup: 'lise' },
+  '11': { ad: '11. Sınıf', grup: 'lise' },
+  '12': { ad: '12. Sınıf', grup: 'lise' },
+  'mezun': { ad: 'Mezun', grup: 'mezun' },
+};
+
+/**
+ * Varsayılan katsayılar (gerektiğinde kullanılır, zorunlu değil)
+ */
+export const VARSAYILAN_KATSAYILAR: Record<string, number> = {
+  TUR: 1.0,
+  MAT: 1.0,
+  FEN: 1.0,
+  SOS: 1.0,
+  ING: 1.0,
+  DIN: 1.0,
+  TAR: 1.0,
+  COG: 1.0,
+  FEL: 1.0,
+  FIZ: 1.0,
+  KIM: 1.0,
+  BIY: 1.0,
+};
+

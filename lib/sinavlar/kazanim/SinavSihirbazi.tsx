@@ -47,6 +47,12 @@ interface SinavBilgisi {
   tip: SinavTuru;
   sinifSeviyesi: SinifSeviyesi;
   aciklama?: string;
+  // Özelleştirilebilir alanlar
+  toplamSoru?: number;           // Varsayılan: 90 (LGS)
+  yanlisKatsayisi?: number;      // Varsayılan: 3 (LGS) veya 4 (TYT/AYT)
+  tekDers?: boolean;             // Sadece tek ders sınavı mı?
+  seciliDers?: string;           // Tek ders ise hangi ders
+  kitapcikTurleri?: string[];    // ['A', 'B', 'C', 'D']
 }
 
 // Adımlar
@@ -374,10 +380,10 @@ export default function SinavSihirbazi({
                       onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, tip: e.target.value as any })}
                       className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
                     >
-                      <option value="LGS">LGS (3 yanlış = 1 doğru)</option>
-                      <option value="TYT">TYT (4 yanlış = 1 doğru)</option>
-                      <option value="AYT">AYT (4 yanlış = 1 doğru)</option>
-                      <option value="DENEME">Kurum Denemesi</option>
+                      <option value="LGS">LGS (8. Sınıf)</option>
+                      <option value="TYT">TYT (11-12. Sınıf)</option>
+                      <option value="AYT">AYT (11-12. Sınıf)</option>
+                      <option value="DENEME">Kurum Denemesi (Özelleştir)</option>
                     </select>
                   </div>
 
@@ -394,6 +400,130 @@ export default function SinavSihirbazi({
                     />
                   </div>
                 </div>
+
+                {/* Özelleştirme Paneli - Kurum Denemesi için */}
+                {sinavBilgisi.tip === 'DENEME' && (
+                  <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <h3 className="font-semibold text-amber-800 mb-4 flex items-center gap-2">
+                      ⚙️ Sınav Özelleştirme
+                    </h3>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Sınıf Seviyesi */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Sınıf Seviyesi
+                        </label>
+                        <select
+                          value={sinavBilgisi.sinifSeviyesi || '8'}
+                          onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, sinifSeviyesi: e.target.value as any })}
+                          className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:border-amber-500 outline-none bg-white"
+                        >
+                          <option value="4">4. Sınıf</option>
+                          <option value="5">5. Sınıf</option>
+                          <option value="6">6. Sınıf</option>
+                          <option value="7">7. Sınıf</option>
+                          <option value="8">8. Sınıf</option>
+                          <option value="9">9. Sınıf</option>
+                          <option value="10">10. Sınıf</option>
+                          <option value="11">11. Sınıf</option>
+                          <option value="12">12. Sınıf</option>
+                          <option value="mezun">Mezun</option>
+                        </select>
+                      </div>
+
+                      {/* Toplam Soru */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Toplam Soru Sayısı
+                        </label>
+                        <input
+                          type="number"
+                          value={sinavBilgisi.toplamSoru || 90}
+                          onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, toplamSoru: parseInt(e.target.value) || 90 })}
+                          min={1}
+                          max={200}
+                          className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:border-amber-500 outline-none bg-white"
+                        />
+                      </div>
+
+                      {/* Yanlış Katsayısı */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Yanlış Katsayısı
+                        </label>
+                        <select
+                          value={sinavBilgisi.yanlisKatsayisi || 3}
+                          onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, yanlisKatsayisi: parseFloat(e.target.value) })}
+                          className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:border-amber-500 outline-none bg-white"
+                        >
+                          <option value="3">3 yanlış = 1 doğru götürür</option>
+                          <option value="4">4 yanlış = 1 doğru götürür</option>
+                          <option value="0">Yanlış ceza yok</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tek Ders Sınavı */}
+                    <div className="mt-4">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sinavBilgisi.tekDers || false}
+                          onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, tekDers: e.target.checked })}
+                          className="w-5 h-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                        />
+                        <span className="text-sm font-medium text-slate-700">
+                          Tek Ders Sınavı (Sadece Matematik, Türkçe, vb.)
+                        </span>
+                      </label>
+                      
+                      {sinavBilgisi.tekDers && (
+                        <select
+                          value={sinavBilgisi.seciliDers || 'MAT'}
+                          onChange={(e) => setSinavBilgisi({ ...sinavBilgisi, seciliDers: e.target.value })}
+                          className="mt-2 w-48 px-3 py-2 border border-amber-300 rounded-lg focus:border-amber-500 outline-none bg-white"
+                        >
+                          <option value="TUR">Türkçe</option>
+                          <option value="MAT">Matematik</option>
+                          <option value="FEN">Fen Bilimleri</option>
+                          <option value="SOS">Sosyal Bilgiler</option>
+                          <option value="ING">İngilizce</option>
+                          <option value="DIN">Din Kültürü</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Kitapçık Türleri */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Kitapçık Türleri
+                      </label>
+                      <div className="flex gap-4">
+                        {['A', 'B', 'C', 'D'].map(kit => (
+                          <label key={kit} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={(sinavBilgisi.kitapcikTurleri || ['A']).includes(kit)}
+                              onChange={(e) => {
+                                const current = sinavBilgisi.kitapcikTurleri || ['A'];
+                                const updated = e.target.checked
+                                  ? [...current, kit]
+                                  : current.filter(k => k !== kit);
+                                setSinavBilgisi({ ...sinavBilgisi, kitapcikTurleri: updated.length > 0 ? updated : ['A'] });
+                              }}
+                              className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                            />
+                            <span className="font-medium">{kit}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-amber-600 mt-1">
+                        Farklı kitapçıkların cevap anahtarları cevap anahtarı adımında yüklenecek
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
