@@ -48,6 +48,32 @@ export default function KazanimCevapAnahtari({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // ========== SÜTUN EŞLEŞTİRME SİSTEMİ ==========
+  const [showColumnMapper, setShowColumnMapper] = useState(false);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [excelRawData, setExcelRawData] = useState<any[][]>([]);
+  const [columnMappings, setColumnMappings] = useState<Record<number, string>>({});
+  const [customFields, setCustomFields] = useState<{id: string, label: string}[]>([]);
+  const [newCustomFieldName, setNewCustomFieldName] = useState('');
+
+  // Standart alan tipleri
+  const STANDARD_FIELDS = [
+    { id: 'soruNo', label: '📌 Soru No', required: true, color: '#EF4444' },
+    { id: 'dogruCevap', label: '✅ Doğru Cevap', required: true, color: '#10B981' },
+    { id: 'dersAdi', label: '📚 Ders Adı', required: false, color: '#3B82F6' },
+    { id: 'testKodu', label: '🏷️ Test Kodu', required: false, color: '#8B5CF6' },
+    { id: 'soruNoA', label: '🅰️ A Kitapçık Soru No', required: false, color: '#F59E0B' },
+    { id: 'soruNoB', label: '🅱️ B Kitapçık Soru No', required: false, color: '#F59E0B' },
+    { id: 'soruNoC', label: '©️ C Kitapçık Soru No', required: false, color: '#F59E0B' },
+    { id: 'soruNoD', label: '🇩 D Kitapçık Soru No', required: false, color: '#F59E0B' },
+    { id: 'kazanimKodu', label: '🎯 Kazanım Kodu', required: false, color: '#EC4899' },
+    { id: 'kazanimMetni', label: '📝 Kazanım Metni', required: false, color: '#EC4899' },
+    { id: 'konuAdi', label: '📖 Konu Adı', required: false, color: '#06B6D4' },
+    { id: 'unite', label: '📗 Ünite', required: false, color: '#84CC16' },
+    { id: 'zorluk', label: '⚡ Zorluk', required: false, color: '#F97316' },
+    { id: 'skip', label: '⏭️ Atla (Kullanma)', required: false, color: '#9CA3AF' },
+  ];
 
   // Yapıştırılan veriyi parse et
   const parseClipboardData = useCallback((content: string) => {
@@ -106,7 +132,126 @@ export default function KazanimCevapAnahtari({
     }
   }, []);
 
-  // Excel/CSV dosya yükle - GELİŞMİŞ KİTAPÇIK DESTEĞİ
+  // Sütun eşleştirmesini uygula ve veriyi parse et
+  const applyColumnMappings = useCallback(() => {
+    const parsed: CevapAnahtariSatir[] = [];
+    const parseErrors: string[] = [];
+    
+    // Zorunlu alanları kontrol et
+    const hasSoruNo = Object.values(columnMappings).includes('soruNo');
+    const hasCevap = Object.values(columnMappings).includes('dogruCevap');
+    
+    if (!hasSoruNo || !hasCevap) {
+      setErrors(['⚠️ Soru No ve Doğru Cevap alanları zorunludur!']);
+      return;
+    }
+    
+    // Verileri parse et (ilk satır başlık olduğu için 1'den başla)
+    excelRawData.slice(1).forEach((row, rowIndex) => {
+      try {
+        let soruNo = 0;
+        let dogruCevap = '';
+        let dersKodu = '';
+        let dersAdi = '';
+        let testKodu = '';
+        let kazanimKodu = '';
+        let kazanimMetni = '';
+        let konuAdi = '';
+        let unite = '';
+        let zorluk = 0.5;
+        const kitapcikSoruNo: { A?: number; B?: number; C?: number; D?: number } = {};
+        const customData: Record<string, any> = {};
+        
+        // Her sütunu eşleştirmeye göre işle
+        Object.entries(columnMappings).forEach(([colIdx, fieldId]) => {
+          const value = row[parseInt(colIdx)];
+          if (value === undefined || value === null || value === '') return;
+          
+          const strValue = String(value).trim();
+          
+          switch (fieldId) {
+            case 'soruNo':
+              soruNo = parseInt(strValue) || 0;
+              break;
+            case 'dogruCevap':
+              dogruCevap = strValue.toUpperCase();
+              break;
+            case 'dersAdi':
+              dersAdi = strValue;
+              dersKodu = normalizeDersKodu(strValue) || strValue;
+              break;
+            case 'testKodu':
+              testKodu = strValue;
+              break;
+            case 'soruNoA':
+              kitapcikSoruNo.A = parseInt(strValue) || undefined;
+              break;
+            case 'soruNoB':
+              kitapcikSoruNo.B = parseInt(strValue) || undefined;
+              break;
+            case 'soruNoC':
+              kitapcikSoruNo.C = parseInt(strValue) || undefined;
+              break;
+            case 'soruNoD':
+              kitapcikSoruNo.D = parseInt(strValue) || undefined;
+              break;
+            case 'kazanimKodu':
+              kazanimKodu = strValue;
+              break;
+            case 'kazanimMetni':
+              kazanimMetni = strValue;
+              break;
+            case 'konuAdi':
+              konuAdi = strValue;
+              break;
+            case 'unite':
+              unite = strValue;
+              break;
+            case 'zorluk':
+              zorluk = parseFloat(strValue) || 0.5;
+              break;
+            case 'skip':
+              // Atla
+              break;
+            default:
+              // Özel alan
+              if (fieldId.startsWith('custom_')) {
+                customData[fieldId] = strValue;
+              }
+              break;
+          }
+        });
+        
+        if (soruNo > 0 && ['A', 'B', 'C', 'D', 'E'].includes(dogruCevap)) {
+          parsed.push({
+            soruNo,
+            dogruCevap: dogruCevap as any,
+            dersKodu: dersKodu || 'GENEL',
+            dersAdi,
+            testKodu,
+            kazanimKodu: kazanimKodu || undefined,
+            kazanimMetni: kazanimMetni || undefined,
+            konuAdi: konuAdi || undefined,
+            zorluk,
+            kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 0 ? kitapcikSoruNo : undefined,
+          });
+        }
+      } catch (e) {
+        parseErrors.push(`Satır ${rowIndex + 2}: Parse hatası`);
+      }
+    });
+    
+    if (parsed.length > 0) {
+      setParsedData(parsed);
+      setIsPreviewOpen(true);
+      setShowColumnMapper(false);
+      setErrors([]);
+    } else {
+      setErrors(['Hiç veri parse edilemedi. Sütun eşleştirmelerini kontrol edin.']);
+    }
+  }, [excelRawData, columnMappings]);
+
+  // Excel/CSV dosya yükle - SÜTUN EŞLEŞTİRME SİSTEMİ
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -126,254 +271,69 @@ export default function KazanimCevapAnahtari({
         
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
         
-        const parsed: CevapAnahtariSatir[] = [];
-        const parseErrors: string[] = [];
+        // İlk satırı başlık olarak al
+        const headers = (jsonData[0] as any[]).map((h, idx) => String(h || `Sütun ${idx + 1}`).trim());
         
-        // GELİŞMİŞ SÜTUN ALGILAMA
-        let columnMap = {
-          testKodu: -1,
-          dersAdi: -1,
-          soruNoA: -1,      // A kitapçığı soru no
-          soruNoB: -1,      // B kitapçığı soru no
-          soruNoC: -1,      // C kitapçığı soru no
-          soruNoD: -1,      // D kitapçığı soru no
-          cevap: -1,
-          kazanimKodu: -1,
-          kazanimMetni: -1,
-        };
-        
-        const firstRow = jsonData[0] as any[];
-        let startIndex = 0;
-        let hasHeader = false;
-        
-        // Başlık satırını analiz et
-        if (firstRow) {
-          firstRow.forEach((cell: any, idx: number) => {
-            const cellStr = String(cell || '').toLowerCase().trim();
-            const cellStrUpper = String(cell || '').toUpperCase().trim();
-            
-            // TEST KODU
-            if (cellStr.includes('test') && cellStr.includes('kod')) {
-              columnMap.testKodu = idx;
-              hasHeader = true;
+        // Akıllı otomatik eşleştirme önerisi
+        const autoMappings: Record<number, string> = {};
+        headers.forEach((header, idx) => {
+          const h = header.toLowerCase();
+          if (h.includes('soru') && h.includes('no') && !h.includes('a') && !h.includes('b') && !h.includes('c') && !h.includes('d')) {
+            autoMappings[idx] = 'soruNo';
+          } else if (h.includes('cevap') || h.includes('doğru') || h.includes('dogru')) {
+            autoMappings[idx] = 'dogruCevap';
+          } else if (h.includes('ders')) {
+            autoMappings[idx] = 'dersAdi';
+          } else if (h.includes('test') && h.includes('kod')) {
+            autoMappings[idx] = 'testKodu';
+          } else if ((h.includes('a') && h.includes('soru')) || h === 'a soru no') {
+            autoMappings[idx] = 'soruNoA';
+          } else if ((h.includes('b') && h.includes('soru')) || h === 'b soru no') {
+            autoMappings[idx] = 'soruNoB';
+          } else if ((h.includes('c') && h.includes('soru')) || h === 'c soru no') {
+            autoMappings[idx] = 'soruNoC';
+          } else if ((h.includes('d') && h.includes('soru')) || h === 'd soru no') {
+            autoMappings[idx] = 'soruNoD';
+          } else if (h.includes('kazanım') || h.includes('kazanim')) {
+            if (h.includes('kod')) {
+              autoMappings[idx] = 'kazanimKodu';
+            } else {
+              autoMappings[idx] = 'kazanimMetni';
             }
-            
-            // DERS ADI
-            if (cellStr.includes('ders') && (cellStr.includes('ad') || cellStr.includes('adi'))) {
-              columnMap.dersAdi = idx;
-              hasHeader = true;
-            }
-            
-            // A SORU NO / B SORU NO / C SORU NO / D SORU NO
-            if ((cellStr.includes('a') && cellStr.includes('soru')) || cellStrUpper === 'A SORU NO' || cellStr === 'a soru no') {
-              columnMap.soruNoA = idx;
-              hasHeader = true;
-            }
-            if ((cellStr.includes('b') && cellStr.includes('soru')) || cellStrUpper === 'B SORU NO' || cellStr === 'b soru no') {
-              columnMap.soruNoB = idx;
-              hasHeader = true;
-            }
-            if ((cellStr.includes('c') && cellStr.includes('soru')) || cellStrUpper === 'C SORU NO' || cellStr === 'c soru no') {
-              columnMap.soruNoC = idx;
-              hasHeader = true;
-            }
-            if ((cellStr.includes('d') && cellStr.includes('soru')) || cellStrUpper === 'D SORU NO' || cellStr === 'd soru no') {
-              columnMap.soruNoD = idx;
-              hasHeader = true;
-            }
-            
-            // CEVAP / DOĞRU CEVAP
-            if (cellStr.includes('cevap') || cellStr.includes('doğru') || cellStr.includes('dogru')) {
-              columnMap.cevap = idx;
-              hasHeader = true;
-            }
-            
-            // KAZANIM KODU
-            if ((cellStr.includes('kazanım') || cellStr.includes('kazanim')) && cellStr.includes('kod')) {
-              columnMap.kazanimKodu = idx;
-              hasHeader = true;
-            }
-            
-            // KAZANIM METNİ / AÇIKLAMASI
-            if ((cellStr.includes('kazanım') || cellStr.includes('kazanim')) && 
-                !cellStr.includes('kod')) {
-              // Kazanım kodu değilse, kazanım metnidir
-              if (columnMap.kazanimKodu !== idx) {
-                columnMap.kazanimMetni = idx;
-                hasHeader = true;
-              }
-            }
-          });
-          
-          if (hasHeader) {
-            startIndex = 1;
+          } else if (h.includes('konu')) {
+            autoMappings[idx] = 'konuAdi';
+          } else if (h.includes('ünite') || h.includes('unite')) {
+            autoMappings[idx] = 'unite';
+          } else if (h.includes('zorluk')) {
+            autoMappings[idx] = 'zorluk';
           }
-        }
-        
-        console.log('📊 Algılanan sütun haritası:', columnMap);
-        console.log('📊 Başlık satırı:', firstRow);
-        
-        // Veriyi parse et
-        jsonData.forEach((row: any[], index: number) => {
-          if (index < startIndex) return;
-          if (!row || row.length < 3) return;
-          
-          // Test kodu
-          const testKodu = columnMap.testKodu !== -1 
-            ? String(row[columnMap.testKodu] || '').trim() 
-            : undefined;
-          
-          // Ders adı
-          let dersAdi = columnMap.dersAdi !== -1 
-            ? String(row[columnMap.dersAdi] || '').trim() 
-            : '';
-          
-          // Ders kodu
-          let dersKodu = '';
-          if (dersAdi) {
-            dersKodu = normalizeDersKodu(dersAdi) || dersAdi;
-          } else {
-            // Ders sütunu bulunamadıysa satırda ara
-            for (let i = 0; i < row.length; i++) {
-              const val = String(row[i] || '').toUpperCase().trim();
-              const normalized = normalizeDersKodu(val);
-              if (normalized) {
-                dersKodu = normalized;
-                dersAdi = val;
-                break;
-              }
-            }
-          }
-          
-          // Kitapçık bazlı soru numaraları
-          const kitapcikSoruNo: { A?: number; B?: number; C?: number; D?: number } = {};
-          
-          if (columnMap.soruNoA !== -1) {
-            const val = parseInt(String(row[columnMap.soruNoA]));
-            if (!isNaN(val) && val > 0) kitapcikSoruNo.A = val;
-          }
-          if (columnMap.soruNoB !== -1) {
-            const val = parseInt(String(row[columnMap.soruNoB]));
-            if (!isNaN(val) && val > 0) kitapcikSoruNo.B = val;
-          }
-          if (columnMap.soruNoC !== -1) {
-            const val = parseInt(String(row[columnMap.soruNoC]));
-            if (!isNaN(val) && val > 0) kitapcikSoruNo.C = val;
-          }
-          if (columnMap.soruNoD !== -1) {
-            const val = parseInt(String(row[columnMap.soruNoD]));
-            if (!isNaN(val) && val > 0) kitapcikSoruNo.D = val;
-          }
-          
-          // Ana soru numarası (A kitapçığından veya B'den)
-          let soruNo = kitapcikSoruNo.A || kitapcikSoruNo.B || (index - startIndex + 1);
-          
-          // Eğer kitapçık sütunu yoksa satırda sayı ara
-          if (!kitapcikSoruNo.A && !kitapcikSoruNo.B) {
-            for (let i = 0; i < row.length; i++) {
-              const val = parseInt(String(row[i]));
-              if (!isNaN(val) && val > 0 && val <= 200) {
-                soruNo = val;
-                break;
-              }
-            }
-          }
-          
-          // Cevap
-          let dogruCevap: string = '';
-          if (columnMap.cevap !== -1) {
-            dogruCevap = String(row[columnMap.cevap] || '').toUpperCase().trim();
-          } else {
-            // Satırda A, B, C, D, E ara
-            for (let i = 0; i < row.length; i++) {
-              const val = String(row[i] || '').toUpperCase().trim();
-              if (['A', 'B', 'C', 'D', 'E'].includes(val)) {
-                dogruCevap = val;
-                break;
-              }
-            }
-          }
-          
-          if (!['A', 'B', 'C', 'D', 'E'].includes(dogruCevap)) {
-            parseErrors.push(`Satır ${index + 1}: Geçersiz cevap (${dogruCevap || 'boş'})`);
-            return;
-          }
-          
-          // Kazanım kodu (opsiyonel)
-          let kazanimKodu = '';
-          if (columnMap.kazanimKodu !== -1) {
-            kazanimKodu = String(row[columnMap.kazanimKodu] || '').trim();
-          } else {
-            // Satırda kazanım kodu formatı ara
-            for (let i = 0; i < row.length; i++) {
-              const val = String(row[i] || '').trim();
-              if (/^[A-ZİÇŞĞÜÖ]+\.\d+\.\d+/.test(val)) {
-                kazanimKodu = val;
-                break;
-              }
-            }
-          }
-          
-          // Kazanım metni (opsiyonel - en uzun string)
-          let kazanimMetni = '';
-          if (columnMap.kazanimMetni !== -1) {
-            kazanimMetni = String(row[columnMap.kazanimMetni] || '').trim();
-          } else {
-            // En uzun string'i bul
-            let maxLen = 0;
-            for (let i = 0; i < row.length; i++) {
-              const val = String(row[i] || '').trim();
-              if (val.length > maxLen && val.length > 25 && 
-                  i !== columnMap.dersAdi && 
-                  i !== columnMap.testKodu &&
-                  i !== columnMap.kazanimKodu) {
-                maxLen = val.length;
-                kazanimMetni = val;
-              }
-            }
-          }
-          
-          parsed.push({
-            soruNo,
-            dogruCevap: dogruCevap as 'A' | 'B' | 'C' | 'D' | 'E',
-            dersKodu,
-            dersAdi: dersAdi || undefined,
-            testKodu: testKodu || undefined,
-            kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 0 ? kitapcikSoruNo : undefined,
-            kazanimKodu: kazanimKodu || undefined,
-            kazanimMetni: kazanimMetni || undefined,
-            zorluk: 0.5
-          });
         });
         
-        // Soru numarasına göre sırala
-        parsed.sort((a, b) => a.soruNo - b.soruNo);
-        
-        console.log('✅ Parse edildi:', parsed.length, 'soru');
-        console.log('📋 Örnek veri:', parsed[0]);
-        
-        setParsedData(parsed);
-        setErrors(parseErrors);
-        
-        if (parsed.length > 0) {
-          setIsPreviewOpen(true);
-        }
-        
-      } else {
-        // CSV veya TXT dosyası
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          parseClipboardData(content);
-        };
-        reader.readAsText(file);
+        setExcelHeaders(headers);
+        setExcelRawData(jsonData as any[][]);
+        setColumnMappings(autoMappings);
+        setShowColumnMapper(true);
+        setIsUploading(false);
+        return;
       }
+      
+      // CSV/TXT için eski mantık
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(/[\t,;]/).map(h => h.trim());
+      
+      setExcelHeaders(headers);
+      setExcelRawData(lines.map(line => line.split(/[\t,;]/).map(c => c.trim())));
+      setColumnMappings({});
+      setShowColumnMapper(true);
+      setIsUploading(false);
+      
     } catch (error: any) {
-      setErrors([`Dosya okuma hatası: ${error.message}`]);
-    } finally {
+      console.error('Dosya yükleme hatası:', error);
+      setErrors([`Dosya yüklenirken hata oluştu: ${error.message}`]);
       setIsUploading(false);
     }
-  }, [parseClipboardData]);
+  }, []);
 
   // Ders kodunu normalize et
   const normalizeDersKodu = (kod: string): string | null => {
@@ -516,6 +476,228 @@ export default function KazanimCevapAnahtari({
 
   return (
     <div className="space-y-6">
+      {/* ========== SÜTUN EŞLEŞTİRME MODAL ========== */}
+      <AnimatePresence>
+        {showColumnMapper && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 text-white">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Table className="w-6 h-6" />
+                  Sütun Eşleştirme
+                </h2>
+                <p className="text-sm text-white/80 mt-1">
+                  Excel sütunlarını sistem alanlarıyla eşleştirin. Otomatik algılama yapıldı, kontrol edin.
+                </p>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="p-4 overflow-y-auto max-h-[60vh]">
+                {/* Önizleme Tablosu */}
+                <div className="mb-4 p-3 bg-slate-50 rounded-xl">
+                  <p className="text-sm text-slate-600 mb-2 flex items-center gap-2">
+                    <Eye size={14} />
+                    Örnek Veri (ilk 3 satır):
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="text-xs">
+                      <thead>
+                        <tr>
+                          {excelHeaders.map((h, idx) => (
+                            <th key={idx} className="px-2 py-1 bg-slate-200 text-left font-medium">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {excelRawData.slice(1, 4).map((row, rowIdx) => (
+                          <tr key={rowIdx} className="border-b">
+                            {row.slice(0, excelHeaders.length).map((cell, cellIdx) => (
+                              <td key={cellIdx} className="px-2 py-1 text-slate-600 max-w-32 truncate">
+                                {String(cell || '-')}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {/* Sütun Eşleştirmeleri */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {excelHeaders.map((header, idx) => {
+                    const selectedField = columnMappings[idx];
+                    const fieldInfo = STANDARD_FIELDS.find(f => f.id === selectedField) ||
+                                     customFields.find(f => `custom_${f.id}` === selectedField);
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className="flex items-center gap-3 p-3 rounded-xl border-2 transition-all"
+                        style={{ 
+                          borderColor: fieldInfo?.color || '#E2E8F0',
+                          backgroundColor: fieldInfo ? `${fieldInfo.color}08` : 'white'
+                        }}
+                      >
+                        {/* Excel Sütunu */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-400 mb-1">Sütun {idx + 1}</div>
+                          <div className="font-medium text-slate-800 truncate">{header}</div>
+                          <div className="text-xs text-slate-500 truncate">
+                            Örnek: {String(excelRawData[1]?.[idx] || '-')}
+                          </div>
+                        </div>
+                        
+                        {/* Ok */}
+                        <div className="text-slate-300">→</div>
+                        
+                        {/* Alan Seçici */}
+                        <div className="flex-1">
+                          <select
+                            value={selectedField || ''}
+                            onChange={(e) => {
+                              setColumnMappings(prev => ({
+                                ...prev,
+                                [idx]: e.target.value
+                              }));
+                            }}
+                            className="w-full px-3 py-2 border rounded-lg text-sm focus:border-emerald-500 outline-none"
+                            style={{ borderColor: fieldInfo?.color || '#CBD5E1' }}
+                          >
+                            <option value="">-- Seçiniz --</option>
+                            <optgroup label="📌 Zorunlu Alanlar">
+                              {STANDARD_FIELDS.filter(f => f.required).map(f => (
+                                <option key={f.id} value={f.id}>{f.label}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="📋 Opsiyonel Alanlar">
+                              {STANDARD_FIELDS.filter(f => !f.required).map(f => (
+                                <option key={f.id} value={f.id}>{f.label}</option>
+                              ))}
+                            </optgroup>
+                            {customFields.length > 0 && (
+                              <optgroup label="✏️ Özel Alanlar">
+                                {customFields.map(f => (
+                                  <option key={f.id} value={`custom_${f.id}`}>📌 {f.label}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Özel Alan Ekle */}
+                <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">✏️</span>
+                    <span className="font-medium text-indigo-800">Özel Alan Ekle</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCustomFieldName}
+                      onChange={(e) => setNewCustomFieldName(e.target.value)}
+                      placeholder="Alan adı (ör: Ünite, Alt Konu, Sayfa No...)"
+                      className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:border-indigo-400 outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        if (newCustomFieldName.trim()) {
+                          setCustomFields(prev => [...prev, {
+                            id: `field_${Date.now()}`,
+                            label: newCustomFieldName.trim()
+                          }]);
+                          setNewCustomFieldName('');
+                        }
+                      }}
+                      disabled={!newCustomFieldName.trim()}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      Ekle
+                    </button>
+                  </div>
+                  {customFields.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {customFields.map(f => (
+                        <span 
+                          key={f.id} 
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs"
+                        >
+                          📌 {f.label}
+                          <button 
+                            onClick={() => setCustomFields(prev => prev.filter(cf => cf.id !== f.id))}
+                            className="hover:text-red-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Durum Özeti */}
+                <div className="mt-4 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-slate-600">
+                      <strong className="text-emerald-600">{Object.keys(columnMappings).filter(k => columnMappings[parseInt(k)] && columnMappings[parseInt(k)] !== 'skip').length}</strong> sütun eşleştirildi
+                    </span>
+                    <span className="text-slate-600">
+                      <strong className="text-blue-600">{excelRawData.length - 1}</strong> satır veri
+                    </span>
+                    {!Object.values(columnMappings).includes('soruNo') && (
+                      <span className="text-red-600 font-medium">⚠️ Soru No gerekli!</span>
+                    )}
+                    {!Object.values(columnMappings).includes('dogruCevap') && (
+                      <span className="text-red-600 font-medium">⚠️ Doğru Cevap gerekli!</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="p-4 border-t bg-slate-50 flex justify-between">
+                <button
+                  onClick={() => {
+                    setShowColumnMapper(false);
+                    setExcelHeaders([]);
+                    setExcelRawData([]);
+                    setColumnMappings({});
+                  }}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={applyColumnMappings}
+                  disabled={!Object.values(columnMappings).includes('soruNo') || !Object.values(columnMappings).includes('dogruCevap')}
+                  className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Check size={18} />
+                  Uygula ve Devam Et
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Başlık */}
       <div className="flex items-center gap-3">
         <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg">
