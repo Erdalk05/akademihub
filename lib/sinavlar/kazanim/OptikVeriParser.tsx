@@ -32,22 +32,89 @@ interface OptikVeriParserProps {
   onMatchStudents?: (matches: { satir: ParsedOptikSatir; ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }[]) => void;
 }
 
-// Türkçe karakter düzeltme haritası
+// Türkçe karakter düzeltme haritası - GENİŞLETİLMİŞ
 const TURKISH_CHAR_MAP: Record<string, string> = {
+  // Standart bozuk karakterler
   'Ý': 'İ',
   'ý': 'ı',
   'Ð': 'Ğ',
   'ð': 'ğ',
   'Þ': 'Ş',
   'þ': 'ş',
-  'Ü': 'Ü',
-  'ü': 'ü',
-  'Ö': 'Ö',
-  'ö': 'ö',
-  'Ç': 'Ç',
-  'ç': 'ç',
-  'I': 'I',
-  'i': 'i',
+  
+  // Optik okuyucu kaynaklı bozuk karakterler
+  '«': 'ç',  // Kılı« → Kılıç
+  '»': 'ş',  // 
+  '¼': 'ğ',
+  '½': 'ü',
+  '¾': 'ö',
+  '¿': 'ı',
+  'Ã': 'Ç',
+  'ã': 'ç',
+  'Â': 'Ş',
+  'â': 'ş',
+  'á': 'ğ',
+  'À': 'Ğ',
+  'à': 'ğ',
+  'ñ': 'ğ',
+  'Ñ': 'Ğ',
+  'ê': 'ş',
+  'Ê': 'Ş',
+  'é': 'ş',
+  'É': 'Ş',
+  'è': 'ğ',
+  'È': 'Ğ',
+  'ë': 'ı',
+  'Ë': 'İ',
+  'î': 'ı',
+  'Î': 'İ',
+  'ï': 'ı',
+  'Ï': 'İ',
+  'ô': 'ö',
+  'Ô': 'Ö',
+  'û': 'ü',
+  'Û': 'Ü',
+  
+  // İsim içindeki tire - genellikle ğ
+  // Bu ayrı işlenecek
+  
+  // Latin-1 ve Windows-1254 dönüşümleri
+  '\u00c7': 'Ç',
+  '\u00e7': 'ç',
+  '\u011e': 'Ğ',
+  '\u011f': 'ğ',
+  '\u0130': 'İ',
+  '\u0131': 'ı',
+  '\u00d6': 'Ö',
+  '\u00f6': 'ö',
+  '\u015e': 'Ş',
+  '\u015f': 'ş',
+  '\u00dc': 'Ü',
+  '\u00fc': 'ü',
+};
+
+// Yaygın bozuk isim kalıplarını düzelt
+const COMMON_NAME_FIXES: Record<string, string> = {
+  'Do-an': 'Doğan',
+  'DO-AN': 'DOĞAN',
+  'Ya-mur': 'Yağmur',
+  'YA-MUR': 'YAĞMUR',
+  'Er-an': 'Ergan',
+  'ER-AN': 'ERGAN',
+  'O-uz': 'Oğuz',
+  'O-UZ': 'OĞUZ',
+  'Tu-ba': 'Tuğba',
+  'TU-BA': 'TUĞBA',
+  'Tu-çe': 'Tuğçe',
+  'TU-ÇE': 'TUĞÇE',
+  'Ça-la': 'Çağla',
+  'ÇA-LA': 'ÇAĞLA',
+  'Ça-lar': 'Çağlar',
+  'ÇA-LAR': 'ÇAĞLAR',
+  'Da-': 'Dağ',
+  'DA-': 'DAĞ',
+  '-ul': 'ğul',
+  '-UL': 'ĞUL',
 };
 
 export default function OptikVeriParser({
@@ -64,13 +131,33 @@ export default function OptikVeriParser({
   const [showPreview, setShowPreview] = useState(true);
   const [selectedSatir, setSelectedSatir] = useState<number | null>(null);
   const [matchResults, setMatchResults] = useState<Map<number, { ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }>>(new Map());
+  
+  // Düzenleme modu
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<{ ogrenciNo: string; ogrenciAdi: string; kitapcik: string }>({ ogrenciNo: '', ogrenciAdi: '', kitapcik: '' });
 
-  // Türkçe karakter düzeltme
+  // Türkçe karakter düzeltme - GELİŞMİŞ
   const fixTurkishChars = useCallback((text: string): string => {
     let result = text;
-    Object.entries(TURKISH_CHAR_MAP).forEach(([from, to]) => {
-      result = result.replace(new RegExp(from, 'g'), to);
+    
+    // 1. Önce yaygın isim kalıplarını düzelt
+    Object.entries(COMMON_NAME_FIXES).forEach(([from, to]) => {
+      result = result.replace(new RegExp(from, 'gi'), to);
     });
+    
+    // 2. Sonra karakter haritasını uygula
+    Object.entries(TURKISH_CHAR_MAP).forEach(([from, to]) => {
+      result = result.replace(new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), to);
+    });
+    
+    // 3. İsim içindeki tek tire genellikle ğ (harfler arasındaysa)
+    result = result.replace(/([a-zA-ZğüşıöçĞÜŞİÖÇ])-([a-zA-ZğüşıöçĞÜŞİÖÇ])/gi, '$1ğ$2');
+    
+    // 4. Çift karakterleri düzelt
+    result = result.replace(/ğğ/g, 'ğ');
+    result = result.replace(/şş/g, 'ş');
+    result = result.replace(/çç/g, 'ç');
+    
     return result;
   }, []);
 
@@ -472,6 +559,30 @@ export default function OptikVeriParser({
               <div className="text-xs text-slate-500">Eşleşmeyen</div>
             </div>
           </div>
+          
+          {/* Eşleşme Bilgi Paneli */}
+          {stats.unmatched > 0 && ogrenciListesi.length === 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <h4 className="font-semibold text-amber-800 flex items-center gap-2 mb-2">
+                <AlertTriangle size={18} />
+                Öğrenci Eşleştirmesi Yapılamadı
+              </h4>
+              <p className="text-sm text-amber-700 mb-2">
+                <strong>"Eşleşmedi"</strong> durumu, optik formdan gelen öğrenci bilgilerinin sistemdeki kayıtlı öğrenci listesiyle eşleştirilemediği anlamına gelir.
+              </p>
+              <p className="text-sm text-amber-600">
+                Bu sorunun nedenleri:
+              </p>
+              <ul className="text-sm text-amber-600 list-disc list-inside mt-1 space-y-1">
+                <li>🔸 Demo modda öğrenci listesi yüklenmemiş</li>
+                <li>🔸 Öğrenci numarası sistemde kayıtlı değil</li>
+                <li>🔸 Öğrenci adı farklı yazılmış</li>
+              </ul>
+              <p className="text-xs text-amber-500 mt-3 italic">
+                💡 Not: Eşleştirme yapılmadan da sınav sonuçları kaydedilebilir. Öğrenci bilgileri optik formdan alınacaktır.
+              </p>
+            </div>
+          )}
 
           {/* Filtreler */}
           <div className="flex items-center gap-4">
@@ -589,16 +700,106 @@ export default function OptikVeriParser({
                   Satır Detayı: {filteredData[selectedSatir].ogrenciAdi}
                 </h4>
                 
-                {/* Hatalar */}
-                {filteredData[selectedSatir].hatalar.length > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm font-medium text-red-700 mb-1">Hatalar:</p>
-                    <ul className="text-sm text-red-600 list-disc list-inside">
-                      {filteredData[selectedSatir].hatalar.map((h, i) => (
-                        <li key={i}>{h}</li>
-                      ))}
-                    </ul>
+                {/* Düzenleme Formu veya Hatalar */}
+                {editingIndex === selectedSatir ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                    <h5 className="font-semibold text-blue-800 flex items-center gap-2">
+                      <Edit2 size={16} />
+                      Manuel Düzenleme
+                    </h5>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Öğrenci No</label>
+                        <input
+                          type="text"
+                          value={editForm.ogrenciNo}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, ogrenciNo: e.target.value }))}
+                          className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Ad Soyad</label>
+                        <input
+                          type="text"
+                          value={editForm.ogrenciAdi}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, ogrenciAdi: e.target.value }))}
+                          className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Kitapçık</label>
+                        <select
+                          value={editForm.kitapcik}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, kitapcik: e.target.value }))}
+                          className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:border-blue-400 outline-none"
+                        >
+                          <option value="">-</option>
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newData = [...parsedData];
+                          const originalIndex = parsedData.indexOf(filteredData[selectedSatir]);
+                          newData[originalIndex] = {
+                            ...newData[originalIndex],
+                            ogrenciNo: editForm.ogrenciNo,
+                            ogrenciAdi: editForm.ogrenciAdi,
+                            kitapcik: editForm.kitapcik as 'A' | 'B' | 'C' | 'D' | undefined,
+                            isValid: true,
+                            hatalar: []
+                          };
+                          setParsedData(newData);
+                          setEditingIndex(null);
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                      >
+                        <Save size={14} />
+                        Kaydet
+                      </button>
+                      <button
+                        onClick={() => setEditingIndex(null)}
+                        className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+                      >
+                        İptal
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {/* Düzenle Butonu */}
+                    <button
+                      onClick={() => {
+                        setEditingIndex(selectedSatir);
+                        setEditForm({
+                          ogrenciNo: filteredData[selectedSatir].ogrenciNo || '',
+                          ogrenciAdi: filteredData[selectedSatir].ogrenciAdi || '',
+                          kitapcik: filteredData[selectedSatir].kitapcik || ''
+                        });
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200"
+                    >
+                      <Edit2 size={14} />
+                      Bu Satırı Düzenle
+                    </button>
+                    
+                    {/* Hatalar */}
+                    {filteredData[selectedSatir].hatalar.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-red-700 mb-1">⚠️ Tespit Edilen Hatalar:</p>
+                        <ul className="text-sm text-red-600 list-disc list-inside">
+                          {filteredData[selectedSatir].hatalar.map((h, i) => (
+                            <li key={i}>{h}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Cevaplar */}
