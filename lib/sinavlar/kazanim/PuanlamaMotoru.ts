@@ -1,15 +1,23 @@
 /**
- * PUANLAMA MOTORU V2.0
+ * PUANLAMA MOTORU V3.0 - MEB UYUMLU
  * 
- * Bu modül öğrenci cevaplarını değerlendirir ve puanlar.
+ * Bu modül öğrenci cevaplarını MEB standartlarına göre değerlendirir.
  * 
  * ÖZELLİKLER:
+ * - ✅ MEB 100-500 Puan Skalası (LGS)
+ * - ✅ Ders bazlı katsayılar (TUR/MAT/FEN = 4, DİĞER = 1)
+ * - ✅ Net hesaplama: Doğru - (Yanlış / 3)
+ * - ✅ Kitapçık bazlı cevap anahtarları (A, B, C, D)
  * - ✅ Esnek sınav mimarisi (KURUM sınavları için)
  * - ✅ Test bazlı değerlendirme (her ders ayrı test)
- * - ✅ Kitapçık bazlı tamamen farklı cevap anahtarları (A, B, C, D)
  * - ✅ Değişken soru sayısı desteği
- * - ✅ Test bazlı katsayılar
  * - ✅ Geriye uyumluluk (eski fonksiyonlar korundu)
+ * 
+ * LGS PUAN FORMÜLÜ:
+ * 1. Net = Doğru - (Yanlış / 3)
+ * 2. Ağırlıklı Ham Puan (AHP) = Σ(Ders_Net × Katsayı) | Max = 270
+ * 3. Ölçeklenmiş Katkı = (AHP × 400) / 270
+ * 4. LGS Puanı = 100 + Ölçeklenmiş Katkı | Aralık: 100-500
  */
 
 import { 
@@ -23,6 +31,78 @@ import {
   OgrenciTestSonucu
 } from './types';
 import { SINAV_KONFIGURASYONLARI, SinavTuru, DersDagilimi } from './sinavKonfigurasyonlari';
+
+// ============================================================================
+// MEB UYUMLU LGS SABİTLERİ (100-500 SKALA)
+// ============================================================================
+
+export const LGS_MEB_CONFIG = {
+  // Puan skalası
+  tabanPuan: 100.0,              // Minimum puan (0 net bile olsa)
+  maxFinalPuan: 500.0,           // Maximum puan (90 doğru = 500)
+  toplamKatsayiAgirligi: 270.0,  // Max ham puan
+  olceklemeFaktoru: 400.0,       // 500 - 100 = 400
+  
+  // Net hesaplama
+  yanlisKatsayisi: 3,            // 3 yanlış = 1 doğru götürür
+  
+  // Ders katsayıları (MEB Standardı)
+  dersKatsayilari: {
+    'TUR': 4.0,   // Türkçe
+    'MAT': 4.0,   // Matematik
+    'FEN': 4.0,   // Fen Bilimleri
+    'INK': 1.0,   // İnkılap Tarihi
+    'DIN': 1.0,   // Din Kültürü
+    'ING': 1.0,   // İngilizce
+    'SOS': 1.0,   // Sosyal Bilgiler (varsa)
+  } as Record<string, number>,
+  
+  // Ders yapılandırması (LGS 8. Sınıf)
+  dersler: [
+    { kod: 'TUR', ad: 'Türkçe', soruSayisi: 20, baslangic: 1, bitis: 20, katsayi: 4.0, maxKatki: 80 },
+    { kod: 'INK', ad: 'T.C. İnkılap Tarihi', soruSayisi: 10, baslangic: 21, bitis: 30, katsayi: 1.0, maxKatki: 10 },
+    { kod: 'DIN', ad: 'Din Kültürü', soruSayisi: 10, baslangic: 31, bitis: 40, katsayi: 1.0, maxKatki: 10 },
+    { kod: 'ING', ad: 'İngilizce', soruSayisi: 10, baslangic: 41, bitis: 50, katsayi: 1.0, maxKatki: 10 },
+    { kod: 'MAT', ad: 'Matematik', soruSayisi: 20, baslangic: 51, bitis: 70, katsayi: 4.0, maxKatki: 80 },
+    { kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, baslangic: 71, bitis: 90, katsayi: 4.0, maxKatki: 80 },
+  ],
+};
+
+/**
+ * Ders kodundan MEB katsayısını al
+ */
+export function getMEBKatsayi(dersKodu: string): number {
+  return LGS_MEB_CONFIG.dersKatsayilari[dersKodu] || 1.0;
+}
+
+/**
+ * MEB 100-500 Skala Hesaplama
+ * 
+ * FORMÜL:
+ * 1. Ağırlıklı Ham Puan (AHP) = Σ(Ders_Net × Katsayı) | Max = 270
+ * 2. Ölçeklenmiş Katkı = (AHP × 400) / 270
+ * 3. LGS Puanı = 100 + Ölçeklenmiş Katkı
+ */
+export function hesaplaMEBPuani(agirlikliHamPuan: number): {
+  olceklenmisKatki: number;
+  lgsPuani: number;
+} {
+  const { tabanPuan, maxFinalPuan, toplamKatsayiAgirligi, olceklemeFaktoru } = LGS_MEB_CONFIG;
+  
+  // Ölçekleme: (Ham × 400) / 270
+  const olceklenmisKatki = (agirlikliHamPuan * olceklemeFaktoru) / toplamKatsayiAgirligi;
+  
+  // Final puan: 100 + Katkı
+  let lgsPuani = tabanPuan + olceklenmisKatki;
+  
+  // Sınırlar: 100-500 arası
+  lgsPuani = Math.max(tabanPuan, Math.min(maxFinalPuan, lgsPuani));
+  
+  return {
+    olceklenmisKatki: Math.round(olceklenmisKatki * 100) / 100,
+    lgsPuani: Math.round(lgsPuani * 100) / 100
+  };
+}
 
 // ============================================================================
 // TİP TANIMLARI
@@ -238,17 +318,40 @@ export function ogrenciDegerlendir(
     toplamNet += ders.net;
   });
   
-  // Puan hesapla
+  // ═══════════════════════════════════════════════════════════════════════
+  // MEB UYUMLU PUAN HESAPLAMA
+  // ═══════════════════════════════════════════════════════════════════════
   let toplamPuan = 0;
-  if (sinavTuru === 'TYT') {
+  
+  if (sinavTuru === 'LGS') {
+    // ═══════════════════════════════════════════════════════════════════
+    // LGS MEB PUAN FORMÜLÜ (100-500 SKALA)
+    // ═══════════════════════════════════════════════════════════════════
+    // 1. Ağırlıklı Ham Puan (AHP) = Σ(Ders_Net × Katsayı)
+    // 2. Ölçeklenmiş Katkı = (AHP × 400) / 270
+    // 3. LGS Puanı = 100 + Ölçeklenmiş Katkı
+    // ═══════════════════════════════════════════════════════════════════
+    
+    let agirlikliHamPuan = 0;
+    
+    Object.values(dersBazliSonuclar).forEach(ders => {
+      const katsayi = getMEBKatsayi(ders.dersKodu);
+      agirlikliHamPuan += ders.net * katsayi;
+    });
+    
+    // Negatif olamaz
+    agirlikliHamPuan = Math.max(0, agirlikliHamPuan);
+    
+    // MEB 100-500 skala hesapla
+    const { lgsPuani } = hesaplaMEBPuani(agirlikliHamPuan);
+    toplamPuan = lgsPuani;
+    
+  } else if (sinavTuru === 'TYT') {
     // TYT puan formülü: 100 + (Ağırlıklı Net * 3.33)
     toplamPuan = 100 + (toplamAgirlikliNet * 3.33);
   } else if (sinavTuru.startsWith('AYT')) {
     // AYT puan formülü
     toplamPuan = toplamAgirlikliNet * 5;
-  } else if (sinavTuru === 'LGS') {
-    // LGS puan formülü: Net / Toplam Soru * 500
-    toplamPuan = (toplamNet / cevapAnahtari.length) * 500;
   } else {
     // Genel deneme: 100 üzerinden
     toplamPuan = (toplamNet / cevapAnahtari.length) * 100;
@@ -476,6 +579,11 @@ export interface EsnekDegerlendirmeSonucu {
   toplamNet: number;
   toplamKatsayiliPuan: number;
   
+  // MEB 100-500 Skala (LGS için)
+  agirlikliHamPuan?: number;      // Σ(Net × Katsayı) | Max = 270
+  olceklenmisKatki?: number;       // (AHP × 400) / 270
+  lgsPuani?: number;               // 100 + Katkı | 100-500
+  
   // Sıralama
   genelSira?: number;
   sinifSira?: number;
@@ -612,6 +720,22 @@ export function esnekDegerlendir(
     toplamKatsayiliPuan += katsayiliPuan;
   });
   
+  // ═══════════════════════════════════════════════════════════════════════
+  // MEB 100-500 SKALA HESAPLA (LGS İÇİN)
+  // ═══════════════════════════════════════════════════════════════════════
+  // Ağırlıklı ham puan hesapla (MEB katsayılarıyla)
+  let agirlikliHamPuan = 0;
+  testSonuclari.forEach(test => {
+    const mebKatsayi = getMEBKatsayi(test.dersKodu);
+    agirlikliHamPuan += test.net * mebKatsayi;
+  });
+  
+  // Negatif olamaz
+  agirlikliHamPuan = Math.max(0, agirlikliHamPuan);
+  
+  // MEB 100-500 skala
+  const { olceklenmisKatki, lgsPuani } = hesaplaMEBPuani(agirlikliHamPuan);
+
   return {
     ogrenciNo: ogrenci.ogrenciNo || '',
     ogrenciAdi: ogrenci.ogrenciAdi || '',
@@ -622,7 +746,10 @@ export function esnekDegerlendir(
     toplamYanlis,
     toplamBos,
     toplamNet: Math.round(toplamNet * 100) / 100,
-    toplamKatsayiliPuan: Math.round(toplamKatsayiliPuan * 100) / 100,
+    toplamKatsayiliPuan: Math.round(lgsPuani * 100) / 100, // MEB puanı kullan
+    agirlikliHamPuan: Math.round(agirlikliHamPuan * 100) / 100,
+    olceklenmisKatki,
+    lgsPuani,
     tumCevaplar
   };
 }
@@ -822,13 +949,16 @@ export function cevapAnahtarindanYapilandirmaOlustur(
       }
     });
     
+    // MEB katsayısını al (LGS için)
+    const mebKatsayi = getMEBKatsayi(dersKodu);
+    
     testler.push({
       testAdi: DERS_ISIMLERI[dersKodu] || dersKodu,
       dersKodu,
       soruSayisi,
       baslangicSoru,
       bitisSoru,
-      katsayi: 1.0, // Varsayılan
+      katsayi: mebKatsayi, // MEB katsayısı kullan
       yanlisKatsayisi,
       kitapcikCevaplari
     });

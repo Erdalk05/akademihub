@@ -47,7 +47,7 @@ interface StudentResult {
   yanlis: number;
   bos: number;
   net: number;
-  puan: number;
+  puan: number;              // MEB LGS Puanı (100-500)
   basariOrani: number;
   durum: 'cok-iyi' | 'iyi' | 'orta' | 'gelismeli';
 }
@@ -62,6 +62,8 @@ interface ExamData {
   ortalamaNet: number;
   enYuksekNet: number;
   enDusukNet: number;
+  ortalamaPuan: number;      // MEB LGS Puanı ortalama (100-500)
+  enYuksekPuan: number;      // En yüksek LGS puanı
   ogrenciler: StudentResult[];
 }
 
@@ -193,6 +195,18 @@ function SonuclarContent() {
           const net = o.toplamNet || 0;
           const basariOrani = Math.round((dogru / 90) * 100);
           
+          // MEB 100-500 Skala Puanı
+          let puan = o.toplamPuan;
+          
+          // Eğer puan 100'den küçükse veya yoksa, MEB formülüyle hesapla
+          if (!puan || puan < 100) {
+            // Basit hesaplama: Net × ortalama katsayı (yaklaşık 3) → ölçekleme
+            const tahminiAHP = net * 3;
+            const olceklenmisKatki = (tahminiAHP * 400) / 270;
+            puan = 100 + olceklenmisKatki;
+            puan = Math.max(100, Math.min(500, puan));
+          }
+          
           return {
             sira: i + 1,
             ogrenciNo: o.ogrenciNo || String(i + 1),
@@ -203,7 +217,7 @@ function SonuclarContent() {
             yanlis,
             bos,
             net,
-            puan: o.toplamPuan || net * 5,
+            puan: Math.round(puan * 100) / 100, // MEB LGS Puanı (100-500)
             basariOrani,
             durum: getDurum(basariOrani)
           };
@@ -225,6 +239,12 @@ function SonuclarContent() {
           enDusukNet: ogrenciler.length > 0 
             ? Math.min(...ogrenciler.map(o => o.net)) 
             : 0,
+          ortalamaPuan: ogrenciler.length > 0
+            ? ogrenciler.reduce((s, o) => s + o.puan, 0) / ogrenciler.length
+            : 100,
+          enYuksekPuan: ogrenciler.length > 0
+            ? Math.max(...ogrenciler.map(o => o.puan))
+            : 100,
           ogrenciler
         };
 
@@ -401,7 +421,7 @@ function SonuclarContent() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <StatCard 
             icon={Users} 
             label="Toplam Öğrenci" 
@@ -424,8 +444,25 @@ function SonuclarContent() {
             icon={Medal} 
             label="Toplam Soru" 
             value={exam.toplamSoru}
-            color="amber"
+            color="slate"
           />
+          {/* MEB LGS Puanı */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-amber-700 font-medium">Ort. LGS Puanı</span>
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Sparkles size={20} className="text-amber-600" />
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              <span className="text-3xl font-bold text-amber-600">{exam.ortalamaPuan.toFixed(2)}</span>
+            </div>
+            <div className="text-xs text-amber-500 mt-1">100-500 MEB Skalası</div>
+          </motion.div>
         </div>
 
         {/* Performance Distribution */}
@@ -648,8 +685,8 @@ function SonuclarContent() {
                         <span className="text-lg font-bold text-blue-600">{student.net.toFixed(2)}</span>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-sm font-bold">
-                          {student.puan.toFixed(0)}
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 rounded-full text-sm font-bold border border-amber-200">
+                          {student.puan.toFixed(2)}
                         </span>
                       </td>
                       <td className="px-4 py-4 text-center">

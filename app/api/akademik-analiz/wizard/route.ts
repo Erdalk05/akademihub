@@ -213,23 +213,62 @@ export async function POST(req: NextRequest) {
     }
     
     // 5. Öğrenci sonuçlarını kaydet (student_exam_results)
+    // MEB 100-500 Skala Hesaplama (LGS için)
     if (ogrenciSonuclari.length > 0) {
-      const studentInserts = ogrenciSonuclari.map((ogr, idx) => ({
-        exam_id: exam.id,
-        student_no: ogr.ogrenciNo,
-        student_name: ogr.ogrenciAdi,
-        class_name: ogr.sinifNo || null,
-        booklet: ogr.kitapcik || 'A',
-        total_correct: ogr.toplamDogru,
-        total_wrong: ogr.toplamYanlis,
-        total_empty: ogr.toplamBos,
-        total_net: ogr.toplamNet,
-        total_score: ogr.toplamPuan || ogr.toplamNet * 5,
-        general_rank: ogr.siralama || idx + 1,
-        class_rank: ogr.sinifSira || null,
-        all_answers: null, // Opsiyonel - çok büyük veri
-        created_at: new Date().toISOString()
-      }));
+      const studentInserts = ogrenciSonuclari.map((ogr, idx) => {
+        // MEB LGS Puanı Hesapla (eğer gelen puan yoksa veya eski formülse)
+        let lgsPuani = ogr.toplamPuan;
+        
+        // Eğer puan 100'den küçükse, eski formülle hesaplanmış demektir
+        // MEB formülüyle yeniden hesapla
+        if (!lgsPuani || lgsPuani < 100) {
+          // Ders bazlı netlerden ağırlıklı puan hesapla
+          if (ogr.dersBazli && ogr.dersBazli.length > 0) {
+            const LGS_KATSAYILARI: Record<string, number> = {
+              'TUR': 4.0, 'MAT': 4.0, 'FEN': 4.0,
+              'INK': 1.0, 'DIN': 1.0, 'ING': 1.0,
+              'TURKCE': 4.0, 'MATEMATIK': 4.0, 'FEN_BILIMLERI': 4.0,
+              'T.C. İNKILAP TARİHİ VE ATATÜRKÇÜLÜK': 1.0, 'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 1.0, 'İNGİLİZCE': 1.0
+            };
+            
+            let agirlikliHamPuan = 0;
+            ogr.dersBazli.forEach((ders: any) => {
+              const katsayi = LGS_KATSAYILARI[ders.dersKodu?.toUpperCase()] || 1.0;
+              agirlikliHamPuan += (ders.net || 0) * katsayi;
+            });
+            
+            // MEB 100-500 Skala: Puan = 100 + (AHP × 400 / 270)
+            const olceklenmisKatki = (agirlikliHamPuan * 400) / 270;
+            lgsPuani = 100 + olceklenmisKatki;
+          } else {
+            // Ders bazlı veri yoksa, basit hesapla
+            // Varsayım: Tüm dersler eşit dağılmış, net'e göre oran
+            const tahminiAHP = ogr.toplamNet * 3; // Ortalama katsayı ~3
+            const olceklenmisKatki = (tahminiAHP * 400) / 270;
+            lgsPuani = 100 + olceklenmisKatki;
+          }
+          
+          // Sınırlar
+          lgsPuani = Math.max(100, Math.min(500, lgsPuani));
+        }
+        
+        return {
+          exam_id: exam.id,
+          student_no: ogr.ogrenciNo,
+          student_name: ogr.ogrenciAdi,
+          class_name: ogr.sinifNo || null,
+          booklet: ogr.kitapcik || 'A',
+          total_correct: ogr.toplamDogru,
+          total_wrong: ogr.toplamYanlis,
+          total_empty: ogr.toplamBos,
+          total_net: ogr.toplamNet,
+          total_score: Math.round(lgsPuani * 100) / 100, // MEB LGS Puanı
+          general_rank: ogr.siralama || idx + 1,
+          class_rank: ogr.sinifSira || null,
+          all_answers: null,
+          created_at: new Date().toISOString()
+        };
+      });
       
       // Batch insert (100'lük gruplar halinde)
       const batchSize = 100;

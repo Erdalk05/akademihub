@@ -46,7 +46,33 @@ export default function SablonKutuphanesi({
   const [filterSinav, setFilterSinav] = useState<SinavTuru | 'all'>(sinavTuru || 'all');
   const [selectedSablon, setSelectedSablon] = useState<OptikFormSablonu | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [customSablonlar, setCustomSablonlar] = useState<OptikFormSablonu[]>([]);
+  
+  // LocalStorage'dan özel şablonları yükle
+  const [customSablonlar, setCustomSablonlar] = useState<OptikFormSablonu[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('akademihub_optik_sablonlar');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn('Şablon yükleme hatası:', e);
+      }
+    }
+    return [];
+  });
+  
+  // Özel şablonları localStorage'a kaydet
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && customSablonlar.length > 0) {
+      try {
+        localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(customSablonlar));
+        console.log('✅ Şablonlar kaydedildi:', customSablonlar.length);
+      } catch (e) {
+        console.error('Şablon kaydetme hatası:', e);
+      }
+    }
+  }, [customSablonlar]);
   
   // Yeni şablon formu - GENİŞLETİLMİŞ
   const [newSablon, setNewSablon] = useState({

@@ -668,7 +668,7 @@ export default function SinavSihirbazi({
                   Sınav Özeti
                 </h2>
 
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                   <div className="text-center p-4 bg-slate-50 rounded-xl">
                     <div className="text-2xl font-bold text-slate-700">{sonuclar.length}</div>
                     <div className="text-sm text-slate-500">Öğrenci</div>
@@ -688,6 +688,14 @@ export default function SinavSihirbazi({
                       {sonuclar.length > 0 ? Math.max(...sonuclar.map(s => s.toplamNet)).toFixed(2) : 0}
                     </div>
                     <div className="text-sm text-slate-500">En Yüksek Net</div>
+                  </div>
+                  {/* MEB LGS PUANI */}
+                  <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border-2 border-amber-200">
+                    <div className="text-2xl font-bold text-amber-600">
+                      {sonuclar.length > 0 ? (sonuclar.reduce((a, b) => a + (b.toplamPuan || 0), 0) / sonuclar.length).toFixed(2) : 0}
+                    </div>
+                    <div className="text-sm text-amber-700 font-medium">Ort. LGS Puanı</div>
+                    <div className="text-xs text-amber-500 mt-1">100-500 MEB Skalası</div>
                   </div>
                 </div>
 
@@ -767,8 +775,9 @@ export default function SinavSihirbazi({
                               <td className="px-4 py-3 text-center text-slate-400">{sonuc.toplamBos}</td>
                               <td className="px-4 py-3 text-center font-bold text-slate-800">{sonuc.toplamNet.toFixed(2)}</td>
                               <td className="px-4 py-3 text-center">
-                                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
-                                  {(sonuc.toplamPuan || sonuc.toplamNet * 5).toFixed(2)}
+                                <span className="px-3 py-1.5 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-lg font-bold text-sm">
+                                  {(sonuc.toplamPuan || 100).toFixed(2)}
+                                  <span className="text-xs text-amber-500 ml-1">puan</span>
                                 </span>
                               </td>
                             </tr>
