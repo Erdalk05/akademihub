@@ -288,7 +288,15 @@ export default function KazanimCevapAnahtari({
       const cevapCol = findCol(['CEVAP', 'DOĞRU CEVAP', 'DOGRU CEVAP', 'DOGRUCEVAP', 'YANIT', 'A CEVAP', 'A CEVABI']);
       
       // 6. B KİTAPÇIĞI CEVAP = B Kitapçığı Doğru Cevabı (Sütun F) - A, D, B, A... gibi
-      const bCevapCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B_KITAPCIGI_CEVAP', 'B CEVAP', 'B CEVABI', 'KITAPCIK B CEVAP']);
+      // ✅ Tüm olası header varyasyonları eklendi
+      const bCevapCol = findCol([
+        'B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B_KITAPCIGI_CEVAP', 
+        'B KİTAPÇIĞI CEVABI', 'B KITAPCIGI CEVABI',
+        'B CEVAP', 'B CEVABI', 'B_CEVAP', 'B_CEVABI',
+        'KITAPCIK B CEVAP', 'KİTAPÇIK B CEVAP', 'KİTAPÇIK B',
+        'B KİT CEV', 'B KIT CEV', 'B CEV', 'BCEVAP', 'BCEVABI',
+        'B', 'KİTAPÇIK B CEVABI', 'B SORU'
+      ]);
       
       // 7-8. C ve D Kitapçıkları (opsiyonel)
       const cCevapCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI']);
@@ -472,6 +480,8 @@ export default function KazanimCevapAnahtari({
         const kazanimKodu = kazanimKoduCol >= 0 ? String(row[kazanimKoduCol] || '').trim() : '';
         const kazanimMetni = kazanimMetniCol >= 0 ? String(row[kazanimMetniCol] || '').trim() : '';
 
+        // ✅ KİTAPÇIK CEVAPLARINI HER ZAMAN KAYDET
+        // A cevabı her zaman var, B/C/D varsa onlar da eklenir
         parsed.push({
           soruNo,
           dogruCevap: cevap as 'A' | 'B' | 'C' | 'D' | 'E',
@@ -481,8 +491,9 @@ export default function KazanimCevapAnahtari({
           soruDegeri: soruDegeri, // ✅ Her zaman kaydet (1 olsa bile)
           kazanimKodu: kazanimKodu || undefined,
           kazanimMetni: kazanimMetni || undefined,
-          kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 1 ? kitapcikSoruNo : undefined,
-          kitapcikCevaplari: Object.keys(kitapcikCevaplari).length > 1 ? kitapcikCevaplari : undefined,
+          kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 0 ? kitapcikSoruNo : undefined,
+          // ✅ kitapcikCevaplari HER ZAMAN kaydedilsin (A her zaman var)
+          kitapcikCevaplari: kitapcikCevaplari,
           zorluk: 0.5
         });
       }
