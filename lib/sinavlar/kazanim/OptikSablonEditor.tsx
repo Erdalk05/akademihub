@@ -1029,9 +1029,9 @@ export default function OptikSablonEditor({
                 style={{ backgroundColor: `${alan.color}10` }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">{ALAN_TIPLERI.find(t => t.id === alan.alan)?.icon}</span>
+                  <span className="text-xl">{ALAN_TIPLERI.find(t => t.id === alan.alan)?.icon || alan.customLabel ? '📌' : '❓'}</span>
                   <div>
-                    <p className="font-medium" style={{ color: alan.color }}>{alan.label}</p>
+                    <p className="font-medium" style={{ color: alan.color }}>{alan.customLabel || alan.label}</p>
                     <p className="text-xs text-slate-500">
                       Karakter {alan.baslangic} - {alan.bitis} ({alan.bitis - alan.baslangic + 1} karakter)
                     </p>
@@ -1053,6 +1053,42 @@ export default function OptikSablonEditor({
               </div>
             ))}
           </div>
+          
+          {/* Cevap Anahtarından Ders Dağılımı Bilgisi */}
+          {cevapAnahtariInfo && alanlar.find(a => a.alan === 'cevaplar') && (
+            <div className="mx-3 mb-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📚</span>
+                <h4 className="font-semibold text-emerald-800">Ders Bazlı Soru Dağılımı</h4>
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                  Cevap anahtarından alındı
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {cevapAnahtariInfo.dersBazliSayilar.map((ders: {dersKodu: string, sayi: number}, idx: number) => {
+                  const dersRenkleri: Record<string, string> = {
+                    'TUR': '#EF4444', 'MAT': '#3B82F6', 'FEN': '#10B981',
+                    'SOS': '#F59E0B', 'DIN': '#8B5CF6', 'ING': '#EC4899',
+                    'TAR': '#F97316', 'COG': '#06B6D4', 'FEL': '#6366F1'
+                  };
+                  const renk = dersRenkleri[ders.dersKodu] || '#6B7280';
+                  return (
+                    <div 
+                      key={idx}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
+                      style={{ backgroundColor: `${renk}15`, color: renk }}
+                    >
+                      <span>{ders.dersKodu}</span>
+                      <span className="bg-white px-1.5 py-0.5 rounded text-xs">{ders.sayi} soru</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-emerald-600 mt-2">
+                ✅ Bu dağılım karnede otomatik kullanılacak. Ayrı alan tanımlamanıza gerek yok!
+              </p>
+            </div>
+          )}
         </div>
       )}
 
