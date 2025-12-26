@@ -287,20 +287,21 @@ export default function KazanimCevapAnahtari({
       // 5. CEVAP = A Kitapçığı Doğru Cevabı (Sütun E) - A, D, B, A... gibi
       const cevapCol = findCol(['CEVAP', 'DOĞRU CEVAP', 'DOGRU CEVAP', 'DOGRUCEVAP', 'YANIT', 'A CEVAP', 'A CEVABI']);
       
-      // 6. B KİTAPÇIĞI CEVAP = B Kitapçığı Doğru Cevabı (Sütun F) - A, D, B, A... gibi
-      // ✅ Tüm olası header varyasyonları eklendi
-      const bCevapCol = findCol([
+      // 6. B KİTAPÇIĞI CEVAP = B Kitapçığı SORU NUMARASI (Sütun F) - 4, 3, 2, 1... gibi sayılar
+      // ⚠️ DİKKAT: Bu sütun cevap harfi (A,B,C,D) DEĞİL, soru numarasıdır!
+      // A kitapçığında 1. soru = B kitapçığında 4. soru anlamına gelir
+      const bSoruNoCol = findCol([
         'B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B_KITAPCIGI_CEVAP', 
         'B KİTAPÇIĞI CEVABI', 'B KITAPCIGI CEVABI',
         'B CEVAP', 'B CEVABI', 'B_CEVAP', 'B_CEVABI',
         'KITAPCIK B CEVAP', 'KİTAPÇIK B CEVAP', 'KİTAPÇIK B',
         'B KİT CEV', 'B KIT CEV', 'B CEV', 'BCEVAP', 'BCEVABI',
-        'B', 'KİTAPÇIK B CEVABI', 'B SORU'
+        'B', 'KİTAPÇIK B CEVABI', 'B SORU', 'B SORU NO', 'B SORUNO'
       ]);
       
-      // 7-8. C ve D Kitapçıkları (opsiyonel)
-      const cCevapCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI']);
-      const dCevapCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'D CEVAP', 'D CEVABI']);
+      // 7-8. C ve D Kitapçıkları (opsiyonel) - Bunlar da soru numarası
+      const cSoruNoCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI', 'KİTAPÇIK C', 'C SORU NO']);
+      const dSoruNoCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'D CEVAP', 'D CEVABI', 'KİTAPÇIK D', 'D SORU NO']);
       
       // Debug log - hangi sütunlar algılandı?
       console.log('📊 EXCEL SÜTUN ANALİZİ:', {
@@ -309,7 +310,7 @@ export default function KazanimCevapAnahtari({
         'KİTAPÇIK A (Sütun C)': aSoruNoCol >= 0 ? `✅ ${aSoruNoCol}: "${headers[aSoruNoCol]}"` : '❌ YOK',
         'SORU DEĞERİ (Sütun D)': soruDegeriCol >= 0 ? `✅ ${soruDegeriCol}: "${headers[soruDegeriCol]}"` : '❌ YOK',
         'CEVAP (Sütun E)': cevapCol >= 0 ? `✅ ${cevapCol}: "${headers[cevapCol]}"` : '❌ YOK',
-        'B KİTAPÇIĞI CEVAP (Sütun F)': bCevapCol >= 0 ? `✅ ${bCevapCol}: "${headers[bCevapCol]}"` : '❌ YOK',
+        'B KİTAPÇIĞI SORU NO (Sütun F)': bSoruNoCol >= 0 ? `✅ ${bSoruNoCol}: "${headers[bSoruNoCol]}"` : '❌ YOK',
       });
       
       // Kazanım Kodu ve Metni - ayrı ayrı ara
@@ -345,11 +346,11 @@ export default function KazanimCevapAnahtari({
       }
       
       // Algılanan sütunları logla
-      // Kitapçık türlerini belirle - CEVAP sütunlarına göre
+      // Kitapçık türlerini belirle - SORU NUMARASI sütunlarına göre
       const kitapciklar: string[] = ['A']; // A her zaman var
-      if (bCevapCol >= 0) kitapciklar.push('B');
-      if (cCevapCol >= 0) kitapciklar.push('C');
-      if (dCevapCol >= 0) kitapciklar.push('D');
+      if (bSoruNoCol >= 0) kitapciklar.push('B');
+      if (cSoruNoCol >= 0) kitapciklar.push('C');
+      if (dSoruNoCol >= 0) kitapciklar.push('D');
       
       console.log('📚 Algılanan Kitapçıklar:', kitapciklar.join(', '), '- Kazanım Kodu:', kazanimKoduCol >= 0 ? headers[kazanimKoduCol] : 'YOK');
 
@@ -428,10 +429,37 @@ export default function KazanimCevapAnahtari({
         }
         
         // ===========================================
-        // KİTAPÇIK CEVAPLARINI AL
+        // KİTAPÇIK SORU NUMARALARINI AL
         // ===========================================
-        // A kitapçığı cevabı = CEVAP sütunu (Sütun E)
-        // B kitapçığı cevabı = B KİTAPÇIĞI CEVAP sütunu (Sütun F)
+        // ⚠️ DİKKAT: Excel'deki "B KİTAPÇIĞI CEVAP" sütunu aslında SORU NUMARASI içerir!
+        // Örnek: A kitapçığında 1. soru = B kitapçığında 4. soru
+        // Doğru cevap tüm kitapçıklar için aynı: CEVAP sütunundaki harf
+        
+        // B Kitapçığı SORU NUMARASINI al (Sütun F) - 4, 3, 2, 1... gibi sayılar
+        if (bSoruNoCol >= 0 && row[bSoruNoCol] !== undefined && row[bSoruNoCol] !== null) {
+          const bSoruNoRaw = parseInt(String(row[bSoruNoCol]).trim(), 10);
+          if (!isNaN(bSoruNoRaw) && bSoruNoRaw > 0) {
+            kitapcikSoruNo.B = bSoruNoRaw;
+          }
+        }
+        
+        // C Kitapçığı SORU NUMARASINI al (varsa)
+        if (cSoruNoCol >= 0 && row[cSoruNoCol] !== undefined && row[cSoruNoCol] !== null) {
+          const cSoruNoRaw = parseInt(String(row[cSoruNoCol]).trim(), 10);
+          if (!isNaN(cSoruNoRaw) && cSoruNoRaw > 0) {
+            kitapcikSoruNo.C = cSoruNoRaw;
+          }
+        }
+        
+        // D Kitapçığı SORU NUMARASINI al (varsa)
+        if (dSoruNoCol >= 0 && row[dSoruNoCol] !== undefined && row[dSoruNoCol] !== null) {
+          const dSoruNoRaw = parseInt(String(row[dSoruNoCol]).trim(), 10);
+          if (!isNaN(dSoruNoRaw) && dSoruNoRaw > 0) {
+            kitapcikSoruNo.D = dSoruNoRaw;
+          }
+        }
+        
+        // Tüm kitapçıklar için AYNI doğru cevap kullanılır
         const kitapcikCevaplari: { 
           A?: 'A' | 'B' | 'C' | 'D' | 'E'; 
           B?: 'A' | 'B' | 'C' | 'D' | 'E'; 
@@ -440,39 +468,18 @@ export default function KazanimCevapAnahtari({
         } = {
           A: cevap as 'A' | 'B' | 'C' | 'D' | 'E'
         };
-        
-        // B Kitapçığı cevabını al (Sütun F)
-        if (bCevapCol >= 0 && row[bCevapCol] !== undefined && row[bCevapCol] !== null) {
-          const bCevapRaw = String(row[bCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(bCevapRaw)) {
-            kitapcikCevaplari.B = bCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
-          }
-        }
-        
-        // C Kitapçığı cevabını al (varsa)
-        if (cCevapCol >= 0 && row[cCevapCol] !== undefined && row[cCevapCol] !== null) {
-          const cCevapRaw = String(row[cCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(cCevapRaw)) {
-            kitapcikCevaplari.C = cCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
-          }
-        }
-        
-        // D Kitapçığı cevabını al (varsa)
-        if (dCevapCol >= 0 && row[dCevapCol] !== undefined && row[dCevapCol] !== null) {
-          const dCevapRaw = String(row[dCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(dCevapRaw)) {
-            kitapcikCevaplari.D = dCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
-          }
-        }
+        // B, C, D kitapçıkları için de AYNI cevap geçerli
+        if (kitapcikSoruNo.B) kitapcikCevaplari.B = cevap as 'A' | 'B' | 'C' | 'D' | 'E';
+        if (kitapcikSoruNo.C) kitapcikCevaplari.C = cevap as 'A' | 'B' | 'C' | 'D' | 'E';
+        if (kitapcikSoruNo.D) kitapcikCevaplari.D = cevap as 'A' | 'B' | 'C' | 'D' | 'E';
         
         // Debug: İlk 3 satır için detaylı log
         if (i <= 3) {
           console.log(`📝 Satır ${i}:`, {
-            'Soru No (KİTAPÇIK A)': soruNo,
-            'Soru Değeri': soruDegeri,
-            'A Cevap': kitapcikCevaplari.A,
-            'B Cevap': kitapcikCevaplari.B || 'YOK',
-            'Raw B': row[bCevapCol]
+            'A Kitapçık Soru No': soruNo,
+            'B Kitapçık Soru No': kitapcikSoruNo.B || 'YOK',
+            'Doğru Cevap (Tümü için)': cevap,
+            'Soru Değeri': soruDegeri
           });
         }
         
@@ -941,7 +948,7 @@ export default function KazanimCevapAnahtari({
                       { code: 'KITAPCIK_A', display: 'Kitapçık A' },
                       { code: 'SORU_DEGERI', display: 'Soru Değeri' },
                       { code: 'CEVAP', display: 'Doğru Cevap' },
-                      { code: 'B_CEVAP', display: 'B Kitapçığı Cevabı' },
+                      { code: 'B_SORU_NO', display: 'B Soru No' },
                       { code: 'KAZANIM_KODU', display: 'Kazanım Kodu' },
                       { code: 'KAZANIM_METNI', display: 'Kazanım Metni' }
                     ].map(col => (
@@ -1151,15 +1158,15 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                   <th className="px-2 py-2 text-center font-semibold text-slate-500 w-12">Soru Değeri</th>
                                   {/* ✅ A Kitapçığı Cevabı (Doğru Cevap) */}
                                   <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">Cevap</th>
-                                  {/* ✅ B Kitapçığı Cevabı - Her zaman göster */}
-                                  <th className="px-2 py-2 text-center font-semibold text-amber-600 w-14">B Kit. Cev</th>
-                                  {/* C Kitapçığı Cevabı - Varsa göster */}
-                                  {parsedData.some(p => p.kitapcikCevaplari?.C) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-12">C Cev</th>
+                                  {/* ✅ B Kitapçığı Soru Numarası - Her zaman göster */}
+                                  <th className="px-2 py-2 text-center font-semibold text-amber-600 w-14">B Soru</th>
+                                  {/* C Kitapçığı Soru No - Varsa göster */}
+                                  {parsedData.some(p => p.kitapcikSoruNo?.C) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-12">C Soru</th>
                                   )}
-                                  {/* D Kitapçığı Cevabı - Varsa göster */}
-                                  {parsedData.some(p => p.kitapcikCevaplari?.D) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-12">D Cev</th>
+                                  {/* D Kitapçığı Soru No - Varsa göster */}
+                                  {parsedData.some(p => p.kitapcikSoruNo?.D) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-12">D Soru</th>
                                   )}
                                   {/* ✅ Kazanım Kodu - Her zaman göster */}
                                   <th className="px-2 py-2 text-left font-semibold text-purple-600 w-24">Kazanım Kodu</th>
@@ -1201,29 +1208,29 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                           {row.kitapcikCevaplari?.A || row.dogruCevap}
                                         </span>
                                       </td>
-                                      {/* ✅ B Kitapçığı Cevabı - Her zaman göster */}
+                                      {/* ✅ B Kitapçığı Soru Numarası - Her zaman göster */}
                                       <td className="px-2 py-2 text-center">
                                         <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-sm ${
-                                          row.kitapcikCevaplari?.B 
+                                          row.kitapcikSoruNo?.B 
                                             ? 'bg-amber-100 text-amber-700' 
                                             : 'bg-slate-100 text-slate-400'
                                         }`}>
-                                          {row.kitapcikCevaplari?.B || '-'}
+                                          {row.kitapcikSoruNo?.B || '-'}
                                         </span>
                                       </td>
-                                      {/* C Kitapçığı Cevabı - Varsa göster */}
-                                      {parsedData.some(p => p.kitapcikCevaplari?.C) && (
+                                      {/* C Kitapçığı Soru No - Varsa göster */}
+                                      {parsedData.some(p => p.kitapcikSoruNo?.C) && (
                                         <td className="px-2 py-2 text-center">
                                           <span className="inline-flex items-center justify-center w-7 h-7 bg-orange-100 text-orange-700 rounded-lg font-bold text-sm">
-                                            {row.kitapcikCevaplari?.C || '-'}
+                                            {row.kitapcikSoruNo?.C || '-'}
                                           </span>
                                         </td>
                                       )}
-                                      {/* D Kitapçığı Cevabı - Varsa göster */}
-                                      {parsedData.some(p => p.kitapcikCevaplari?.D) && (
+                                      {/* D Kitapçığı Soru No - Varsa göster */}
+                                      {parsedData.some(p => p.kitapcikSoruNo?.D) && (
                                         <td className="px-2 py-2 text-center">
                                           <span className="inline-flex items-center justify-center w-7 h-7 bg-red-100 text-red-700 rounded-lg font-bold text-sm">
-                                            {row.kitapcikCevaplari?.D || '-'}
+                                            {row.kitapcikSoruNo?.D || '-'}
                                           </span>
                                         </td>
                                       )}
