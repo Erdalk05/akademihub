@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { SinavSihirbazi } from '@/lib/sinavlar/kazanim';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { useAcademicYearStore } from '@/lib/store/academicYearStore';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 // Öğrenci tipi
 interface Student {
@@ -43,7 +43,7 @@ export default function SihirbazPage() {
 
       try {
         setIsLoadingStudents(true);
-        const supabase = getSupabaseClient();
+        const supabase = getBrowserClient();
         
         const { data, error } = await supabase
           .from('students')
