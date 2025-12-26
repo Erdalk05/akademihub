@@ -626,6 +626,7 @@ export default function OptikVeriParser({
                     <th className="px-3 py-3 text-center text-slate-600 font-semibold">Cevap</th>
                     <th className="px-3 py-3 text-center text-slate-600 font-semibold">Eşleşme</th>
                     <th className="px-3 py-3 text-center text-slate-600 font-semibold">Durum</th>
+                    <th className="px-3 py-3 text-center text-slate-600 font-semibold">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -678,6 +679,25 @@ export default function OptikVeriParser({
                           ) : (
                             <AlertTriangle className="w-5 h-5 text-red-500 mx-auto" />
                           )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const originalIndex = parsedData.indexOf(satir);
+                              setSelectedSatir(index);
+                              setEditingIndex(originalIndex);
+                              setEditForm({
+                                ogrenciNo: satir.ogrenciNo || '',
+                                ogrenciAdi: satir.ogrenciAdi || '',
+                                kitapcik: satir.kitapcik || ''
+                              });
+                            }}
+                            className="p-1.5 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                            title="Düzenle"
+                          >
+                            <Edit2 size={14} />
+                          </button>
                         </td>
                       </tr>
                     );

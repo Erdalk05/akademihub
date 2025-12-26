@@ -5,13 +5,23 @@ import { useRouter } from 'next/navigation';
 import { SinavSihirbazi } from '@/lib/sinavlar/kazanim';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { useAcademicYearStore } from '@/lib/store/academicYearStore';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
-// Store'dan organization ve academic year al - undefined için fallback
+// Öğrenci tipi
+interface Student {
+  id: string;
+  ogrenciNo: string;
+  ad: string;
+  soyad: string;
+  sinif: string;
+}
 
 export default function SihirbazPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [ogrenciListesi, setOgrenciListesi] = useState<Student[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   
   // Store'lardan organization ve academic year al
   const { currentOrganization } = useOrganizationStore();
@@ -21,6 +31,55 @@ export default function SihirbazPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Öğrenci listesini Supabase'den çek
+  useEffect(() => {
+    const loadStudents = async () => {
+      if (!currentOrganization?.id) {
+        console.log('⚠️ Organization ID yok, öğrenci listesi yüklenemiyor');
+        setIsLoadingStudents(false);
+        return;
+      }
+
+      try {
+        setIsLoadingStudents(true);
+        const supabase = getSupabaseClient();
+        
+        const { data, error } = await supabase
+          .from('students')
+          .select('id, student_number, first_name, last_name, class_id, classes(name)')
+          .eq('organization_id', currentOrganization.id)
+          .eq('is_active', true)
+          .order('first_name', { ascending: true });
+
+        if (error) {
+          console.error('❌ Öğrenci listesi yüklenemedi:', error);
+          setOgrenciListesi([]);
+        } else {
+          // Veriyi dönüştür
+          const students: Student[] = (data || []).map((s: any) => ({
+            id: s.id,
+            ogrenciNo: s.student_number || '',
+            ad: s.first_name || '',
+            soyad: s.last_name || '',
+            sinif: s.classes?.name || ''
+          }));
+          
+          console.log('✅ Öğrenci listesi yüklendi:', students.length, 'öğrenci');
+          setOgrenciListesi(students);
+        }
+      } catch (err) {
+        console.error('❌ Öğrenci yükleme hatası:', err);
+        setOgrenciListesi([]);
+      } finally {
+        setIsLoadingStudents(false);
+      }
+    };
+
+    if (isClient) {
+      loadStudents();
+    }
+  }, [isClient, currentOrganization?.id]);
 
   // Sihirbaz tamamlandığında - SUPABASE'E KAYDET
   const handleComplete = async (data: {
@@ -87,12 +146,35 @@ export default function SihirbazPage() {
   }
 
   return (
-    <SinavSihirbazi
-      organizationId="demo-org"
-      academicYearId="2024-2025"
-      ogrenciListesi={[]}
-      savedSablonlar={[]}
-      onComplete={handleComplete}
-    />
+    <div className="relative">
+      {/* Öğrenci yükleme durumu */}
+      {isLoadingStudents && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm">
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+          Öğrenci listesi yükleniyor...
+        </div>
+      )}
+      
+      {/* Öğrenci sayısı gösterimi */}
+      {!isLoadingStudents && ogrenciListesi.length > 0 && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm">
+          ✅ {ogrenciListesi.length} öğrenci yüklendi
+        </div>
+      )}
+      
+      {!isLoadingStudents && ogrenciListesi.length === 0 && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm">
+          ⚠️ Sistemde kayıtlı öğrenci bulunamadı
+        </div>
+      )}
+
+      <SinavSihirbazi
+        organizationId={currentOrganization?.id || "demo-org"}
+        academicYearId={selectedYear || "2024-2025"}
+        ogrenciListesi={ogrenciListesi}
+        savedSablonlar={[]}
+        onComplete={handleComplete}
+      />
+    </div>
   );
 }
