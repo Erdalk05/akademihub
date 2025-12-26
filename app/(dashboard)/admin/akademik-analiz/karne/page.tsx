@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Akademik Analiz - Karne Oluşturucu
- * SUPABASE'den veri okuyarak öğrenci karneleri oluşturur
+ * Akademik Analiz - Detaylı Sınav Karnesi Sayfası
+ * K12Net benzeri modern ve detaylı tasarım
  */
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
   Download,
@@ -21,22 +21,94 @@ import {
   Target,
   FileSpreadsheet,
   ChevronDown,
+  ChevronUp,
+  ChevronRight,
   Database,
-  RefreshCw
+  RefreshCw,
+  Search,
+  Filter,
+  SortAsc,
+  SortDesc,
+  BarChart3,
+  BookOpen,
+  Hash,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Check,
+  X,
+  Columns,
+  Table2,
+  Grid3X3,
+  List,
+  LayoutGrid
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
-interface SavedExam {
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface StudentResult {
+  id: string;
+  ogrenciNo: string;
+  ogrenciAdi: string;
+  sinifNo?: string;
+  kitapcik?: string;
+  toplamDogru: number;
+  toplamYanlis: number;
+  toplamBos: number;
+  toplamNet: number;
+  toplamPuan: number;
+  siralama: number;
+  sinifSira?: number;
+  dersBazli?: {
+    dersKodu: string;
+    dersAdi: string;
+    dogru: number;
+    yanlis: number;
+    bos: number;
+    net: number;
+    basariOrani: number;
+  }[];
+}
+
+interface ExamData {
   id: string;
   ad: string;
   tarih: string;
   tip: string;
   toplamSoru: number;
   toplamOgrenci: number;
-  ortalamaNet: string | number;
-  ilk20Ogrenci?: { ogrenciNo: string; ogrenciAdi: string; toplamNet: number; siralama: number }[];
-  createdAt: string;
+  ortalamaNet: number;
+  ogrenciler: StudentResult[];
 }
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const DERS_RENKLERI: Record<string, { bg: string; text: string; border: string }> = {
+  'TUR': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  'MAT': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+  'FEN': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+  'SOS': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  'ING': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  'DIN': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+};
+
+const DERS_ISIMLERI: Record<string, string> = {
+  'TUR': 'Türkçe',
+  'MAT': 'Matematik',
+  'FEN': 'Fen Bilimleri',
+  'SOS': 'Sosyal Bilgiler',
+  'ING': 'İngilizce',
+  'DIN': 'Din Kültürü',
+};
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
 function KarneContent() {
   const searchParams = useSearchParams();
@@ -44,33 +116,89 @@ function KarneContent() {
   const examId = searchParams.get('examId');
   const { currentOrganization } = useOrganizationStore();
 
+  // States
   const [loading, setLoading] = useState(true);
-  const [exam, setExam] = useState<SavedExam | null>(null);
-  const [allExams, setAllExams] = useState<SavedExam[]>([]);
+  const [exam, setExam] = useState<ExamData | null>(null);
+  const [allExams, setAllExams] = useState<ExamData[]>([]);
+  
+  // UI States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<'siralama' | 'ogrenciAdi' | 'toplamNet' | 'toplamPuan'>('siralama');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [showColumns, setShowColumns] = useState({
+    numara: true,
+    sinif: true,
+    kitapcik: true,
+    dogru: true,
+    yanlis: true,
+    bos: true,
+    net: true,
+    puan: true,
+    siralama: true,
+    dersler: true
+  });
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0, name: '' });
-  const [generated, setGenerated] = useState(false);
 
-  // Supabase'den veri yükle
+  // =============================================================================
+  // DATA LOADING
+  // =============================================================================
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Sınav detaylarını yükle
+      if (examId) {
+        const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
+        const data = await response.json();
+        
+        if (response.ok && data.exam) {
+          setExam(data.exam);
+        }
+      }
+      
+      // Tüm sınavları yükle
       const params = new URLSearchParams();
       if (currentOrganization?.id) {
         params.set('organizationId', currentOrganization.id);
       }
-      params.set('limit', '20');
+      params.set('limit', '50');
       
-      const response = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
-      const data = await response.json();
+      const listResponse = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
+      const listData = await listResponse.json();
       
-      if (response.ok && data.exams) {
-        setAllExams(data.exams);
+      if (listResponse.ok && listData.exams) {
+        setAllExams(listData.exams);
         
-        if (examId) {
-          const found = data.exams.find((e: SavedExam) => e.id === examId);
-          setExam(found || null);
+        // Eğer exam yoksa ve examId varsa, listeden bul
+        if (examId && !exam) {
+          const found = listData.exams.find((e: ExamData) => e.id === examId);
+          if (found) {
+            // Öğrenci detaylarını fetch et
+            const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
+            const detailData = await detailRes.json();
+            if (detailRes.ok) {
+              setExam(detailData.exam);
+            } else {
+              // Fallback: sadece özet bilgileri kullan
+              setExam({
+                ...found,
+                ogrenciler: found.ilk20Ogrenci?.map((o: any, i: number) => ({
+                  id: String(i),
+                  ogrenciNo: o.ogrenciNo || String(i),
+                  ogrenciAdi: o.ogrenciAdi,
+                  toplamDogru: 0,
+                  toplamYanlis: 0,
+                  toplamBos: 0,
+                  toplamNet: o.toplamNet,
+                  toplamPuan: o.toplamNet * 5,
+                  siralama: o.siralama || i + 1
+                })) || []
+              });
+            }
+          }
         }
       }
     } catch (error) {
@@ -84,451 +212,751 @@ function KarneContent() {
     loadData();
   }, [loadData]);
 
-  // Öğrenci adını temizle
-  const cleanName = (name: string): string => {
-    if (!name) return 'Bilinmeyen';
-    let cleaned = name.replace(/^[\d\s]+/, '').trim();
-    cleaned = cleaned.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
-    return cleaned.split(' ')
-      .filter(w => w.length > 0)
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' ') || name;
+  // =============================================================================
+  // COMPUTED VALUES
+  // =============================================================================
+
+  const filteredStudents = useMemo(() => {
+    if (!exam?.ogrenciler) return [];
+    
+    let result = [...exam.ogrenciler];
+    
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.ogrenciAdi.toLowerCase().includes(term) ||
+        s.ogrenciNo?.toLowerCase().includes(term) ||
+        s.sinifNo?.toLowerCase().includes(term)
+      );
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+      
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+    
+    return result;
+  }, [exam?.ogrenciler, searchTerm, sortField, sortDirection]);
+
+  const stats = useMemo(() => {
+    if (!exam?.ogrenciler?.length) return null;
+    
+    const ogrenciler = exam.ogrenciler;
+    const toplamNet = ogrenciler.reduce((s, o) => s + o.toplamNet, 0);
+    const toplamPuan = ogrenciler.reduce((s, o) => s + o.toplamPuan, 0);
+    const maxNet = Math.max(...ogrenciler.map(o => o.toplamNet));
+    const minNet = Math.min(...ogrenciler.map(o => o.toplamNet));
+    
+    return {
+      toplamOgrenci: ogrenciler.length,
+      ortalamaNet: (toplamNet / ogrenciler.length).toFixed(2),
+      ortalamaPuan: (toplamPuan / ogrenciler.length).toFixed(2),
+      maxNet,
+      minNet
+    };
+  }, [exam?.ogrenciler]);
+
+  // Ders bazlı istatistikler
+  const dersStats = useMemo(() => {
+    if (!exam?.ogrenciler?.length) return [];
+    
+    const dersMap: Record<string, { dogru: number; yanlis: number; bos: number; net: number; count: number }> = {};
+    
+    exam.ogrenciler.forEach(ogr => {
+      ogr.dersBazli?.forEach(ders => {
+        if (!dersMap[ders.dersKodu]) {
+          dersMap[ders.dersKodu] = { dogru: 0, yanlis: 0, bos: 0, net: 0, count: 0 };
+        }
+        dersMap[ders.dersKodu].dogru += ders.dogru;
+        dersMap[ders.dersKodu].yanlis += ders.yanlis;
+        dersMap[ders.dersKodu].bos += ders.bos;
+        dersMap[ders.dersKodu].net += ders.net;
+        dersMap[ders.dersKodu].count++;
+      });
+    });
+    
+    return Object.entries(dersMap).map(([kod, vals]) => ({
+      dersKodu: kod,
+      dersAdi: DERS_ISIMLERI[kod] || kod,
+      ortalamaNet: (vals.net / vals.count).toFixed(2),
+      ortalamaDogru: (vals.dogru / vals.count).toFixed(1),
+      ortalamaYanlis: (vals.yanlis / vals.count).toFixed(1)
+    }));
+  }, [exam?.ogrenciler]);
+
+  // =============================================================================
+  // HANDLERS
+  // =============================================================================
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
-  // Tarihi formatla
+  const handleSelectStudent = (id: string) => {
+    setSelectedStudents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.size === filteredStudents.length) {
+      setSelectedStudents(new Set());
+    } else {
+      setSelectedStudents(new Set(filteredStudents.map(s => s.id)));
+    }
+  };
+
+  const handleRowClick = (student: StudentResult) => {
+    setSelectedStudentId(selectedStudentId === student.id ? null : student.id);
+  };
+
+  const handleGenerateReport = async (studentId?: string) => {
+    setIsGenerating(true);
+    try {
+      // PDF oluşturma mantığı
+      const ids = studentId ? [studentId] : Array.from(selectedStudents);
+      console.log('Karne oluşturuluyor:', ids);
+      
+      // TODO: PDF API çağrısı
+      await new Promise(r => setTimeout(r, 1000));
+      
+      alert(`${ids.length} öğrenci karnesi oluşturuldu!`);
+    } catch (error) {
+      console.error('Karne oluşturma hatası:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // =============================================================================
+  // RENDER HELPERS
+  // =============================================================================
+
   const formatDate = (dateStr: string) => {
     try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+      return new Date(dateStr).toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
     } catch {
       return dateStr;
     }
   };
 
-  const students = exam?.ilk20Ogrenci || [];
-
-  const toggleStudent = (studentNo: string) => {
-    const newSet = new Set(selectedStudents);
-    if (newSet.has(studentNo)) {
-      newSet.delete(studentNo);
-    } else {
-      newSet.add(studentNo);
-    }
-    setSelectedStudents(newSet);
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <SortAsc size={14} /> : <SortDesc size={14} />;
   };
 
-  const selectAll = () => {
-    if (selectedStudents.size === students.length) {
-      setSelectedStudents(new Set());
-    } else {
-      setSelectedStudents(new Set(students.map(s => s.ogrenciNo)));
-    }
+  const NetBadge = ({ net }: { net: number }) => {
+    const color = net >= 10 ? 'text-green-600 bg-green-50' : 
+                  net >= 5 ? 'text-blue-600 bg-blue-50' : 
+                  net >= 0 ? 'text-amber-600 bg-amber-50' : 
+                  'text-red-600 bg-red-50';
+    return (
+      <span className={`px-2 py-1 rounded-full text-sm font-semibold ${color}`}>
+        {net.toFixed(2)}
+      </span>
+    );
   };
 
-  const generatePDFs = async () => {
-    setIsGenerating(true);
-    setGenerated(false);
+  // =============================================================================
+  // LOADING STATE
+  // =============================================================================
 
-    const total = selectedStudents.size;
-    let current = 0;
-
-    for (const studentNo of selectedStudents) {
-      const student = students.find(s => s.ogrenciNo === studentNo);
-      if (student) {
-        current++;
-        setProgress({ current, total, name: cleanName(student.ogrenciAdi) });
-        // Simüle delay - gerçek PDF üretimi burada yapılacak
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-    }
-
-    setIsGenerating(false);
-    setGenerated(true);
-  };
-
-  // Yükleniyor
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-slate-500 flex items-center gap-2 justify-center">
-            <Database size={16} />
-            Supabase'den yükleniyor...
-          </p>
+          <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-slate-500">Sınav verileri yükleniyor...</p>
         </div>
       </div>
     );
   }
 
-  // Sınav seçilmedi - tüm sınavları göster
-  if (!examId || !exam) {
+  // =============================================================================
+  // NO DATA STATE
+  // =============================================================================
+
+  if (!exam) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="min-h-screen bg-slate-50 p-6">
         <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-8"
+          <button 
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6"
           >
+            <ArrowLeft size={20} />
+            Geri
+          </button>
+          
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+            <Database className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-700 mb-2">Sınav Bulunamadı</h2>
+            <p className="text-slate-500 mb-6">
+              Henüz kayıtlı bir sınav bulunmuyor veya seçilen sınav silinmiş olabilir.
+            </p>
+            <button
+              onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
+            >
+              Yeni Sınav Oluştur
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =============================================================================
+  // MAIN RENDER
+  // =============================================================================
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/admin/akademik-analiz')}
-                className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              <button 
+                onClick={() => router.back()}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
-                <ArrowLeft size={20} />
+                <ArrowLeft size={20} className="text-slate-600" />
               </button>
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
+              
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Öğrenci Karnesi</h1>
-                <p className="text-slate-500 flex items-center gap-1">
-                  <Database size={14} />
-                  Karne oluşturmak için bir sınav seçin
-                </p>
+                <h1 className="text-xl font-bold text-slate-800">{exam.ad}</h1>
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <span>{exam.tip}</span>
+                  <span>•</span>
+                  <span>{formatDate(exam.tarih)}</span>
+                  <span>•</span>
+                  <span>{exam.ogrenciler?.length || 0} öğrenci</span>
+                </div>
               </div>
             </div>
             
-            <button
-              onClick={() => loadData()}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              Yenile
-            </button>
-          </motion.div>
-
-          {allExams.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
-              <FileSpreadsheet className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500 mb-4">Henüz kayıtlı sınav yok</p>
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
-                className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700"
+                onClick={loadData}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Yenile"
               >
-                İlk Sınavınızı Oluşturun
+                <RefreshCw size={20} className="text-slate-600" />
+              </button>
+              
+              <button
+                onClick={() => handleGenerateReport()}
+                disabled={selectedStudents.size === 0 || isGenerating}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {isGenerating ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Download size={18} />
+                )}
+                {selectedStudents.size > 0 ? `${selectedStudents.size} Karne Oluştur` : 'Karne Oluştur'}
               </button>
             </div>
-          ) : (
-            <div className="grid gap-4">
-              {allExams.map((e, idx) => (
-                <motion.div
-                  key={e.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  onClick={() => router.push(`/admin/akademik-analiz/karne?examId=${e.id}`)}
-                  className="p-6 bg-white rounded-2xl border border-slate-200 cursor-pointer hover:shadow-lg hover:border-purple-300 transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-800 group-hover:text-purple-600 transition-colors">
-                        {e.ad || 'İsimsiz Sınav'}
-                      </h3>
-                      <p className="text-sm text-slate-500">{formatDate(e.createdAt)}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-slate-700">{e.toplamOgrenci || 0}</p>
-                        <p className="text-xs text-slate-400">Öğrenci</p>
-                      </div>
-                      <ChevronDown className="w-5 h-5 text-slate-400 -rotate-90 group-hover:text-purple-600" />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
-    );
-  }
 
-  // Seçili sınav için karne oluştur
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
-        >
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/admin/akademik-analiz/karne')}
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl">
-              <FileText className="w-6 h-6 text-white" />
+      <div className="max-w-[1600px] mx-auto px-6 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <Users size={16} />
+              Öğrenci
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Sınav Karnesi Oluşturucu</h1>
-              <p className="text-slate-500">{exam.ad} • {formatDate(exam.createdAt)}</p>
-            </div>
+            <div className="text-2xl font-bold text-slate-800">{stats?.toplamOgrenci || 0}</div>
           </div>
-        </motion.div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <Target size={16} />
+              Ort. Net
+            </div>
+            <div className="text-2xl font-bold text-emerald-600">{stats?.ortalamaNet || '0'}</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <Award size={16} />
+              Ort. Puan
+            </div>
+            <div className="text-2xl font-bold text-blue-600">{stats?.ortalamaPuan || '0'}</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <TrendingUp size={16} />
+              En Yüksek
+            </div>
+            <div className="text-2xl font-bold text-green-600">{stats?.maxNet?.toFixed(2) || '0'}</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <TrendingDown size={16} />
+              En Düşük
+            </div>
+            <div className="text-2xl font-bold text-red-600">{stats?.minNet?.toFixed(2) || '0'}</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+              <CheckCircle size={16} />
+              Seçili
+            </div>
+            <div className="text-2xl font-bold text-purple-600">{selectedStudents.size}</div>
+          </div>
+        </div>
 
-        {/* Sınav Bilgisi */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-4 gap-4 mb-6"
-        >
-          <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Öğrenci</span>
-              <Users className="w-4 h-4 text-blue-500" />
+        {/* Ders Bazlı İstatistikler */}
+        {dersStats.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <BarChart3 size={16} className="text-emerald-600" />
+              Ders Bazlı Ortalamalar
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {dersStats.map(ders => {
+                const renk = DERS_RENKLERI[ders.dersKodu] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
+                return (
+                  <div key={ders.dersKodu} className={`p-3 rounded-lg ${renk.bg} ${renk.border} border`}>
+                    <div className={`text-xs font-medium ${renk.text} mb-1`}>{ders.dersAdi}</div>
+                    <div className={`text-lg font-bold ${renk.text}`}>{ders.ortalamaNet}</div>
+                    <div className="text-xs text-slate-500">D:{ders.ortalamaDogru} Y:{ders.ortalamaYanlis}</div>
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-xl font-bold text-blue-600">{exam.toplamOgrenci}</p>
           </div>
-          <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Soru</span>
-              <Target className="w-4 h-4 text-purple-500" />
-            </div>
-            <p className="text-xl font-bold text-purple-600">{exam.toplamSoru}</p>
-          </div>
-          <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Ort. Net</span>
-              <Award className="w-4 h-4 text-emerald-500" />
-            </div>
-            <p className="text-xl font-bold text-emerald-600">{exam.ortalamaNet}</p>
-          </div>
-          <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Seçili</span>
-              <CheckCircle className="w-4 h-4 text-amber-500" />
-            </div>
-            <p className="text-xl font-bold text-amber-600">{selectedStudents.size}</p>
-          </div>
-        </motion.div>
+        )}
 
-        {/* Öğrenci Listesi */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
-        >
-          {/* Toolbar */}
-          <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
-            <div className="flex items-center gap-4">
+        {/* Toolbar */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Öğrenci ara (ad, numara, sınıf)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+              />
+            </div>
+            
+            {/* View Mode */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
               <button
-                onClick={selectAll}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'table' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
               >
-                <CheckCircle
-                  size={18}
-                  className={selectedStudents.size === students.length ? 'text-emerald-500' : 'text-slate-400'}
-                />
-                {selectedStudents.size === students.length ? 'Seçimi Kaldır' : 'Tümünü Seç'}
+                <Table2 size={18} className={viewMode === 'table' ? 'text-emerald-600' : 'text-slate-500'} />
               </button>
-              <span className="text-sm text-slate-500">
-                {selectedStudents.size} öğrenci seçildi
-              </span>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'cards' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              >
+                <LayoutGrid size={18} className={viewMode === 'cards' ? 'text-emerald-600' : 'text-slate-500'} />
+              </button>
             </div>
-
-            <button
-              onClick={generatePDFs}
-              disabled={selectedStudents.size === 0 || isGenerating}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
-                selectedStudents.size === 0 || isGenerating
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg'
-              }`}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Oluşturuluyor...
-                </>
-              ) : (
-                <>
-                  <Download size={18} />
-                  Karneleri Oluştur (ZIP)
-                </>
-              )}
-            </button>
+            
+            {/* Column Toggle */}
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50">
+                <Columns size={18} className="text-slate-500" />
+                <span className="text-sm text-slate-600">Sütunlar</span>
+                <ChevronDown size={16} className="text-slate-400" />
+              </button>
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 p-2 hidden group-hover:block z-50">
+                {Object.entries(showColumns).map(([key, value]) => (
+                  <label key={key} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={value}
+                      onChange={() => setShowColumns(prev => ({ ...prev, [key]: !prev[key] }))}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm text-slate-700 capitalize">{key}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Progress Bar */}
-          {isGenerating && (
-            <div className="p-4 bg-purple-50 border-b border-purple-100">
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium text-purple-700">
-                  {progress.name} için karne oluşturuluyor...
-                </span>
-                <span className="text-sm text-purple-600">
-                  {progress.current} / {progress.total}
-                </span>
-              </div>
-              <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-300"
-                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {generated && !isGenerating && (
-            <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center gap-3">
-              <CheckCircle size={24} className="text-emerald-600" />
-              <span className="font-semibold text-emerald-700">
-                {selectedStudents.size} karne başarıyla oluşturuldu! ZIP dosyası indiriliyor...
-              </span>
-            </div>
-          )}
-
-          {/* Student Table */}
-          {students.length > 0 ? (
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left w-12"></th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Sıra</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Öğrenci</th>
-                  <th className="px-4 py-3 text-center text-sm font-semibold text-slate-600">Net</th>
-                  <th className="px-4 py-3 text-center text-sm font-semibold text-slate-600">Puan</th>
-                  <th className="px-4 py-3 text-center text-sm font-semibold text-slate-600">İşlemler</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {students.map((student) => (
-                  <tr
-                    key={student.ogrenciNo}
-                    className={`hover:bg-slate-50 transition-colors ${
-                      selectedStudents.has(student.ogrenciNo) ? 'bg-purple-50' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3">
+        {/* Table View */}
+        {viewMode === 'table' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
                       <input
                         type="checkbox"
-                        checked={selectedStudents.has(student.ogrenciNo)}
-                        onChange={() => toggleStudent(student.ogrenciNo)}
-                        className="w-4 h-4 cursor-pointer accent-purple-600"
+                        checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-                        student.siralama === 1 ? 'bg-yellow-100 text-yellow-800' :
-                        student.siralama === 2 ? 'bg-slate-100 text-slate-700' :
-                        student.siralama === 3 ? 'bg-amber-100 text-amber-800' :
-                        'bg-slate-50 text-slate-600'
-                      }`}>
-                        {student.siralama}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{cleanName(student.ogrenciAdi)}</div>
-                      <div className="text-xs text-slate-400 font-mono">{student.ogrenciNo}</div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="font-bold text-slate-800">{student.toplamNet?.toFixed(2)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
-                        {(student.toplamNet * 5).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                          title="Önizle"
-                        >
-                          <Eye size={16} className="text-slate-600" />
-                        </button>
-                        <button
-                          className="p-2 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors"
-                          title="PDF İndir"
-                        >
-                          <Download size={16} className="text-purple-600" />
-                        </button>
-                        <button
-                          className="p-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
-                          title="Yazdır"
-                        >
-                          <Printer size={16} className="text-blue-600" />
-                        </button>
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                      onClick={() => handleSort('siralama')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Sıra
+                        <SortIcon field="siralama" />
                       </div>
-                    </td>
+                    </th>
+                    {showColumns.numara && (
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Numara
+                      </th>
+                    )}
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                      onClick={() => handleSort('ogrenciAdi')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Öğrenci
+                        <SortIcon field="ogrenciAdi" />
+                      </div>
+                    </th>
+                    {showColumns.sinif && (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Sınıf
+                      </th>
+                    )}
+                    {showColumns.kitapcik && (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Kitapçık
+                      </th>
+                    )}
+                    {showColumns.dogru && (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-green-600 uppercase tracking-wider">
+                        D
+                      </th>
+                    )}
+                    {showColumns.yanlis && (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-red-600 uppercase tracking-wider">
+                        Y
+                      </th>
+                    )}
+                    {showColumns.bos && (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        B
+                      </th>
+                    )}
+                    {showColumns.net && (
+                      <th 
+                        className="px-4 py-3 text-center text-xs font-semibold text-emerald-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                        onClick={() => handleSort('toplamNet')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Net
+                          <SortIcon field="toplamNet" />
+                        </div>
+                      </th>
+                    )}
+                    {showColumns.puan && (
+                      <th 
+                        className="px-4 py-3 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                        onClick={() => handleSort('toplamPuan')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Puan
+                          <SortIcon field="toplamPuan" />
+                        </div>
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      İşlemler
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-12 text-center text-slate-500">
-              <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p>Henüz sonuç bulunmuyor.</p>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredStudents.map((student, index) => {
+                    const isSelected = selectedStudents.has(student.id);
+                    const isExpanded = selectedStudentId === student.id;
+                    
+                    return (
+                      <React.Fragment key={student.id}>
+                        <tr 
+                          className={`hover:bg-slate-50 transition-colors cursor-pointer ${isSelected ? 'bg-emerald-50' : ''}`}
+                          onClick={() => handleRowClick(student)}
+                        >
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleSelectStudent(student.id)}
+                              className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
+                              ${student.siralama <= 3 ? 'bg-amber-100 text-amber-700' : 
+                                student.siralama <= 10 ? 'bg-emerald-100 text-emerald-700' : 
+                                'bg-slate-100 text-slate-600'}`}>
+                              {student.siralama}
+                            </span>
+                          </td>
+                          {showColumns.numara && (
+                            <td className="px-4 py-3 text-sm text-slate-600 font-mono">
+                              {student.ogrenciNo || '-'}
+                            </td>
+                          )}
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-800">{student.ogrenciAdi}</div>
+                          </td>
+                          {showColumns.sinif && (
+                            <td className="px-4 py-3 text-center">
+                              <span className="px-2 py-1 bg-slate-100 rounded text-sm text-slate-600">
+                                {student.sinifNo || '-'}
+                              </span>
+                            </td>
+                          )}
+                          {showColumns.kitapcik && (
+                            <td className="px-4 py-3 text-center">
+                              <span className={`px-2 py-1 rounded text-sm font-medium
+                                ${student.kitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 
+                                  student.kitapcik === 'B' ? 'bg-purple-100 text-purple-700' : 
+                                  'bg-slate-100 text-slate-600'}`}>
+                                {student.kitapcik || '-'}
+                              </span>
+                            </td>
+                          )}
+                          {showColumns.dogru && (
+                            <td className="px-4 py-3 text-center font-semibold text-green-600">
+                              {student.toplamDogru}
+                            </td>
+                          )}
+                          {showColumns.yanlis && (
+                            <td className="px-4 py-3 text-center font-semibold text-red-600">
+                              {student.toplamYanlis}
+                            </td>
+                          )}
+                          {showColumns.bos && (
+                            <td className="px-4 py-3 text-center text-slate-500">
+                              {student.toplamBos}
+                            </td>
+                          )}
+                          {showColumns.net && (
+                            <td className="px-4 py-3 text-center">
+                              <NetBadge net={student.toplamNet} />
+                            </td>
+                          )}
+                          {showColumns.puan && (
+                            <td className="px-4 py-3 text-center">
+                              <span className="font-bold text-blue-600">{student.toplamPuan.toFixed(2)}</span>
+                            </td>
+                          )}
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => setSelectedStudentId(isExpanded ? null : student.id)}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Detay"
+                              >
+                                <Eye size={16} className="text-slate-500" />
+                              </button>
+                              <button
+                                onClick={() => handleGenerateReport(student.id)}
+                                className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                                title="Karne İndir"
+                              >
+                                <Download size={16} className="text-emerald-600" />
+                              </button>
+                              <button
+                                className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                                title="Yazdır"
+                              >
+                                <Printer size={16} className="text-blue-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        
+                        {/* Expanded Row - Ders Detayları */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={12} className="p-0 bg-slate-50">
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="p-6 border-l-4 border-emerald-500">
+                                    <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                                      <BookOpen size={16} className="text-emerald-600" />
+                                      Ders Bazlı Sonuçlar - {student.ogrenciAdi}
+                                    </h4>
+                                    {student.dersBazli && student.dersBazli.length > 0 ? (
+                                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                        {student.dersBazli.map(ders => {
+                                          const renk = DERS_RENKLERI[ders.dersKodu] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
+                                          return (
+                                            <div key={ders.dersKodu} className={`p-3 rounded-lg ${renk.bg} ${renk.border} border`}>
+                                              <div className={`text-xs font-medium ${renk.text} mb-2`}>{ders.dersAdi}</div>
+                                              <div className={`text-xl font-bold ${renk.text} mb-1`}>{ders.net.toFixed(2)}</div>
+                                              <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-green-600">D:{ders.dogru}</span>
+                                                <span className="text-red-600">Y:{ders.yanlis}</span>
+                                                <span className="text-slate-500">B:{ders.bos}</span>
+                                              </div>
+                                              <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                <div 
+                                                  className="h-full bg-emerald-500 rounded-full"
+                                                  style={{ width: `${ders.basariOrani || 0}%` }}
+                                                />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-slate-500">Ders bazlı veri bulunmuyor.</p>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              </td>
+                            </tr>
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </motion.div>
-
-        {/* Ayarlar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl p-6 mt-6 border border-slate-200"
-        >
-          <h3 className="font-semibold text-slate-800 mb-4">⚙️ Karne Ayarları</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" defaultChecked className="accent-purple-600" />
-              <span className="text-sm text-slate-700">AI Öğretmen Notu</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" defaultChecked className="accent-purple-600" />
-              <span className="text-sm text-slate-700">Ders Bazlı Grafik</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" defaultChecked className="accent-purple-600" />
-              <span className="text-sm text-slate-700">Sıralama Bilgisi</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="accent-purple-600" />
-              <span className="text-sm text-slate-700">Sınıf Karşılaştırması</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="accent-purple-600" />
-              <span className="text-sm text-slate-700">Geçmiş Sınav Trendi</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="accent-purple-600" />
-              <span className="text-sm text-slate-700">QR Kod (Detay Linki)</span>
-            </label>
+            
+            {filteredStudents.length === 0 && (
+              <div className="p-12 text-center">
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">Öğrenci bulunamadı</p>
+              </div>
+            )}
           </div>
-        </motion.div>
+        )}
 
-        {/* Alt Bilgi */}
-        <div className="mt-4 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-          <Database size={14} />
-          Gösterilen: {students.length} / {exam.toplamOgrenci || 0} öğrenci (Supabase'den)
-          {students.length < (exam.toplamOgrenci || 0) && (
-            <span className="ml-2 text-amber-600">
-              (İlk {students.length} öğrenci gösteriliyor)
-            </span>
-          )}
-        </div>
+        {/* Cards View */}
+        {viewMode === 'cards' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredStudents.map(student => {
+              const isSelected = selectedStudents.has(student.id);
+              
+              return (
+                <motion.div
+                  key={student.id}
+                  layout
+                  className={`bg-white rounded-xl border-2 p-4 transition-all cursor-pointer hover:shadow-lg
+                    ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                  onClick={() => handleSelectStudent(student.id)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-slate-800">{student.ogrenciAdi}</div>
+                      <div className="text-sm text-slate-500">{student.ogrenciNo}</div>
+                    </div>
+                    <span className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
+                      ${student.siralama <= 3 ? 'bg-amber-100 text-amber-700' : 
+                        student.siralama <= 10 ? 'bg-emerald-100 text-emerald-700' : 
+                        'bg-slate-100 text-slate-600'}`}>
+                      {student.siralama}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                    <div>
+                      <div className="text-xs text-slate-500">D</div>
+                      <div className="font-bold text-green-600">{student.toplamDogru}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Y</div>
+                      <div className="font-bold text-red-600">{student.toplamYanlis}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">B</div>
+                      <div className="font-bold text-slate-500">{student.toplamBos}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Net</div>
+                      <div className="font-bold text-emerald-600">{student.toplamNet.toFixed(1)}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500">Puan:</span>
+                      <span className="font-bold text-blue-600">{student.toplamPuan.toFixed(2)}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGenerateReport(student.id);
+                      }}
+                      className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
+                    >
+                      <Download size={16} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Suspense ile sarmalama
+// =============================================================================
+// EXPORT
+// =============================================================================
+
 export default function KarnePage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     }>
       <KarneContent />
