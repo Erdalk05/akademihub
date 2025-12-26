@@ -643,6 +643,10 @@ export default function SinavSihirbazi({
                   ogrenciListesi={ogrenciListesi}
                   onParsed={(data) => setParsedOgrenciler(data)}
                   onMatchStudents={(matches) => setMatchedData(matches)}
+                  onContinue={() => {
+                    console.log('✅ Adım 5\'e geçiliyor...');
+                    setCurrentStep(5);
+                  }}
                 />
               </div>
             </motion.div>

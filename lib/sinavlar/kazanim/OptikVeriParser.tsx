@@ -30,6 +30,7 @@ interface OptikVeriParserProps {
   ogrenciListesi?: { id: string; ogrenciNo: string; ad: string; soyad: string; sinif: string }[];
   onParsed?: (data: ParsedOptikSatir[]) => void;
   onMatchStudents?: (matches: { satir: ParsedOptikSatir; ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }[]) => void;
+  onContinue?: () => void;  // Devam butonuna basıldığında çağrılır
 }
 
 // Türkçe karakter düzeltme haritası - GENİŞLETİLMİŞ
@@ -121,7 +122,8 @@ export default function OptikVeriParser({
   sablon,
   ogrenciListesi = [],
   onParsed,
-  onMatchStudents
+  onMatchStudents,
+  onContinue
 }: OptikVeriParserProps) {
   const [rawContent, setRawContent] = useState('');
   const [parsedData, setParsedData] = useState<ParsedOptikSatir[]>([]);
@@ -994,11 +996,26 @@ export default function OptikVeriParser({
           {/* Devam Et Butonu */}
           <button
             onClick={() => {
+              console.log('🚀 Devam Et butonuna tıklandı');
+              console.log('📊 Geçerli öğrenci sayısı:', stats.valid);
+              
+              // 1. Eşleştirme sonuçlarını callback ile gönder
               const matches = parsedData.map((satir, index) => ({
                 satir,
-                ...matchResults.get(index)
+                ogrenciId: matchResults.get(index)?.ogrenciId,
+                status: matchResults.get(index)?.status || 'unmatched'
               }));
+              
+              console.log('📋 Eşleştirme sonuçları:', matches.length);
               onMatchStudents?.(matches as any);
+              
+              // 2. Sonraki adıma geç
+              if (onContinue) {
+                console.log('➡️ Sonraki adıma geçiliyor...');
+                onContinue();
+              } else {
+                console.warn('⚠️ onContinue callback tanımlı değil!');
+              }
             }}
             disabled={stats.valid === 0}
             className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
