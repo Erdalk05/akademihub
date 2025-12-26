@@ -200,11 +200,69 @@ export default function SinavSihirbazi({
   // Sihirbazı tamamla
   const handleComplete = async () => {
     setIsLoading(true);
+    
+    // Debug log
+    console.log('🔍 Kaydetme başladı:', {
+      sinavBilgisi,
+      cevapAnahtariLength: cevapAnahtari.length,
+      parsedOgrencilerLength: parsedOgrenciler.length,
+      sonuclarLength: sonuclar.length
+    });
+    
+    // Eğer sonuçlar henüz hesaplanmadıysa, tekrar hesapla
+    let finalSonuclar = sonuclar;
+    if (sonuclar.length === 0 && parsedOgrenciler.length > 0) {
+      console.log('⚠️ Sonuçlar boş, hesaplanıyor...');
+      
+      finalSonuclar = parsedOgrenciler.map(ogrenci => {
+        let toplamDogru = 0;
+        let toplamYanlis = 0;
+        let toplamBos = 0;
+        
+        ogrenci.cevaplar.forEach((cevap, index) => {
+          const soruNo = index + 1;
+          const anahtarSatir = cevapAnahtari.find(a => a.soruNo === soruNo);
+          
+          if (!anahtarSatir) return;
+          
+          if (!cevap || cevap === ' ' || cevap === '') {
+            toplamBos++;
+          } else if (cevap.toUpperCase() === anahtarSatir.dogruCevap) {
+            toplamDogru++;
+          } else {
+            toplamYanlis++;
+          }
+        });
+        
+        const yanlisKatsayisi = sinavBilgisi.tip === 'LGS' ? 3 : 4;
+        const toplamNet = toplamDogru - (toplamYanlis / yanlisKatsayisi);
+        
+        return {
+          ogrenciNo: ogrenci.ogrenciNo,
+          ogrenciAdi: ogrenci.ogrenciAdi,
+          kitapcik: ogrenci.kitapcik,
+          toplamDogru,
+          toplamYanlis,
+          toplamBos,
+          toplamNet: Math.max(0, toplamNet),
+          siralama: 0
+        };
+      });
+      
+      // Sıralama
+      finalSonuclar.sort((a, b) => b.toplamNet - a.toplamNet);
+      finalSonuclar.forEach((r, i) => {
+        r.siralama = i + 1;
+      });
+    }
+    
+    console.log('✅ Kaydetme tamamlandı, sonuç sayısı:', finalSonuclar.length);
+    
     try {
       onComplete?.({
         sinavBilgisi,
         cevapAnahtari,
-        ogrenciSonuclari: sonuclar
+        ogrenciSonuclari: finalSonuclar
       });
     } catch (err: any) {
       setError(err.message);
