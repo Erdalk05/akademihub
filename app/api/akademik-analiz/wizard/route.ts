@@ -248,15 +248,19 @@ export async function POST(req: NextRequest) {
       console.log('[Wizard API] Öğrenci sonuçları kaydedildi:', ogrenciSonuclari.length);
     }
     
-    // 6. Audit log
-    await supabase.from('exam_audit_log').insert({
-      action: 'CREATE',
-      entity_type: 'exam',
-      entity_id: exam.id,
-      exam_id: exam.id,
-      description: `Sınav sihirbazı ile oluşturuldu: ${sinavBilgisi.ad} (${ogrenciSonuclari.length} öğrenci)`,
-      organization_id: organizationId
-    }).catch(() => {}); // Hata olursa devam et
+    // 6. Audit log - hata olsa bile devam et
+    try {
+      await supabase.from('exam_audit_log').insert({
+        action: 'CREATE',
+        entity_type: 'exam',
+        entity_id: exam.id,
+        exam_id: exam.id,
+        description: `Sınav sihirbazı ile oluşturuldu: ${sinavBilgisi.ad} (${ogrenciSonuclari.length} öğrenci)`,
+        organization_id: organizationId
+      });
+    } catch (auditError) {
+      console.warn('[Wizard API] Audit log yazılamadı:', auditError);
+    }
     
     // Başarılı yanıt
     return NextResponse.json({
