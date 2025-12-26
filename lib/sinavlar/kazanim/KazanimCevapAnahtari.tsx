@@ -826,25 +826,42 @@ export default function KazanimCevapAnahtari({
                     </span>
                   </div>
                   
-                  {/* Algılanan Sütunlar */}
+                  {/* Algılanan Sütunlar - Türkçe Anlaşılır İsimlerle */}
                   <div className="mb-3">
-                    <p className="text-emerald-700 mb-1.5 font-medium text-xs">Eşleştirilen Sütunlar:</p>
+                    <p className="text-emerald-700 mb-1.5 font-medium text-xs">✅ Algılanan Sütunlar:</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(detectionResult.columns).map(([key, match]) => (
-                        <span 
-                          key={key} 
-                          className={`px-2 py-0.5 rounded text-xs font-mono flex items-center gap-1 ${
-                            match.confidence >= 80 
-                              ? 'bg-emerald-100 text-emerald-700' 
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {match.fileColumn}
-                          <span className="opacity-60">→</span>
-                          {key}
-                          {match.confidence < 80 && <span className="text-[10px]">({match.confidence}%)</span>}
-                        </span>
-                      ))}
+                      {Object.entries(detectionResult.columns).map(([key, match]) => {
+                        // Key'leri Türkçe anlaşılır isimlere çevir
+                        const turkceIsim: Record<string, string> = {
+                          'TEST_KODU': 'Ders Kodu',
+                          'DERS': 'Ders Adı',
+                          'KITAPCIK_A': 'Kitapçık A',
+                          'SORU_DEGERI': 'Soru Değeri',
+                          'DOGRU_CEVAP': 'Cevap',
+                          'B_CEVAP': 'B Kit. Cevabı',
+                          'C_CEVAP': 'C Kit. Cevabı',
+                          'D_CEVAP': 'D Kit. Cevabı',
+                          'KAZANIM_KODU': 'Kazanım Kodu',
+                          'KAZANIM_METNI': 'Kazanım Metni',
+                        };
+                        const displayName = turkceIsim[key] || key;
+                        
+                        return (
+                          <span 
+                            key={key} 
+                            className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${
+                              match.confidence >= 80 
+                                ? 'bg-emerald-100 text-emerald-700' 
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            <span className="font-medium">{match.fileColumn}</span>
+                            <span className="opacity-60">→</span>
+                            <span className="font-semibold">{displayName}</span>
+                            {match.confidence < 80 && <span className="text-[10px] opacity-70">({match.confidence}%)</span>}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                   

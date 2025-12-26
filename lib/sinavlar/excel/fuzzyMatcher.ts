@@ -60,29 +60,8 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
-  // SORU NO (A Kitapçığı soru numarası)
-  SORU_NO: {
-    target: 'SORU_NO',
-    aliases: [
-      'soru',
-      'soru no',
-      'soru numarası',
-      'soru numarasi',
-      'soruno',
-      'soru numara',
-      'question',
-      'q no',
-      'no',
-      'sıra',
-      'sira',
-      'sıra no'
-    ],
-    threshold: 0.60,
-    caseSensitive: false,
-    turkishNormalize: true
-  },
-  
-  // SORU DEĞERİ
+  // SORU DEĞERİ / PUAN (Sorunun puanı/ağırlığı)
+  // ÖNEMLİ: "SORU DEĞERİ" sütunu puan anlamına gelir, soru numarası DEĞİL!
   SORU_DEGERI: {
     target: 'SORU_DEGERI',
     aliases: [
@@ -97,9 +76,11 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'ağırlık',
       'agirlik',
       'katsayı',
-      'katsayi'
+      'katsayi',
+      'soru puanı',
+      'soru puani'
     ],
-    threshold: 0.65,
+    threshold: 0.75,  // Yüksek threshold - yanlış eşleşme önlenir
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -133,32 +114,31 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
-  // KİTAPÇIK A (A kitapçığı soru numarası)
-  A_SORU_NO: {
+  // KİTAPÇIK A - A Kitapçığındaki soru numarası
+  KITAPCIK_A: {
     target: 'KITAPCIK_A',
     aliases: [
       'kitapçık a',
       'kitapcik a',
-      'kitapcık a',      // yazım hatası
-      'kıtapçık a',      // yazım hatası
+      'kitapcık a',
+      'kıtapçık a',
       'a kitapçık',
       'a kitapcik',
       'a soru no',
       'a soru',
-      'a kitapçık soru',
-      'soru no a',
-      'a no',
-      'a kitapcigi',
-      'a kitapçığı'
+      'soru no',        // Varsayılan soru no = A kitapçık
+      'soru numarası',
+      'soru numarasi',
+      'soruno'
     ],
-    threshold: 0.65,
+    threshold: 0.70,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // B KİTAPÇIĞI CEVAP
-  B_SORU_NO: {
-    target: 'B_KITAPCIGI_CEVAP',
+  // B KİTAPÇIĞI CEVABI - B kitapçığının doğru cevabı (A'dan farklı olabilir!)
+  B_CEVAP: {
+    target: 'B_CEVAP',
     aliases: [
       'b kitapçığı cevap',
       'b kitapcigi cevap',
@@ -167,65 +147,46 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
       'b cevap',
       'b cevabı',
       'b cevabi',
-      'kitapçık b',
-      'kitapcik b',
-      'b kitapçık',
-      'b kitapcik',
-      'b soru no',
-      'b soru',
-      'b kitapçık soru',
-      'soru no b',
-      'b no'
+      'b kit cevap',
+      'b kit. cevap',
+      'kitapçık b cevap',
+      'kitapcik b cevap'
     ],
-    threshold: 0.65,
+    threshold: 0.70,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // C KİTAPÇIĞI CEVAP
-  C_SORU_NO: {
-    target: 'C_KITAPCIGI_CEVAP',
+  // C KİTAPÇIĞI CEVABI
+  C_CEVAP: {
+    target: 'C_CEVAP',
     aliases: [
       'c kitapçığı cevap',
       'c kitapcigi cevap',
       'c kitapçığı cevabı',
       'c cevap',
       'c cevabı',
-      'kitapçık c',
-      'kitapcik c',
-      'c kitapçık',
-      'c kitapcik',
-      'c soru no',
-      'c soru',
-      'c kitapçık soru',
-      'soru no c',
-      'c no'
+      'c kit cevap',
+      'kitapçık c cevap'
     ],
-    threshold: 0.65,
+    threshold: 0.70,
     caseSensitive: false,
     turkishNormalize: true
   },
   
-  // D KİTAPÇIĞI CEVAP
-  D_SORU_NO: {
-    target: 'D_KITAPCIGI_CEVAP',
+  // D KİTAPÇIĞI CEVABI
+  D_CEVAP: {
+    target: 'D_CEVAP',
     aliases: [
       'd kitapçığı cevap',
       'd kitapcigi cevap',
       'd kitapçığı cevabı',
       'd cevap',
       'd cevabı',
-      'kitapçık d',
-      'kitapcik d',
-      'd kitapçık',
-      'd kitapcik',
-      'd soru no',
-      'd soru',
-      'd kitapçık soru',
-      'soru no d',
-      'd no'
+      'd kit cevap',
+      'kitapçık d cevap'
     ],
-    threshold: 0.65,
+    threshold: 0.70,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -376,10 +337,20 @@ export function matchAllColumns(
   const usedColumns = new Set<string>();
   
   // Sort configs by priority (required first)
+  // Düzeltilmiş sıralama - Excel sütun sırasına göre
   const priorityOrder = [
-    'TEST_KODU', 'DERS', 'SORU_NO', 'DOGRU_CEVAP',
-    'A_SORU_NO', 'B_SORU_NO', 'C_SORU_NO', 'D_SORU_NO',
-    'KAZANIM_KODU', 'KAZANIM_METNI', 'ANA_KONU', 'ALT_KONU'
+    'TEST_KODU',      // DERS KODU
+    'DERS',           // DERS ADI
+    'KITAPCIK_A',     // KİTAPÇIK A (Soru No)
+    'SORU_DEGERI',    // SORU DEĞERİ (Puan)
+    'DOGRU_CEVAP',    // CEVAP (A Kitapçığı Cevabı)
+    'B_CEVAP',        // B KİTAPÇIĞI CEVABI
+    'C_CEVAP',        // C KİTAPÇIĞI CEVABI  
+    'D_CEVAP',        // D KİTAPÇIĞI CEVABI
+    'KAZANIM_KODU',   // KAZANIM KODU
+    'KAZANIM_METNI',  // KAZANIM METNİ
+    'ANA_KONU', 
+    'ALT_KONU'
   ];
   
   for (const systemColumn of priorityOrder) {
