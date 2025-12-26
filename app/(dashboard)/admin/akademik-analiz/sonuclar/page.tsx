@@ -2,24 +2,34 @@
 
 /**
  * Akademik Analiz - Sınav Sonuçları
- * K12Net TAM BENZERİ - Detaylı Tablo Görünümü
+ * Modern, Temiz, Eğitim Odaklı Tasarım
  */
 
 import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown,
-  ChevronRight,
-  Users,
-  FileQuestion,
-  Building,
-  Award,
-  RefreshCw,
-  FileDown,
+  ArrowLeft,
+  Search,
+  Filter,
+  Download,
   Printer,
-  X,
+  RefreshCw,
   Loader2,
-  Play
+  Users,
+  Target,
+  Award,
+  TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  BarChart3,
+  BookOpen,
+  Calendar,
+  GraduationCap,
+  Medal,
+  Sparkles
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
@@ -29,23 +39,17 @@ import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface StudentResult {
   sira: number;
-  numara: string;
+  ogrenciNo: string;
   ogrenciAdi: string;
-  cevapAnahtari?: string;
-  sube?: string;
-  sayisalKitapcik?: string;
-  sozelKitapcik?: string;
-  dogruSayisi: number;
-  yanlisSayisi: number;
-  bosSayisi: number;
-  hataliSayisi: number;
-  netSayisi: number;
-  netYuzdesi: number;
-  lgsPuani: number;
-  subeLGS: string;
-  okulLGS: string;
-  subeNet: string;
-  okulNet: string;
+  sinif?: string;
+  kitapcik?: string;
+  dogru: number;
+  yanlis: number;
+  bos: number;
+  net: number;
+  puan: number;
+  basariOrani: number;
+  durum: 'cok-iyi' | 'iyi' | 'orta' | 'gelismeli';
 }
 
 interface ExamData {
@@ -53,81 +57,81 @@ interface ExamData {
   ad: string;
   tarih: string;
   tip: string;
-  egitimYili: string;
+  toplamSoru: number;
   toplamOgrenci: number;
+  ortalamaNet: number;
+  enYuksekNet: number;
+  enDusukNet: number;
   ogrenciler: StudentResult[];
 }
 
 // =============================================================================
-// SIDEBAR MENU
+// HELPER FUNCTIONS
 // =============================================================================
 
-const SidebarMenu = ({ active, onSelect }: { active: string; onSelect: (item: string) => void }) => {
-  const menuItems = [
-    { id: 'ogrenciler', label: 'Öğrenciler', icon: Users },
-    { id: 'sorular', label: 'Sorular', icon: FileQuestion },
-    { id: 'subeler', label: 'Şubeler', icon: Building },
-    { id: 'kazanimlar', label: 'Kazanımlar', icon: Award },
-  ];
+const getDurum = (basariOrani: number): StudentResult['durum'] => {
+  if (basariOrani >= 75) return 'cok-iyi';
+  if (basariOrani >= 50) return 'iyi';
+  if (basariOrani >= 25) return 'orta';
+  return 'gelismeli';
+};
 
-  return (
-    <div className="space-y-1">
-      {menuItems.map(item => (
-        <button
-          key={item.id}
-          onClick={() => onSelect(item.id)}
-          className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-            active === item.id 
-              ? 'bg-[#00a0e3] text-white' 
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <item.icon size={16} />
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
+const getDurumStyle = (durum: StudentResult['durum']) => {
+  switch (durum) {
+    case 'cok-iyi': return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
+    case 'iyi': return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' };
+    case 'orta': return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
+    case 'gelismeli': return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' };
+  }
+};
+
+const getDurumLabel = (durum: StudentResult['durum']) => {
+  switch (durum) {
+    case 'cok-iyi': return 'Çok İyi';
+    case 'iyi': return 'İyi';
+    case 'orta': return 'Orta';
+    case 'gelismeli': return 'Gelişmeli';
+  }
 };
 
 // =============================================================================
-// DROPDOWN BUTTON
+// COMPONENTS
 // =============================================================================
 
-const DropdownButton = ({ 
+const StatCard = ({ 
+  icon: Icon, 
   label, 
-  color = 'slate',
-  children 
+  value, 
+  color = 'emerald',
+  trend
 }: { 
+  icon: any; 
   label: string; 
-  color?: 'slate' | 'orange' | 'green';
-  children?: React.ReactNode;
-}) => {
-  const [open, setOpen] = useState(false);
-  
-  const colorClasses = {
-    slate: 'bg-slate-100 text-slate-700 hover:bg-slate-200',
-    orange: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-    green: 'bg-green-100 text-green-700 hover:bg-green-200',
-  };
-
-  return (
-    <div className="relative">
-      <button 
-        onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium ${colorClasses[color]}`}
-      >
-        {label}
-        <ChevronDown size={14} />
-      </button>
-      {open && children && (
-        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 min-w-[150px]">
-          {children}
-        </div>
+  value: string | number; 
+  color?: string;
+  trend?: 'up' | 'down';
+}) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+  >
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-sm text-slate-500">{label}</span>
+      <div className={`w-10 h-10 rounded-xl bg-${color}-100 flex items-center justify-center`}>
+        <Icon size={20} className={`text-${color}-600`} />
+      </div>
+    </div>
+    <div className="flex items-end gap-2">
+      <span className={`text-3xl font-bold text-${color}-600`}>{value}</span>
+      {trend && (
+        <span className={`flex items-center text-sm ${trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+          {trend === 'up' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+        </span>
       )}
     </div>
-  );
-};
+  </motion.div>
+);
 
 // =============================================================================
 // MAIN COMPONENT
@@ -139,12 +143,13 @@ function SonuclarContent() {
   const examId = searchParams.get('examId');
   const { currentOrganization } = useOrganizationStore();
   
-  // States
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<ExamData | null>(null);
-  const [activeMenu, setActiveMenu] = useState('ogrenciler');
-  const [pageSize, setPageSize] = useState(50);
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<'sira' | 'net' | 'puan'>('sira');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterDurum, setFilterDurum] = useState<string>('all');
 
   // =============================================================================
   // DATA LOADING
@@ -153,44 +158,15 @@ function SonuclarContent() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      let examData = null;
+      
       if (examId) {
         const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
         const data = await response.json();
-        
         if (response.ok && data.exam) {
-          // API verisini K12Net formatına dönüştür
-          const transformedData: ExamData = {
-            id: data.exam.id,
-            ad: data.exam.ad,
-            tarih: data.exam.tarih,
-            tip: data.exam.tip || 'LGS',
-            egitimYili: '2025-2026',
-            toplamOgrenci: data.exam.ogrenciler?.length || 0,
-            ogrenciler: (data.exam.ogrenciler || []).map((o: any, i: number) => ({
-              sira: i + 1,
-              numara: o.ogrenciNo || String(i + 1),
-              ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
-              cevapAnahtari: o.kitapcik || 'A',
-              sube: o.sinifNo || '8',
-              sayisalKitapcik: o.kitapcik || 'A',
-              sozelKitapcik: o.kitapcik || 'A',
-              dogruSayisi: o.toplamDogru || 0,
-              yanlisSayisi: o.toplamYanlis || 0,
-              bosSayisi: o.toplamBos || 0,
-              hataliSayisi: 0,
-              netSayisi: o.toplamNet || 0,
-              netYuzdesi: ((o.toplamNet || 0) / 90 * 100),
-              lgsPuani: o.toplamPuan || (o.toplamNet || 0) * 5,
-              subeLGS: `${i + 1}/59`,
-              okulLGS: `${Math.round((o.toplamNet || 0) * 5)}.${Math.round(Math.random() * 999)}`,
-              subeNet: `${i + 1}/59`,
-              okulNet: `${i + 1}/59`
-            }))
-          };
-          setExam(transformedData);
+          examData = data.exam;
         }
       } else {
-        // Demo veri yükle
         const params = new URLSearchParams();
         if (currentOrganization?.id) {
           params.set('organizationId', currentOrganization.id);
@@ -201,42 +177,58 @@ function SonuclarContent() {
         const data = await response.json();
         
         if (response.ok && data.exams?.[0]) {
-          const firstExam = data.exams[0];
-          const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${firstExam.id}`);
+          const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${data.exams[0].id}`);
           const detailData = await detailRes.json();
-          
           if (detailRes.ok && detailData.exam) {
-            const transformedData: ExamData = {
-              id: detailData.exam.id,
-              ad: detailData.exam.ad,
-              tarih: detailData.exam.tarih,
-              tip: detailData.exam.tip || 'LGS',
-              egitimYili: '2025-2026',
-              toplamOgrenci: detailData.exam.ogrenciler?.length || 0,
-              ogrenciler: (detailData.exam.ogrenciler || []).map((o: any, i: number) => ({
-                sira: i + 1,
-                numara: o.ogrenciNo || String(i + 1),
-                ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
-                cevapAnahtari: o.kitapcik || 'A',
-                sube: o.sinifNo || '8',
-                sayisalKitapcik: o.kitapcik || 'A',
-                sozelKitapcik: o.kitapcik || 'A',
-                dogruSayisi: o.toplamDogru || 0,
-                yanlisSayisi: o.toplamYanlis || 0,
-                bosSayisi: o.toplamBos || 0,
-                hataliSayisi: 0,
-                netSayisi: o.toplamNet || 0,
-                netYuzdesi: ((o.toplamNet || 0) / 90 * 100),
-                lgsPuani: o.toplamPuan || (o.toplamNet || 0) * 5,
-                subeLGS: `${i + 1}/59`,
-                okulLGS: `${Math.round((o.toplamNet || 0) * 5)}.${Math.round(Math.random() * 999)}`,
-                subeNet: `${i + 1}/59`,
-                okulNet: `${i + 1}/59`
-              }))
-            };
-            setExam(transformedData);
+            examData = detailData.exam;
           }
         }
+      }
+
+      if (examData) {
+        const ogrenciler: StudentResult[] = (examData.ogrenciler || []).map((o: any, i: number) => {
+          const dogru = o.toplamDogru || 0;
+          const yanlis = o.toplamYanlis || 0;
+          const bos = o.toplamBos || 0;
+          const net = o.toplamNet || 0;
+          const basariOrani = Math.round((dogru / 90) * 100);
+          
+          return {
+            sira: i + 1,
+            ogrenciNo: o.ogrenciNo || String(i + 1),
+            ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
+            sinif: o.sinifNo || '8',
+            kitapcik: o.kitapcik || 'A',
+            dogru,
+            yanlis,
+            bos,
+            net,
+            puan: o.toplamPuan || net * 5,
+            basariOrani,
+            durum: getDurum(basariOrani)
+          };
+        });
+
+        const transformed: ExamData = {
+          id: examData.id,
+          ad: examData.ad,
+          tarih: examData.tarih,
+          tip: examData.tip || 'LGS',
+          toplamSoru: examData.toplamSoru || 90,
+          toplamOgrenci: ogrenciler.length,
+          ortalamaNet: ogrenciler.length > 0 
+            ? ogrenciler.reduce((s, o) => s + o.net, 0) / ogrenciler.length 
+            : 0,
+          enYuksekNet: ogrenciler.length > 0 
+            ? Math.max(...ogrenciler.map(o => o.net)) 
+            : 0,
+          enDusukNet: ogrenciler.length > 0 
+            ? Math.min(...ogrenciler.map(o => o.net)) 
+            : 0,
+          ogrenciler
+        };
+
+        setExam(transformed);
       }
     } catch (error) {
       console.error('Veri yüklenirken hata:', error);
@@ -250,37 +242,59 @@ function SonuclarContent() {
   }, [loadData]);
 
   // =============================================================================
-  // HANDLERS
+  // COMPUTED
   // =============================================================================
 
-  const handleRowClick = (student: StudentResult) => {
-    router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam?.id}&studentNo=${student.numara}`);
-  };
-
-  const toggleRowSelection = (index: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newSelection = new Set(selectedRows);
-    if (newSelection.has(index)) {
-      newSelection.delete(index);
-    } else {
-      newSelection.add(index);
+  const filteredStudents = React.useMemo(() => {
+    if (!exam?.ogrenciler) return [];
+    
+    let result = [...exam.ogrenciler];
+    
+    // Search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.ogrenciAdi.toLowerCase().includes(term) ||
+        s.ogrenciNo.toLowerCase().includes(term)
+      );
     }
-    setSelectedRows(newSelection);
-  };
+    
+    // Filter by status
+    if (filterDurum !== 'all') {
+      result = result.filter(s => s.durum === filterDurum);
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+      return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+    });
+    
+    return result;
+  }, [exam?.ogrenciler, searchTerm, filterDurum, sortField, sortOrder]);
+
+  // Distribution stats
+  const distribution = React.useMemo(() => {
+    if (!exam?.ogrenciler) return { cokIyi: 0, iyi: 0, orta: 0, gelismeli: 0 };
+    return {
+      cokIyi: exam.ogrenciler.filter(o => o.durum === 'cok-iyi').length,
+      iyi: exam.ogrenciler.filter(o => o.durum === 'iyi').length,
+      orta: exam.ogrenciler.filter(o => o.durum === 'orta').length,
+      gelismeli: exam.ogrenciler.filter(o => o.durum === 'gelismeli').length
+    };
+  }, [exam?.ogrenciler]);
 
   const formatDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString('tr-TR');
+      return new Date(dateStr).toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
     } catch {
       return dateStr;
     }
-  };
-
-  const formatNumber = (num: number, decimals = 0) => {
-    return num.toLocaleString('tr-TR', { 
-      minimumFractionDigits: decimals, 
-      maximumFractionDigits: decimals 
-    });
   };
 
   // =============================================================================
@@ -289,10 +303,13 @@ function SonuclarContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#00a0e3] mx-auto mb-3" />
-          <p className="text-slate-500">Sınav sonuçları yükleniyor...</p>
+          <div className="w-16 h-16 mx-auto mb-4 relative">
+            <div className="absolute inset-0 border-4 border-emerald-200 rounded-full animate-ping"></div>
+            <div className="absolute inset-2 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-slate-600 font-medium">Sonuçlar yükleniyor...</p>
         </div>
       </div>
     );
@@ -300,17 +317,24 @@ function SonuclarContent() {
 
   if (!exam) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-xl shadow-sm">
-          <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-slate-700 mb-2">Sınav Bulunamadı</h2>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 flex items-center justify-center p-6">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center bg-white p-12 rounded-3xl shadow-sm border border-slate-200 max-w-md"
+        >
+          <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <BarChart3 className="w-10 h-10 text-slate-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-3">Sınav Bulunamadı</h2>
+          <p className="text-slate-500 mb-6">Henüz analiz edilmiş bir sınav bulunmuyor.</p>
           <button
             onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
-            className="text-[#00a0e3] hover:underline"
+            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
           >
             Yeni Sınav Oluştur
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -320,217 +344,343 @@ function SonuclarContent() {
   // =============================================================================
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      {/* K12Net Header */}
-      <div className="bg-[#00a0e3] text-white px-4 py-2">
-        <div className="flex items-center gap-3">
-          <div className="font-bold text-lg">{currentOrganization?.name || 'Dikmen Çözüm Kurs Merkezi'} 2025-2026</div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => router.push('/admin/akademik-analiz')}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <ArrowLeft size={20} className="text-slate-600" />
+              </button>
+              
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
+                    <GraduationCap className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-slate-800">{exam.ad}</h1>
+                    <p className="text-sm text-slate-500 flex items-center gap-2">
+                      <Calendar size={14} />
+                      {formatDate(exam.tarih)} • {exam.tip}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadData}
+                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Yenile"
+              >
+                <RefreshCw size={18} className="text-slate-600" />
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                <Printer size={18} />
+                <span className="hidden sm:inline">Yazdır</span>
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
+              >
+                <Download size={18} />
+                <span className="hidden sm:inline">PDF İndir</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-1">
-        {/* Sol Sidebar */}
-        <div className="w-56 bg-white border-r border-slate-200 p-4 flex-shrink-0">
-          {/* Sınav Bilgileri */}
-          <div className="mb-6">
-            <div className="text-xs text-slate-500 mb-1">Sınav ve Uygulama</div>
-            
-            <div className="space-y-2 text-sm">
-              <div>
-                <div className="text-xs text-slate-400">Uygulama Adı</div>
-                <div className="font-medium text-slate-700">{exam.ad}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-400">Uygulama Zamanı</div>
-                <div className="font-medium text-slate-700">{formatDate(exam.tarih)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-400">Eğitim Yılı</div>
-                <div className="font-medium text-slate-700">{exam.egitimYili}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Menü */}
-          <SidebarMenu active={activeMenu} onSelect={setActiveMenu} />
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <StatCard 
+            icon={Users} 
+            label="Toplam Öğrenci" 
+            value={exam.toplamOgrenci}
+            color="slate"
+          />
+          <StatCard 
+            icon={Target} 
+            label="Ortalama Net" 
+            value={exam.ortalamaNet.toFixed(2)}
+            color="blue"
+          />
+          <StatCard 
+            icon={Award} 
+            label="En Yüksek Net" 
+            value={exam.enYuksekNet.toFixed(2)}
+            color="emerald"
+          />
+          <StatCard 
+            icon={Medal} 
+            label="Toplam Soru" 
+            value={exam.toplamSoru}
+            color="amber"
+          />
         </div>
 
-        {/* Ana İçerik */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Toolbar */}
-          <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-3 flex-wrap">
-            <DropdownButton label="Alt Testler" />
-            <DropdownButton label="Sütunlar" />
-            <DropdownButton label="Puanlar" color="orange" />
-            <DropdownButton label="Sıralar" color="green" />
-            
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-sm text-slate-500">Sayfada Öğrenci Sayısı:</span>
-              <select 
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="border border-slate-200 rounded px-2 py-1 text-sm"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={999}>Tümü</option>
-              </select>
+        {/* Performance Distribution */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6"
+        >
+          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-500" />
+            Başarı Dağılımı
+          </h3>
+          <div className="flex items-center gap-4">
+            {/* Progress Bar */}
+            <div className="flex-1 h-8 bg-slate-100 rounded-full overflow-hidden flex">
+              <div 
+                className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${(distribution.cokIyi / exam.toplamOgrenci) * 100}%` }}
+              />
+              <div 
+                className="h-full bg-blue-500 transition-all duration-500"
+                style={{ width: `${(distribution.iyi / exam.toplamOgrenci) * 100}%` }}
+              />
+              <div 
+                className="h-full bg-amber-500 transition-all duration-500"
+                style={{ width: `${(distribution.orta / exam.toplamOgrenci) * 100}%` }}
+              />
+              <div 
+                className="h-full bg-red-400 transition-all duration-500"
+                style={{ width: `${(distribution.gelismeli / exam.toplamOgrenci) * 100}%` }}
+              />
             </div>
-
-            <button className="px-3 py-1.5 bg-amber-500 text-white rounded text-sm font-medium hover:bg-amber-600">
-              Etüt Oluştur
-            </button>
-            <button className="px-3 py-1.5 bg-amber-500 text-white rounded text-sm font-medium hover:bg-amber-600">
-              Ödev Oluştur
-            </button>
-          </div>
-
-          {/* Tablo Container */}
-          <div className="flex-1 overflow-auto p-4">
-            <div className="bg-white rounded shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm whitespace-nowrap">
-                  <thead>
-                    {/* Grup Başlıkları */}
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th colSpan={4} className="px-2 py-1 text-left text-xs font-medium text-slate-500 border-r border-slate-200"></th>
-                      <th colSpan={3} className="px-2 py-1 text-center text-xs font-medium text-slate-500 border-r border-slate-200"></th>
-                      <th colSpan={7} className="px-2 py-1 text-center text-xs font-medium text-pink-600 bg-pink-50 border-r border-slate-200">
-                        LGS Puanlar
-                      </th>
-                      <th colSpan={4} className="px-2 py-1 text-center text-xs font-medium text-green-600 bg-green-50 border-r border-slate-200">
-                        LGS Sıralar
-                      </th>
-                      <th className="px-2 py-1"></th>
-                    </tr>
-                    
-                    {/* Sütun Başlıkları */}
-                    <tr className="bg-slate-100 border-b border-slate-300">
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-slate-600 w-12">
-                        {exam.toplamOgrenci}
-                      </th>
-                      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-600 w-8">
-                        <Play size={12} className="inline text-emerald-500" />
-                      </th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-slate-600">Numara</th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-slate-600 min-w-[180px]">Öğrenci</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-600">Cevap Anahtarı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-600">Şube</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-600 border-r border-slate-200">Sayısal<br/>Kitapçık</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-600">Sözel<br/>Kitapçık</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-green-600 bg-green-50">Doğru<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-red-600 bg-red-50">Yanlış<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-500">Boş<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-orange-600 bg-orange-50">Hatalı<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-blue-600 bg-blue-50">Net<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-purple-600 bg-purple-50">Net<br/>Yüzdesi</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-pink-600 bg-pink-50 border-r border-slate-200">LGS</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-green-600 bg-green-50">Şube-LGS</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-green-600 bg-green-50">Okul-LGS</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-green-600 bg-green-50">Şube-Net<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-green-600 bg-green-50 border-r border-slate-200">Okul-Net<br/>Sayısı</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-slate-600 w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exam.ogrenciler.slice(0, pageSize).map((student, index) => (
-                      <tr 
-                        key={index}
-                        onClick={() => handleRowClick(student)}
-                        className={`border-b border-slate-100 cursor-pointer transition-colors ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
-                        } hover:bg-blue-50`}
-                      >
-                        <td className="px-2 py-1.5 text-slate-600 font-medium">{student.sira}</td>
-                        <td className="px-1 py-1.5 text-center">
-                          <ChevronRight size={14} className="inline text-emerald-500" />
-                        </td>
-                        <td className="px-2 py-1.5 text-slate-700 font-mono text-xs">{student.numara}</td>
-                        <td className="px-2 py-1.5">
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium text-slate-800">{student.ogrenciAdi}</span>
-                            <span className="text-blue-500">📊</span>
-                          </div>
-                        </td>
-                        <td className="px-2 py-1.5 text-center text-slate-600">{student.cevapAnahtari}</td>
-                        <td className="px-2 py-1.5 text-center">
-                          <span className="px-2 py-0.5 bg-slate-200 rounded text-xs font-medium">8/{student.sube}</span>
-                        </td>
-                        <td className="px-2 py-1.5 text-center border-r border-slate-200">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            student.sayisalKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                          }`}>{student.sayisalKitapcik}</span>
-                        </td>
-                        <td className="px-2 py-1.5 text-center">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            student.sozelKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                          }`}>{student.sozelKitapcik}</span>
-                        </td>
-                        <td className="px-2 py-1.5 text-center font-bold text-green-600 bg-green-50/50">{student.dogruSayisi}</td>
-                        <td className="px-2 py-1.5 text-center font-bold text-red-600 bg-red-50/50">{student.yanlisSayisi}</td>
-                        <td className="px-2 py-1.5 text-center text-slate-500">{student.bosSayisi}</td>
-                        <td className="px-2 py-1.5 text-center text-orange-600 bg-orange-50/50">{student.hataliSayisi}</td>
-                        <td className="px-2 py-1.5 text-center font-bold text-blue-700 bg-blue-50/50">{formatNumber(student.netSayisi, 2)}</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-purple-600 bg-purple-50/50">{formatNumber(student.netYuzdesi, 2)}</td>
-                        <td className="px-2 py-1.5 text-center font-bold text-pink-600 bg-pink-50/50 border-r border-slate-200">{formatNumber(student.lgsPuani, 0)}</td>
-                        <td className="px-2 py-1.5 text-center text-green-600 bg-green-50/50">{student.subeLGS}</td>
-                        <td className="px-2 py-1.5 text-center text-green-600 bg-green-50/50">{student.okulLGS}</td>
-                        <td className="px-2 py-1.5 text-center text-green-600 bg-green-50/50">{student.subeNet}</td>
-                        <td className="px-2 py-1.5 text-center text-green-600 bg-green-50/50 border-r border-slate-200">{student.okulNet}</td>
-                        <td className="px-1 py-1.5 text-center" onClick={(e) => toggleRowSelection(index, e)}>
-                          <button className="w-5 h-5 bg-red-500 text-white rounded flex items-center justify-center hover:bg-red-600">
-                            <X size={12} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                <span className="text-slate-600">Çok İyi ({distribution.cokIyi})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="text-slate-600">İyi ({distribution.iyi})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                <span className="text-slate-600">Orta ({distribution.orta})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                <span className="text-slate-600">Gelişmeli ({distribution.gelismeli})</span>
               </div>
             </div>
           </div>
+        </motion.div>
 
-          {/* Footer Stats */}
-          <div className="bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-6 text-sm">
-              <span className="text-slate-500">
-                Toplam: <strong className="text-slate-700">{exam.toplamOgrenci}</strong>
-              </span>
-              <span className="text-slate-500">
-                Ortalama Net: <strong className="text-blue-600">
-                  {formatNumber(exam.ogrenciler.reduce((s, o) => s + o.netSayisi, 0) / Math.max(1, exam.ogrenciler.length), 2)}
-                </strong>
-              </span>
-              <span className="text-slate-500">
-                Seçili: <strong className="text-emerald-600">{selectedRows.size}</strong>
-              </span>
+        {/* Search & Filters */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-4"
+        >
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1 w-full">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Öğrenci ara (ad veya numara)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+              />
             </div>
             
+            {/* Quick Filters */}
             <div className="flex items-center gap-2">
-              <button 
-                onClick={loadData}
-                className="flex items-center gap-1 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded text-sm"
+              <button
+                onClick={() => setFilterDurum('all')}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  filterDurum === 'all' 
+                    ? 'bg-slate-800 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
               >
-                <RefreshCw size={14} />
-                Yenile
+                Tümü
               </button>
-              <button 
-                onClick={() => router.push(`/admin/akademik-analiz/karne?examId=${exam.id}`)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 text-white rounded text-sm hover:bg-emerald-600"
+              <button
+                onClick={() => setFilterDurum('cok-iyi')}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  filterDurum === 'cok-iyi' 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                }`}
               >
-                <FileDown size={14} />
-                Karne İndir
+                Çok İyi
               </button>
-              <button 
-                onClick={() => window.print()}
-                className="flex items-center gap-1 px-3 py-1.5 bg-slate-600 text-white rounded text-sm hover:bg-slate-700"
+              <button
+                onClick={() => setFilterDurum('gelismeli')}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  filterDurum === 'gelismeli' 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-red-50 text-red-700 hover:bg-red-100'
+                }`}
               >
-                <Printer size={14} />
-                Yazdır
+                Gelişmeli
               </button>
             </div>
           </div>
+        </motion.div>
+
+        {/* Results Table */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-16">
+                    Sıra
+                  </th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Öğrenci
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Sınıf
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-green-600 uppercase tracking-wider">
+                    Doğru
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-red-600 uppercase tracking-wider">
+                    Yanlış
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Boş
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => {
+                      if (sortField === 'net') setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+                      else { setSortField('net'); setSortOrder('desc'); }
+                    }}
+                  >
+                    Net {sortField === 'net' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-center text-xs font-semibold text-emerald-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => {
+                      if (sortField === 'puan') setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+                      else { setSortField('puan'); setSortOrder('desc'); }
+                    }}
+                  >
+                    Puan {sortField === 'puan' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Durum
+                  </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">
+                    Detay
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredStudents.map((student, index) => {
+                  const durumStyle = getDurumStyle(student.durum);
+                  
+                  return (
+                    <motion.tr 
+                      key={index}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                      onClick={() => router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam.id}&studentNo=${student.ogrenciNo}`)}
+                    >
+                      <td className="px-4 py-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                          student.sira <= 3 
+                            ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-200' 
+                            : student.sira <= 10 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {student.sira}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center text-slate-600 font-semibold">
+                            {student.ogrenciAdi.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors">
+                              {student.ogrenciAdi}
+                            </div>
+                            <div className="text-xs text-slate-400">No: {student.ogrenciNo}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-600 font-medium">
+                          {student.sinif}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-lg font-bold text-green-600">{student.dogru}</span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-lg font-bold text-red-500">{student.yanlis}</span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-lg text-slate-400">{student.bos}</span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-lg font-bold text-blue-600">{student.net.toFixed(2)}</span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-sm font-bold">
+                          {student.puan.toFixed(0)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${durumStyle.bg} ${durumStyle.text}`}>
+                          {getDurumLabel(student.durum)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <button className="p-2 hover:bg-emerald-100 rounded-xl transition-colors group-hover:text-emerald-600">
+                          <Eye size={18} />
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredStudents.length === 0 && (
+            <div className="p-12 text-center">
+              <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500">Aramanızla eşleşen öğrenci bulunamadı</p>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Footer */}
+        <div className="mt-6 flex items-center justify-between text-sm text-slate-500">
+          <span>{filteredStudents.length} öğrenci gösteriliyor</span>
+          <span>Son güncelleme: {new Date().toLocaleTimeString('tr-TR')}</span>
         </div>
       </div>
     </div>
@@ -544,8 +694,8 @@ function SonuclarContent() {
 export default function SonuclarPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#00a0e3]" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     }>
       <SonuclarContent />
