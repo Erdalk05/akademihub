@@ -260,10 +260,10 @@ export function createMappingFromDetection(detection: DetectionResult): {
   test_kodu?: string;
   kazanim_kodu?: string;
   kazanim_aciklama?: string;
-  kitapcik_a?: string;
-  b_cevap?: string;
-  c_cevap?: string;
-  d_cevap?: string;
+  a_soru_no?: string;
+  b_soru_no?: string;
+  c_soru_no?: string;
+  d_soru_no?: string;
   soru_degeri?: string;
 } {
   return {
@@ -271,14 +271,14 @@ export function createMappingFromDetection(detection: DetectionResult): {
     soru_no: detection.columns.KITAPCIK_A?.fileColumn || detection.columns.SORU_NO?.fileColumn || detection.columns.A_SORU_NO?.fileColumn || '',
     ders: detection.columns.DERS?.fileColumn || '',
     dogru_cevap: detection.columns.DOGRU_CEVAP?.fileColumn || '',
-    test_kodu: detection.columns.TEST_KODU?.fileColumn,
+    test_kodu: detection.columns.TEST_KODU?.fileColumn || detection.columns.DERS_KODU?.fileColumn,
     kazanim_kodu: detection.columns.KAZANIM_KODU?.fileColumn,
     kazanim_aciklama: detection.columns.KAZANIM_METNI?.fileColumn,
-    // Kitapçık bazlı cevaplar
-    kitapcik_a: detection.columns.KITAPCIK_A?.fileColumn,
-    b_cevap: detection.columns.B_CEVAP?.fileColumn,
-    c_cevap: detection.columns.C_CEVAP?.fileColumn,
-    d_cevap: detection.columns.D_CEVAP?.fileColumn,
+    // ✅ Kitapçık bazlı SORU NUMARALARI (parser.ts b_soru_no arıyor!)
+    a_soru_no: detection.columns.KITAPCIK_A?.fileColumn,
+    b_soru_no: detection.columns.B_CEVAP?.fileColumn || detection.columns.B_SORU_NO?.fileColumn,
+    c_soru_no: detection.columns.C_CEVAP?.fileColumn || detection.columns.C_SORU_NO?.fileColumn,
+    d_soru_no: detection.columns.D_CEVAP?.fileColumn || detection.columns.D_SORU_NO?.fileColumn,
     soru_degeri: detection.columns.SORU_DEGERI?.fileColumn,
   };
 }

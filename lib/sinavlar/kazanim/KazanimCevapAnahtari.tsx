@@ -454,6 +454,11 @@ export default function KazanimCevapAnahtari({
         // Örnek: A kitapçığında 1. soru = B kitapçığında 4. soru
         // Doğru cevap tüm kitapçıklar için aynı: CEVAP sütunundaki harf
         
+        // ✅ kitapcikSoruNo objesini OLUŞTUR
+        const kitapcikSoruNo: { A?: number; B?: number; C?: number; D?: number } = {
+          A: soruNo // A kitapçığı soru numarası her zaman var
+        };
+        
         // B Kitapçığı SORU NUMARASINI al (Sütun F) - 4, 3, 2, 1... gibi sayılar
         if (bSoruNoCol >= 0 && row[bSoruNoCol] !== undefined && row[bSoruNoCol] !== null) {
           const bSoruNoRaw = parseInt(String(row[bSoruNoCol]).trim(), 10);
