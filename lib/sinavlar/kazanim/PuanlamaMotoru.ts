@@ -1,11 +1,27 @@
 /**
- * PUANLAMA MOTORU
+ * PUANLAMA MOTORU V2.0
  * 
  * Bu modül öğrenci cevaplarını değerlendirir ve puanlar.
- * Kitapçık dönüşümü, net hesaplama ve sıralama işlemlerini yapar.
+ * 
+ * ÖZELLİKLER:
+ * - ✅ Esnek sınav mimarisi (KURUM sınavları için)
+ * - ✅ Test bazlı değerlendirme (her ders ayrı test)
+ * - ✅ Kitapçık bazlı tamamen farklı cevap anahtarları (A, B, C, D)
+ * - ✅ Değişken soru sayısı desteği
+ * - ✅ Test bazlı katsayılar
+ * - ✅ Geriye uyumluluk (eski fonksiyonlar korundu)
  */
 
-import { CevapAnahtariSatir, ParsedOptikSatir, DERS_ISIMLERI } from './types';
+import { 
+  CevapAnahtariSatir, 
+  ParsedOptikSatir, 
+  DERS_ISIMLERI,
+  Sinav,
+  SinavTesti,
+  KitapcikCevapAnahtari,
+  OgrenciSinavSonucu,
+  OgrenciTestSonucu
+} from './types';
 import { SINAV_KONFIGURASYONLARI, SinavTuru, DersDagilimi } from './sinavKonfigurasyonlari';
 
 // ============================================================================
@@ -399,6 +415,433 @@ export function istatistikHesapla(sonuclar: OgrenciDegerlendirmeSonucu[]): Sinav
     standartSapma: Math.round(standartSapma * 100) / 100,
     dersBazliOrtalama,
     netDagilimi: araliklar.map(a => ({ aralik: a.aralik, sayi: a.sayi }))
+  };
+}
+
+// ============================================================================
+// ESNEK PUANLAMA MOTORU V2.0
+// Özel kurum sınavları için test bazlı değerlendirme
+// ============================================================================
+
+/**
+ * Esnek sınav yapılandırması
+ * Özel kurum sınavları için kullanılır
+ */
+export interface EsnekSinavYapilandirmasi {
+  sinavAdi: string;
+  sinifSeviyesi: string;
+  
+  // Sınav türü (KURUM = özel tanımlı)
+  sinavTuru: 'KURUM' | 'LGS' | 'TYT' | 'AYT' | 'DGS' | 'KPSS';
+  
+  // Kitapçık türleri
+  kitapciklar: ('A' | 'B' | 'C' | 'D')[];
+  
+  // Testler (dersler)
+  testler: EsnekTestTanimi[];
+}
+
+export interface EsnekTestTanimi {
+  testAdi: string;           // "Matematik", "Türkçe"
+  dersKodu: string;          // "MAT", "TUR"
+  soruSayisi: number;        // Bu testteki soru sayısı (değişken!)
+  baslangicSoru: number;     // Sınavdaki başlangıç sorusu (örn: 21)
+  bitisSoru: number;         // Sınavdaki bitiş sorusu (örn: 40)
+  katsayi: number;           // Ağırlık katsayısı (örn: 1.5)
+  yanlisKatsayisi: number;   // Kaç yanlış = 1 doğru (0 = ceza yok)
+  
+  // Her kitapçık için cevaplar
+  kitapcikCevaplari: {
+    kitapcik: 'A' | 'B' | 'C' | 'D';
+    cevaplar: ('A' | 'B' | 'C' | 'D' | 'E')[];
+  }[];
+}
+
+/**
+ * Esnek değerlendirme sonucu
+ */
+export interface EsnekDegerlendirmeSonucu {
+  ogrenciNo: string;
+  ogrenciAdi: string;
+  sinif?: string;
+  kitapcik: 'A' | 'B' | 'C' | 'D';
+  
+  // Test bazlı sonuçlar
+  testSonuclari: EsnekTestSonucu[];
+  
+  // Genel toplam
+  toplamDogru: number;
+  toplamYanlis: number;
+  toplamBos: number;
+  toplamNet: number;
+  toplamKatsayiliPuan: number;
+  
+  // Sıralama
+  genelSira?: number;
+  sinifSira?: number;
+  
+  // Ham cevaplar (debug için)
+  tumCevaplar?: string[];
+}
+
+export interface EsnekTestSonucu {
+  testAdi: string;
+  dersKodu: string;
+  soruSayisi: number;
+  
+  dogru: number;
+  yanlis: number;
+  bos: number;
+  net: number;
+  
+  katsayi: number;
+  katsayiliPuan: number;
+  basariOrani: number;
+  
+  // Detaylı cevap analizi
+  cevapDetaylari?: {
+    soruNo: number;
+    dogruCevap: string;
+    ogrenciCevabi: string | null;
+    durum: 'dogru' | 'yanlis' | 'bos';
+  }[];
+}
+
+/**
+ * ESNEK PUANLAMA FONKSİYONU
+ * 
+ * Özel kurum sınavları için test bazlı değerlendirme yapar.
+ * Her test için ayrı katsayı ve yanlış ceza oranı uygulanır.
+ * Kitapçık türüne göre doğru cevap anahtarı kullanılır.
+ */
+export function esnekDegerlendir(
+  ogrenci: ParsedOptikSatir,
+  yapilandirma: EsnekSinavYapilandirmasi
+): EsnekDegerlendirmeSonucu {
+  const kitapcik = (ogrenci.kitapcik || 'A') as 'A' | 'B' | 'C' | 'D';
+  const tumCevaplar = ogrenci.cevaplar || [];
+  
+  let toplamDogru = 0;
+  let toplamYanlis = 0;
+  let toplamBos = 0;
+  let toplamNet = 0;
+  let toplamKatsayiliPuan = 0;
+  
+  const testSonuclari: EsnekTestSonucu[] = [];
+  
+  // Her testi ayrı ayrı değerlendir
+  yapilandirma.testler.forEach(test => {
+    // Bu kitapçık için cevap anahtarını bul
+    const kitapcikCevap = test.kitapcikCevaplari.find(kc => kc.kitapcik === kitapcik);
+    
+    if (!kitapcikCevap) {
+      console.warn(`Kitapçık ${kitapcik} için cevap bulunamadı: ${test.testAdi}`);
+      return;
+    }
+    
+    const dogruCevaplar = kitapcikCevap.cevaplar;
+    
+    // Öğrencinin bu testteki cevaplarını al
+    const baslangicIdx = test.baslangicSoru - 1; // 0-indexed
+    const ogrenciCevaplari = tumCevaplar.slice(baslangicIdx, baslangicIdx + test.soruSayisi);
+    
+    let dogru = 0;
+    let yanlis = 0;
+    let bos = 0;
+    const cevapDetaylari: EsnekTestSonucu['cevapDetaylari'] = [];
+    
+    // Her soruyu değerlendir
+    for (let i = 0; i < test.soruSayisi; i++) {
+      const dogruCevap = dogruCevaplar[i] || '';
+      const ogrenciCevabi = ogrenciCevaplari[i] || null;
+      
+      let durum: 'dogru' | 'yanlis' | 'bos' = 'bos';
+      
+      if (!ogrenciCevabi || ogrenciCevabi.trim() === '') {
+        bos++;
+        durum = 'bos';
+      } else if (ogrenciCevabi.toUpperCase() === dogruCevap.toUpperCase()) {
+        dogru++;
+        durum = 'dogru';
+      } else {
+        yanlis++;
+        durum = 'yanlis';
+      }
+      
+      cevapDetaylari.push({
+        soruNo: test.baslangicSoru + i,
+        dogruCevap,
+        ogrenciCevabi,
+        durum
+      });
+    }
+    
+    // Net hesapla
+    let net = dogru;
+    if (test.yanlisKatsayisi > 0) {
+      net = dogru - (yanlis / test.yanlisKatsayisi);
+    }
+    
+    // Katsayılı puan
+    const katsayiliPuan = net * test.katsayi;
+    
+    // Başarı oranı
+    const basariOrani = test.soruSayisi > 0 
+      ? Math.round((dogru / test.soruSayisi) * 100) 
+      : 0;
+    
+    testSonuclari.push({
+      testAdi: test.testAdi,
+      dersKodu: test.dersKodu,
+      soruSayisi: test.soruSayisi,
+      dogru,
+      yanlis,
+      bos,
+      net: Math.round(net * 100) / 100,
+      katsayi: test.katsayi,
+      katsayiliPuan: Math.round(katsayiliPuan * 100) / 100,
+      basariOrani,
+      cevapDetaylari
+    });
+    
+    // Toplamları güncelle
+    toplamDogru += dogru;
+    toplamYanlis += yanlis;
+    toplamBos += bos;
+    toplamNet += net;
+    toplamKatsayiliPuan += katsayiliPuan;
+  });
+  
+  return {
+    ogrenciNo: ogrenci.ogrenciNo || '',
+    ogrenciAdi: ogrenci.ogrenciAdi || '',
+    sinif: ogrenci.sinifNo,
+    kitapcik,
+    testSonuclari,
+    toplamDogru,
+    toplamYanlis,
+    toplamBos,
+    toplamNet: Math.round(toplamNet * 100) / 100,
+    toplamKatsayiliPuan: Math.round(toplamKatsayiliPuan * 100) / 100,
+    tumCevaplar
+  };
+}
+
+/**
+ * TOPLU ESNEK DEĞERLENDİRME
+ * 
+ * Tüm öğrencileri esnek yapılandırma ile değerlendirir.
+ * Genel ve sınıf sıralaması hesaplar.
+ */
+export function topluEsnekDegerlendir(
+  ogrenciler: ParsedOptikSatir[],
+  yapilandirma: EsnekSinavYapilandirmasi
+): EsnekDegerlendirmeSonucu[] {
+  // Her öğrenciyi değerlendir
+  const sonuclar = ogrenciler.map(ogr => esnekDegerlendir(ogr, yapilandirma));
+  
+  // Genel sıralama (katsayılı puana göre)
+  const genelSirali = [...sonuclar].sort((a, b) => b.toplamKatsayiliPuan - a.toplamKatsayiliPuan);
+  genelSirali.forEach((sonuc, idx) => {
+    const orijinal = sonuclar.find(s => s.ogrenciNo === sonuc.ogrenciNo);
+    if (orijinal) {
+      orijinal.genelSira = idx + 1;
+    }
+  });
+  
+  // Sınıf bazlı sıralama
+  const sinifGruplari: Record<string, EsnekDegerlendirmeSonucu[]> = {};
+  sonuclar.forEach(sonuc => {
+    const sinif = sonuc.sinif || 'Bilinmiyor';
+    if (!sinifGruplari[sinif]) {
+      sinifGruplari[sinif] = [];
+    }
+    sinifGruplari[sinif].push(sonuc);
+  });
+  
+  Object.values(sinifGruplari).forEach(grup => {
+    const sinifSirali = [...grup].sort((a, b) => b.toplamKatsayiliPuan - a.toplamKatsayiliPuan);
+    sinifSirali.forEach((sonuc, idx) => {
+      sonuc.sinifSira = idx + 1;
+    });
+  });
+  
+  return sonuclar;
+}
+
+/**
+ * ESNEK SINAV İSTATİSTİKLERİ
+ */
+export interface EsnekSinavIstatistikleri {
+  toplamOgrenci: number;
+  ortalamaNet: number;
+  ortalamaPuan: number;
+  enYuksekPuan: number;
+  enDusukPuan: number;
+  standartSapma: number;
+  
+  testBazliOrtalama: {
+    testAdi: string;
+    dersKodu: string;
+    ortalamaNet: number;
+    ortalamaBasari: number;
+    soruSayisi: number;
+  }[];
+}
+
+export function esnekIstatistikHesapla(sonuclar: EsnekDegerlendirmeSonucu[]): EsnekSinavIstatistikleri {
+  if (sonuclar.length === 0) {
+    return {
+      toplamOgrenci: 0,
+      ortalamaNet: 0,
+      ortalamaPuan: 0,
+      enYuksekPuan: 0,
+      enDusukPuan: 0,
+      standartSapma: 0,
+      testBazliOrtalama: []
+    };
+  }
+  
+  const puanlar = sonuclar.map(s => s.toplamKatsayiliPuan);
+  const netler = sonuclar.map(s => s.toplamNet);
+  
+  const ortalamaNet = netler.reduce((a, b) => a + b, 0) / netler.length;
+  const ortalamaPuan = puanlar.reduce((a, b) => a + b, 0) / puanlar.length;
+  const enYuksekPuan = Math.max(...puanlar);
+  const enDusukPuan = Math.min(...puanlar);
+  
+  // Standart sapma
+  const varyans = puanlar.reduce((acc, p) => acc + Math.pow(p - ortalamaPuan, 2), 0) / puanlar.length;
+  const standartSapma = Math.sqrt(varyans);
+  
+  // Test bazlı ortalamalar
+  const testToplam: Record<string, { net: number; basari: number; sayi: number; dersKodu: string; soruSayisi: number }> = {};
+  
+  sonuclar.forEach(sonuc => {
+    sonuc.testSonuclari.forEach(test => {
+      if (!testToplam[test.testAdi]) {
+        testToplam[test.testAdi] = { 
+          net: 0, 
+          basari: 0, 
+          sayi: 0, 
+          dersKodu: test.dersKodu,
+          soruSayisi: test.soruSayisi
+        };
+      }
+      testToplam[test.testAdi].net += test.net;
+      testToplam[test.testAdi].basari += test.basariOrani;
+      testToplam[test.testAdi].sayi++;
+    });
+  });
+  
+  const testBazliOrtalama = Object.entries(testToplam).map(([ad, veri]) => ({
+    testAdi: ad,
+    dersKodu: veri.dersKodu,
+    ortalamaNet: Math.round((veri.net / veri.sayi) * 100) / 100,
+    ortalamaBasari: Math.round(veri.basari / veri.sayi),
+    soruSayisi: veri.soruSayisi
+  }));
+  
+  return {
+    toplamOgrenci: sonuclar.length,
+    ortalamaNet: Math.round(ortalamaNet * 100) / 100,
+    ortalamaPuan: Math.round(ortalamaPuan * 100) / 100,
+    enYuksekPuan: Math.round(enYuksekPuan * 100) / 100,
+    enDusukPuan: Math.round(enDusukPuan * 100) / 100,
+    standartSapma: Math.round(standartSapma * 100) / 100,
+    testBazliOrtalama
+  };
+}
+
+/**
+ * CevapAnahtariSatir'dan EsnekSinavYapilandirmasi oluştur
+ * 
+ * Mevcut sistemle uyumluluk için dönüştürücü
+ */
+export function cevapAnahtarindanYapilandirmaOlustur(
+  cevapAnahtari: CevapAnahtariSatir[],
+  sinavAdi: string,
+  sinifSeviyesi: string,
+  yanlisKatsayisi: number = 4
+): EsnekSinavYapilandirmasi {
+  // Derslere göre grupla
+  const dersGruplari: Record<string, CevapAnahtariSatir[]> = {};
+  
+  cevapAnahtari.forEach(satir => {
+    if (!dersGruplari[satir.dersKodu]) {
+      dersGruplari[satir.dersKodu] = [];
+    }
+    dersGruplari[satir.dersKodu].push(satir);
+  });
+  
+  // Kitapçık türlerini tespit et
+  const kitapciklar = new Set<'A' | 'B' | 'C' | 'D'>();
+  kitapciklar.add('A'); // A her zaman var
+  
+  cevapAnahtari.forEach(satir => {
+    if (satir.kitapcikSoruNo?.B) kitapciklar.add('B');
+    if (satir.kitapcikSoruNo?.C) kitapciklar.add('C');
+    if (satir.kitapcikSoruNo?.D) kitapciklar.add('D');
+  });
+  
+  // Testleri oluştur
+  let simdikiSoru = 1;
+  const testler: EsnekTestTanimi[] = [];
+  
+  Object.entries(dersGruplari).forEach(([dersKodu, satirlar]) => {
+    // Sırala
+    satirlar.sort((a, b) => a.soruNo - b.soruNo);
+    
+    const soruSayisi = satirlar.length;
+    const baslangicSoru = simdikiSoru;
+    const bitisSoru = simdikiSoru + soruSayisi - 1;
+    
+    // Her kitapçık için cevapları oluştur
+    const kitapcikCevaplari: EsnekTestTanimi['kitapcikCevaplari'] = [];
+    
+    // A kitapçığı (referans)
+    kitapcikCevaplari.push({
+      kitapcik: 'A',
+      cevaplar: satirlar.map(s => s.dogruCevap)
+    });
+    
+    // Diğer kitapçıklar için dönüştür
+    (['B', 'C', 'D'] as const).forEach(kit => {
+      if (kitapciklar.has(kit)) {
+        // Kitapçık soru numaralarına göre sırala
+        const kitSatirlar = [...satirlar].sort((a, b) => {
+          const aNo = a.kitapcikSoruNo?.[kit] || a.soruNo;
+          const bNo = b.kitapcikSoruNo?.[kit] || b.soruNo;
+          return aNo - bNo;
+        });
+        
+        kitapcikCevaplari.push({
+          kitapcik: kit,
+          cevaplar: kitSatirlar.map(s => s.dogruCevap)
+        });
+      }
+    });
+    
+    testler.push({
+      testAdi: DERS_ISIMLERI[dersKodu] || dersKodu,
+      dersKodu,
+      soruSayisi,
+      baslangicSoru,
+      bitisSoru,
+      katsayi: 1.0, // Varsayılan
+      yanlisKatsayisi,
+      kitapcikCevaplari
+    });
+    
+    simdikiSoru = bitisSoru + 1;
+  });
+  
+  return {
+    sinavAdi,
+    sinifSeviyesi,
+    sinavTuru: 'KURUM',
+    kitapciklar: Array.from(kitapciklar),
+    testler
   };
 }
 

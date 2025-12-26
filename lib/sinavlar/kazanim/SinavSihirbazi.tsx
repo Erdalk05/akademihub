@@ -28,6 +28,13 @@ import OptikVeriParser from './OptikVeriParser';
 import SablonKutuphanesi from './SablonKutuphanesi';
 import { CevapAnahtariSatir, OptikSablon, ParsedOptikSatir, DERS_ISIMLERI } from './types';
 import { SINAV_KONFIGURASYONLARI, SINIF_BILGILERI, SinavTuru, SinifSeviyesi } from './sinavKonfigurasyonlari';
+import { 
+  cevapAnahtarindanYapilandirmaOlustur, 
+  topluEsnekDegerlendir, 
+  esnekIstatistikHesapla,
+  EsnekDegerlendirmeSonucu,
+  EsnekSinavYapilandirmasi 
+} from './PuanlamaMotoru';
 
 interface SinavSihirbaziProps {
   organizationId: string;
@@ -135,66 +142,67 @@ export default function SinavSihirbazi({
     }
   };
 
-  // Sonuçları hesapla
+  // Sonuçları hesapla - YENİ ESNEK MOTOR
   const calculateResults = useCallback(() => {
     if (cevapAnahtari.length === 0 || parsedOgrenciler.length === 0) return;
 
-    const results = parsedOgrenciler.map(ogrenci => {
-      let toplamDogru = 0;
-      let toplamYanlis = 0;
-      let toplamBos = 0;
-      const dersBazli: Record<string, { dogru: number; yanlis: number; bos: number }> = {};
+    // Yanlış katsayısını belirle
+    let yanlisKatsayisi = 4; // Varsayılan
+    if (sinavBilgisi.tip === 'LGS') {
+      yanlisKatsayisi = 3;
+    } else if (sinavBilgisi.tip === 'DENEME' && sinavBilgisi.yanlisKatsayisi !== undefined) {
+      yanlisKatsayisi = sinavBilgisi.yanlisKatsayisi;
+    }
 
-      ogrenci.cevaplar.forEach((cevap, index) => {
-        const soruNo = index + 1;
-        const anahtarSatir = cevapAnahtari.find(a => a.soruNo === soruNo);
-        
-        if (!anahtarSatir) return;
+    // Esnek yapılandırma oluştur
+    const yapilandirma = cevapAnahtarindanYapilandirmaOlustur(
+      cevapAnahtari,
+      sinavBilgisi.ad,
+      sinavBilgisi.sinifSeviyesi || '8',
+      yanlisKatsayisi
+    );
 
-        const dersKodu = anahtarSatir.dersKodu;
-        if (!dersBazli[dersKodu]) {
-          dersBazli[dersKodu] = { dogru: 0, yanlis: 0, bos: 0 };
-        }
+    console.log('📊 Esnek Sınav Yapılandırması:', yapilandirma);
 
-        if (cevap === null || cevap === '') {
-          toplamBos++;
-          dersBazli[dersKodu].bos++;
-        } else if (cevap === anahtarSatir.dogruCevap) {
-          toplamDogru++;
-          dersBazli[dersKodu].dogru++;
-        } else {
-          toplamYanlis++;
-          dersBazli[dersKodu].yanlis++;
-        }
-      });
+    // Esnek puanlama motorunu kullan
+    const esnekSonuclar = topluEsnekDegerlendir(parsedOgrenciler, yapilandirma);
+    
+    console.log('✅ Esnek Değerlendirme Tamamlandı:', esnekSonuclar.length, 'öğrenci');
 
-      // Net hesaplama (LGS: 1/3, TYT/AYT: 1/4)
-      const penaltyDivisor = sinavBilgisi.tip === 'LGS' ? 3 : 4;
-      const toplamNet = toplamDogru - (toplamYanlis / penaltyDivisor);
+    // Sonuçları eski formata dönüştür (geriye uyumluluk)
+    const results = esnekSonuclar.map(sonuc => ({
+      ogrenciNo: sonuc.ogrenciNo,
+      ogrenciAdi: sonuc.ogrenciAdi,
+      sinifNo: sonuc.sinif,
+      kitapcik: sonuc.kitapcik,
+      toplamDogru: sonuc.toplamDogru,
+      toplamYanlis: sonuc.toplamYanlis,
+      toplamBos: sonuc.toplamBos,
+      toplamNet: sonuc.toplamNet,
+      toplamPuan: sonuc.toplamKatsayiliPuan,
+      siralama: sonuc.genelSira || 0,
+      sinifSira: sonuc.sinifSira || 0,
+      // Test bazlı sonuçlar (yeni!)
+      testSonuclari: sonuc.testSonuclari,
+      dersBazli: sonuc.testSonuclari.map(t => ({
+        dersKodu: t.dersKodu,
+        dersAdi: t.testAdi,
+        dogru: t.dogru,
+        yanlis: t.yanlis,
+        bos: t.bos,
+        net: t.net,
+        basariOrani: t.basariOrani,
+        katsayi: t.katsayi,
+        katsayiliPuan: t.katsayiliPuan
+      }))
+    }));
 
-      return {
-        ...ogrenci,
-        toplamDogru,
-        toplamYanlis,
-        toplamBos,
-        toplamNet,
-        dersBazli: Object.entries(dersBazli).map(([kod, sonuc]) => ({
-          dersKodu: kod,
-          dersAdi: DERS_ISIMLERI[kod] || kod,
-          ...sonuc,
-          net: sonuc.dogru - (sonuc.yanlis / penaltyDivisor)
-        }))
-      };
-    });
-
-    // Sıralama
-    results.sort((a, b) => b.toplamNet - a.toplamNet);
-    results.forEach((r, i) => {
-      r.siralama = i + 1;
-    });
+    // İstatistikler
+    const istatistikler = esnekIstatistikHesapla(esnekSonuclar);
+    console.log('📈 İstatistikler:', istatistikler);
 
     setSonuclar(results);
-  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi.tip]);
+  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi]);
 
   // Adım 4'ten 5'e geçerken sonuçları hesapla
   useEffect(() => {
@@ -203,11 +211,10 @@ export default function SinavSihirbazi({
     }
   }, [currentStep, calculateResults]);
 
-  // Sihirbazı tamamla
+  // Sihirbazı tamamla - Esnek Motor Entegreli
   const handleComplete = async () => {
     setIsLoading(true);
     
-    // Debug log
     console.log('🔍 Kaydetme başladı:', {
       sinavBilgisi,
       cevapAnahtariLength: cevapAnahtari.length,
@@ -215,54 +222,58 @@ export default function SinavSihirbazi({
       sonuclarLength: sonuclar.length
     });
     
-    // Eğer sonuçlar henüz hesaplanmadıysa, tekrar hesapla
     let finalSonuclar = sonuclar;
+    
+    // Eğer sonuçlar henüz hesaplanmadıysa, esnek motor ile hesapla
     if (sonuclar.length === 0 && parsedOgrenciler.length > 0) {
-      console.log('⚠️ Sonuçlar boş, hesaplanıyor...');
+      console.log('⚠️ Sonuçlar boş, esnek motor ile hesaplanıyor...');
       
-      finalSonuclar = parsedOgrenciler.map(ogrenci => {
-        let toplamDogru = 0;
-        let toplamYanlis = 0;
-        let toplamBos = 0;
-        
-        ogrenci.cevaplar.forEach((cevap, index) => {
-          const soruNo = index + 1;
-          const anahtarSatir = cevapAnahtari.find(a => a.soruNo === soruNo);
-          
-          if (!anahtarSatir) return;
-          
-          if (!cevap || cevap === ' ' || cevap === '') {
-            toplamBos++;
-          } else if (cevap.toUpperCase() === anahtarSatir.dogruCevap) {
-            toplamDogru++;
-          } else {
-            toplamYanlis++;
-          }
-        });
-        
-        const yanlisKatsayisi = sinavBilgisi.tip === 'LGS' ? 3 : 4;
-        const toplamNet = toplamDogru - (toplamYanlis / yanlisKatsayisi);
-        
-        return {
-          ogrenciNo: ogrenci.ogrenciNo,
-          ogrenciAdi: ogrenci.ogrenciAdi,
-          kitapcik: ogrenci.kitapcik,
-          toplamDogru,
-          toplamYanlis,
-          toplamBos,
-          toplamNet: Math.max(0, toplamNet),
-          siralama: 0
-        };
-      });
+      // Yanlış katsayısını belirle
+      let yanlisKatsayisi = 4;
+      if (sinavBilgisi.tip === 'LGS') {
+        yanlisKatsayisi = 3;
+      } else if (sinavBilgisi.tip === 'DENEME' && sinavBilgisi.yanlisKatsayisi !== undefined) {
+        yanlisKatsayisi = sinavBilgisi.yanlisKatsayisi;
+      }
       
-      // Sıralama
-      finalSonuclar.sort((a, b) => b.toplamNet - a.toplamNet);
-      finalSonuclar.forEach((r, i) => {
-        r.siralama = i + 1;
-      });
+      // Esnek yapılandırma oluştur
+      const yapilandirma = cevapAnahtarindanYapilandirmaOlustur(
+        cevapAnahtari,
+        sinavBilgisi.ad,
+        sinavBilgisi.sinifSeviyesi || '8',
+        yanlisKatsayisi
+      );
+      
+      // Esnek puanlama
+      const esnekSonuclar = topluEsnekDegerlendir(parsedOgrenciler, yapilandirma);
+      
+      // Dönüştür
+      finalSonuclar = esnekSonuclar.map(sonuc => ({
+        ogrenciNo: sonuc.ogrenciNo,
+        ogrenciAdi: sonuc.ogrenciAdi,
+        sinifNo: sonuc.sinif,
+        kitapcik: sonuc.kitapcik,
+        toplamDogru: sonuc.toplamDogru,
+        toplamYanlis: sonuc.toplamYanlis,
+        toplamBos: sonuc.toplamBos,
+        toplamNet: sonuc.toplamNet,
+        toplamPuan: sonuc.toplamKatsayiliPuan,
+        siralama: sonuc.genelSira || 0,
+        sinifSira: sonuc.sinifSira || 0,
+        testSonuclari: sonuc.testSonuclari,
+        dersBazli: sonuc.testSonuclari.map(t => ({
+          dersKodu: t.dersKodu,
+          dersAdi: t.testAdi,
+          dogru: t.dogru,
+          yanlis: t.yanlis,
+          bos: t.bos,
+          net: t.net,
+          basariOrani: t.basariOrani
+        }))
+      }));
     }
     
-    console.log('✅ Kaydetme tamamlandı, sonuç sayısı:', finalSonuclar.length);
+    console.log('✅ Kaydetme tamamlandı:', finalSonuclar.length, 'öğrenci');
     
     try {
       onComplete?.({
@@ -676,28 +687,85 @@ export default function SinavSihirbazi({
                   </div>
                 </div>
 
+                {/* Test/Ders Bazlı İstatistikler */}
+                {sonuclar.length > 0 && sonuclar[0]?.dersBazli && (
+                  <div className="mb-6">
+                    <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                      📊 Ders Bazlı Ortalamalar
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                      {(() => {
+                        // Tüm öğrencilerin ders sonuçlarını topla
+                        const dersOrtalama: Record<string, { toplamNet: number; toplamBasari: number; sayi: number; dersAdi: string }> = {};
+                        
+                        sonuclar.forEach(s => {
+                          s.dersBazli?.forEach((d: any) => {
+                            if (!dersOrtalama[d.dersKodu]) {
+                              dersOrtalama[d.dersKodu] = { toplamNet: 0, toplamBasari: 0, sayi: 0, dersAdi: d.dersAdi };
+                            }
+                            dersOrtalama[d.dersKodu].toplamNet += d.net;
+                            dersOrtalama[d.dersKodu].toplamBasari += d.basariOrani || 0;
+                            dersOrtalama[d.dersKodu].sayi++;
+                          });
+                        });
+
+                        return Object.entries(dersOrtalama).map(([kod, veri]) => (
+                          <div key={kod} className="p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
+                            <div className="text-xs font-semibold text-slate-500 mb-1">{veri.dersAdi}</div>
+                            <div className="text-lg font-bold text-slate-800">
+                              {(veri.toplamNet / veri.sayi).toFixed(2)}
+                            </div>
+                            <div className="text-xs text-emerald-600">
+                              %{Math.round(veri.toplamBasari / veri.sayi)} başarı
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 {/* İlk 5 Öğrenci */}
                 {sonuclar.length > 0 && (
                   <div>
-                    <h4 className="font-medium text-slate-700 mb-3">İlk 5 Öğrenci:</h4>
+                    <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                      🏆 İlk 5 Öğrenci
+                    </h4>
                     <div className="overflow-hidden rounded-xl border border-slate-200">
                       <table className="w-full text-sm">
-                        <thead className="bg-slate-100">
+                        <thead className="bg-gradient-to-r from-emerald-500 to-green-600 text-white">
                           <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Sıra</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Öğrenci</th>
-                            <th className="px-4 py-3 text-center font-semibold text-slate-600">Net</th>
-                            <th className="px-4 py-3 text-center font-semibold text-slate-600">Puan</th>
+                            <th className="px-4 py-3 text-left font-semibold">Sıra</th>
+                            <th className="px-4 py-3 text-left font-semibold">Öğrenci</th>
+                            <th className="px-4 py-3 text-center font-semibold">D</th>
+                            <th className="px-4 py-3 text-center font-semibold">Y</th>
+                            <th className="px-4 py-3 text-center font-semibold">B</th>
+                            <th className="px-4 py-3 text-center font-semibold">Net</th>
+                            <th className="px-4 py-3 text-center font-semibold">Puan</th>
                           </tr>
                         </thead>
                         <tbody>
                           {sonuclar.slice(0, 5).map((sonuc, i) => (
-                            <tr key={i} className="border-t border-slate-100">
-                              <td className="px-4 py-3 font-bold text-emerald-600">{sonuc.siralama}</td>
-                              <td className="px-4 py-3">{cleanName(sonuc.ogrenciAdi) || sonuc.ogrenciNo}</td>
-                              <td className="px-4 py-3 text-center font-semibold">{sonuc.toplamNet.toFixed(2)}</td>
-                              <td className="px-4 py-3 text-center text-emerald-600 font-bold">
-                                {(sonuc.toplamNet * 5).toFixed(2)}
+                            <tr key={i} className={`border-t border-slate-100 ${i === 0 ? 'bg-yellow-50' : i === 1 ? 'bg-slate-50' : i === 2 ? 'bg-amber-50' : ''}`}>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
+                                  i === 0 ? 'bg-yellow-400 text-yellow-900' :
+                                  i === 1 ? 'bg-slate-300 text-slate-700' :
+                                  i === 2 ? 'bg-amber-300 text-amber-900' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {sonuc.siralama}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-medium">{cleanName(sonuc.ogrenciAdi) || sonuc.ogrenciNo}</td>
+                              <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{sonuc.toplamDogru}</td>
+                              <td className="px-4 py-3 text-center text-red-500 font-semibold">{sonuc.toplamYanlis}</td>
+                              <td className="px-4 py-3 text-center text-slate-400">{sonuc.toplamBos}</td>
+                              <td className="px-4 py-3 text-center font-bold text-slate-800">{sonuc.toplamNet.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
+                                  {(sonuc.toplamPuan || sonuc.toplamNet * 5).toFixed(2)}
+                                </span>
                               </td>
                             </tr>
                           ))}
