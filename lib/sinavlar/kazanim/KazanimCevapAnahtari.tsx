@@ -268,18 +268,22 @@ export default function KazanimCevapAnahtari({
       };
 
       // Sütun indekslerini bul - Excel'deki başlıklara göre
-      // TEST KODU | DERSADI | A Soru No | B Soru No | DoğruCevap | Kazanım Kodu | Kazanım Metni
-      const testKoduCol = findCol(['TEST KODU', 'TESTKODU', 'TEST']);
-      const dersAdiCol = findCol(['DERSADI', 'DERS ADI', 'DERS']);
+      // DERS KODU | DERS | KİTAPÇIK A | SORU DEĞERİ | CEVAP | B KİTAPÇIĞI CEVAP | KAZANIM KODU | KAZANIM METNİ
+      const testKoduCol = findCol(['DERS KODU', 'DERSKODU', 'TEST KODU', 'TESTKODU', 'TEST']);
+      const dersAdiCol = findCol(['DERS', 'DERSADI', 'DERS ADI']);
       
       // A/B/C/D Kitapçık Soru Numaraları
-      const aSoruNoCol = findCol(['A SORU NO', 'ASORUNO', 'A SORU', 'SORU NO', 'SORUNO']);
-      const bSoruNoCol = findCol(['B SORU NO', 'BSORUNO', 'B SORU']);
-      const cSoruNoCol = findCol(['C SORU NO', 'CSORUNO', 'C SORU']);
-      const dSoruNoCol = findCol(['D SORU NO', 'DSORUNO', 'D SORU']);
+      const aSoruNoCol = findCol(['KİTAPÇIK A', 'KITAPCIK A', 'A SORU NO', 'ASORUNO', 'A SORU', 'SORU NO', 'SORUNO']);
+      const bSoruNoCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'KİTAPÇIK B', 'KITAPCIK B', 'B SORU NO', 'BSORUNO', 'B SORU']);
+      const cSoruNoCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'KİTAPÇIK C', 'KITAPCIK C', 'C SORU NO', 'CSORUNO', 'C SORU']);
+      const dSoruNoCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'KİTAPÇIK D', 'KITAPCIK D', 'D SORU NO', 'DSORUNO', 'D SORU']);
+      
+      // Soru Değeri
+      const soruDegeriCol = findCol(['SORU DEĞERİ', 'SORU DEGERI', 'SORUDEGERI', 'DEGER', 'PUAN']);
       
       // Doğru Cevap
-      const cevapCol = findCol(['DOGRUCEVAP', 'DOGRU CEVAP', 'CEVAP', 'YANIT']);
+      // Doğru Cevap
+      const cevapCol = findCol(['CEVAP', 'DOGRUCEVAP', 'DOGRU CEVAP', 'YANIT', 'DOĞRU CEVAP', 'DOGRU']);
       
       // Kazanım Kodu ve Metni - ayrı ayrı ara
       let kazanimKoduCol = -1;
@@ -853,7 +857,7 @@ export default function KazanimCevapAnahtari({
                     Fuzzy matching ile otomatik sütun algılama:
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {['TEST KODU', 'DERS ADI', 'A/B/C/D SORU NO', 'DOĞRU CEVAP', 'KAZANIM KODU', 'KAZANIM METNİ'].map(col => (
+                    {['DERS KODU', 'DERS', 'KİTAPÇIK A', 'SORU DEĞERİ', 'CEVAP', 'B KİTAPÇIĞI CEVAP', 'KAZANIM KODU', 'KAZANIM METNİ'].map(col => (
                       <span key={col} className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-mono text-xs">
                         {col}
                       </span>
@@ -882,7 +886,8 @@ export default function KazanimCevapAnahtari({
             placeholder={`Cevap anahtarını buraya yapıştırın...
 
 Örnek format (tab veya virgülle ayrılmış):
-TUR1    TÜRKÇE    1    20    B    T.8.3.5    Kazanım açıklaması
+DERS KODU    DERS    KİTAPÇIK A    SORU DEĞERİ    CEVAP    B KİTAPÇIĞI CEVAP    KAZANIM KODU    KAZANIM METNİ
+TUR1    TÜRKÇE    1    1    B    A    T.8.3.5    Okuduğu metinleri anlama...
 TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
             className="w-full h-48 p-4 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none resize-none font-mono text-sm"
           />

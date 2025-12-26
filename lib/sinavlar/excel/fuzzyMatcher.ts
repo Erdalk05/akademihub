@@ -11,10 +11,14 @@ import { FuzzyMatchConfig } from './types';
  * Predefined column configurations
  */
 export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
+  // DERS KODU (eski: TEST KODU)
   TEST_KODU: {
-    target: 'TEST_KODU',
+    target: 'DERS_KODU',
     aliases: [
+      'ders kodu',
+      'derskodu',
       'test kodu',
+      'testkodu',
       'test',
       'kod',
       'test no',
@@ -26,6 +30,27 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
+  // DERS ADI
+  DERS: {
+    target: 'DERS',
+    aliases: [
+      'ders',
+      'dersler',
+      'ders adı',
+      'ders adi',
+      'dersadi',
+      'subject',
+      'lesson',
+      'alan',
+      'alan adı',
+      'test adı'
+    ],
+    threshold: 0.7,
+    caseSensitive: false,
+    turkishNormalize: true
+  },
+  
+  // SORU NO
   SORU_NO: {
     target: 'SORU_NO',
     aliases: [
@@ -44,30 +69,32 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
-  DERS: {
-    target: 'DERS',
+  // SORU DEĞERİ (yeni)
+  SORU_DEGERI: {
+    target: 'SORU_DEGERI',
     aliases: [
-      'ders',
-      'dersler',
-      'ders adı',
-      'ders adi',
-      'subject',
-      'lesson',
-      'alan',
-      'alan adı',
-      'test adı'
+      'soru değeri',
+      'soru degeri',
+      'sorudegeri',
+      'değer',
+      'deger',
+      'puan',
+      'ağırlık',
+      'agirlik'
     ],
     threshold: 0.7,
     caseSensitive: false,
     turkishNormalize: true
   },
   
+  // CEVAP (eski: DOĞRU CEVAP)
   DOGRU_CEVAP: {
-    target: 'DOGRU_CEVAP',
+    target: 'CEVAP',
     aliases: [
       'cevap',
       'doğru cevap',
       'dogru cevap',
+      'dogrucevap',
       'cevap anahtarı',
       'cevap anahtari',
       'doğru',
@@ -83,14 +110,18 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
+  // KİTAPÇIK A (eski: A SORU NO)
   A_SORU_NO: {
-    target: 'A_SORU_NO',
+    target: 'KITAPCIK_A',
     aliases: [
+      'kitapçık a',
+      'kitapcik a',
+      'a kitapçık',
+      'a kitapcik',
       'a soru no',
       'a soru',
       'a kitapçık soru',
       'soru no a',
-      'a',
       'a no'
     ],
     threshold: 0.7,
@@ -98,14 +129,20 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
+  // B KİTAPÇIĞI CEVAP (eski: B SORU NO)
   B_SORU_NO: {
-    target: 'B_SORU_NO',
+    target: 'B_KITAPCIGI_CEVAP',
     aliases: [
+      'b kitapçığı cevap',
+      'b kitapcigi cevap',
+      'kitapçık b',
+      'kitapcik b',
+      'b kitapçık',
+      'b kitapcik',
       'b soru no',
       'b soru',
       'b kitapçık soru',
       'soru no b',
-      'b',
       'b no'
     ],
     threshold: 0.7,
@@ -113,14 +150,20 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
+  // C KİTAPÇIĞI CEVAP
   C_SORU_NO: {
-    target: 'C_SORU_NO',
+    target: 'C_KITAPCIGI_CEVAP',
     aliases: [
+      'c kitapçığı cevap',
+      'c kitapcigi cevap',
+      'kitapçık c',
+      'kitapcik c',
+      'c kitapçık',
+      'c kitapcik',
       'c soru no',
       'c soru',
       'c kitapçık soru',
       'soru no c',
-      'c',
       'c no'
     ],
     threshold: 0.7,
@@ -128,14 +171,20 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
+  // D KİTAPÇIĞI CEVAP
   D_SORU_NO: {
-    target: 'D_SORU_NO',
+    target: 'D_KITAPCIGI_CEVAP',
     aliases: [
+      'd kitapçığı cevap',
+      'd kitapcigi cevap',
+      'kitapçık d',
+      'kitapcik d',
+      'd kitapçık',
+      'd kitapcik',
       'd soru no',
       'd soru',
       'd kitapçık soru',
       'soru no d',
-      'd',
       'd no'
     ],
     threshold: 0.7,
