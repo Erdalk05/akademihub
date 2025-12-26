@@ -41,12 +41,26 @@ export interface CevapAnahtariSatir {
 
 // Optik Şablon Alan Tanımı
 export interface OptikAlanTanimi {
-  alan: 'sinif_no' | 'ogrenci_no' | 'ogrenci_adi' | 'tc' | 'kitapcik' | 'cevaplar' | 'bos';
+  alan: 'sinif_no' | 'ogrenci_no' | 'ogrenci_adi' | 'tc' | 'kitapcik' | 'cevaplar' | 'bos' | 'ozel';
   baslangic: number;       // Karakter başlangıç (1-indexed)
   bitis: number;           // Karakter bitiş
   label: string;           // Görüntülenecek isim
   color?: string;          // UI renk kodu
+  customLabel?: string;    // Özel alan için kullanıcı tanımlı isim (telefon, veli adı, vs.)
 }
+
+// Özel Alan Tipleri - Sık kullanılan ekstra alanlar
+export const OZEL_ALAN_ONERILERI = [
+  { id: 'telefon', label: 'Cep Telefonu', icon: '📱', color: '#8B5CF6' },
+  { id: 'veli_adi', label: 'Veli Adı', icon: '👨‍👩‍👧', color: '#EC4899' },
+  { id: 'email', label: 'E-posta', icon: '📧', color: '#06B6D4' },
+  { id: 'sube', label: 'Şube', icon: '🏢', color: '#F59E0B' },
+  { id: 'kurum_kodu', label: 'Kurum Kodu', icon: '🏫', color: '#64748B' },
+  { id: 'ogrenci_id', label: 'Öğrenci ID', icon: '🔢', color: '#10B981' },
+  { id: 'dogum_tarihi', label: 'Doğum Tarihi', icon: '📅', color: '#EF4444' },
+  { id: 'cinsiyet', label: 'Cinsiyet', icon: '⚧️', color: '#A855F7' },
+  { id: 'diger', label: 'Diğer (Özel)', icon: '✏️', color: '#6B7280' },
+];
 
 // Optik Şablon
 export interface OptikSablon {

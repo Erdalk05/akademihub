@@ -28,7 +28,7 @@ import {
   Sparkles,
   RefreshCw
 } from 'lucide-react';
-import { OptikAlanTanimi, OptikSablon, CevapAnahtariSatir, DERS_ISIMLERI } from './types';
+import { OptikAlanTanimi, OptikSablon, CevapAnahtariSatir, DERS_ISIMLERI, OZEL_ALAN_ONERILERI } from './types';
 
 interface OptikSablonEditorProps {
   onSave?: (sablon: Omit<OptikSablon, 'id'>) => void;
@@ -47,6 +47,7 @@ const ALAN_TIPLERI = [
   { id: 'kitapcik', label: 'Kitapçık', icon: '📖', color: '#EC4899', shortcut: '5' },
   { id: 'cevaplar', label: 'Cevaplar', icon: '✅', color: '#25D366', shortcut: '6' },
   { id: 'bos', label: 'Boş/Atla', icon: '⬜', color: '#9CA3AF', shortcut: '0' },
+  { id: 'ozel', label: '+ Özel Alan', icon: '➕', color: '#6366F1', shortcut: '7' },
 ];
 
 export default function OptikSablonEditor({
@@ -78,6 +79,13 @@ export default function OptikSablonEditor({
   
   // Otomatik bölünmüş alanlar
   const [autoSegments, setAutoSegments] = useState<{start: number, end: number, text: string}[]>([]);
+  
+  // Özel alan ekleme
+  const [showOzelAlanModal, setShowOzelAlanModal] = useState(false);
+  const [ozelAlanAdi, setOzelAlanAdi] = useState('');
+  const [ozelAlanBaslangic, setOzelAlanBaslangic] = useState(0);
+  const [ozelAlanBitis, setOzelAlanBitis] = useState(0);
+  const [ozelAlanlar, setOzelAlanlar] = useState<{id: string, label: string, icon: string, color: string}[]>([]);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -612,7 +620,7 @@ export default function OptikSablonEditor({
             </div>
             
             <div className="flex flex-wrap gap-2">
-              {ALAN_TIPLERI.map((tip) => {
+              {ALAN_TIPLERI.filter(t => t.id !== 'ozel').map((tip) => {
                 const existingField = alanlar.find(a => a.alan === tip.id);
                 return (
                   <button
@@ -641,7 +649,115 @@ export default function OptikSablonEditor({
                   </button>
                 );
               })}
+              
+              {/* Özel Alanlar */}
+              {ozelAlanlar.map((tip) => {
+                const existingField = alanlar.find(a => a.customLabel === tip.label);
+                return (
+                  <button
+                    key={tip.id}
+                    onClick={() => setActiveAlanTipi(activeAlanTipi === `ozel_${tip.id}` ? null : `ozel_${tip.id}`)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${
+                      activeAlanTipi === `ozel_${tip.id}`
+                        ? 'border-current shadow-lg scale-105'
+                        : existingField
+                          ? 'border-current opacity-60'
+                          : 'border-transparent bg-white hover:shadow-md'
+                    }`}
+                    style={{
+                      borderColor: activeAlanTipi === `ozel_${tip.id}` || existingField ? tip.color : undefined,
+                      backgroundColor: activeAlanTipi === `ozel_${tip.id}` ? `${tip.color}15` : undefined,
+                      color: activeAlanTipi === `ozel_${tip.id}` || existingField ? tip.color : undefined
+                    }}
+                  >
+                    <span>{tip.icon}</span>
+                    <span className="font-medium">{tip.label}</span>
+                    {existingField && (
+                      <span className="text-xs bg-current/20 px-1.5 py-0.5 rounded">
+                        {existingField.baslangic}-{existingField.bitis}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              
+              {/* Özel Alan Ekle Butonu */}
+              <button
+                onClick={() => setShowOzelAlanModal(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 transition-all text-sm"
+              >
+                <Plus size={16} />
+                <span className="font-medium">Özel Alan Ekle</span>
+              </button>
             </div>
+            
+            {/* Özel Alan Önerileri */}
+            {showOzelAlanModal && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3 p-4 bg-indigo-50 rounded-xl border border-indigo-200"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-indigo-800">➕ Özel Alan Ekle</h4>
+                  <button 
+                    onClick={() => setShowOzelAlanModal(false)}
+                    className="text-indigo-400 hover:text-indigo-600"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                
+                <p className="text-sm text-indigo-600 mb-3">
+                  Sık kullanılan alanlardan seçin veya yeni oluşturun:
+                </p>
+                
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {OZEL_ALAN_ONERILERI.map((oneri) => (
+                    <button
+                      key={oneri.id}
+                      onClick={() => {
+                        setOzelAlanlar(prev => [...prev, oneri]);
+                        setShowOzelAlanModal(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-indigo-200 hover:border-indigo-400 hover:shadow-md transition-all text-sm"
+                      style={{ color: oneri.color }}
+                    >
+                      <span>{oneri.icon}</span>
+                      <span className="font-medium">{oneri.label}</span>
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={ozelAlanAdi}
+                    onChange={(e) => setOzelAlanAdi(e.target.value)}
+                    placeholder="Veya özel isim girin..."
+                    className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:border-indigo-400 outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (ozelAlanAdi.trim()) {
+                        setOzelAlanlar(prev => [...prev, {
+                          id: `custom_${Date.now()}`,
+                          label: ozelAlanAdi,
+                          icon: '📌',
+                          color: '#6366F1'
+                        }]);
+                        setOzelAlanAdi('');
+                        setShowOzelAlanModal(false);
+                      }
+                    }}
+                    disabled={!ozelAlanAdi.trim()}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Ekle
+                  </button>
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* Karakter Haritası - TEK SATIR YATAY */}
