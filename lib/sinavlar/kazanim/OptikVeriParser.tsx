@@ -202,31 +202,90 @@ export default function OptikVeriParser({
 
   // Öğrenci eşleştirme - parseData'dan ÖNCE tanımlanmalı
   const matchStudentsInternal = useCallback((data: ParsedOptikSatir[]) => {
-    if (ogrenciListesi.length === 0) return;
+    console.log('═══════════════════════════════════════════════════');
+    console.log('👥 ÖĞRENCİ EŞLEŞTİRME BAŞLATILIYOR');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('📊 Sistemdeki öğrenci sayısı:', ogrenciListesi.length);
+    console.log('📋 Parse edilen öğrenci sayısı:', data.length);
+    
+    if (ogrenciListesi.length === 0) {
+      console.warn('⚠️ Sistemde kayıtlı öğrenci yok! Eşleştirme yapılamıyor.');
+      console.log('💡 İpucu: Supabase\'de students tablosunda aktif öğrenci olduğundan emin olun.');
+      
+      // Tüm öğrencileri eşleşmedi olarak işaretle
+      const matches = new Map<number, { ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }>();
+      data.forEach((_, index) => {
+        matches.set(index, { status: 'unmatched' });
+      });
+      setMatchResults(matches);
+      return;
+    }
+    
+    // İlk 3 sistemdeki öğrenciyi logla
+    console.log('📋 Sistemdeki öğrenci örnekleri:');
+    ogrenciListesi.slice(0, 3).forEach((o, i) => {
+      console.log(`   ${i + 1}. No: "${o.ogrenciNo}", Ad: "${o.ad} ${o.soyad}", Sınıf: "${o.sinif}"`);
+    });
 
     const matches = new Map<number, { ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }>();
+    let matchCount = 0;
 
     data.forEach((satir, index) => {
-      // Önce öğrenci numarasıyla eşleştir
-      const byNo = ogrenciListesi.find(o => o.ogrenciNo === satir.ogrenciNo);
+      // 1. Önce öğrenci numarasıyla TAM eşleştir
+      let matched = ogrenciListesi.find(o => {
+        const sistemNo = (o.ogrenciNo || '').trim().toLowerCase();
+        const optikNo = (satir.ogrenciNo || '').trim().toLowerCase();
+        return sistemNo === optikNo && sistemNo.length > 0;
+      });
       
-      if (byNo) {
-        matches.set(index, { ogrenciId: byNo.id, status: 'matched' });
-      } else {
-        // İsim benzerliğiyle eşleştir (fuzzy)
-        const byName = ogrenciListesi.find(o => {
-          const fullName = `${o.ad} ${o.soyad}`.toLowerCase();
-          const satirAd = satir.ogrenciAdi?.toLowerCase() || '';
-          return fullName.includes(satirAd) || satirAd.includes(fullName);
+      // 2. Numara eşleşmediyse, numaranın SONUNDA eşleşme ara (örn: "123" içinde "23")
+      if (!matched && satir.ogrenciNo) {
+        matched = ogrenciListesi.find(o => {
+          const sistemNo = (o.ogrenciNo || '').trim();
+          const optikNo = (satir.ogrenciNo || '').trim();
+          return sistemNo.endsWith(optikNo) || optikNo.endsWith(sistemNo);
         });
+      }
+      
+      // 3. Hala eşleşmediyse, isim benzerliğiyle eşleştir
+      if (!matched && satir.ogrenciAdi) {
+        matched = ogrenciListesi.find(o => {
+          const sistemAd = `${o.ad} ${o.soyad}`.toLowerCase().trim();
+          const optikAd = (satir.ogrenciAdi || '').toLowerCase().trim();
+          
+          // Tam eşleşme
+          if (sistemAd === optikAd) return true;
+          
+          // Kısmi eşleşme (en az %70)
+          const sistemParcalar = sistemAd.split(/\s+/);
+          const optikParcalar = optikAd.split(/\s+/);
+          
+          // En az bir parça eşleşmeli
+          const eslesenParca = sistemParcalar.filter(s => 
+            optikParcalar.some(o => o.includes(s) || s.includes(o))
+          );
+          
+          return eslesenParca.length >= 1;
+        });
+      }
 
-        if (byName) {
-          matches.set(index, { ogrenciId: byName.id, status: 'matched' });
-        } else {
-          matches.set(index, { status: 'unmatched' });
+      if (matched) {
+        matches.set(index, { ogrenciId: matched.id, status: 'matched' });
+        matchCount++;
+        if (matchCount <= 3) {
+          console.log(`   ✅ Eşleşti: "${satir.ogrenciNo} - ${satir.ogrenciAdi}" → "${matched.ogrenciNo} - ${matched.ad} ${matched.soyad}"`);
+        }
+      } else {
+        matches.set(index, { status: 'unmatched' });
+        if (index < 3) {
+          console.log(`   ❌ Eşleşmedi: "${satir.ogrenciNo} - ${satir.ogrenciAdi}"`);
         }
       }
     });
+
+    console.log('───────────────────────────────────────────────────');
+    console.log(`📊 SONUÇ: ${matchCount}/${data.length} öğrenci eşleşti (%${Math.round(matchCount/data.length*100)})`);
+    console.log('═══════════════════════════════════════════════════');
 
     setMatchResults(matches);
     
@@ -251,9 +310,16 @@ export default function OptikVeriParser({
       return;
     }
 
-    console.log('📊 Parse başlatılıyor...');
-    console.log('Şablon:', sablon.sablonAdi);
-    console.log('Alan tanımları:', sablon.alanTanimlari);
+    console.log('═══════════════════════════════════════════════════');
+    console.log('📊 PARSE BAŞLATILIYOR');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('📋 Şablon:', sablon.sablonAdi);
+    console.log('📊 Toplam Soru:', sablon.toplamSoru);
+    console.log('📐 Alan Tanımları:');
+    sablon.alanTanimlari.forEach((alan, i) => {
+      console.log(`   ${i + 1}. ${alan.label} (${alan.alan}) → [${alan.baslangic}-${alan.bitis}] (${alan.bitis - alan.baslangic + 1} karakter)`);
+    });
+    console.log('───────────────────────────────────────────────────');
 
     setIsParsing(true);
     const lines = rawContent.trim().split('\n');
@@ -273,15 +339,16 @@ export default function OptikVeriParser({
 
       // Debug: İlk satır için detaylı log
       if (index === 0) {
-        console.log('📝 İlk satır:', line);
-        console.log('📏 Uzunluk:', line.length);
+        console.log('📝 İLK SATIR ANALİZİ:');
+        console.log('   Ham Veri:', JSON.stringify(line));
+        console.log('   Uzunluk:', line.length, 'karakter');
       }
 
       // Her alanı parse et
       sablon.alanTanimlari.forEach((alan) => {
-        // 0-indexed için -1
+        // 0-indexed için -1 (kullanıcı 1'den başlıyor)
         const startIdx = alan.baslangic - 1;
-        const endIdx = alan.bitis;
+        const endIdx = alan.bitis; // substring end exclusive
         
         // Satır yeterince uzun mu?
         if (startIdx >= line.length) {
@@ -289,69 +356,113 @@ export default function OptikVeriParser({
           return;
         }
         
-        const value = line.substring(startIdx, endIdx).trim();
+        // HAM değeri al - TRIM YAPMA (boşluklar önemli olabilir)
+        const rawValue = line.substring(startIdx, Math.min(endIdx, line.length));
+        // Sadece görüntüleme için trim
+        const value = rawValue.trim();
         const fixedValue = fixTurkishChars(value);
 
         // Debug: İlk 3 satır için alan değerlerini logla
         if (index < 3) {
-          console.log(`  Satır ${index + 1} | ${alan.label} (${alan.alan}) [${alan.baslangic}-${alan.bitis}]: "${value}"`);
+          console.log(`   ├─ ${alan.label} (${alan.alan}) [${alan.baslangic}-${alan.bitis}]: "${rawValue}" → "${fixedValue}"`);
         }
 
-        // Alan tipine göre değer ata
-        const alanTipi = alan.alan.toLowerCase();
+        // Alan tipini normalize et (case-insensitive, underscore/space tolerant)
+        const alanTipi = (alan.alan || '').toLowerCase().replace(/[\s_-]+/g, '_').trim();
         
-        switch (alanTipi) {
-          case 'sinif_no':
+        // Alan tipini belirle - tüm varyasyonları destekle
+        let alanKategorisi = 'bilinmeyen';
+        
+        if (['sinif_no', 'sinif', 'sinif_numarasi', 'class'].includes(alanTipi)) {
+          alanKategorisi = 'sinif';
+        } else if (['ogrenci_no', 'ogrencino', 'numara', 'no', 'student_no', 'ogrenci_numarasi'].includes(alanTipi)) {
+          alanKategorisi = 'ogrenci_no';
+        } else if (['ogrenci_adi', 'ad_soyad', 'adsoyad', 'isim', 'ad', 'name', 'ogrenci_ismi', 'öğrenci_adı'].includes(alanTipi)) {
+          alanKategorisi = 'ogrenci_adi';
+        } else if (['tc', 'tc_kimlik', 'tckimlik', 'tc_no', 'tcno', 'kimlik'].includes(alanTipi)) {
+          alanKategorisi = 'tc';
+        } else if (['kitapcik', 'kitapcik_turu', 'kitapcikturu', 'booklet', 'kitap'].includes(alanTipi)) {
+          alanKategorisi = 'kitapcik';
+        } else if (['cevaplar', 'cevap', 'answers', 'yanitlar'].includes(alanTipi)) {
+          alanKategorisi = 'cevaplar';
+        } else if (['bos', 'atla', 'skip', 'empty'].includes(alanTipi)) {
+          alanKategorisi = 'bos';
+        }
+        
+        // Eğer alan.label'dan da tahmin yapabiliriz
+        const labelLower = (alan.label || '').toLowerCase();
+        if (alanKategorisi === 'bilinmeyen') {
+          if (labelLower.includes('sınıf') || labelLower.includes('sinif')) alanKategorisi = 'sinif';
+          else if (labelLower.includes('öğrenci no') || labelLower.includes('ogrenci no') || labelLower.includes('numara')) alanKategorisi = 'ogrenci_no';
+          else if (labelLower.includes('ad') && (labelLower.includes('soyad') || labelLower.includes('isim'))) alanKategorisi = 'ogrenci_adi';
+          else if (labelLower.includes('tc') || labelLower.includes('kimlik')) alanKategorisi = 'tc';
+          else if (labelLower.includes('kitapçık') || labelLower.includes('kitapcik')) alanKategorisi = 'kitapcik';
+          else if (labelLower.includes('cevap')) alanKategorisi = 'cevaplar';
+        }
+
+        switch (alanKategorisi) {
           case 'sinif':
             // Sınıf: "8A", "8-A", "8/A" gibi formatları destekle
             parsed.sinifNo = fixedValue;
+            if (index < 3) console.log(`      → SINIF: "${fixedValue}"`);
             break;
             
           case 'ogrenci_no':
-            // Öğrenci numarası: Sadece rakamları al
-            const ogrenciNoTemiz = fixedValue.replace(/[^0-9]/g, '');
-            parsed.ogrenciNo = ogrenciNoTemiz || fixedValue;
-            if (!parsed.ogrenciNo || parsed.ogrenciNo.length < 1) {
-              hatalar.push('Öğrenci numarası boş');
+            // Öğrenci numarası: Tam değeri al (rakam + harf olabilir)
+            // Ama sınıf gibi değerleri ayıkla
+            let ogrenciNo = fixedValue;
+            // Eğer sadece "8A", "8B" gibi tek haneli ise bu sınıf olabilir
+            if (/^[4-9][A-Z]?$/i.test(ogrenciNo) || /^1[0-2][A-Z]?$/i.test(ogrenciNo)) {
+              // Bu muhtemelen sınıf, öğrenci no olarak alma
+              console.warn(`   ⚠️ "${ogrenciNo}" öğrenci no için çok kısa, sınıf olabilir`);
             }
+            parsed.ogrenciNo = ogrenciNo;
+            if (index < 3) console.log(`      → ÖĞRENCİ NO: "${ogrenciNo}"`);
             break;
             
           case 'ogrenci_adi':
-          case 'ad_soyad':
-            // Öğrenci adını temizle - baştaki sayıları kaldır
-            parsed.ogrenciAdi = cleanStudentName(fixedValue);
+            // Öğrenci adını temizle - BOŞ KARAKTERLER DAHİL TÜM METNİ AL
+            // Önce ham değeri kullan, sonra temizle
+            const hamAd = line.substring(startIdx, Math.min(endIdx, line.length));
+            const temizAd = cleanStudentName(hamAd);
+            parsed.ogrenciAdi = temizAd;
+            if (index < 3) console.log(`      → AD SOYAD: "${hamAd}" → "${temizAd}"`);
             if (!parsed.ogrenciAdi || parsed.ogrenciAdi.length < 2) {
               hatalar.push('Öğrenci adı eksik veya çok kısa');
             }
             break;
             
           case 'tc':
-          case 'tc_kimlik':
             parsed.tc = fixedValue.replace(/\D/g, ''); // Sadece rakamlar
+            if (index < 3) console.log(`      → TC: "${parsed.tc}"`);
             if (parsed.tc && parsed.tc.length !== 11) {
               hatalar.push(`TC kimlik hatalı: ${parsed.tc.length} karakter`);
             }
             break;
             
           case 'kitapcik':
-          case 'kitapcik_turu':
-            // Kitapçık: SADECE A, B, C, D karakterlerini ara
-            const kitapcikRaw = value.trim().toUpperCase();
-            // Değerin içinde A, B, C, D var mı?
-            const kitapcikMatch = kitapcikRaw.match(/[ABCD]/);
-            if (kitapcikMatch) {
-              parsed.kitapcik = kitapcikMatch[0] as 'A' | 'B' | 'C' | 'D';
+            // Kitapçık: SADECE belirtilen aralıktan A veya B al
+            const kitapcikHam = line.substring(startIdx, Math.min(endIdx, line.length)).trim().toUpperCase();
+            // Sadece A ve B olabileceğini varsay (kullanıcı A-B olduğunu söyledi)
+            if (kitapcikHam === 'A' || kitapcikHam === 'B') {
+              parsed.kitapcik = kitapcikHam as 'A' | 'B';
             } else {
-              // Eğer kitapçık bulunamadıysa ve değer sayısal değilse uyar
-              if (kitapcikRaw && !/^\d+$/.test(kitapcikRaw)) {
-                console.warn(`Kitapçık algılanamadı: "${kitapcikRaw}"`);
+              // Değerin içinde A veya B var mı?
+              const abMatch = kitapcikHam.match(/[AB]/);
+              if (abMatch) {
+                parsed.kitapcik = abMatch[0] as 'A' | 'B';
+              } else {
+                // Hiç bulunamadı
+                console.warn(`   ⚠️ Kitapçık bulunamadı: "${kitapcikHam}" (beklenen: A veya B)`);
               }
             }
+            if (index < 3) console.log(`      → KİTAPÇIK: "${kitapcikHam}" → "${parsed.kitapcik || 'YOK'}"`);
             break;
             
           case 'cevaplar':
             // Cevapları ayrıştır - TAM ARALIKTAN al
             const cevapStr = line.substring(startIdx, Math.min(endIdx, line.length));
+            if (index < 3) console.log(`      → CEVAPLAR: "${cevapStr.substring(0, 20)}..." (${cevapStr.length} karakter)`);
             for (let i = 0; i < sablon.toplamSoru; i++) {
               if (i >= cevapStr.length) {
                 parsed.cevaplar.push(null);
@@ -366,12 +477,17 @@ export default function OptikVeriParser({
             }
             break;
             
+          case 'bos':
+            // Boş alan - atla
+            break;
+            
           default:
             // Bilinmeyen alan tipleri için özel alanlar objesine ekle
             if (!parsed.ozelAlanlar) {
               parsed.ozelAlanlar = {};
             }
             parsed.ozelAlanlar[alan.label] = fixedValue;
+            if (index < 3) console.log(`      → ÖZEL ALAN (${alan.label}): "${fixedValue}"`);
             break;
         }
       });
