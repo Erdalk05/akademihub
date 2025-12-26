@@ -47,9 +47,9 @@ export default function SihirbazPage() {
         
         const { data, error } = await supabase
           .from('students')
-          .select('id, student_number, first_name, last_name, class_id, classes(name)')
+          .select('id, student_no, first_name, last_name, class')
           .eq('organization_id', currentOrganization.id)
-          .eq('is_active', true)
+          .eq('status', 'active')
           .order('first_name', { ascending: true });
 
         if (error) {
@@ -59,10 +59,10 @@ export default function SihirbazPage() {
           // Veriyi dönüştür
           const students: Student[] = (data || []).map((s: any) => ({
             id: s.id,
-            ogrenciNo: s.student_number || '',
+            ogrenciNo: s.student_no || '',
             ad: s.first_name || '',
             soyad: s.last_name || '',
-            sinif: s.classes?.name || ''
+            sinif: s.class || ''
           }));
           
           console.log('✅ Öğrenci listesi yüklendi:', students.length, 'öğrenci');
