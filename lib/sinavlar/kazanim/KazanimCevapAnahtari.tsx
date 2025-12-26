@@ -37,6 +37,15 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CevapAnahtariSatir, DERS_ISIMLERI } from './types';
+// Smart Excel Mapper
+import {
+  parseExcelWithDetection,
+  parseTextWithDetection,
+  DetectionResult,
+  ParsedQuestion,
+  turkishNormalize,
+  cleanText
+} from '../excel';
 
 interface KazanimCevapAnahtariProps {
   examId?: string;
@@ -141,9 +150,81 @@ export default function KazanimCevapAnahtari({
   const [expandedDers, setExpandedDers] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Smart Excel Mapper state
+  const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
+  const [showMappingInfo, setShowMappingInfo] = useState(false);
 
-  // ============ EXCEL YÜKLEME - GELİŞTİRİLMİŞ ============
+  // ============ EXCEL YÜKLEME - SMART EXCEL MAPPER V5.0 ============
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setError(null);
+    setShowMappingInfo(false);
+
+    try {
+      // 🎯 Smart Excel Mapper ile parse et
+      const result = await parseExcelWithDetection(file);
+      
+      // Detection sonucunu kaydet
+      setDetectionResult(result.detection);
+      
+      console.log('🎯 Smart Detection:', {
+        columns: result.detection.columns,
+        kitapciklar: result.detection.kitapciklar,
+        tahminSinavTipi: result.detection.tahminSinavTipi,
+        dersDagilimi: result.detection.dersDagilimi,
+        warnings: result.detection.warnings.length,
+        validation: result.validation
+      });
+      
+      // Uyarıları kontrol et
+      const errors = result.detection.warnings.filter(w => w.severity === 'ERROR');
+      if (errors.length > 0) {
+        setError(errors.map(e => e.message).join(', '));
+        setShowMappingInfo(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Questions'ı CevapAnahtariSatir formatına dönüştür
+      const parsed: CevapAnahtariSatir[] = result.questions.map((q, idx) => {
+        const dersKodu = getDersKodu(q.dersAdi);
+        const dersAdi = getDersTamAdi(dersKodu);
+        
+        return {
+          soruNo: q.soruNo,
+          dersKodu,
+          dersAdi,
+          testKodu: q.testKodu,
+          dogruCevap: q.dogruCevap as 'A' | 'B' | 'C' | 'D' | 'E',
+          kazanimKodu: q.kazanimKodu,
+          kazanimMetni: q.kazanimMetni,
+          kitapcikSoruNo: q.kitapcikSoruNo
+        };
+      });
+      
+      console.log(`✅ ${parsed.length} soru başarıyla parse edildi`);
+      console.log('📊 Ders dağılımı:', result.detection.dersDagilimi);
+
+      // Mapping info'yu göster
+      setShowMappingInfo(true);
+
+      setParsedData(parsed);
+      setIsPreviewOpen(true);
+      setIsSaved(false);
+    } catch (err: any) {
+      console.error('❌ Excel parse hatası:', err);
+      setError(err.message || 'Excel dosyası işlenirken hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ============ ESKI PARSE MANTIĞI (YEDEK) ============
+  const handleFileUploadLegacy = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -166,31 +247,17 @@ export default function KazanimCevapAnahtari({
       const headers = (rows[0] as string[]).map(h => String(h || '').toUpperCase().trim());
       console.log('📊 Excel Başlıkları:', headers);
 
-      // Türkçe karakterleri normalize et
-      const normalizeText = (text: string): string => {
-        return text
-          .replace(/İ/g, 'I')
-          .replace(/Ğ/g, 'G')
-          .replace(/Ü/g, 'U')
-          .replace(/Ş/g, 'S')
-          .replace(/Ö/g, 'O')
-          .replace(/Ç/g, 'C')
-          .replace(/ı/g, 'i')
-          .replace(/ğ/g, 'g')
-          .replace(/ü/g, 'u')
-          .replace(/ş/g, 's')
-          .replace(/ö/g, 'o')
-          .replace(/ç/g, 'c')
-          .replace(/\s+/g, '')
-          .toUpperCase();
+      // Türkçe karakterleri normalize et (legacy)
+      const normalizeTextLegacy = (text: string): string => {
+        return turkishNormalize(text).replace(/\s+/g, '').toUpperCase();
       };
 
       // Akıllı sütun algılama - esnek eşleşme
       const findCol = (patterns: string[]): number => {
         for (let i = 0; i < headers.length; i++) {
-          const normalizedHeader = normalizeText(headers[i]);
+          const normalizedHeader = normalizeTextLegacy(headers[i]);
           for (const pattern of patterns) {
-            const normalizedPattern = normalizeText(pattern);
+            const normalizedPattern = normalizeTextLegacy(pattern);
             // Tam eşleşme veya içerme kontrolü
             if (normalizedHeader === normalizedPattern || normalizedHeader.includes(normalizedPattern)) {
               return i;
@@ -219,7 +286,7 @@ export default function KazanimCevapAnahtari({
       let kazanimMetniCol = -1;
       
       for (let i = 0; i < headers.length; i++) {
-        const h = normalizeText(headers[i]);
+        const h = normalizeTextLegacy(headers[i]);
         // Kazanım Kodu - sadece "KODU" içeren
         if ((h.includes('KAZANIM') && h.includes('KODU')) || h === 'KAZANIMKODU') {
           kazanimKoduCol = i;
@@ -234,7 +301,7 @@ export default function KazanimCevapAnahtari({
       if (kazanimKoduCol === -1 || kazanimMetniCol === -1) {
         const kazanimCols: number[] = [];
         for (let i = 0; i < headers.length; i++) {
-          if (normalizeText(headers[i]).includes('KAZANIM')) {
+          if (normalizeTextLegacy(headers[i]).includes('KAZANIM')) {
             kazanimCols.push(i);
           }
         }
@@ -690,25 +757,115 @@ export default function KazanimCevapAnahtari({
             )}
           </div>
 
-          {/* Format Bilgisi */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <div className="flex items-start gap-3">
-              <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-semibold text-blue-800 mb-2">Otomatik Algılama</p>
-                <p className="text-blue-700 mb-2">
-                  Sistem şu sütunları otomatik algılar:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['TEST KODU', 'DERS ADI', 'A SORU NO', 'B SORU NO', 'DOĞRU CEVAP', 'KAZANIM KODU', 'KAZANIM METNİ'].map(col => (
-                    <span key={col} className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-mono text-xs">
-                      {col}
+          {/* Smart Detection Sonuçları */}
+          {showMappingInfo && detectionResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl"
+            >
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold text-emerald-800">🎯 Akıllı Algılama Sonucu</p>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-medium">
+                      {detectionResult.tahminSinavTipi.tip} (%{detectionResult.tahminSinavTipi.guven})
                     </span>
-                  ))}
+                  </div>
+                  
+                  {/* Algılanan Sütunlar */}
+                  <div className="mb-3">
+                    <p className="text-emerald-700 mb-1.5 font-medium text-xs">Eşleştirilen Sütunlar:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(detectionResult.columns).map(([key, match]) => (
+                        <span 
+                          key={key} 
+                          className={`px-2 py-0.5 rounded text-xs font-mono flex items-center gap-1 ${
+                            match.confidence >= 80 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {match.fileColumn}
+                          <span className="opacity-60">→</span>
+                          {key}
+                          {match.confidence < 80 && <span className="text-[10px]">({match.confidence}%)</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Ders Dağılımı */}
+                  {detectionResult.dersDagilimi.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-emerald-700 mb-1.5 font-medium text-xs">Ders Dağılımı:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detectionResult.dersDagilimi.map((d, i) => (
+                          <span key={i} className="px-2 py-0.5 bg-white border border-emerald-200 rounded text-xs">
+                            <span className="font-medium">{i + 1}.</span> {d.dersAdi}: {d.soruSayisi}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Kitapçıklar */}
+                  {detectionResult.kitapciklar.length > 0 && (
+                    <div>
+                      <p className="text-emerald-700 mb-1 font-medium text-xs">Kitapçıklar:</p>
+                      <div className="flex gap-1">
+                        {detectionResult.kitapciklar.map(k => (
+                          <span key={k.code} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-bold">
+                            {k.code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Uyarılar */}
+                  {detectionResult.warnings.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-emerald-200">
+                      {detectionResult.warnings.map((w, i) => (
+                        <p key={i} className={`text-xs ${
+                          w.severity === 'ERROR' ? 'text-red-600' :
+                          w.severity === 'WARNING' ? 'text-amber-600' : 'text-slate-500'
+                        }`}>
+                          {w.severity === 'ERROR' ? '❌' : w.severity === 'WARNING' ? '⚠️' : 'ℹ️'} {w.message}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Format Bilgisi */}
+          {!showMappingInfo && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-semibold text-blue-800 mb-2">🧠 Smart Excel Mapper</p>
+                  <p className="text-blue-700 mb-2">
+                    Fuzzy matching ile otomatik sütun algılama:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {['TEST KODU', 'DERS ADI', 'A/B/C/D SORU NO', 'DOĞRU CEVAP', 'KAZANIM KODU', 'KAZANIM METNİ'].map(col => (
+                      <span key={col} className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-mono text-xs">
+                        {col}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-blue-600 text-xs mt-2">
+                    💡 Sütun adları farklı olsa bile Levenshtein algoritması ile eşleştirilir
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </motion.div>
       )}
 
