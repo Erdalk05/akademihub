@@ -476,7 +476,7 @@ export default function KazanimCevapAnahtari({
 
   return (
     <div className="space-y-6">
-      {/* ========== SÜTUN EŞLEŞTİRME MODAL ========== */}
+      {/* ========== SÜTUN EŞLEŞTİRME MODAL - SADELEŞTİRİLMİŞ ========== */}
       <AnimatePresence>
         {showColumnMapper && (
           <motion.div
@@ -486,192 +486,81 @@ export default function KazanimCevapAnahtari({
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden"
             >
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 text-white">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Table className="w-6 h-6" />
-                  Sütun Eşleştirme
-                </h2>
-                <p className="text-sm text-white/80 mt-1">
-                  Excel sütunlarını sistem alanlarıyla eşleştirin. Otomatik algılama yapıldı, kontrol edin.
+              {/* Header - Basit */}
+              <div className="bg-emerald-600 p-4 text-white">
+                <h2 className="text-lg font-bold">📊 Excel Algılandı</h2>
+                <p className="text-sm text-white/80">{excelRawData.length - 1} satır veri bulundu</p>
+              </div>
+              
+              {/* Hızlı Aksiyon Butonları */}
+              <div className="p-4 bg-emerald-50 border-b">
+                <div className="flex gap-3">
+                  <button
+                    onClick={applyColumnMappings}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+                  >
+                    <Check size={20} />
+                    Otomatik Algılamayı Kabul Et ve Devam
+                  </button>
+                </div>
+                <p className="text-xs text-emerald-700 text-center mt-2">
+                  ✅ Sütunlar otomatik algılandı. Değişiklik yapmak istiyorsanız aşağıdan düzenleyin.
                 </p>
               </div>
               
-              {/* Modal Content */}
-              <div className="p-4 overflow-y-auto max-h-[60vh]">
-                {/* Önizleme Tablosu */}
-                <div className="mb-4 p-3 bg-slate-50 rounded-xl">
-                  <p className="text-sm text-slate-600 mb-2 flex items-center gap-2">
-                    <Eye size={14} />
-                    Örnek Veri (ilk 3 satır):
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="text-xs">
-                      <thead>
-                        <tr>
-                          {excelHeaders.map((h, idx) => (
-                            <th key={idx} className="px-2 py-1 bg-slate-200 text-left font-medium">
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {excelRawData.slice(1, 4).map((row, rowIdx) => (
-                          <tr key={rowIdx} className="border-b">
-                            {row.slice(0, excelHeaders.length).map((cell, cellIdx) => (
-                              <td key={cellIdx} className="px-2 py-1 text-slate-600 max-w-32 truncate">
-                                {String(cell || '-')}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              {/* Algılanan Alanlar Özeti - Kompakt */}
+              <div className="p-4 max-h-[40vh] overflow-y-auto">
+                <p className="text-sm font-medium text-slate-700 mb-3">Algılanan Eşleştirmeler:</p>
                 
-                {/* Sütun Eşleştirmeleri */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
                   {excelHeaders.map((header, idx) => {
                     const selectedField = columnMappings[idx];
-                    const fieldInfo = STANDARD_FIELDS.find(f => f.id === selectedField) ||
-                                     customFields.find(f => `custom_${f.id}` === selectedField);
+                    const fieldInfo = STANDARD_FIELDS.find(f => f.id === selectedField);
                     
                     return (
-                      <div 
-                        key={idx} 
-                        className="flex items-center gap-3 p-3 rounded-xl border-2 transition-all"
-                        style={{ 
-                          borderColor: fieldInfo?.color || '#E2E8F0',
-                          backgroundColor: fieldInfo ? `${fieldInfo.color}08` : 'white'
-                        }}
-                      >
-                        {/* Excel Sütunu */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-slate-400 mb-1">Sütun {idx + 1}</div>
-                          <div className="font-medium text-slate-800 truncate">{header}</div>
-                          <div className="text-xs text-slate-500 truncate">
-                            Örnek: {String(excelRawData[1]?.[idx] || '-')}
-                          </div>
-                        </div>
-                        
-                        {/* Ok */}
-                        <div className="text-slate-300">→</div>
-                        
-                        {/* Alan Seçici */}
-                        <div className="flex-1">
-                          <select
-                            value={selectedField || ''}
-                            onChange={(e) => {
-                              setColumnMappings(prev => ({
-                                ...prev,
-                                [idx]: e.target.value
-                              }));
-                            }}
-                            className="w-full px-3 py-2 border rounded-lg text-sm focus:border-emerald-500 outline-none"
-                            style={{ borderColor: fieldInfo?.color || '#CBD5E1' }}
-                          >
-                            <option value="">-- Seçiniz --</option>
-                            <optgroup label="📌 Zorunlu Alanlar">
-                              {STANDARD_FIELDS.filter(f => f.required).map(f => (
-                                <option key={f.id} value={f.id}>{f.label}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="📋 Opsiyonel Alanlar">
-                              {STANDARD_FIELDS.filter(f => !f.required).map(f => (
-                                <option key={f.id} value={f.id}>{f.label}</option>
-                              ))}
-                            </optgroup>
-                            {customFields.length > 0 && (
-                              <optgroup label="✏️ Özel Alanlar">
-                                {customFields.map(f => (
-                                  <option key={f.id} value={`custom_${f.id}`}>📌 {f.label}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </select>
-                        </div>
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <span className="w-32 text-slate-600 truncate font-medium">{header}</span>
+                        <span className="text-slate-400">→</span>
+                        <select
+                          value={selectedField || 'skip'}
+                          onChange={(e) => setColumnMappings(prev => ({ ...prev, [idx]: e.target.value }))}
+                          className={`flex-1 px-2 py-1.5 border rounded-lg text-sm ${
+                            fieldInfo?.required ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200'
+                          }`}
+                        >
+                          <option value="skip">⏭️ Atla</option>
+                          <option value="soruNo">📌 Soru No</option>
+                          <option value="dogruCevap">✅ Doğru Cevap</option>
+                          <option value="dersAdi">📚 Ders</option>
+                          <option value="soruNoA">🅰️ A Kitapçık</option>
+                          <option value="soruNoB">🅱️ B Kitapçık</option>
+                          <option value="kazanimKodu">🎯 Kazanım Kodu</option>
+                          <option value="kazanimMetni">📝 Kazanım Metni</option>
+                          <option value="testKodu">🏷️ Test Kodu</option>
+                          <option value="konuAdi">📖 Konu</option>
+                        </select>
+                        <span className="text-xs text-slate-400 w-20 truncate">
+                          {String(excelRawData[1]?.[idx] || '-')}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* Özel Alan Ekle */}
-                <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">✏️</span>
-                    <span className="font-medium text-indigo-800">Özel Alan Ekle</span>
+                {/* Uyarılar */}
+                {(!Object.values(columnMappings).includes('soruNo') || !Object.values(columnMappings).includes('dogruCevap')) && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                    ⚠️ Soru No ve Doğru Cevap alanları zorunludur!
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newCustomFieldName}
-                      onChange={(e) => setNewCustomFieldName(e.target.value)}
-                      placeholder="Alan adı (ör: Ünite, Alt Konu, Sayfa No...)"
-                      className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:border-indigo-400 outline-none"
-                    />
-                    <button
-                      onClick={() => {
-                        if (newCustomFieldName.trim()) {
-                          setCustomFields(prev => [...prev, {
-                            id: `field_${Date.now()}`,
-                            label: newCustomFieldName.trim()
-                          }]);
-                          setNewCustomFieldName('');
-                        }
-                      }}
-                      disabled={!newCustomFieldName.trim()}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      Ekle
-                    </button>
-                  </div>
-                  {customFields.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {customFields.map(f => (
-                        <span 
-                          key={f.id} 
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs"
-                        >
-                          📌 {f.label}
-                          <button 
-                            onClick={() => setCustomFields(prev => prev.filter(cf => cf.id !== f.id))}
-                            className="hover:text-red-600"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Durum Özeti */}
-                <div className="mt-4 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="text-slate-600">
-                      <strong className="text-emerald-600">{Object.keys(columnMappings).filter(k => columnMappings[parseInt(k)] && columnMappings[parseInt(k)] !== 'skip').length}</strong> sütun eşleştirildi
-                    </span>
-                    <span className="text-slate-600">
-                      <strong className="text-blue-600">{excelRawData.length - 1}</strong> satır veri
-                    </span>
-                    {!Object.values(columnMappings).includes('soruNo') && (
-                      <span className="text-red-600 font-medium">⚠️ Soru No gerekli!</span>
-                    )}
-                    {!Object.values(columnMappings).includes('dogruCevap') && (
-                      <span className="text-red-600 font-medium">⚠️ Doğru Cevap gerekli!</span>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
               
-              {/* Modal Footer */}
+              {/* Footer - Basit */}
               <div className="p-4 border-t bg-slate-50 flex justify-between">
                 <button
                   onClick={() => {
