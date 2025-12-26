@@ -166,27 +166,62 @@ export default function KazanimCevapAnahtari({
       const headers = (rows[0] as string[]).map(h => String(h || '').toUpperCase().trim());
       console.log('📊 Excel Başlıkları:', headers);
 
-      // Akıllı sütun algılama
-      const findCol = (keywords: string[]): number => {
+      // Akıllı sütun algılama - exact match öncelikli
+      const findColExact = (exactMatches: string[], partialMatches: string[] = []): number => {
+        // Önce tam eşleşme ara
         for (let i = 0; i < headers.length; i++) {
           const h = headers[i];
-          for (const k of keywords) {
+          for (const k of exactMatches) {
+            if (h === k || h === k.replace('İ', 'I').replace('Ğ', 'G').replace('Ü', 'U').replace('Ş', 'S').replace('Ö', 'O').replace('Ç', 'C')) {
+              return i;
+            }
+          }
+        }
+        // Sonra kısmi eşleşme ara
+        for (let i = 0; i < headers.length; i++) {
+          const h = headers[i];
+          for (const k of partialMatches) {
             if (h.includes(k)) return i;
           }
         }
         return -1;
       };
 
-      // Sütun indekslerini bul
-      const testKoduCol = findCol(['TEST KODU', 'TEST', 'KOD']);
-      const dersAdiCol = findCol(['DERS ADI', 'DERS', 'ALAN']);
-      const aSoruNoCol = findCol(['A SORU NO', 'A SORU', 'SORU NO', 'SORU']);
-      const bSoruNoCol = findCol(['B SORU NO', 'B SORU']);
-      const cSoruNoCol = findCol(['C SORU NO', 'C SORU']);
-      const dSoruNoCol = findCol(['D SORU NO', 'D SORU']);
-      const cevapCol = findCol(['DOĞRU CEVAP', 'DOGRU CEVAP', 'CEVAP', 'YANIT', 'DOĞRU']);
-      const kazanimKoduCol = findCol(['KAZANIM KODU', 'KAZANIM NO', 'KOD', 'KAZANIM_KODU']);
-      const kazanimMetniCol = findCol(['KAZANIM METNİ', 'KAZANIM METNI', 'KAZANIM', 'AÇIKLAMA', 'KAZANIM_METNI']);
+      // Sütun indekslerini bul - spesifik aramalar
+      const testKoduCol = findColExact(['TEST KODU', 'TESTKODU'], ['TEST']);
+      const dersAdiCol = findColExact(['DERS ADI', 'DERSADI', 'DERS_ADI'], ['DERS']);
+      const aSoruNoCol = findColExact(['A SORU NO', 'ASORU NO', 'A_SORU_NO', 'SORU NO', 'SORUNO'], ['SORU']);
+      const bSoruNoCol = findColExact(['B SORU NO', 'BSORU NO', 'B_SORU_NO'], ['B SORU']);
+      const cSoruNoCol = findColExact(['C SORU NO', 'CSORU NO', 'C_SORU_NO'], ['C SORU']);
+      const dSoruNoCol = findColExact(['D SORU NO', 'DSORU NO', 'D_SORU_NO'], ['D SORU']);
+      const cevapCol = findColExact(['DOĞRU CEVAP', 'DOGRU CEVAP', 'DOGRUCEVAP'], ['CEVAP']);
+      
+      // KAZANIM KODU ve METNİ için özel mantık - sütun sırasına göre
+      let kazanimKoduCol = -1;
+      let kazanimMetniCol = -1;
+      
+      // Önce tam eşleşmeleri ara
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i];
+        if (h.includes('KAZANIM KODU') || h.includes('KAZANIMKODU') || h.includes('KAZANIM_KODU')) {
+          kazanimKoduCol = i;
+        } else if (h.includes('KAZANIM METN') || h.includes('KAZANIMMETN') || h.includes('AÇIKLAMA') || h.includes('ACIKLAMA')) {
+          kazanimMetniCol = i;
+        }
+      }
+      
+      // Eğer bulunamadıysa, sırayla KAZANIM içeren sütunları al
+      if (kazanimKoduCol === -1 || kazanimMetniCol === -1) {
+        const kazanimCols = headers.map((h, i) => h.includes('KAZANIM') ? i : -1).filter(i => i >= 0);
+        if (kazanimCols.length >= 2) {
+          // İlk kazanım sütunu = kod, ikinci = metin
+          if (kazanimKoduCol === -1) kazanimKoduCol = kazanimCols[0];
+          if (kazanimMetniCol === -1) kazanimMetniCol = kazanimCols[1];
+        } else if (kazanimCols.length === 1) {
+          // Tek sütun varsa, içeriğe göre karar ver (uzun metin = metin sütunu)
+          if (kazanimKoduCol === -1) kazanimKoduCol = kazanimCols[0];
+        }
+      }
 
       console.log('📍 Sütun İndeksleri:', {
         testKodu: testKoduCol,
@@ -763,14 +798,14 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                             exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                           >
-                            <table className="w-full text-sm bg-white">
+                            <table className="w-full text-sm bg-white table-fixed">
                               <thead className="bg-slate-100 sticky top-0">
                                 <tr>
-                                  <th className="px-3 py-2 text-left font-semibold text-slate-600 w-16">Soru</th>
-                                  <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">Cevap</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-slate-600 w-28">Kazanım Kodu</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-slate-600">Kazanım Metni</th>
-                                  <th className="px-3 py-2 text-center font-semibold text-slate-600 w-20">İşlem</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-slate-600" style={{ width: '60px' }}>Soru</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-slate-600" style={{ width: '60px' }}>Cevap</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-slate-600" style={{ width: '120px' }}>Kazanım Kodu</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-slate-600">📝 Kazanım Açıklaması</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-slate-600" style={{ width: '70px' }}>İşlem</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -826,16 +861,24 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                       </td>
                                       <td className="px-3 py-2">
                                         {isEditing ? (
-                                          <input
-                                            type="text"
+                                          <textarea
                                             value={row.kazanimMetni || ''}
                                             onChange={(e) => handleEdit(globalIndex, 'kazanimMetni', e.target.value)}
-                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            className="w-full px-2 py-1 border rounded text-sm min-h-[60px]"
                                             placeholder="Kazanım açıklaması..."
                                           />
+                                        ) : row.kazanimMetni ? (
+                                          <div 
+                                            className="text-sm text-slate-700 leading-relaxed cursor-help"
+                                            title={row.kazanimMetni}
+                                          >
+                                            <span className="block max-h-[80px] overflow-hidden">
+                                              {row.kazanimMetni}
+                                            </span>
+                                          </div>
                                         ) : (
-                                          <span className="text-xs text-slate-600 line-clamp-2">
-                                            {row.kazanimMetni || <span className="text-slate-400 italic">Kazanım metni yok</span>}
+                                          <span className="text-slate-400 italic text-xs">
+                                            Kazanım açıklaması yok
                                           </span>
                                         )}
                                       </td>
