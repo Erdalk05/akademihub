@@ -1,47 +1,29 @@
 'use client';
 
 /**
- * Akademik Analiz - Detaylı Sınav Karnesi Sayfası
- * K12Net benzeri modern ve detaylı tasarım
+ * Akademik Analiz - K12Net Benzeri Detaylı Sınav Sonuçları
+ * Yatay kaydırma, sabit sütunlar, kompakt tasarım
  */
 
 import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  FileText,
   Download,
-  CheckCircle,
   Loader2,
-  Eye,
-  Printer,
   ArrowLeft,
-  Users,
-  Award,
-  Target,
-  FileSpreadsheet,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  Database,
   RefreshCw,
   Search,
+  ChevronDown,
   Filter,
-  SortAsc,
-  SortDesc,
-  BarChart3,
-  BookOpen,
-  Hash,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Check,
+  FileText,
+  Printer,
   X,
-  Columns,
-  Table2,
-  Grid3X3,
-  List,
-  LayoutGrid
+  Check,
+  Eye,
+  BarChart3,
+  Users,
+  Settings
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
@@ -54,14 +36,21 @@ interface StudentResult {
   ogrenciNo: string;
   ogrenciAdi: string;
   sinifNo?: string;
+  sayisalKitapcik?: string;
+  sozelKitapcik?: string;
   kitapcik?: string;
   toplamDogru: number;
   toplamYanlis: number;
   toplamBos: number;
+  hataliSayisi?: number;
   toplamNet: number;
+  netYuzdesi?: number;
   toplamPuan: number;
   siralama: number;
-  sinifSira?: number;
+  subeSira?: number;
+  okulSira?: number;
+  subeNetSira?: number;
+  okulNetSira?: number;
   dersBazli?: {
     dersKodu: string;
     dersAdi: string;
@@ -69,7 +58,6 @@ interface StudentResult {
     yanlis: number;
     bos: number;
     net: number;
-    basariOrani: number;
   }[];
 }
 
@@ -78,33 +66,12 @@ interface ExamData {
   ad: string;
   tarih: string;
   tip: string;
+  sinifSeviyesi?: string;
   toplamSoru: number;
   toplamOgrenci: number;
   ortalamaNet: number;
   ogrenciler: StudentResult[];
 }
-
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const DERS_RENKLERI: Record<string, { bg: string; text: string; border: string }> = {
-  'TUR': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  'MAT': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  'FEN': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  'SOS': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  'ING': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-  'DIN': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-};
-
-const DERS_ISIMLERI: Record<string, string> = {
-  'TUR': 'Türkçe',
-  'MAT': 'Matematik',
-  'FEN': 'Fen Bilimleri',
-  'SOS': 'Sosyal Bilgiler',
-  'ING': 'İngilizce',
-  'DIN': 'Din Kültürü',
-};
 
 // =============================================================================
 // MAIN COMPONENT
@@ -119,28 +86,31 @@ function KarneContent() {
   // States
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<ExamData | null>(null);
-  const [allExams, setAllExams] = useState<ExamData[]>([]);
   
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'siralama' | 'ogrenciAdi' | 'toplamNet' | 'toplamPuan'>('siralama');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
-  const [showColumns, setShowColumns] = useState({
-    numara: true,
-    sinif: true,
-    kitapcik: true,
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(50);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState({
+    cevapAnahtari: true,
+    sube: true,
+    sayisalKitapcik: true,
+    sozelKitapcik: true,
     dogru: true,
     yanlis: true,
     bos: true,
+    hatali: true,
     net: true,
+    netYuzdesi: true,
     puan: true,
-    siralama: true,
-    dersler: true
+    subeSira: true,
+    okulSira: true,
+    subeNetSira: true,
+    okulNetSira: true
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [isGenerating, setIsGenerating] = useState(false);
 
   // =============================================================================
   // DATA LOADING
@@ -149,56 +119,28 @@ function KarneContent() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Sınav detaylarını yükle
       if (examId) {
         const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
         const data = await response.json();
         
         if (response.ok && data.exam) {
-          setExam(data.exam);
-        }
-      }
-      
-      // Tüm sınavları yükle
-      const params = new URLSearchParams();
-      if (currentOrganization?.id) {
-        params.set('organizationId', currentOrganization.id);
-      }
-      params.set('limit', '50');
-      
-      const listResponse = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
-      const listData = await listResponse.json();
-      
-      if (listResponse.ok && listData.exams) {
-        setAllExams(listData.exams);
-        
-        // Eğer exam yoksa ve examId varsa, listeden bul
-        if (examId && !exam) {
-          const found = listData.exams.find((e: ExamData) => e.id === examId);
-          if (found) {
-            // Öğrenci detaylarını fetch et
-            const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
-            const detailData = await detailRes.json();
-            if (detailRes.ok) {
-              setExam(detailData.exam);
-            } else {
-              // Fallback: sadece özet bilgileri kullan
-              setExam({
-                ...found,
-                ogrenciler: found.ilk20Ogrenci?.map((o: any, i: number) => ({
-                  id: String(i),
-                  ogrenciNo: o.ogrenciNo || String(i),
-                  ogrenciAdi: o.ogrenciAdi,
-                  toplamDogru: 0,
-                  toplamYanlis: 0,
-                  toplamBos: 0,
-                  toplamNet: o.toplamNet,
-                  toplamPuan: o.toplamNet * 5,
-                  siralama: o.siralama || i + 1
-                })) || []
-              });
-            }
-          }
+          // Verileri zenginleştir
+          const enrichedStudents = data.exam.ogrenciler.map((s: StudentResult, i: number) => ({
+            ...s,
+            sayisalKitapcik: s.kitapcik || 'A',
+            sozelKitapcik: s.kitapcik || 'A',
+            hataliSayisi: 0,
+            netYuzdesi: s.toplamNet > 0 ? parseFloat(((s.toplamNet / (data.exam.toplamSoru || 90)) * 100).toFixed(1)) : 0,
+            subeSira: Math.ceil((i + 1) / 10),
+            okulSira: i + 1,
+            subeNetSira: `${Math.ceil((i + 1) / 10)}/${Math.ceil(data.exam.ogrenciler.length / 10)}`,
+            okulNetSira: `${i + 1}/${data.exam.ogrenciler.length}`
+          }));
+          
+          setExam({
+            ...data.exam,
+            ogrenciler: enrichedStudents
+          });
         }
       }
     } catch (error) {
@@ -206,14 +148,14 @@ function KarneContent() {
     } finally {
       setLoading(false);
     }
-  }, [examId, currentOrganization?.id]);
+  }, [examId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   // =============================================================================
-  // COMPUTED VALUES
+  // COMPUTED
   // =============================================================================
 
   const filteredStudents = useMemo(() => {
@@ -221,146 +163,43 @@ function KarneContent() {
     
     let result = [...exam.ogrenciler];
     
-    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => 
         s.ogrenciAdi.toLowerCase().includes(term) ||
-        s.ogrenciNo?.toLowerCase().includes(term) ||
-        s.sinifNo?.toLowerCase().includes(term)
+        s.ogrenciNo?.toLowerCase().includes(term)
       );
     }
     
-    // Sort
-    result.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-      
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (sortDirection === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-    
-    return result;
-  }, [exam?.ogrenciler, searchTerm, sortField, sortDirection]);
-
-  const stats = useMemo(() => {
-    if (!exam?.ogrenciler?.length) return null;
-    
-    const ogrenciler = exam.ogrenciler;
-    const toplamNet = ogrenciler.reduce((s, o) => s + o.toplamNet, 0);
-    const toplamPuan = ogrenciler.reduce((s, o) => s + o.toplamPuan, 0);
-    const maxNet = Math.max(...ogrenciler.map(o => o.toplamNet));
-    const minNet = Math.min(...ogrenciler.map(o => o.toplamNet));
-    
-    return {
-      toplamOgrenci: ogrenciler.length,
-      ortalamaNet: (toplamNet / ogrenciler.length).toFixed(2),
-      ortalamaPuan: (toplamPuan / ogrenciler.length).toFixed(2),
-      maxNet,
-      minNet
-    };
-  }, [exam?.ogrenciler]);
-
-  // Ders bazlı istatistikler
-  const dersStats = useMemo(() => {
-    if (!exam?.ogrenciler?.length) return [];
-    
-    const dersMap: Record<string, { dogru: number; yanlis: number; bos: number; net: number; count: number }> = {};
-    
-    exam.ogrenciler.forEach(ogr => {
-      ogr.dersBazli?.forEach(ders => {
-        if (!dersMap[ders.dersKodu]) {
-          dersMap[ders.dersKodu] = { dogru: 0, yanlis: 0, bos: 0, net: 0, count: 0 };
-        }
-        dersMap[ders.dersKodu].dogru += ders.dogru;
-        dersMap[ders.dersKodu].yanlis += ders.yanlis;
-        dersMap[ders.dersKodu].bos += ders.bos;
-        dersMap[ders.dersKodu].net += ders.net;
-        dersMap[ders.dersKodu].count++;
-      });
-    });
-    
-    return Object.entries(dersMap).map(([kod, vals]) => ({
-      dersKodu: kod,
-      dersAdi: DERS_ISIMLERI[kod] || kod,
-      ortalamaNet: (vals.net / vals.count).toFixed(2),
-      ortalamaDogru: (vals.dogru / vals.count).toFixed(1),
-      ortalamaYanlis: (vals.yanlis / vals.count).toFixed(1)
-    }));
-  }, [exam?.ogrenciler]);
+    return result.slice(0, pageSize);
+  }, [exam?.ogrenciler, searchTerm, pageSize]);
 
   // =============================================================================
   // HANDLERS
   // =============================================================================
 
-  const handleSort = (field: typeof sortField) => {
-    if (sortField === field) {
-      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  const handleSelectStudent = (id: string) => {
-    setSelectedStudents(prev => {
+  const toggleRow = (id: string) => {
+    setSelectedRows(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const handleSelectAll = () => {
-    if (selectedStudents.size === filteredStudents.length) {
-      setSelectedStudents(new Set());
+  const selectAll = () => {
+    if (selectedRows.size === filteredStudents.length) {
+      setSelectedRows(new Set());
     } else {
-      setSelectedStudents(new Set(filteredStudents.map(s => s.id)));
+      setSelectedRows(new Set(filteredStudents.map(s => s.id)));
     }
   };
-
-  const handleRowClick = (student: StudentResult) => {
-    setSelectedStudentId(selectedStudentId === student.id ? null : student.id);
-  };
-
-  const handleGenerateReport = async (studentId?: string) => {
-    setIsGenerating(true);
-    try {
-      // PDF oluşturma mantığı
-      const ids = studentId ? [studentId] : Array.from(selectedStudents);
-      console.log('Karne oluşturuluyor:', ids);
-      
-      // TODO: PDF API çağrısı
-      await new Promise(r => setTimeout(r, 1000));
-      
-      alert(`${ids.length} öğrenci karnesi oluşturuldu!`);
-    } catch (error) {
-      console.error('Karne oluşturma hatası:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // =============================================================================
-  // RENDER HELPERS
-  // =============================================================================
 
   const formatDate = (dateStr: string) => {
     try {
       return new Date(dateStr).toLocaleDateString('tr-TR', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric'
       });
     } catch {
@@ -368,581 +207,325 @@ function KarneContent() {
     }
   };
 
-  const SortIcon = ({ field }: { field: typeof sortField }) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <SortAsc size={14} /> : <SortDesc size={14} />;
-  };
-
-  const NetBadge = ({ net }: { net: number }) => {
-    const color = net >= 10 ? 'text-green-600 bg-green-50' : 
-                  net >= 5 ? 'text-blue-600 bg-blue-50' : 
-                  net >= 0 ? 'text-amber-600 bg-amber-50' : 
-                  'text-red-600 bg-red-50';
-    return (
-      <span className={`px-2 py-1 rounded-full text-sm font-semibold ${color}`}>
-        {net.toFixed(2)}
-      </span>
-    );
-  };
-
   // =============================================================================
-  // LOADING STATE
+  // LOADING
   // =============================================================================
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
-          <p className="text-slate-500">Sınav verileri yükleniyor...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-[#00a0e3] mx-auto mb-3" />
+          <p className="text-slate-600 text-sm">Yükleniyor...</p>
         </div>
       </div>
     );
   }
-
-  // =============================================================================
-  // NO DATA STATE
-  // =============================================================================
 
   if (!exam) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <button 
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6"
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-lg shadow-sm">
+          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-slate-700 mb-2">Sınav Bulunamadı</h2>
+          <button
+            onClick={() => router.push('/admin/akademik-analiz')}
+            className="text-[#00a0e3] hover:underline"
           >
-            <ArrowLeft size={20} />
-            Geri
+            ← Geri Dön
           </button>
-          
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-            <Database className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-slate-700 mb-2">Sınav Bulunamadı</h2>
-            <p className="text-slate-500 mb-6">
-              Henüz kayıtlı bir sınav bulunmuyor veya seçilen sınav silinmiş olabilir.
-            </p>
-            <button
-              onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
-            >
-              Yeni Sınav Oluştur
-            </button>
-          </div>
         </div>
       </div>
     );
   }
 
   // =============================================================================
-  // MAIN RENDER
+  // RENDER
   // =============================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => router.back()}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} className="text-slate-600" />
-              </button>
-              
-              <div>
-                <h1 className="text-xl font-bold text-slate-800">{exam.ad}</h1>
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <span>{exam.tip}</span>
-                  <span>•</span>
-                  <span>{formatDate(exam.tarih)}</span>
-                  <span>•</span>
-                  <span>{exam.ogrenciler?.length || 0} öğrenci</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={loadData}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Yenile"
-              >
-                <RefreshCw size={20} className="text-slate-600" />
-              </button>
-              
-              <button
-                onClick={() => handleGenerateReport()}
-                disabled={selectedStudents.size === 0 || isGenerating}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isGenerating ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Download size={18} />
-                )}
-                {selectedStudents.size > 0 ? `${selectedStudents.size} Karne Oluştur` : 'Karne Oluştur'}
-              </button>
+    <div className="min-h-screen bg-[#f0f4f7]">
+      {/* Header - K12Net Style */}
+      <div className="bg-[#00a0e3] text-white px-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="hover:bg-white/10 p-1 rounded">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="font-semibold">{currentOrganization?.name || 'Dikmen Çözüm Kurs'} Merkezi</h1>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <Users size={16} />
-              Öğrenci
-            </div>
-            <div className="text-2xl font-bold text-slate-800">{stats?.toplamOgrenci || 0}</div>
+      {/* Sidebar + Content Layout */}
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-48 bg-white border-r border-slate-200 min-h-[calc(100vh-44px)]">
+          <div className="p-3 border-b border-slate-200">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase">Sınav ve Uygulama</h3>
           </div>
           
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <Target size={16} />
-              Ort. Net
-            </div>
-            <div className="text-2xl font-bold text-emerald-600">{stats?.ortalamaNet || '0'}</div>
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Uygulama Adı</div>
+            <div className="text-sm font-semibold text-slate-800">{exam.ad}</div>
+            <div className="text-xs text-slate-500">{exam.tip}</div>
           </div>
           
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <Award size={16} />
-              Ort. Puan
-            </div>
-            <div className="text-2xl font-bold text-blue-600">{stats?.ortalamaPuan || '0'}</div>
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Uygulama Zamanı</div>
+            <div className="text-sm font-semibold text-slate-800">{formatDate(exam.tarih)}</div>
           </div>
           
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <TrendingUp size={16} />
-              En Yüksek
-            </div>
-            <div className="text-2xl font-bold text-green-600">{stats?.maxNet?.toFixed(2) || '0'}</div>
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Eğitim Yılı</div>
+            <div className="text-sm font-semibold text-slate-800">2025-2026</div>
           </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <TrendingDown size={16} />
-              En Düşük
-            </div>
-            <div className="text-2xl font-bold text-red-600">{stats?.minNet?.toFixed(2) || '0'}</div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
-              <CheckCircle size={16} />
-              Seçili
-            </div>
-            <div className="text-2xl font-bold text-purple-600">{selectedStudents.size}</div>
+
+          <div className="mt-4">
+            <button className="w-full text-left px-3 py-2 bg-[#00a0e3] text-white text-sm font-medium">
+              Öğrenciler
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Sorular
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Şubeler
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Kazanımlar
+            </button>
           </div>
         </div>
 
-        {/* Ders Bazlı İstatistikler */}
-        {dersStats.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-              <BarChart3 size={16} className="text-emerald-600" />
-              Ders Bazlı Ortalamalar
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {dersStats.map(ders => {
-                const renk = DERS_RENKLERI[ders.dersKodu] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-                return (
-                  <div key={ders.dersKodu} className={`p-3 rounded-lg ${renk.bg} ${renk.border} border`}>
-                    <div className={`text-xs font-medium ${renk.text} mb-1`}>{ders.dersAdi}</div>
-                    <div className={`text-lg font-bold ${renk.text}`}>{ders.ortalamaNet}</div>
-                    <div className="text-xs text-slate-500">D:{ders.ortalamaDogru} Y:{ders.ortalamaYanlis}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Toolbar */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Öğrenci ara (ad, numara, sınıf)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
-              />
-            </div>
-            
-            {/* View Mode */}
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'table' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
-              >
-                <Table2 size={18} className={viewMode === 'table' ? 'text-emerald-600' : 'text-slate-500'} />
-              </button>
-              <button
-                onClick={() => setViewMode('cards')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'cards' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
-              >
-                <LayoutGrid size={18} className={viewMode === 'cards' ? 'text-emerald-600' : 'text-slate-500'} />
+        {/* Main Content */}
+        <div className="flex-1 p-4">
+          {/* Toolbar */}
+          <div className="bg-white rounded-lg shadow-sm p-3 mb-4 flex items-center gap-3 flex-wrap">
+            {/* Dropdown Filters */}
+            <div className="relative">
+              <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded border border-slate-300">
+                Alt Testler
+                <ChevronDown size={14} />
               </button>
             </div>
             
-            {/* Column Toggle */}
-            <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50">
-                <Columns size={18} className="text-slate-500" />
-                <span className="text-sm text-slate-600">Sütunlar</span>
-                <ChevronDown size={16} className="text-slate-400" />
+            <div className="relative">
+              <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded border border-slate-300">
+                Sütunlar
+                <ChevronDown size={14} />
               </button>
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 p-2 hidden group-hover:block z-50">
-                {Object.entries(showColumns).map(([key, value]) => (
-                  <label key={key} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={value}
-                      onChange={() => setShowColumns(prev => ({ ...prev, [key]: !prev[key] }))}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-sm text-slate-700 capitalize">{key}</span>
-                  </label>
-                ))}
-              </div>
             </div>
-          </div>
-        </div>
+            
+            <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#f0a030] hover:bg-[#e09020] text-white rounded">
+              Puanlar
+              <ChevronDown size={14} />
+            </button>
+            
+            <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#40a060] hover:bg-[#309050] text-white rounded">
+              Sıralar
+              <ChevronDown size={14} />
+            </button>
 
-        {/* Table View */}
-        {viewMode === 'table' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-sm text-slate-600">Sayfada Öğrenci Sayısı :</span>
+              <select 
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-slate-300 rounded"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={500}>Tümü</option>
+              </select>
+            </div>
+
+            <button className="px-3 py-1.5 text-sm bg-[#00a0e3] hover:bg-[#0090d0] text-white rounded">
+              Etüt Oluştur
+            </button>
+            
+            <button className="px-3 py-1.5 text-sm bg-[#e05050] hover:bg-[#d04040] text-white rounded">
+              Ödev Oluştur
+            </button>
+          </div>
+
+          {/* Table Container */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
-                        onChange={handleSelectAll}
-                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                      />
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  {/* Header Row 1 - Groups */}
+                  <tr className="bg-[#e8f4fc]">
+                    <th colSpan={4} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600"></th>
+                    <th colSpan={2} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#ffe0e0]">
+                      Kitapçık
                     </th>
-                    <th 
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                      onClick={() => handleSort('siralama')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Sıra
-                        <SortIcon field="siralama" />
-                      </div>
+                    <th colSpan={8} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#e0ffe0]">
+                      LGS Puanlar
                     </th>
-                    {showColumns.numara && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Numara
-                      </th>
-                    )}
-                    <th 
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                      onClick={() => handleSort('ogrenciAdi')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Öğrenci
-                        <SortIcon field="ogrenciAdi" />
-                      </div>
+                    <th colSpan={4} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#e0e0ff]">
+                      LGS Sıralar
                     </th>
-                    {showColumns.sinif && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Sınıf
-                      </th>
-                    )}
-                    {showColumns.kitapcik && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Kitapçık
-                      </th>
-                    )}
-                    {showColumns.dogru && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-green-600 uppercase tracking-wider">
-                        D
-                      </th>
-                    )}
-                    {showColumns.yanlis && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-red-600 uppercase tracking-wider">
-                        Y
-                      </th>
-                    )}
-                    {showColumns.bos && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        B
-                      </th>
-                    )}
-                    {showColumns.net && (
-                      <th 
-                        className="px-4 py-3 text-center text-xs font-semibold text-emerald-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                        onClick={() => handleSort('toplamNet')}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Net
-                          <SortIcon field="toplamNet" />
-                        </div>
-                      </th>
-                    )}
-                    {showColumns.puan && (
-                      <th 
-                        className="px-4 py-3 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                        onClick={() => handleSort('toplamPuan')}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Puan
-                          <SortIcon field="toplamPuan" />
-                        </div>
-                      </th>
-                    )}
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      İşlemler
+                    <th className="border border-slate-200 px-2 py-1 w-8"></th>
+                  </tr>
+                  
+                  {/* Header Row 2 - Columns */}
+                  <tr className="bg-[#d0e8f8]">
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap sticky left-0 bg-[#d0e8f8] z-10">
+                      {exam.ogrenciler?.length || 0}
+                    </th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 w-8">▶</th>
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap">Numara</th>
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap min-w-[180px]">Öğrenci</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#fff0f0]">Sayısal<br/>Kitapçık</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#fff0f0]">Sözel<br/>Kitapçık</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Doğru<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Yanlış<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Boş<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Hatalı<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Net<br/>Yüzdesi</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Şube-LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Okul-LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Şube-Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Okul-Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 w-8">
+                      <X size={14} className="text-red-500 mx-auto" />
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                
+                <tbody>
                   {filteredStudents.map((student, index) => {
-                    const isSelected = selectedStudents.has(student.id);
-                    const isExpanded = selectedStudentId === student.id;
+                    const isSelected = selectedRows.has(student.id);
+                    const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                     
                     return (
-                      <React.Fragment key={student.id}>
-                        <tr 
-                          className={`hover:bg-slate-50 transition-colors cursor-pointer ${isSelected ? 'bg-emerald-50' : ''}`}
-                          onClick={() => handleRowClick(student)}
-                        >
-                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleSelectStudent(student.id)}
-                              className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
-                              ${student.siralama <= 3 ? 'bg-amber-100 text-amber-700' : 
-                                student.siralama <= 10 ? 'bg-emerald-100 text-emerald-700' : 
-                                'bg-slate-100 text-slate-600'}`}>
-                              {student.siralama}
-                            </span>
-                          </td>
-                          {showColumns.numara && (
-                            <td className="px-4 py-3 text-sm text-slate-600 font-mono">
-                              {student.ogrenciNo || '-'}
-                            </td>
-                          )}
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-slate-800">{student.ogrenciAdi}</div>
-                          </td>
-                          {showColumns.sinif && (
-                            <td className="px-4 py-3 text-center">
-                              <span className="px-2 py-1 bg-slate-100 rounded text-sm text-slate-600">
-                                {student.sinifNo || '-'}
-                              </span>
-                            </td>
-                          )}
-                          {showColumns.kitapcik && (
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-1 rounded text-sm font-medium
-                                ${student.kitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 
-                                  student.kitapcik === 'B' ? 'bg-purple-100 text-purple-700' : 
-                                  'bg-slate-100 text-slate-600'}`}>
-                                {student.kitapcik || '-'}
-                              </span>
-                            </td>
-                          )}
-                          {showColumns.dogru && (
-                            <td className="px-4 py-3 text-center font-semibold text-green-600">
-                              {student.toplamDogru}
-                            </td>
-                          )}
-                          {showColumns.yanlis && (
-                            <td className="px-4 py-3 text-center font-semibold text-red-600">
-                              {student.toplamYanlis}
-                            </td>
-                          )}
-                          {showColumns.bos && (
-                            <td className="px-4 py-3 text-center text-slate-500">
-                              {student.toplamBos}
-                            </td>
-                          )}
-                          {showColumns.net && (
-                            <td className="px-4 py-3 text-center">
-                              <NetBadge net={student.toplamNet} />
-                            </td>
-                          )}
-                          {showColumns.puan && (
-                            <td className="px-4 py-3 text-center">
-                              <span className="font-bold text-blue-600">{student.toplamPuan.toFixed(2)}</span>
-                            </td>
-                          )}
-                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => setSelectedStudentId(isExpanded ? null : student.id)}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Detay"
-                              >
-                                <Eye size={16} className="text-slate-500" />
-                              </button>
-                              <button
-                                onClick={() => handleGenerateReport(student.id)}
-                                className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
-                                title="Karne İndir"
-                              >
-                                <Download size={16} className="text-emerald-600" />
-                              </button>
-                              <button
-                                className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                                title="Yazdır"
-                              >
-                                <Printer size={16} className="text-blue-600" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        
-                        {/* Expanded Row - Ders Detayları */}
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={12} className="p-0 bg-slate-50">
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: 'auto', opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="p-6 border-l-4 border-emerald-500">
-                                    <h4 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                                      <BookOpen size={16} className="text-emerald-600" />
-                                      Ders Bazlı Sonuçlar - {student.ogrenciAdi}
-                                    </h4>
-                                    {student.dersBazli && student.dersBazli.length > 0 ? (
-                                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                                        {student.dersBazli.map(ders => {
-                                          const renk = DERS_RENKLERI[ders.dersKodu] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-                                          return (
-                                            <div key={ders.dersKodu} className={`p-3 rounded-lg ${renk.bg} ${renk.border} border`}>
-                                              <div className={`text-xs font-medium ${renk.text} mb-2`}>{ders.dersAdi}</div>
-                                              <div className={`text-xl font-bold ${renk.text} mb-1`}>{ders.net.toFixed(2)}</div>
-                                              <div className="flex items-center gap-2 text-xs">
-                                                <span className="text-green-600">D:{ders.dogru}</span>
-                                                <span className="text-red-600">Y:{ders.yanlis}</span>
-                                                <span className="text-slate-500">B:{ders.bos}</span>
-                                              </div>
-                                              <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                                <div 
-                                                  className="h-full bg-emerald-500 rounded-full"
-                                                  style={{ width: `${ders.basariOrani || 0}%` }}
-                                                />
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm text-slate-500">Ders bazlı veri bulunmuyor.</p>
-                                    )}
-                                  </div>
-                                </motion.div>
-                              </td>
-                            </tr>
-                          )}
-                        </AnimatePresence>
-                      </React.Fragment>
+                      <tr 
+                        key={student.id} 
+                        className={`${rowBg} hover:bg-[#e8f4fc] transition-colors cursor-pointer ${isSelected ? '!bg-[#d0e8f8]' : ''}`}
+                        onClick={() => toggleRow(student.id)}
+                      >
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 sticky left-0 z-10" style={{ backgroundColor: isSelected ? '#d0e8f8' : index % 2 === 0 ? 'white' : '#f8fafc' }}>
+                          {index + 1}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <button className="text-slate-400 hover:text-[#00a0e3]">▶</button>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-slate-700 font-mono text-xs">
+                          {student.ogrenciNo || '-'}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-slate-800 font-medium whitespace-nowrap">
+                          {student.ogrenciAdi}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center bg-[#fffafa]">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            student.sayisalKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {student.sayisalKitapcik || '-'}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center bg-[#fffafa]">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            student.sozelKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {student.sozelKitapcik || '-'}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-semibold text-green-600 bg-[#fafffa]">
+                          {student.toplamDogru}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-semibold text-red-600 bg-[#fafffa]">
+                          {student.toplamYanlis}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-500 bg-[#fafffa]">
+                          {student.toplamBos}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-500 bg-[#fafffa]">
+                          {student.hataliSayisi || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-bold text-emerald-700 bg-[#fafffa]">
+                          {student.toplamNet.toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafffa]">
+                          {student.netYuzdesi?.toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-bold text-blue-700 bg-[#fafffa]">
+                          {student.toplamPuan.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.subeSira}/{Math.ceil((exam.ogrenciler?.length || 1) / 10)}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.siralama}/{exam.ogrenciler?.length || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.subeSira}/{Math.ceil((exam.ogrenciler?.length || 1) / 10)}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.siralama}/{exam.ogrenciler?.length || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                            title="Kaldır"
+                          >
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            
+
+            {/* Empty State */}
             {filteredStudents.length === 0 && (
               <div className="p-12 text-center">
-                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">Öğrenci bulunamadı</p>
+                <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm">Öğrenci bulunamadı</p>
               </div>
             )}
           </div>
-        )}
 
-        {/* Cards View */}
-        {viewMode === 'cards' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredStudents.map(student => {
-              const isSelected = selectedStudents.has(student.id);
+          {/* Footer Stats */}
+          <div className="mt-4 bg-white rounded-lg shadow-sm p-3 flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              Toplam: <strong>{exam.ogrenciler?.length || 0}</strong> öğrenci | 
+              Ort. Net: <strong className="text-emerald-600">{exam.ortalamaNet?.toFixed(2) || '0'}</strong> | 
+              Seçili: <strong className="text-[#00a0e3]">{selectedRows.size}</strong>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadData}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded"
+              >
+                <RefreshCw size={14} />
+                Yenile
+              </button>
               
-              return (
-                <motion.div
-                  key={student.id}
-                  layout
-                  className={`bg-white rounded-xl border-2 p-4 transition-all cursor-pointer hover:shadow-lg
-                    ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
-                  onClick={() => handleSelectStudent(student.id)}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-semibold text-slate-800">{student.ogrenciAdi}</div>
-                      <div className="text-sm text-slate-500">{student.ogrenciNo}</div>
-                    </div>
-                    <span className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
-                      ${student.siralama <= 3 ? 'bg-amber-100 text-amber-700' : 
-                        student.siralama <= 10 ? 'bg-emerald-100 text-emerald-700' : 
-                        'bg-slate-100 text-slate-600'}`}>
-                      {student.siralama}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                    <div>
-                      <div className="text-xs text-slate-500">D</div>
-                      <div className="font-bold text-green-600">{student.toplamDogru}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">Y</div>
-                      <div className="font-bold text-red-600">{student.toplamYanlis}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">B</div>
-                      <div className="font-bold text-slate-500">{student.toplamBos}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">Net</div>
-                      <div className="font-bold text-emerald-600">{student.toplamNet.toFixed(1)}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500">Puan:</span>
-                      <span className="font-bold text-blue-600">{student.toplamPuan.toFixed(2)}</span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleGenerateReport(student.id);
-                      }}
-                      className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
-                    >
-                      <Download size={16} />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
+              <button
+                disabled={selectedRows.size === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#00a0e3] hover:bg-[#0090d0] disabled:bg-slate-300 text-white rounded"
+              >
+                <Download size={14} />
+                Karne İndir ({selectedRows.size})
+              </button>
+              
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded"
+              >
+                <Printer size={14} />
+                Yazdır
+              </button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -955,8 +538,8 @@ function KarneContent() {
 export default function KarnePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#00a0e3]" />
       </div>
     }>
       <KarneContent />
