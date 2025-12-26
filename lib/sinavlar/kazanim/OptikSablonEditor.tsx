@@ -268,16 +268,39 @@ export default function OptikSablonEditor({
   const addSelectedAsField = useCallback(() => {
     if (!selectedRange || !activeAlanTipi) return;
 
-    const alanTipi = ALAN_TIPLERI.find(t => t.id === activeAlanTipi);
-    if (!alanTipi) return;
+    let yeniAlan: OptikAlanTanimi;
 
-    const yeniAlan: OptikAlanTanimi = {
-      alan: activeAlanTipi as any,
-      baslangic: selectedRange.start + 1, // 1-indexed
-      bitis: selectedRange.end + 1,
-      label: alanTipi.label,
-      color: alanTipi.color
-    };
+    // Özel alan mı kontrol et
+    if (activeAlanTipi.startsWith('ozel_')) {
+      const ozelId = activeAlanTipi.replace('ozel_', '');
+      const ozelAlan = ozelAlanlar.find(o => o.id === ozelId);
+      
+      if (!ozelAlan) {
+        console.error('Özel alan bulunamadı:', ozelId);
+        return;
+      }
+
+      yeniAlan = {
+        alan: 'ozel' as any,
+        baslangic: selectedRange.start + 1, // 1-indexed
+        bitis: selectedRange.end + 1,
+        label: ozelAlan.label,
+        color: ozelAlan.color,
+        customLabel: ozelAlan.label // Özel alan için customLabel
+      };
+    } else {
+      // Standart alan
+      const alanTipi = ALAN_TIPLERI.find(t => t.id === activeAlanTipi);
+      if (!alanTipi) return;
+
+      yeniAlan = {
+        alan: activeAlanTipi as any,
+        baslangic: selectedRange.start + 1, // 1-indexed
+        bitis: selectedRange.end + 1,
+        label: alanTipi.label,
+        color: alanTipi.color
+      };
+    }
 
     // Örtüşen alanları kontrol et ve kaldır
     setAlanlar(prev => {
@@ -291,7 +314,8 @@ export default function OptikSablonEditor({
     setSelectionStart(null);
     setSelectionEnd(null);
     setActiveAlanTipi(null);
-  }, [selectedRange, activeAlanTipi]);
+    setClickMode('first'); // Tıklama modunu sıfırla
+  }, [selectedRange, activeAlanTipi, ozelAlanlar]);
 
   // Manuel alan ekleme
   const addManualField = useCallback((tipId: string, baslangic: number, bitis: number) => {
@@ -844,7 +868,9 @@ export default function OptikSablonEditor({
                   <span className="text-2xl">{ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.icon}</span>
                   <div>
                     <p className="font-medium text-blue-800">
-                      {ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.label}
+                      {activeAlanTipi?.startsWith('ozel_') 
+                        ? ozelAlanlar.find(o => o.id === activeAlanTipi?.replace('ozel_', ''))?.label || 'Özel Alan'
+                        : ALAN_TIPLERI.find(t => t.id === activeAlanTipi)?.label}
                     </p>
                     <p className="text-sm text-blue-600">
                       Karakter {selectedRange.start + 1} - {selectedRange.end + 1} 
