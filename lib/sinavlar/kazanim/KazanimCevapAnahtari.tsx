@@ -286,9 +286,11 @@ export default function KazanimCevapAnahtari({
           currentTestKodu = String(row[testKoduCol]).trim();
         }
 
-        // Ders kodunu al
+        // Ders kodunu ve adını al
+        let currentDersAdi = '';
         if (dersAdiCol >= 0 && row[dersAdiCol]) {
-          currentDers = getDersKodu(String(row[dersAdiCol]));
+          currentDersAdi = String(row[dersAdiCol]).trim();
+          currentDers = getDersKodu(currentDersAdi);
         } else if (testKoduCol >= 0 && row[testKoduCol]) {
           // Test kodundan ders çıkar (TUR1 -> TUR)
           currentDers = getDersKodu(String(row[testKoduCol]));
@@ -355,6 +357,7 @@ export default function KazanimCevapAnahtari({
           soruNo,
           dogruCevap: cevap as 'A' | 'B' | 'C' | 'D' | 'E',
           dersKodu: currentDers,
+          dersAdi: currentDersAdi || getDersTamAdi(currentDers),
           testKodu: currentTestKodu || undefined,
           kazanimKodu: kazanimKodu || undefined,
           kazanimMetni: kazanimMetni || undefined,
@@ -519,17 +522,28 @@ export default function KazanimCevapAnahtari({
 
   // ============ KAYDET ============
   const handleSave = useCallback(() => {
+    console.log('🔵 handleSave çağrıldı, parsedData:', parsedData.length);
+    
     if (parsedData.length === 0) {
       setError('Kaydedilecek veri yok');
       return;
     }
 
-    onSave?.(parsedData);
-    setIsSaved(true);
-
-    setTimeout(() => {
-      setIsSaved(false);
-    }, 3000);
+    // onSave callback'ini çağır
+    if (onSave) {
+      console.log('✅ onSave çağrılıyor...', parsedData.length, 'soru');
+      onSave(parsedData);
+      setIsSaved(true);
+      setError(null);
+      
+      // 3 saniye sonra başarı mesajını kaldır
+      setTimeout(() => {
+        setIsSaved(false);
+      }, 3000);
+    } else {
+      console.warn('⚠️ onSave prop tanımlı değil!');
+      setError('Kaydetme fonksiyonu tanımlı değil');
+    }
   }, [parsedData, onSave]);
 
   // Ders bazlı gruplama
@@ -878,20 +892,27 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                             <table className="w-full text-sm bg-white">
                               <thead className="bg-slate-100 sticky top-0">
                                 <tr>
-                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-12">A</th>
+                                  {/* Test Kodu varsa göster */}
+                                  {parsedData.some(p => p.testKodu) && (
+                                    <th className="px-2 py-2 text-left font-semibold text-violet-600 w-16">Test</th>
+                                  )}
+                                  {/* Ders Adı */}
+                                  <th className="px-2 py-2 text-left font-semibold text-blue-600 w-24">Ders</th>
+                                  {/* Kitapçık Soru Numaraları */}
+                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-10">A</th>
                                   {parsedData.some(p => p.kitapcikSoruNo?.B) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-amber-600 w-12">B</th>
+                                    <th className="px-2 py-2 text-center font-semibold text-amber-600 w-10">B</th>
                                   )}
                                   {parsedData.some(p => p.kitapcikSoruNo?.C) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-12">C</th>
+                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-10">C</th>
                                   )}
                                   {parsedData.some(p => p.kitapcikSoruNo?.D) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-12">D</th>
+                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-10">D</th>
                                   )}
-                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-14">Cevap</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-slate-600 w-28">Kazanım Kodu</th>
+                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">Cevap</th>
+                                  <th className="px-2 py-2 text-left font-semibold text-purple-600 w-24">Kazanım</th>
                                   <th className="px-3 py-2 text-left font-semibold text-slate-600">📝 Kazanım Açıklaması</th>
-                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-16">İşlem</th>
+                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-14">İşlem</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -901,6 +922,20 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                   
                                   return (
                                     <tr key={idx} className="hover:bg-slate-50 group">
+                                      {/* Test Kodu */}
+                                      {parsedData.some(p => p.testKodu) && (
+                                        <td className="px-2 py-2 text-left">
+                                          <span className="text-xs font-mono text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
+                                            {row.testKodu || '-'}
+                                          </span>
+                                        </td>
+                                      )}
+                                      {/* Ders Adı */}
+                                      <td className="px-2 py-2 text-left">
+                                        <span className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                                          {row.dersAdi || getDersTamAdi(row.dersKodu)}
+                                        </span>
+                                      </td>
                                       {/* A Kitapçık Soru No */}
                                       <td className="px-2 py-2 text-center">
                                         <span className="font-bold text-slate-800">{row.soruNo}</span>
@@ -925,12 +960,12 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                       )}
                                       {/* Doğru Cevap */}
                                       <td className="px-2 py-2 text-center">
-                                        <span className="inline-flex items-center justify-center w-8 h-8 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
+                                        <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm">
                                           {row.dogruCevap}
                                         </span>
                                       </td>
                                       {/* Kazanım Kodu */}
-                                      <td className="px-3 py-2">
+                                      <td className="px-2 py-2">
                                         {isEditing ? (
                                           <input
                                             type="text"
@@ -999,13 +1034,20 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
 
               {/* Kaydet Butonu */}
               <div className="p-4 bg-slate-50 border-t border-slate-200">
-                <button
-                  onClick={handleSave}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold text-lg hover:shadow-xl transition-all"
-                >
-                  <CheckCircle size={22} />
-                  Cevap Anahtarını Kaydet ve Devam Et
-                </button>
+                {isSaved ? (
+                  <div className="w-full flex items-center justify-center gap-3 py-4 bg-emerald-100 text-emerald-700 rounded-xl font-bold text-lg">
+                    <CheckCircle size={24} />
+                    ✅ Cevap Anahtarı Kaydedildi! Devam edebilirsiniz.
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSave}
+                    className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold text-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
+                  >
+                    <Save size={22} />
+                    Cevap Anahtarını Kaydet ve Devam Et
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
