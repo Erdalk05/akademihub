@@ -475,8 +475,8 @@ export default function KazanimCevapAnahtari({
           dogruCevap: cevap as 'A' | 'B' | 'C' | 'D' | 'E',
           dersKodu: currentDers,
           dersAdi: currentDersAdi || getDersTamAdi(currentDers),
-          testKodu: currentTestKodu || undefined,
-          soruDegeri: soruDegeri !== 1 ? soruDegeri : undefined,
+          testKodu: currentTestKodu || '', // ✅ Her zaman kaydet (boş string olsa bile)
+          soruDegeri: soruDegeri, // ✅ Her zaman kaydet (1 olsa bile)
           kazanimKodu: kazanimKodu || undefined,
           kazanimMetni: kazanimMetni || undefined,
           kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 1 ? kitapcikSoruNo : undefined,
@@ -1111,34 +1111,30 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                             <table className="w-full text-sm bg-white">
                               <thead className="bg-slate-100 sticky top-0">
                                 <tr>
-                                  {/* Test Kodu varsa göster */}
-                                  {parsedData.some(p => p.testKodu) && (
-                                    <th className="px-2 py-2 text-left font-semibold text-violet-600 w-16">Kod</th>
-                                  )}
-                                  {/* Ders Adı */}
-                                  <th className="px-2 py-2 text-left font-semibold text-blue-600 w-24">Ders</th>
-                                  {/* Soru No */}
-                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-10">Soru</th>
-                                  {/* Soru Değeri varsa göster */}
-                                  {parsedData.some(p => p.soruDegeri && p.soruDegeri !== 1) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-slate-500 w-10">Puan</th>
-                                  )}
-                                  {/* A Kitapçığı Cevabı */}
-                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">A Cev</th>
-                                  {/* B Kitapçığı Cevabı */}
-                                  {parsedData.some(p => p.kitapcikCevaplari?.B) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-amber-600 w-12">B Cev</th>
-                                  )}
-                                  {/* C Kitapçığı Cevabı */}
+                                  {/* ✅ DERS KODU - Her zaman göster */}
+                                  <th className="px-2 py-2 text-center font-semibold text-violet-600 w-12">Ders Kodu</th>
+                                  {/* ✅ Ders Adı - Her zaman göster */}
+                                  <th className="px-2 py-2 text-left font-semibold text-blue-600 w-32">Ders Adı</th>
+                                  {/* ✅ Kitapçık A (Soru No) - Her zaman göster */}
+                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-14">Kitapçık A</th>
+                                  {/* ✅ Soru Değeri - Her zaman göster */}
+                                  <th className="px-2 py-2 text-center font-semibold text-slate-500 w-12">Soru Değeri</th>
+                                  {/* ✅ A Kitapçığı Cevabı (Doğru Cevap) */}
+                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">Cevap</th>
+                                  {/* ✅ B Kitapçığı Cevabı - Her zaman göster */}
+                                  <th className="px-2 py-2 text-center font-semibold text-amber-600 w-14">B Kit. Cev</th>
+                                  {/* C Kitapçığı Cevabı - Varsa göster */}
                                   {parsedData.some(p => p.kitapcikCevaplari?.C) && (
                                     <th className="px-2 py-2 text-center font-semibold text-orange-600 w-12">C Cev</th>
                                   )}
-                                  {/* D Kitapçığı Cevabı */}
+                                  {/* D Kitapçığı Cevabı - Varsa göster */}
                                   {parsedData.some(p => p.kitapcikCevaplari?.D) && (
                                     <th className="px-2 py-2 text-center font-semibold text-red-600 w-12">D Cev</th>
                                   )}
-                                  <th className="px-2 py-2 text-left font-semibold text-purple-600 w-24">Kazanım</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-slate-600">📝 Kazanım Açıklaması</th>
+                                  {/* ✅ Kazanım Kodu - Her zaman göster */}
+                                  <th className="px-2 py-2 text-left font-semibold text-purple-600 w-24">Kazanım Kodu</th>
+                                  {/* ✅ Kazanım Metni - Her zaman göster */}
+                                  <th className="px-3 py-2 text-left font-semibold text-teal-600">Kazanım Metni</th>
                                   <th className="px-2 py-2 text-center font-semibold text-slate-600 w-14">İşlem</th>
                                 </tr>
                               </thead>
@@ -1149,45 +1145,43 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                   
                                   return (
                                     <tr key={idx} className="hover:bg-slate-50 group">
-                                      {/* Test Kodu */}
-                                      {parsedData.some(p => p.testKodu) && (
-                                        <td className="px-2 py-2 text-left">
-                                          <span className="text-xs font-mono text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-                                            {row.testKodu || '-'}
-                                          </span>
-                                        </td>
-                                      )}
-                                      {/* Ders Adı */}
+                                      {/* ✅ DERS KODU - Her zaman göster */}
+                                      <td className="px-2 py-2 text-center">
+                                        <span className="text-xs font-mono text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
+                                          {row.testKodu || '-'}
+                                        </span>
+                                      </td>
+                                      {/* ✅ Ders Adı - Her zaman göster */}
                                       <td className="px-2 py-2 text-left">
                                         <span className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
                                           {row.dersAdi || getDersTamAdi(row.dersKodu)}
                                         </span>
                                       </td>
-                                      {/* Soru No */}
+                                      {/* ✅ Kitapçık A (Soru No) - Her zaman göster */}
                                       <td className="px-2 py-2 text-center">
                                         <span className="font-bold text-slate-800">{row.soruNo}</span>
                                       </td>
-                                      {/* Soru Değeri */}
-                                      {parsedData.some(p => p.soruDegeri && p.soruDegeri !== 1) && (
-                                        <td className="px-2 py-2 text-center text-slate-500 text-sm">
-                                          {row.soruDegeri || 1}
-                                        </td>
-                                      )}
-                                      {/* A Kitapçığı Cevabı */}
+                                      {/* ✅ Soru Değeri - Her zaman göster */}
+                                      <td className="px-2 py-2 text-center text-slate-600 text-sm font-medium">
+                                        {row.soruDegeri || 1}
+                                      </td>
+                                      {/* ✅ A Kitapçığı Cevabı (Doğru Cevap) */}
                                       <td className="px-2 py-2 text-center">
                                         <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm">
                                           {row.kitapcikCevaplari?.A || row.dogruCevap}
                                         </span>
                                       </td>
-                                      {/* B Kitapçığı Cevabı */}
-                                      {parsedData.some(p => p.kitapcikCevaplari?.B) && (
-                                        <td className="px-2 py-2 text-center">
-                                          <span className="inline-flex items-center justify-center w-7 h-7 bg-amber-100 text-amber-700 rounded-lg font-bold text-sm">
-                                            {row.kitapcikCevaplari?.B || '-'}
-                                          </span>
-                                        </td>
-                                      )}
-                                      {/* C Kitapçığı Cevabı */}
+                                      {/* ✅ B Kitapçığı Cevabı - Her zaman göster */}
+                                      <td className="px-2 py-2 text-center">
+                                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-sm ${
+                                          row.kitapcikCevaplari?.B 
+                                            ? 'bg-amber-100 text-amber-700' 
+                                            : 'bg-slate-100 text-slate-400'
+                                        }`}>
+                                          {row.kitapcikCevaplari?.B || '-'}
+                                        </span>
+                                      </td>
+                                      {/* C Kitapçığı Cevabı - Varsa göster */}
                                       {parsedData.some(p => p.kitapcikCevaplari?.C) && (
                                         <td className="px-2 py-2 text-center">
                                           <span className="inline-flex items-center justify-center w-7 h-7 bg-orange-100 text-orange-700 rounded-lg font-bold text-sm">
@@ -1195,7 +1189,7 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                           </span>
                                         </td>
                                       )}
-                                      {/* D Kitapçığı Cevabı */}
+                                      {/* D Kitapçığı Cevabı - Varsa göster */}
                                       {parsedData.some(p => p.kitapcikCevaplari?.D) && (
                                         <td className="px-2 py-2 text-center">
                                           <span className="inline-flex items-center justify-center w-7 h-7 bg-red-100 text-red-700 rounded-lg font-bold text-sm">
