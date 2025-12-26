@@ -23,20 +23,49 @@ export default function SihirbazPage() {
       // Demo mod - gerçek kayıt yerine konsola yazdır
       console.log('Sınav verisi:', data);
       
-      // LocalStorage'a kaydet (demo)
+      // LocalStorage'a SADECE ÖZET kaydet (tam veri çok büyük!)
       const savedExams = JSON.parse(localStorage.getItem('akademihub_exams') || '[]');
+      
+      // Sadece özet veri (cevaplar ve detayları hariç)
+      const ozetSonuclar = data.ogrenciSonuclari.slice(0, 20).map((s: any) => ({
+        ogrenciNo: s.ogrenciNo,
+        ogrenciAdi: s.ogrenciAdi,
+        toplamNet: s.toplamNet,
+        siralama: s.siralama
+      }));
+      
       const newExam = {
         id: Date.now().toString(),
-        ...data.sinavBilgisi,
-        cevapAnahtari: data.cevapAnahtari,
-        ogrenciSonuclari: data.ogrenciSonuclari,
+        ad: data.sinavBilgisi.ad,
+        tarih: data.sinavBilgisi.tarih,
+        tip: data.sinavBilgisi.tip,
+        toplamSoru: data.cevapAnahtari.length,
+        toplamOgrenci: data.ogrenciSonuclari.length,
+        ortalamaNet: data.ogrenciSonuclari.length > 0 
+          ? (data.ogrenciSonuclari.reduce((sum: number, s: any) => sum + s.toplamNet, 0) / data.ogrenciSonuclari.length).toFixed(2)
+          : 0,
+        ilk20Ogrenci: ozetSonuclar,
         createdAt: new Date().toISOString()
       };
+      
+      // En fazla 10 sınav tut (eski olanları sil)
+      if (savedExams.length >= 10) {
+        savedExams.shift(); // En eskiyi sil
+      }
+      
       savedExams.push(newExam);
-      localStorage.setItem('akademihub_exams', JSON.stringify(savedExams));
+      
+      try {
+        localStorage.setItem('akademihub_exams', JSON.stringify(savedExams));
+      } catch (storageError) {
+        // localStorage doluysa tüm eski verileri temizle
+        console.warn('LocalStorage dolu, temizleniyor...');
+        localStorage.removeItem('akademihub_exams');
+        localStorage.setItem('akademihub_exams', JSON.stringify([newExam]));
+      }
 
       // Başarılı mesaj
-      alert('Sınav başarıyla kaydedildi!');
+      alert(`✅ Sınav başarıyla kaydedildi!\n\n📊 ${data.ogrenciSonuclari.length} öğrenci\n📝 ${data.cevapAnahtari.length} soru`);
       
       // Sonuçlar sayfasına yönlendir
       router.push('/admin/akademik-analiz/sonuclar');
