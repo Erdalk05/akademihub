@@ -281,9 +281,20 @@ export default function KazanimCevapAnahtari({
       // Soru Değeri
       const soruDegeriCol = findCol(['SORU DEĞERİ', 'SORU DEGERI', 'SORUDEGERI', 'DEGER', 'PUAN']);
       
-      // Doğru Cevap
-      // Doğru Cevap
-      const cevapCol = findCol(['CEVAP', 'DOGRUCEVAP', 'DOGRU CEVAP', 'YANIT', 'DOĞRU CEVAP', 'DOGRU']);
+      // A Kitapçığı Cevabı (ana cevap sütunu)
+      const cevapCol = findCol(['CEVAP', 'DOGRUCEVAP', 'DOGRU CEVAP', 'YANIT', 'DOĞRU CEVAP', 'DOGRU', 'A CEVAP', 'A CEVABI']);
+      
+      // ✨ B KİTAPÇIĞI CEVAP - Farklı kitapçık cevapları
+      const bCevapCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B CEVAP', 'B CEVABI', 'B KİT CEVAP']);
+      const cCevapCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI', 'C KİT CEVAP']);
+      const dCevapCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'D CEVAP', 'D CEVABI', 'D KİT CEVAP']);
+      
+      console.log('📚 Kitapçık Cevap Sütunları:', {
+        'A Cevap': cevapCol >= 0 ? headers[cevapCol] : 'YOK',
+        'B Cevap': bCevapCol >= 0 ? headers[bCevapCol] : 'YOK',
+        'C Cevap': cCevapCol >= 0 ? headers[cCevapCol] : 'YOK',
+        'D Cevap': dCevapCol >= 0 ? headers[dCevapCol] : 'YOK',
+      });
       
       // Kazanım Kodu ve Metni - ayrı ayrı ara
       let kazanimKoduCol = -1;
@@ -420,6 +431,41 @@ export default function KazanimCevapAnahtari({
           if (!isNaN(dNo) && dNo > 0) kitapcikSoruNo.D = dNo;
         }
 
+        // Soru değerini al
+        let soruDegeri = 1;
+        if (soruDegeriCol >= 0 && row[soruDegeriCol]) {
+          soruDegeri = parseFloat(String(row[soruDegeriCol])) || 1;
+        }
+        
+        // ✨ Kitapçık cevaplarını al (A, B, C, D)
+        const kitapcikCevaplari: { A?: 'A' | 'B' | 'C' | 'D' | 'E'; B?: 'A' | 'B' | 'C' | 'D' | 'E'; C?: 'A' | 'B' | 'C' | 'D' | 'E'; D?: 'A' | 'B' | 'C' | 'D' | 'E'; } = {
+          A: cevap as 'A' | 'B' | 'C' | 'D' | 'E'
+        };
+        
+        // B Kitapçığı cevabı
+        if (bCevapCol >= 0 && row[bCevapCol]) {
+          const bCevap = String(row[bCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(bCevap)) {
+            kitapcikCevaplari.B = bCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+          }
+        }
+        
+        // C Kitapçığı cevabı
+        if (cCevapCol >= 0 && row[cCevapCol]) {
+          const cCevap = String(row[cCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(cCevap)) {
+            kitapcikCevaplari.C = cCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+          }
+        }
+        
+        // D Kitapçığı cevabı
+        if (dCevapCol >= 0 && row[dCevapCol]) {
+          const dCevap = String(row[dCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(dCevap)) {
+            kitapcikCevaplari.D = dCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+          }
+        }
+        
         // Kazanım bilgilerini al
         const kazanimKodu = kazanimKoduCol >= 0 ? String(row[kazanimKoduCol] || '').trim() : '';
         const kazanimMetni = kazanimMetniCol >= 0 ? String(row[kazanimMetniCol] || '').trim() : '';
@@ -430,9 +476,11 @@ export default function KazanimCevapAnahtari({
           dersKodu: currentDers,
           dersAdi: currentDersAdi || getDersTamAdi(currentDers),
           testKodu: currentTestKodu || undefined,
+          soruDegeri: soruDegeri !== 1 ? soruDegeri : undefined,
           kazanimKodu: kazanimKodu || undefined,
           kazanimMetni: kazanimMetni || undefined,
           kitapcikSoruNo: Object.keys(kitapcikSoruNo).length > 1 ? kitapcikSoruNo : undefined,
+          kitapcikCevaplari: Object.keys(kitapcikCevaplari).length > 1 ? kitapcikCevaplari : undefined,
           zorluk: 0.5
         });
       }
@@ -1056,22 +1104,30 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                 <tr>
                                   {/* Test Kodu varsa göster */}
                                   {parsedData.some(p => p.testKodu) && (
-                                    <th className="px-2 py-2 text-left font-semibold text-violet-600 w-16">Test</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-violet-600 w-16">Kod</th>
                                   )}
                                   {/* Ders Adı */}
                                   <th className="px-2 py-2 text-left font-semibold text-blue-600 w-24">Ders</th>
-                                  {/* Kitapçık Soru Numaraları */}
-                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-10">A</th>
-                                  {parsedData.some(p => p.kitapcikSoruNo?.B) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-amber-600 w-10">B</th>
+                                  {/* Soru No */}
+                                  <th className="px-2 py-2 text-center font-semibold text-slate-600 w-10">Soru</th>
+                                  {/* Soru Değeri varsa göster */}
+                                  {parsedData.some(p => p.soruDegeri && p.soruDegeri !== 1) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-slate-500 w-10">Puan</th>
                                   )}
-                                  {parsedData.some(p => p.kitapcikSoruNo?.C) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-10">C</th>
+                                  {/* A Kitapçığı Cevabı */}
+                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">A Cev</th>
+                                  {/* B Kitapçığı Cevabı */}
+                                  {parsedData.some(p => p.kitapcikCevaplari?.B) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-amber-600 w-12">B Cev</th>
                                   )}
-                                  {parsedData.some(p => p.kitapcikSoruNo?.D) && (
-                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-10">D</th>
+                                  {/* C Kitapçığı Cevabı */}
+                                  {parsedData.some(p => p.kitapcikCevaplari?.C) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-orange-600 w-12">C Cev</th>
                                   )}
-                                  <th className="px-2 py-2 text-center font-semibold text-emerald-600 w-12">Cevap</th>
+                                  {/* D Kitapçığı Cevabı */}
+                                  {parsedData.some(p => p.kitapcikCevaplari?.D) && (
+                                    <th className="px-2 py-2 text-center font-semibold text-red-600 w-12">D Cev</th>
+                                  )}
                                   <th className="px-2 py-2 text-left font-semibold text-purple-600 w-24">Kazanım</th>
                                   <th className="px-3 py-2 text-left font-semibold text-slate-600">📝 Kazanım Açıklaması</th>
                                   <th className="px-2 py-2 text-center font-semibold text-slate-600 w-14">İşlem</th>
@@ -1098,34 +1154,46 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                           {row.dersAdi || getDersTamAdi(row.dersKodu)}
                                         </span>
                                       </td>
-                                      {/* A Kitapçık Soru No */}
+                                      {/* Soru No */}
                                       <td className="px-2 py-2 text-center">
                                         <span className="font-bold text-slate-800">{row.soruNo}</span>
                                       </td>
-                                      {/* B Kitapçık Soru No */}
-                                      {parsedData.some(p => p.kitapcikSoruNo?.B) && (
-                                        <td className="px-2 py-2 text-center text-amber-600 font-medium">
-                                          {row.kitapcikSoruNo?.B || '-'}
+                                      {/* Soru Değeri */}
+                                      {parsedData.some(p => p.soruDegeri && p.soruDegeri !== 1) && (
+                                        <td className="px-2 py-2 text-center text-slate-500 text-sm">
+                                          {row.soruDegeri || 1}
                                         </td>
                                       )}
-                                      {/* C Kitapçık Soru No */}
-                                      {parsedData.some(p => p.kitapcikSoruNo?.C) && (
-                                        <td className="px-2 py-2 text-center text-orange-600 font-medium">
-                                          {row.kitapcikSoruNo?.C || '-'}
-                                        </td>
-                                      )}
-                                      {/* D Kitapçık Soru No */}
-                                      {parsedData.some(p => p.kitapcikSoruNo?.D) && (
-                                        <td className="px-2 py-2 text-center text-red-600 font-medium">
-                                          {row.kitapcikSoruNo?.D || '-'}
-                                        </td>
-                                      )}
-                                      {/* Doğru Cevap */}
+                                      {/* A Kitapçığı Cevabı */}
                                       <td className="px-2 py-2 text-center">
                                         <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm">
-                                          {row.dogruCevap}
+                                          {row.kitapcikCevaplari?.A || row.dogruCevap}
                                         </span>
                                       </td>
+                                      {/* B Kitapçığı Cevabı */}
+                                      {parsedData.some(p => p.kitapcikCevaplari?.B) && (
+                                        <td className="px-2 py-2 text-center">
+                                          <span className="inline-flex items-center justify-center w-7 h-7 bg-amber-100 text-amber-700 rounded-lg font-bold text-sm">
+                                            {row.kitapcikCevaplari?.B || '-'}
+                                          </span>
+                                        </td>
+                                      )}
+                                      {/* C Kitapçığı Cevabı */}
+                                      {parsedData.some(p => p.kitapcikCevaplari?.C) && (
+                                        <td className="px-2 py-2 text-center">
+                                          <span className="inline-flex items-center justify-center w-7 h-7 bg-orange-100 text-orange-700 rounded-lg font-bold text-sm">
+                                            {row.kitapcikCevaplari?.C || '-'}
+                                          </span>
+                                        </td>
+                                      )}
+                                      {/* D Kitapçığı Cevabı */}
+                                      {parsedData.some(p => p.kitapcikCevaplari?.D) && (
+                                        <td className="px-2 py-2 text-center">
+                                          <span className="inline-flex items-center justify-center w-7 h-7 bg-red-100 text-red-700 rounded-lg font-bold text-sm">
+                                            {row.kitapcikCevaplari?.D || '-'}
+                                          </span>
+                                        </td>
+                                      )}
                                       {/* Kazanım Kodu */}
                                       <td className="px-2 py-2">
                                         {isEditing ? (

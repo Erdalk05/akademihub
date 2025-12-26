@@ -19,11 +19,12 @@ export interface Kazanim {
 
 // Cevap Anahtarı Satırı (Excel'den)
 export interface CevapAnahtariSatir {
-  soruNo: number;                          // Ana soru numarası
-  dogruCevap: 'A' | 'B' | 'C' | 'D' | 'E';
+  soruNo: number;                          // Ana soru numarası (A kitapçık için)
+  dogruCevap: 'A' | 'B' | 'C' | 'D' | 'E'; // A kitapçığı cevabı (varsayılan)
   dersKodu: string;
   dersAdi?: string;                        // Ders adı (Excel'den)
   testKodu?: string;                       // Test kodu (Excel'den)
+  soruDegeri?: number;                     // Soru değeri/puanı (genelde 1)
   
   // Kitapçık bazlı soru numaraları
   kitapcikSoruNo?: {
@@ -31,6 +32,14 @@ export interface CevapAnahtariSatir {
     B?: number;
     C?: number;
     D?: number;
+  };
+  
+  // ✨ KİTAPÇIK BAZLI CEVAPLAR - A ve B için farklı cevaplar!
+  kitapcikCevaplari?: {
+    A?: 'A' | 'B' | 'C' | 'D' | 'E';       // A kitapçığı cevabı
+    B?: 'A' | 'B' | 'C' | 'D' | 'E';       // B kitapçığı cevabı
+    C?: 'A' | 'B' | 'C' | 'D' | 'E';       // C kitapçığı cevabı
+    D?: 'A' | 'B' | 'C' | 'D' | 'E';       // D kitapçığı cevabı
   };
   
   kazanimKodu?: string;
