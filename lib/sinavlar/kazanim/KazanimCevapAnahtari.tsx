@@ -289,15 +289,33 @@ export default function KazanimCevapAnahtari({
       
       // 6. B KİTAPÇIĞI CEVAP = B Kitapçığı SORU NUMARASI (Sütun F) - 4, 3, 2, 1... gibi sayılar
       // ⚠️ DİKKAT: Bu sütun cevap harfi (A,B,C,D) DEĞİL, soru numarasıdır!
-      // A kitapçığında 1. soru = B kitapçığında 4. soru anlamına gelir
-      const bSoruNoCol = findCol([
+      // Önce pattern-based ara, bulamazsa index-based al (Sütun F = index 5)
+      let bSoruNoCol = findCol([
         'B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B_KITAPCIGI_CEVAP', 
         'B KİTAPÇIĞI CEVABI', 'B KITAPCIGI CEVABI',
         'B CEVAP', 'B CEVABI', 'B_CEVAP', 'B_CEVABI',
         'KITAPCIK B CEVAP', 'KİTAPÇIK B CEVAP', 'KİTAPÇIK B',
         'B KİT CEV', 'B KIT CEV', 'B CEV', 'BCEVAP', 'BCEVABI',
-        'B', 'KİTAPÇIK B CEVABI', 'B SORU', 'B SORU NO', 'B SORUNO'
+        'KİTAPÇIK B CEVABI', 'B SORU', 'B SORU NO', 'B SORUNO'
       ]);
+      
+      // 🔄 FALLBACK: Eğer bulunamadıysa, header'da "B" ve ("CEVAP" veya "KİTAPÇIK" veya "SORU") geçen sütunu bul
+      if (bSoruNoCol === -1) {
+        for (let i = 0; i < headers.length; i++) {
+          const h = normalizeTextLegacy(headers[i]);
+          if (h.includes('B') && (h.includes('CEVAP') || h.includes('KITAPCIK') || h.includes('SORU'))) {
+            bSoruNoCol = i;
+            console.log(`🔍 B Soru No sütunu FALLBACK ile bulundu: ${i} = "${headers[i]}"`);
+            break;
+          }
+        }
+      }
+      
+      // 🔄 SON ÇARE: Eğer hala bulunamadıysa ve en az 6 sütun varsa, index 5'i al (Sütun F)
+      if (bSoruNoCol === -1 && headers.length >= 6 && cevapCol === 4) {
+        bSoruNoCol = 5;
+        console.log(`⚠️ B Soru No sütunu INDEX ile alındı: 5 = "${headers[5]}"`);
+      }
       
       // 7-8. C ve D Kitapçıkları (opsiyonel) - Bunlar da soru numarası
       const cSoruNoCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI', 'KİTAPÇIK C', 'C SORU NO']);
@@ -305,12 +323,13 @@ export default function KazanimCevapAnahtari({
       
       // Debug log - hangi sütunlar algılandı?
       console.log('📊 EXCEL SÜTUN ANALİZİ:', {
+        'TÜM HEADERS': headers,
         'DERS KODU (Sütun A)': testKoduCol >= 0 ? `✅ ${testKoduCol}: "${headers[testKoduCol]}"` : '❌ YOK',
         'DERS (Sütun B)': dersAdiCol >= 0 ? `✅ ${dersAdiCol}: "${headers[dersAdiCol]}"` : '❌ YOK',
         'KİTAPÇIK A (Sütun C)': aSoruNoCol >= 0 ? `✅ ${aSoruNoCol}: "${headers[aSoruNoCol]}"` : '❌ YOK',
         'SORU DEĞERİ (Sütun D)': soruDegeriCol >= 0 ? `✅ ${soruDegeriCol}: "${headers[soruDegeriCol]}"` : '❌ YOK',
         'CEVAP (Sütun E)': cevapCol >= 0 ? `✅ ${cevapCol}: "${headers[cevapCol]}"` : '❌ YOK',
-        'B KİTAPÇIĞI SORU NO (Sütun F)': bSoruNoCol >= 0 ? `✅ ${bSoruNoCol}: "${headers[bSoruNoCol]}"` : '❌ YOK',
+        'B KİTAPÇIĞI SORU NO (Sütun F)': bSoruNoCol >= 0 ? `✅ ${bSoruNoCol}: "${headers[bSoruNoCol]}"` : '❌ YOK - SORUN!',
       });
       
       // Kazanım Kodu ve Metni - ayrı ayrı ara
