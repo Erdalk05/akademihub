@@ -87,6 +87,7 @@ export interface ParsedOptikSatir {
   cevaplar: (string | null)[];
   hatalar: string[];
   isValid: boolean;
+  ozelAlanlar?: Record<string, string>;  // Telefon, Veli Adı, vb. özel alanlar
 }
 
 // Öğrenci Kazanım Sonucu

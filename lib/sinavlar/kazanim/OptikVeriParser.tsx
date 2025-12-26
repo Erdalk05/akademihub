@@ -292,51 +292,65 @@ export default function OptikVeriParser({
         const value = line.substring(startIdx, endIdx).trim();
         const fixedValue = fixTurkishChars(value);
 
-        // Debug: İlk satır için alan değerlerini logla
-        if (index === 0) {
-          console.log(`  ${alan.label} [${alan.baslangic}-${alan.bitis}]: "${value}"`);
+        // Debug: İlk 3 satır için alan değerlerini logla
+        if (index < 3) {
+          console.log(`  Satır ${index + 1} | ${alan.label} (${alan.alan}) [${alan.baslangic}-${alan.bitis}]: "${value}"`);
         }
 
-        switch (alan.alan) {
+        // Alan tipine göre değer ata
+        const alanTipi = alan.alan.toLowerCase();
+        
+        switch (alanTipi) {
           case 'sinif_no':
           case 'sinif':
+            // Sınıf: "8A", "8-A", "8/A" gibi formatları destekle
             parsed.sinifNo = fixedValue;
             break;
+            
           case 'ogrenci_no':
-            parsed.ogrenciNo = fixedValue;
-            if (!fixedValue || fixedValue.length < 1) {
+            // Öğrenci numarası: Sadece rakamları al
+            const ogrenciNoTemiz = fixedValue.replace(/[^0-9]/g, '');
+            parsed.ogrenciNo = ogrenciNoTemiz || fixedValue;
+            if (!parsed.ogrenciNo || parsed.ogrenciNo.length < 1) {
               hatalar.push('Öğrenci numarası boş');
             }
             break;
+            
           case 'ogrenci_adi':
+          case 'ad_soyad':
             // Öğrenci adını temizle - baştaki sayıları kaldır
             parsed.ogrenciAdi = cleanStudentName(fixedValue);
             if (!parsed.ogrenciAdi || parsed.ogrenciAdi.length < 2) {
               hatalar.push('Öğrenci adı eksik veya çok kısa');
             }
             break;
+            
           case 'tc':
+          case 'tc_kimlik':
             parsed.tc = fixedValue.replace(/\D/g, ''); // Sadece rakamlar
             if (parsed.tc && parsed.tc.length !== 11) {
               hatalar.push(`TC kimlik hatalı: ${parsed.tc.length} karakter`);
             }
             break;
+            
           case 'kitapcik':
-            // Kitapçık tek karakter olabilir
-            const kitapcikRaw = value.trim();
-            const kitapcik = kitapcikRaw.length > 0 ? kitapcikRaw[kitapcikRaw.length - 1].toUpperCase() : '';
-            if (['A', 'B', 'C', 'D'].includes(kitapcik)) {
-              parsed.kitapcik = kitapcik as 'A' | 'B' | 'C' | 'D';
-            } else if (kitapcik) {
-              // Sayıdan sonra harf varsa onu al (örn: "8C" -> "C")
-              const match = kitapcikRaw.match(/[A-D]$/i);
-              if (match) {
-                parsed.kitapcik = match[0].toUpperCase() as 'A' | 'B' | 'C' | 'D';
+          case 'kitapcik_turu':
+            // Kitapçık: SADECE A, B, C, D karakterlerini ara
+            const kitapcikRaw = value.trim().toUpperCase();
+            // Değerin içinde A, B, C, D var mı?
+            const kitapcikMatch = kitapcikRaw.match(/[ABCD]/);
+            if (kitapcikMatch) {
+              parsed.kitapcik = kitapcikMatch[0] as 'A' | 'B' | 'C' | 'D';
+            } else {
+              // Eğer kitapçık bulunamadıysa ve değer sayısal değilse uyar
+              if (kitapcikRaw && !/^\d+$/.test(kitapcikRaw)) {
+                console.warn(`Kitapçık algılanamadı: "${kitapcikRaw}"`);
               }
             }
             break;
+            
           case 'cevaplar':
-            // Cevapları ayrıştır - boşlukları da dahil et
+            // Cevapları ayrıştır - TAM ARALIKTAN al
             const cevapStr = line.substring(startIdx, Math.min(endIdx, line.length));
             for (let i = 0; i < sablon.toplamSoru; i++) {
               if (i >= cevapStr.length) {
@@ -350,6 +364,14 @@ export default function OptikVeriParser({
                 parsed.cevaplar.push(null); // Boş veya geçersiz
               }
             }
+            break;
+            
+          default:
+            // Bilinmeyen alan tipleri için özel alanlar objesine ekle
+            if (!parsed.ozelAlanlar) {
+              parsed.ozelAlanlar = {};
+            }
+            parsed.ozelAlanlar[alan.label] = fixedValue;
             break;
         }
       });
