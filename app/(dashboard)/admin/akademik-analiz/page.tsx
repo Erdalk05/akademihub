@@ -2,10 +2,10 @@
 
 /**
  * Akademik Analiz - Ana Sayfa (Dashboard)
- * GERÇEK VERİLERİ LocalStorage'dan okur
+ * SUPABASE'den veri okur
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -23,8 +23,11 @@ import {
   Sparkles,
   Trash2,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Loader2,
+  Database
 } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 // Sınav tipi
 interface SavedExam {
@@ -43,34 +46,62 @@ export default function AkademikAnalizPage() {
   const router = useRouter();
   const [savedExams, setSavedExams] = useState<SavedExam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { currentOrganization } = useOrganizationStore();
 
-  // LocalStorage'dan sınavları oku
-  useEffect(() => {
-    const loadExams = () => {
-      try {
-        const examsJson = localStorage.getItem('akademihub_exams');
-        if (examsJson) {
-          const exams = JSON.parse(examsJson) as SavedExam[];
-          // Tarihe göre sırala (en yeni en üstte)
-          exams.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setSavedExams(exams);
-        }
-      } catch (error) {
-        console.error('Sınavlar yüklenirken hata:', error);
-      } finally {
-        setIsLoading(false);
+  // Supabase'den sınavları oku
+  const loadExams = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (currentOrganization?.id) {
+        params.set('organizationId', currentOrganization.id);
       }
-    };
+      params.set('limit', '20');
+      
+      const response = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
+      const data = await response.json();
+      
+      if (response.ok && data.exams) {
+        setSavedExams(data.exams);
+      } else {
+        console.error('Sınavlar yüklenemedi:', data.error);
+        setSavedExams([]);
+      }
+    } catch (error) {
+      console.error('Sınavlar yüklenirken hata:', error);
+      setSavedExams([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentOrganization?.id]);
 
+  useEffect(() => {
     loadExams();
-  }, []);
+  }, [loadExams]);
 
   // Sınav sil
-  const deleteExam = (examId: string) => {
-    if (confirm('Bu sınavı silmek istediğinizden emin misiniz?')) {
-      const updated = savedExams.filter(e => e.id !== examId);
-      setSavedExams(updated);
-      localStorage.setItem('akademihub_exams', JSON.stringify(updated));
+  const deleteExam = async (examId: string) => {
+    if (!confirm('Bu sınavı silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+    
+    setIsDeleting(examId);
+    try {
+      const response = await fetch(`/api/akademik-analiz/exams/${examId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setSavedExams(prev => prev.filter(e => e.id !== examId));
+      } else {
+        alert('Silme işlemi başarısız oldu');
+      }
+    } catch (error) {
+      console.error('Silme hatası:', error);
+      alert('Silme sırasında bir hata oluştu');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -290,11 +321,12 @@ export default function AkademikAnalizPage() {
               <span className="text-sm font-normal text-slate-400">({savedExams.length})</span>
             </h3>
             <button 
-              onClick={() => window.location.reload()}
-              className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+              onClick={() => loadExams()}
+              disabled={isLoading}
+              className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50"
             >
-              <RefreshCw size={14} />
-              Yenile
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              {isLoading ? 'Yükleniyor...' : 'Yenile'}
             </button>
           </div>
           

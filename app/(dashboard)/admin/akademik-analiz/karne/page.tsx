@@ -2,10 +2,10 @@
 
 /**
  * Akademik Analiz - Karne Oluşturucu
- * LocalStorage'dan veri okuyarak öğrenci karneleri oluşturur
+ * SUPABASE'den veri okuyarak öğrenci karneleri oluşturur
  */
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -20,8 +20,11 @@ import {
   Award,
   Target,
   FileSpreadsheet,
-  ChevronDown
+  ChevronDown,
+  Database,
+  RefreshCw
 } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface SavedExam {
   id: string;
@@ -39,6 +42,7 @@ function KarneContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const examId = searchParams.get('examId');
+  const { currentOrganization } = useOrganizationStore();
 
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<SavedExam | null>(null);
@@ -48,29 +52,37 @@ function KarneContent() {
   const [progress, setProgress] = useState({ current: 0, total: 0, name: '' });
   const [generated, setGenerated] = useState(false);
 
-  // Veri yükle
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        const examsJson = localStorage.getItem('akademihub_exams');
-        if (examsJson) {
-          const exams = JSON.parse(examsJson) as SavedExam[];
-          setAllExams(exams);
-
-          if (examId) {
-            const found = exams.find(e => e.id === examId);
-            setExam(found || null);
-          }
-        }
-      } catch (error) {
-        console.error('Veri yüklenirken hata:', error);
-      } finally {
-        setLoading(false);
+  // Supabase'den veri yükle
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (currentOrganization?.id) {
+        params.set('organizationId', currentOrganization.id);
       }
-    };
+      params.set('limit', '20');
+      
+      const response = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
+      const data = await response.json();
+      
+      if (response.ok && data.exams) {
+        setAllExams(data.exams);
+        
+        if (examId) {
+          const found = data.exams.find((e: SavedExam) => e.id === examId);
+          setExam(found || null);
+        }
+      }
+    } catch (error) {
+      console.error('Veri yüklenirken hata:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [examId, currentOrganization?.id]);
 
+  useEffect(() => {
     loadData();
-  }, [examId]);
+  }, [loadData]);
 
   // Öğrenci adını temizle
   const cleanName = (name: string): string => {
@@ -125,7 +137,7 @@ function KarneContent() {
       if (student) {
         current++;
         setProgress({ current, total, name: cleanName(student.ogrenciAdi) });
-        // Simüle delay
+        // Simüle delay - gerçek PDF üretimi burada yapılacak
         await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
@@ -139,8 +151,11 @@ function KarneContent() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">Yükleniyor...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-slate-500 flex items-center gap-2 justify-center">
+            <Database size={16} />
+            Supabase'den yükleniyor...
+          </p>
         </div>
       </div>
     );
@@ -154,21 +169,35 @@ function KarneContent() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-4 mb-8"
+            className="flex items-center justify-between mb-8"
           >
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/admin/akademik-analiz')}
+                className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">Öğrenci Karnesi</h1>
+                <p className="text-slate-500 flex items-center gap-1">
+                  <Database size={14} />
+                  Karne oluşturmak için bir sınav seçin
+                </p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => router.push('/admin/akademik-analiz')}
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={() => loadData()}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
             >
-              <ArrowLeft size={20} />
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              Yenile
             </button>
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Öğrenci Karnesi</h1>
-              <p className="text-slate-500">Karne oluşturmak için bir sınav seçin</p>
-            </div>
           </motion.div>
 
           {allExams.length === 0 ? (
@@ -480,8 +509,9 @@ function KarneContent() {
         </motion.div>
 
         {/* Alt Bilgi */}
-        <div className="mt-4 text-center text-sm text-slate-500">
-          Gösterilen: {students.length} / {exam.toplamOgrenci || 0} öğrenci
+        <div className="mt-4 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Database size={14} />
+          Gösterilen: {students.length} / {exam.toplamOgrenci || 0} öğrenci (Supabase'den)
           {students.length < (exam.toplamOgrenci || 0) && (
             <span className="ml-2 text-amber-600">
               (İlk {students.length} öğrenci gösteriliyor)

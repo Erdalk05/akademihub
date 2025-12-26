@@ -2,10 +2,10 @@
 
 /**
  * Akademik Analiz - Sonuçlar
- * LocalStorage'dan sınav sonuçlarını görüntüleme
+ * SUPABASE'den sınav sonuçlarını görüntüleme
  */
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -19,8 +19,11 @@ import {
   Award,
   Target,
   ChevronDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  RefreshCw,
+  Database
 } from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 
 interface SavedExam {
   id: string;
@@ -38,6 +41,7 @@ function SonuclarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const examId = searchParams.get('examId');
+  const { currentOrganization } = useOrganizationStore();
   
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<SavedExam | null>(null);
@@ -45,28 +49,37 @@ function SonuclarContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        const examsJson = localStorage.getItem('akademihub_exams');
-        if (examsJson) {
-          const exams = JSON.parse(examsJson) as SavedExam[];
-          setAllExams(exams);
-          
-          if (examId) {
-            const found = exams.find(e => e.id === examId);
-            setExam(found || null);
-          }
-        }
-      } catch (error) {
-        console.error('Veri yüklenirken hata:', error);
-      } finally {
-        setLoading(false);
+  // Supabase'den verileri yükle
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (currentOrganization?.id) {
+        params.set('organizationId', currentOrganization.id);
       }
-    };
+      params.set('limit', '20');
+      
+      const response = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
+      const data = await response.json();
+      
+      if (response.ok && data.exams) {
+        setAllExams(data.exams);
+        
+        if (examId) {
+          const found = data.exams.find((e: SavedExam) => e.id === examId);
+          setExam(found || null);
+        }
+      }
+    } catch (error) {
+      console.error('Veri yüklenirken hata:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [examId, currentOrganization?.id]);
 
+  useEffect(() => {
     loadData();
-  }, [examId]);
+  }, [loadData]);
 
   // Öğrenci adını temizle
   const cleanName = (name: string): string => {
@@ -105,7 +118,10 @@ function SonuclarContent() {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">Yükleniyor...</p>
+          <p className="text-slate-500 flex items-center gap-2 justify-center">
+            <Database size={16} />
+            Supabase'den yükleniyor...
+          </p>
         </div>
       </div>
     );
@@ -119,21 +135,35 @@ function SonuclarContent() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-4 mb-8"
+            className="flex items-center justify-between mb-8"
           >
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/admin/akademik-analiz')}
+                className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">Sınav Sonuçları</h1>
+                <p className="text-slate-500 flex items-center gap-1">
+                  <Database size={14} />
+                  Supabase'den {allExams.length} sınav yüklendi
+                </p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => router.push('/admin/akademik-analiz')}
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={() => loadData()}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
             >
-              <ArrowLeft size={20} />
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              Yenile
             </button>
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
-              <BarChart3 className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Sınav Sonuçları</h1>
-              <p className="text-slate-500">Bir sınav seçin</p>
-            </div>
           </motion.div>
 
           {allExams.length === 0 ? (
@@ -369,8 +399,9 @@ function SonuclarContent() {
         </motion.div>
 
         {/* Alt Bilgi */}
-        <div className="mt-4 text-center text-sm text-slate-500">
-          Gösterilen: {filteredStudents.length} / {exam.ilk20Ogrenci?.length || 0} öğrenci
+        <div className="mt-4 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Database size={14} />
+          Gösterilen: {filteredStudents.length} / {exam.ilk20Ogrenci?.length || 0} öğrenci (Supabase'den)
           {(exam.ilk20Ogrenci?.length || 0) < (exam.toplamOgrenci || 0) && (
             <span className="ml-2 text-amber-600">
               (İlk {exam.ilk20Ogrenci?.length} öğrenci gösteriliyor)

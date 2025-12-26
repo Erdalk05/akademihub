@@ -3,76 +3,74 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SinavSihirbazi } from '@/lib/sinavlar/kazanim';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { useAcademicYearStore } from '@/lib/store/academicYearStore';
+
+// Store'dan organization ve academic year al - undefined için fallback
 
 export default function SihirbazPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Store'lardan organization ve academic year al
+  const { currentOrganization } = useOrganizationStore();
+  const { selectedYear } = useAcademicYearStore();
 
   // Client-side check
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Sihirbaz tamamlandığında
+  // Sihirbaz tamamlandığında - SUPABASE'E KAYDET
   const handleComplete = async (data: {
     sinavBilgisi: any;
     cevapAnahtari: any[];
     ogrenciSonuclari: any[];
   }) => {
+    setIsSaving(true);
+    
     try {
-      // Demo mod - gerçek kayıt yerine konsola yazdır
-      console.log('Sınav verisi:', data);
+      console.log('📤 Supabase\'e kaydediliyor:', {
+        sinav: data.sinavBilgisi.ad,
+        cevapSayisi: data.cevapAnahtari.length,
+        ogrenciSayisi: data.ogrenciSonuclari.length
+      });
       
-      // LocalStorage'a SADECE ÖZET kaydet (tam veri çok büyük!)
-      const savedExams = JSON.parse(localStorage.getItem('akademihub_exams') || '[]');
+      // API'ye gönder
+      const response = await fetch('/api/akademik-analiz/wizard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sinavBilgisi: data.sinavBilgisi,
+          cevapAnahtari: data.cevapAnahtari,
+          ogrenciSonuclari: data.ogrenciSonuclari,
+          organizationId: currentOrganization?.id || null,
+          academicYearId: null // selectedYear bir string (örn: "2024-2025")
+        })
+      });
       
-      // Sadece özet veri (cevaplar ve detayları hariç)
-      const ozetSonuclar = data.ogrenciSonuclari.slice(0, 20).map((s: any) => ({
-        ogrenciNo: s.ogrenciNo,
-        ogrenciAdi: s.ogrenciAdi,
-        toplamNet: s.toplamNet,
-        siralama: s.siralama
-      }));
+      const result = await response.json();
       
-      const newExam = {
-        id: Date.now().toString(),
-        ad: data.sinavBilgisi.ad,
-        tarih: data.sinavBilgisi.tarih,
-        tip: data.sinavBilgisi.tip,
-        toplamSoru: data.cevapAnahtari.length,
-        toplamOgrenci: data.ogrenciSonuclari.length,
-        ortalamaNet: data.ogrenciSonuclari.length > 0 
-          ? (data.ogrenciSonuclari.reduce((sum: number, s: any) => sum + s.toplamNet, 0) / data.ogrenciSonuclari.length).toFixed(2)
-          : 0,
-        ilk20Ogrenci: ozetSonuclar,
-        createdAt: new Date().toISOString()
-      };
-      
-      // En fazla 10 sınav tut (eski olanları sil)
-      if (savedExams.length >= 10) {
-        savedExams.shift(); // En eskiyi sil
+      if (!response.ok) {
+        throw new Error(result.error || 'Kayıt başarısız');
       }
       
-      savedExams.push(newExam);
-      
-      try {
-        localStorage.setItem('akademihub_exams', JSON.stringify(savedExams));
-      } catch (storageError) {
-        // localStorage doluysa tüm eski verileri temizle
-        console.warn('LocalStorage dolu, temizleniyor...');
-        localStorage.removeItem('akademihub_exams');
-        localStorage.setItem('akademihub_exams', JSON.stringify([newExam]));
-      }
+      console.log('✅ Supabase kaydı başarılı:', result);
 
       // Başarılı mesaj
-      alert(`✅ Sınav başarıyla kaydedildi!\n\n📊 ${data.ogrenciSonuclari.length} öğrenci\n📝 ${data.cevapAnahtari.length} soru`);
+      alert(`✅ Sınav başarıyla kaydedildi!\n\n📊 ${data.ogrenciSonuclari.length} öğrenci\n📝 ${data.cevapAnahtari.length} soru\n📈 Ortalama Net: ${result.exam.averageNet}`);
       
       // Sonuçlar sayfasına yönlendir
-      router.push('/admin/akademik-analiz/sonuclar');
+      router.push(`/admin/akademik-analiz/sonuclar?examId=${result.exam.id}`);
 
     } catch (error: any) {
-      console.error('Kayıt hatası:', error);
+      console.error('❌ Kayıt hatası:', error);
       alert('Kayıt sırasında bir hata oluştu: ' + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
