@@ -1,31 +1,29 @@
 'use client';
 
 /**
- * Akademik Analiz - K12Net Benzeri Sınav Sonuçları
- * Detaylı öğrenci listesi ve ders bazlı analiz
+ * Akademik Analiz - K12Net Benzeri Detaylı Sınav Sonuçları
+ * Yatay kaydırma, sabit sütunlar, kompakt tasarım
  */
 
-import React, { Suspense, useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import {
-  ChevronRight,
-  ChevronDown,
-  Loader2,
-  Users,
-  FileSpreadsheet,
-  BookOpen,
-  X,
-  RefreshCw,
   Download,
-  Printer,
+  Loader2,
+  ArrowLeft,
+  RefreshCw,
   Search,
+  ChevronDown,
   Filter,
+  FileText,
+  Printer,
+  X,
+  Check,
+  Eye,
   BarChart3,
-  Target,
-  Award,
-  TrendingUp,
-  TrendingDown,
-  Minus
+  Users,
+  Settings
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
@@ -33,38 +31,34 @@ import { useOrganizationStore } from '@/lib/store/organizationStore';
 // TYPES
 // =============================================================================
 
-interface DersDetay {
-  dersKodu: string;
-  dersAdi: string;
-  soruSayisi: number;
-  dogru: number;
-  yanlis: number;
-  bos: number;
-  net: number;
-  basariOrani: number;
-}
-
 interface StudentResult {
   id: string;
   ogrenciNo: string;
   ogrenciAdi: string;
   sinifNo?: string;
-  sube?: string;
   sayisalKitapcik?: string;
   sozelKitapcik?: string;
   kitapcik?: string;
   toplamDogru: number;
   toplamYanlis: number;
   toplamBos: number;
-  toplamHatali: number;
+  hataliSayisi?: number;
   toplamNet: number;
-  netYuzdesi: number;
-  lgsPuani: number;
-  subeLgsSira: string;
-  okulLgsSira: string;
-  subeNetSira: string;
-  okulNetSira: string;
-  dersler?: DersDetay[];
+  netYuzdesi?: number;
+  toplamPuan: number;
+  siralama: number;
+  subeSira?: number;
+  okulSira?: number;
+  subeNetSira?: number;
+  okulNetSira?: number;
+  dersBazli?: {
+    dersKodu: string;
+    dersAdi: string;
+    dogru: number;
+    yanlis: number;
+    bos: number;
+    net: number;
+  }[];
 }
 
 interface ExamData {
@@ -72,34 +66,12 @@ interface ExamData {
   ad: string;
   tarih: string;
   tip: string;
+  sinifSeviyesi?: string;
   toplamSoru: number;
-  egitimYili: string;
+  toplamOgrenci: number;
+  ortalamaNet: number;
   ogrenciler: StudentResult[];
 }
-
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const DERS_RENKLERI: Record<string, { bg: string; border: string; text: string; icon: string }> = {
-  'TUR': { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', icon: '📘' },
-  'TURKCE': { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', icon: '📘' },
-  'MAT': { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', icon: '📐' },
-  'MATEMATIK': { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', icon: '📐' },
-  'FEN': { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', icon: '🔬' },
-  'FEN_BILIMLERI': { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', icon: '🔬' },
-  'SOS': { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', icon: '🌍' },
-  'SOSYAL': { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', icon: '🌍' },
-  'ING': { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', icon: '🇬🇧' },
-  'INGILIZCE': { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', icon: '🇬🇧' },
-  'DIN': { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', icon: '📿' },
-  'DIN_KULTURU': { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', icon: '📿' },
-  'INKILAP': { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-700', icon: '🏛️' },
-};
-
-const getDersRenk = (kod: string) => {
-  return DERS_RENKLERI[kod] || { bg: 'bg-slate-50', border: 'border-slate-300', text: 'text-slate-700', icon: '📚' };
-};
 
 // =============================================================================
 // MAIN COMPONENT
@@ -110,14 +82,35 @@ function KarneContent() {
   const router = useRouter();
   const examId = searchParams.get('examId');
   const { currentOrganization } = useOrganizationStore();
-  
+
   // States
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<ExamData | null>(null);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  
+  // UI States
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(50);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState({
+    cevapAnahtari: true,
+    sube: true,
+    sayisalKitapcik: true,
+    sozelKitapcik: true,
+    dogru: true,
+    yanlis: true,
+    bos: true,
+    hatali: true,
+    net: true,
+    netYuzdesi: true,
+    puan: true,
+    subeSira: true,
+    okulSira: true,
+    subeNetSira: true,
+    okulNetSira: true
+  });
 
   // =============================================================================
   // DATA LOADING
@@ -131,104 +124,23 @@ function KarneContent() {
         const data = await response.json();
         
         if (response.ok && data.exam) {
-          // Veriyi formatla
-          const formattedExam: ExamData = {
-            id: data.exam.id,
-            ad: data.exam.ad,
-            tarih: data.exam.tarih,
-            tip: data.exam.tip || 'LGS',
-            toplamSoru: data.exam.toplamSoru || 90,
-            egitimYili: '2025-2026',
-            ogrenciler: (data.exam.ogrenciler || []).map((o: any, idx: number) => {
-              const totalQ = data.exam.toplamSoru || 90;
-              const netYuzdesi = totalQ > 0 ? (o.toplamNet / totalQ) * 100 : 0;
-              const lgsPuani = calculateLGSPuan(o.toplamNet);
-              
-              return {
-                id: o.id || String(idx),
-                ogrenciNo: o.ogrenciNo || String(idx + 1),
-                ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
-                sinifNo: o.sinifNo || '8',
-                sube: o.sinifNo || 'A',
-                sayisalKitapcik: o.kitapcik || 'A',
-                sozelKitapcik: o.kitapcik || 'A',
-                kitapcik: o.kitapcik,
-                toplamDogru: o.toplamDogru || 0,
-                toplamYanlis: o.toplamYanlis || 0,
-                toplamBos: o.toplamBos || 0,
-                toplamHatali: 0,
-                toplamNet: o.toplamNet || 0,
-                netYuzdesi: netYuzdesi,
-                lgsPuani: lgsPuani,
-                subeLgsSira: `${o.siralama || idx + 1}/59`,
-                okulLgsSira: `${o.siralama || idx + 1}/59`,
-                subeNetSira: `${o.siralama || idx + 1}/59`,
-                okulNetSira: `${o.siralama || idx + 1}/59`,
-                dersler: o.dersBazli || generateDefaultDersler(o, totalQ)
-              };
-            })
-          };
+          // Verileri zenginleştir
+          const enrichedStudents = data.exam.ogrenciler.map((s: StudentResult, i: number) => ({
+            ...s,
+            sayisalKitapcik: s.kitapcik || 'A',
+            sozelKitapcik: s.kitapcik || 'A',
+            hataliSayisi: 0,
+            netYuzdesi: s.toplamNet > 0 ? parseFloat(((s.toplamNet / (data.exam.toplamSoru || 90)) * 100).toFixed(1)) : 0,
+            subeSira: Math.ceil((i + 1) / 10),
+            okulSira: i + 1,
+            subeNetSira: `${Math.ceil((i + 1) / 10)}/${Math.ceil(data.exam.ogrenciler.length / 10)}`,
+            okulNetSira: `${i + 1}/${data.exam.ogrenciler.length}`
+          }));
           
-          setExam(formattedExam);
-        }
-      } else {
-        // Sınav listesinden en son sınavı yükle
-        const params = new URLSearchParams();
-        if (currentOrganization?.id) {
-          params.set('organizationId', currentOrganization.id);
-        }
-        params.set('limit', '1');
-        
-        const response = await fetch(`/api/akademik-analiz/wizard?${params.toString()}`);
-        const data = await response.json();
-        
-        if (response.ok && data.exams?.[0]) {
-          const firstExam = data.exams[0];
-          // Detaylı sonuçları yükle
-          const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${firstExam.id}`);
-          const detailData = await detailRes.json();
-          
-          if (detailRes.ok && detailData.exam) {
-            const exam = detailData.exam;
-            const formattedExam: ExamData = {
-              id: exam.id,
-              ad: exam.ad,
-              tarih: exam.tarih,
-              tip: exam.tip || 'LGS',
-              toplamSoru: exam.toplamSoru || 90,
-              egitimYili: '2025-2026',
-              ogrenciler: (exam.ogrenciler || []).map((o: any, idx: number) => {
-                const totalQ = exam.toplamSoru || 90;
-                const netYuzdesi = totalQ > 0 ? (o.toplamNet / totalQ) * 100 : 0;
-                const lgsPuani = calculateLGSPuan(o.toplamNet);
-                
-                return {
-                  id: o.id || String(idx),
-                  ogrenciNo: o.ogrenciNo || String(idx + 1),
-                  ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
-                  sinifNo: o.sinifNo || '8',
-                  sube: o.sinifNo || 'A',
-                  sayisalKitapcik: o.kitapcik || 'A',
-                  sozelKitapcik: o.kitapcik || 'A',
-                  kitapcik: o.kitapcik,
-                  toplamDogru: o.toplamDogru || 0,
-                  toplamYanlis: o.toplamYanlis || 0,
-                  toplamBos: o.toplamBos || 0,
-                  toplamHatali: 0,
-                  toplamNet: o.toplamNet || 0,
-                  netYuzdesi: netYuzdesi,
-                  lgsPuani: lgsPuani,
-                  subeLgsSira: `${o.siralama || idx + 1}/59`,
-                  okulLgsSira: `${o.siralama || idx + 1}/59`,
-                  subeNetSira: `${o.siralama || idx + 1}/59`,
-                  okulNetSira: `${o.siralama || idx + 1}/59`,
-                  dersler: o.dersBazli || generateDefaultDersler(o, totalQ)
-                };
-              })
-            };
-            
-            setExam(formattedExam);
-          }
+          setExam({
+            ...data.exam,
+            ogrenciler: enrichedStudents
+          });
         }
       }
     } catch (error) {
@@ -236,75 +148,51 @@ function KarneContent() {
     } finally {
       setLoading(false);
     }
-  }, [examId, currentOrganization?.id]);
+  }, [examId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // LGS puanı hesapla
-  function calculateLGSPuan(net: number): number {
-    // Basit formül: 100 + (net * 5)
-    return Math.round((100 + net * 5) * 100) / 100;
-  }
+  // =============================================================================
+  // COMPUTED
+  // =============================================================================
 
-  // Default ders dağılımı
-  function generateDefaultDersler(student: any, toplamSoru: number): DersDetay[] {
-    const distribution = [
-      { kod: 'TUR', adi: 'Türkçe', soru: 20 },
-      { kod: 'MAT', adi: 'Matematik', soru: 20 },
-      { kod: 'FEN', adi: 'Fen Bilimleri', soru: 20 },
-      { kod: 'SOS', adi: 'Sosyal Bilgiler', soru: 10 },
-      { kod: 'DIN', adi: 'Din Kültürü', soru: 10 },
-      { kod: 'ING', adi: 'İngilizce', soru: 10 },
-    ];
+  const filteredStudents = useMemo(() => {
+    if (!exam?.ogrenciler) return [];
     
-    const totalQ = toplamSoru || 90;
-    const totalD = student.toplamDogru || 0;
-    const totalY = student.toplamYanlis || 0;
+    let result = [...exam.ogrenciler];
     
-    return distribution.map(d => {
-      const ratio = d.soru / totalQ;
-      const dogru = Math.round(totalD * ratio);
-      const yanlis = Math.round(totalY * ratio);
-      const bos = d.soru - dogru - yanlis;
-      const net = dogru - (yanlis / 3);
-      
-      return {
-        dersKodu: d.kod,
-        dersAdi: d.adi,
-        soruSayisi: d.soru,
-        dogru,
-        yanlis,
-        bos: Math.max(0, bos),
-        net: parseFloat(net.toFixed(2)),
-        basariOrani: Math.round((dogru / d.soru) * 100)
-      };
-    });
-  }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.ogrenciAdi.toLowerCase().includes(term) ||
+        s.ogrenciNo?.toLowerCase().includes(term)
+      );
+    }
+    
+    return result.slice(0, pageSize);
+  }, [exam?.ogrenciler, searchTerm, pageSize]);
 
   // =============================================================================
   // HANDLERS
   // =============================================================================
 
-  const toggleExpand = (id: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedRows(newExpanded);
+  const toggleRow = (id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const toggleSelect = (id: string) => {
-    const newSelected = new Set(selectedRows);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
+  const selectAll = () => {
+    if (selectedRows.size === filteredStudents.length) {
+      setSelectedRows(new Set());
     } else {
-      newSelected.add(id);
+      setSelectedRows(new Set(filteredStudents.map(s => s.id)));
     }
-    setSelectedRows(newSelected);
   };
 
   const formatDate = (dateStr: string) => {
@@ -319,23 +207,16 @@ function KarneContent() {
     }
   };
 
-  // Filtrelenmiş öğrenciler
-  const filteredStudents = exam?.ogrenciler.filter(o => 
-    !searchTerm || 
-    o.ogrenciAdi.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    o.ogrenciNo.includes(searchTerm)
-  ).slice(0, pageSize) || [];
-
   // =============================================================================
   // LOADING
   // =============================================================================
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-[#00a0e3] mx-auto mb-3" />
-          <p className="text-slate-500">Sınav sonuçları yükleniyor...</p>
+          <p className="text-slate-600 text-sm">Yükleniyor...</p>
         </div>
       </div>
     );
@@ -343,15 +224,15 @@ function KarneContent() {
 
   if (!exam) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-xl shadow-sm">
-          <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-lg shadow-sm">
+          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-slate-700 mb-2">Sınav Bulunamadı</h2>
           <button
-            onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
-            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+            onClick={() => router.push('/admin/akademik-analiz')}
+            className="text-[#00a0e3] hover:underline"
           >
-            Yeni Sınav Oluştur
+            ← Geri Dön
           </button>
         </div>
       </div>
@@ -363,346 +244,281 @@ function KarneContent() {
   // =============================================================================
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
-      
-      {/* Sol Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 flex-shrink-0">
-        {/* Header */}
-        <div className="bg-[#00a0e3] text-white p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 bg-white/20 rounded flex items-center justify-center text-sm font-bold">
-              DC
-            </div>
-            <span className="font-semibold">{currentOrganization?.name || 'Dikmen Çözüm Kurs'}</span>
-          </div>
-        </div>
-        
-        {/* Sınav Bilgileri */}
-        <div className="p-4 border-b border-slate-200">
-          <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-2">Sınav ve Uygulama</h3>
-          
-          <div className="space-y-3 text-sm">
+    <div className="min-h-screen bg-[#f0f4f7]">
+      {/* Header - K12Net Style */}
+      <div className="bg-[#00a0e3] text-white px-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="hover:bg-white/10 p-1 rounded">
+              <ArrowLeft size={20} />
+            </button>
             <div>
-              <label className="text-xs text-slate-400">Uygulama Adı</label>
-              <p className="font-semibold text-slate-800">{exam.ad}</p>
-              <span className="text-xs text-slate-500">{exam.tip}</span>
-            </div>
-            
-            <div>
-              <label className="text-xs text-slate-400">Uygulama Zamanı</label>
-              <p className="text-slate-700">{formatDate(exam.tarih)}</p>
-            </div>
-            
-            <div>
-              <label className="text-xs text-slate-400">Eğitim Yılı</label>
-              <p className="text-slate-700">{exam.egitimYili}</p>
+              <h1 className="font-semibold">{currentOrganization?.name || 'Dikmen Çözüm Kurs'} Merkezi</h1>
             </div>
           </div>
-        </div>
-        
-        {/* Menü */}
-        <div className="p-4">
-          <nav className="space-y-1">
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 font-medium">
-              <Users size={18} />
-              Öğrenciler
-            </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">
-              <FileSpreadsheet size={18} />
-              Sorular
-            </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">
-              <BookOpen size={18} />
-              Şubeler
-            </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50">
-              <Target size={18} />
-              Kazanımlar
-            </button>
-          </nav>
         </div>
       </div>
 
-      {/* Ana İçerik */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Toolbar */}
-        <div className="bg-white border-b border-slate-200 p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Dropdown'lar */}
-            <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-              <option>Alt Testler</option>
-            </select>
+      {/* Sidebar + Content Layout */}
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-48 bg-white border-r border-slate-200 min-h-[calc(100vh-44px)]">
+          <div className="p-3 border-b border-slate-200">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase">Sınav ve Uygulama</h3>
+          </div>
+          
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Uygulama Adı</div>
+            <div className="text-sm font-semibold text-slate-800">{exam.ad}</div>
+            <div className="text-xs text-slate-500">{exam.tip}</div>
+          </div>
+          
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Uygulama Zamanı</div>
+            <div className="text-sm font-semibold text-slate-800">{formatDate(exam.tarih)}</div>
+          </div>
+          
+          <div className="p-3 border-b border-slate-200">
+            <div className="text-xs text-slate-500 mb-1">Eğitim Yılı</div>
+            <div className="text-sm font-semibold text-slate-800">2025-2026</div>
+          </div>
+
+          <div className="mt-4">
+            <button className="w-full text-left px-3 py-2 bg-[#00a0e3] text-white text-sm font-medium">
+              Öğrenciler
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Sorular
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Şubeler
+            </button>
+            <button className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm text-slate-600">
+              Kazanımlar
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 p-4">
+          {/* Toolbar */}
+          <div className="bg-white rounded-lg shadow-sm p-3 mb-4 flex items-center gap-3 flex-wrap">
+            {/* Dropdown Filters */}
+            <div className="relative">
+              <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded border border-slate-300">
+                Alt Testler
+                <ChevronDown size={14} />
+              </button>
+            </div>
             
-            <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-              <option>Sütunlar</option>
-            </select>
+            <div className="relative">
+              <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded border border-slate-300">
+                Sütunlar
+                <ChevronDown size={14} />
+              </button>
+            </div>
             
-            <select className="px-3 py-2 border border-orange-300 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium">
-              <option>Puanlar ▼</option>
-            </select>
+            <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#f0a030] hover:bg-[#e09020] text-white rounded">
+              Puanlar
+              <ChevronDown size={14} />
+            </button>
             
-            <select className="px-3 py-2 border border-emerald-300 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium">
-              <option>Sıralar ▼</option>
-            </select>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">Sayfada Öğrenci Sayısı:</span>
+            <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#40a060] hover:bg-[#309050] text-white rounded">
+              Sıralar
+              <ChevronDown size={14} />
+            </button>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-sm text-slate-600">Sayfada Öğrenci Sayısı :</span>
               <select 
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
-                className="px-2 py-1 border border-slate-200 rounded text-sm"
+                className="px-2 py-1 text-sm border border-slate-300 rounded"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
-                <option value={999}>Tümü</option>
+                <option value={500}>Tümü</option>
               </select>
             </div>
-            
-            <div className="flex-1"></div>
-            
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">
+
+            <button className="px-3 py-1.5 text-sm bg-[#00a0e3] hover:bg-[#0090d0] text-white rounded">
               Etüt Oluştur
             </button>
-            <button className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors">
+            
+            <button className="px-3 py-1.5 text-sm bg-[#e05050] hover:bg-[#d04040] text-white rounded">
               Ödev Oluştur
             </button>
           </div>
-        </div>
 
-        {/* Tablo Container */}
-        <div className="flex-1 overflow-auto">
-          <table className="w-full border-collapse min-w-[1600px]">
-            <thead className="sticky top-0 z-20">
-              {/* Grup Başlıkları */}
-              <tr className="bg-slate-50">
-                <th colSpan={6} className="py-2 px-2 text-left text-xs font-semibold text-slate-500 border-b border-r border-slate-200">
+          {/* Table Container */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  {/* Header Row 1 - Groups */}
+                  <tr className="bg-[#e8f4fc]">
+                    <th colSpan={4} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600"></th>
+                    <th colSpan={2} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#ffe0e0]">
+                      Kitapçık
+                    </th>
+                    <th colSpan={8} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#e0ffe0]">
+                      LGS Puanlar
+                    </th>
+                    <th colSpan={4} className="border border-slate-200 px-2 py-1 text-center text-xs font-semibold text-slate-600 bg-[#e0e0ff]">
+                      LGS Sıralar
+                    </th>
+                    <th className="border border-slate-200 px-2 py-1 w-8"></th>
+                  </tr>
                   
-                </th>
-                <th colSpan={2} className="py-2 px-2 text-center text-xs font-semibold text-purple-600 bg-purple-50 border-b border-r border-slate-200">
-                  Kitapçık
-                </th>
-                <th colSpan={7} className="py-2 px-2 text-center text-xs font-semibold text-emerald-600 bg-emerald-50 border-b border-r border-slate-200">
-                  LGS Puanlar
-                </th>
-                <th colSpan={4} className="py-2 px-2 text-center text-xs font-semibold text-blue-600 bg-blue-50 border-b border-slate-200">
-                  LGS Sıralar
-                </th>
-              </tr>
-              
-              {/* Sütun Başlıkları */}
-              <tr className="bg-white text-xs">
-                <th className="py-3 px-2 text-center font-semibold text-slate-600 border-b border-slate-200 w-12">
-                  {exam.ogrenciler.length}
-                </th>
-                <th className="py-3 px-2 text-center font-semibold text-slate-600 border-b border-slate-200 w-8">▶</th>
-                <th className="py-3 px-2 text-left font-semibold text-emerald-600 border-b border-slate-200 w-24">Numara</th>
-                <th className="py-3 px-2 text-left font-semibold text-emerald-600 border-b border-slate-200 min-w-[200px]">Öğrenci</th>
-                <th className="py-3 px-2 text-center font-semibold text-slate-600 border-b border-slate-200 w-28">Cevap Anahtarı</th>
-                <th className="py-3 px-2 text-center font-semibold text-slate-600 border-b border-r border-slate-200 w-16">Şube</th>
+                  {/* Header Row 2 - Columns */}
+                  <tr className="bg-[#d0e8f8]">
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap sticky left-0 bg-[#d0e8f8] z-10">
+                      {exam.ogrenciler?.length || 0}
+                    </th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 w-8">▶</th>
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap">Numara</th>
+                    <th className="border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap min-w-[180px]">Öğrenci</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#fff0f0]">Sayısal<br/>Kitapçık</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#fff0f0]">Sözel<br/>Kitapçık</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Doğru<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Yanlış<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Boş<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Hatalı<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">Net<br/>Yüzdesi</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0fff0]">LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Şube-LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Okul-LGS</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Şube-Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 whitespace-nowrap bg-[#f0f0ff]">Okul-Net<br/>Sayısı</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center text-xs font-semibold text-slate-700 w-8">
+                      <X size={14} className="text-red-500 mx-auto" />
+                    </th>
+                  </tr>
+                </thead>
                 
-                <th className="py-3 px-2 text-center font-semibold text-purple-600 bg-purple-50/50 border-b border-slate-200 w-20">Sayısal</th>
-                <th className="py-3 px-2 text-center font-semibold text-purple-600 bg-purple-50/50 border-b border-r border-slate-200 w-20">Sözel</th>
-                
-                <th className="py-3 px-2 text-center font-semibold text-green-600 bg-emerald-50/50 border-b border-slate-200 w-16">Doğru</th>
-                <th className="py-3 px-2 text-center font-semibold text-red-600 bg-emerald-50/50 border-b border-slate-200 w-16">Yanlış</th>
-                <th className="py-3 px-2 text-center font-semibold text-slate-500 bg-emerald-50/50 border-b border-slate-200 w-14">Boş</th>
-                <th className="py-3 px-2 text-center font-semibold text-orange-600 bg-emerald-50/50 border-b border-slate-200 w-16">Hatalı</th>
-                <th className="py-3 px-2 text-center font-semibold text-emerald-600 bg-emerald-50/50 border-b border-slate-200 w-20">Net</th>
-                <th className="py-3 px-2 text-center font-semibold text-blue-600 bg-emerald-50/50 border-b border-slate-200 w-20">Net %</th>
-                <th className="py-3 px-2 text-center font-semibold text-emerald-700 bg-emerald-50/50 border-b border-r border-slate-200 w-24">LGS</th>
-                
-                <th className="py-3 px-2 text-center font-semibold text-blue-600 bg-blue-50/50 border-b border-slate-200 w-20">Şube-LGS</th>
-                <th className="py-3 px-2 text-center font-semibold text-blue-600 bg-blue-50/50 border-b border-slate-200 w-20">Okul-LGS</th>
-                <th className="py-3 px-2 text-center font-semibold text-blue-600 bg-blue-50/50 border-b border-slate-200 w-24">Şube-Net</th>
-                <th className="py-3 px-2 text-center font-semibold text-blue-600 bg-blue-50/50 border-b border-slate-200 w-24">Okul-Net</th>
-              </tr>
-            </thead>
-            
-            <tbody>
-              {filteredStudents.map((student, idx) => {
-                const isExpanded = expandedRows.has(student.id);
-                const isSelected = selectedRows.has(student.id);
-                const rowBg = isSelected ? 'bg-blue-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
-                
-                return (
-                  <React.Fragment key={student.id}>
-                    {/* Ana Satır */}
-                    <tr 
-                      className={`${rowBg} hover:bg-blue-50/50 transition-colors cursor-pointer border-b border-slate-100`}
-                      onClick={() => toggleSelect(student.id)}
-                    >
-                      <td className="py-2 px-2 text-center text-sm font-semibold text-slate-600">{idx + 1}</td>
-                      <td className="py-2 px-2 text-center">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); toggleExpand(student.id); }}
-                          className="w-6 h-6 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 rounded"
-                        >
-                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        </button>
-                      </td>
-                      <td className="py-2 px-2 text-sm text-slate-600">{student.ogrenciNo}</td>
-                      <td className="py-2 px-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-800">{student.ogrenciAdi}</span>
-                          <span className="text-emerald-500">📊</span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs text-slate-500">8/B05</td>
-                      <td className="py-2 px-2 text-center text-sm border-r border-slate-200">{student.sube}</td>
-                      
-                      <td className="py-2 px-2 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          student.sayisalKitapcik === 'A' ? 'bg-blue-100 text-blue-700' :
-                          student.sayisalKitapcik === 'B' ? 'bg-purple-100 text-purple-700' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
-                          {student.sayisalKitapcik || '-'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2 text-center border-r border-slate-200">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          student.sozelKitapcik === 'A' ? 'bg-blue-100 text-blue-700' :
-                          student.sozelKitapcik === 'B' ? 'bg-purple-100 text-purple-700' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
-                          {student.sozelKitapcik || '-'}
-                        </span>
-                      </td>
-                      
-                      <td className="py-2 px-2 text-center text-sm font-semibold text-green-600">{student.toplamDogru}</td>
-                      <td className="py-2 px-2 text-center text-sm font-semibold text-red-600">{student.toplamYanlis}</td>
-                      <td className="py-2 px-2 text-center text-sm text-slate-500">{student.toplamBos}</td>
-                      <td className="py-2 px-2 text-center text-sm text-orange-500">{student.toplamHatali}</td>
-                      <td className="py-2 px-2 text-center text-sm font-bold text-emerald-700">{student.toplamNet.toFixed(2)}</td>
-                      <td className="py-2 px-2 text-center text-sm font-semibold text-blue-600">{student.netYuzdesi.toFixed(0)}%</td>
-                      <td className="py-2 px-2 text-center text-sm font-bold text-emerald-800 border-r border-slate-200">
-                        {student.lgsPuani.toLocaleString('tr-TR', { minimumFractionDigits: 0 })}
-                      </td>
-                      
-                      <td className="py-2 px-2 text-center text-sm text-blue-600">{student.subeLgsSira}</td>
-                      <td className="py-2 px-2 text-center text-sm text-blue-600">{student.okulLgsSira}</td>
-                      <td className="py-2 px-2 text-center text-sm text-blue-600">{student.subeNetSira}</td>
-                      <td className="py-2 px-2 text-center text-sm text-blue-600">{student.okulNetSira}</td>
-                    </tr>
+                <tbody>
+                  {filteredStudents.map((student, index) => {
+                    const isSelected = selectedRows.has(student.id);
+                    const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                     
-                    {/* Genişletilmiş Ders Kartları */}
-                    {isExpanded && student.dersler && (
-                      <tr>
-                        <td colSpan={20} className="bg-slate-100 p-4">
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                            {student.dersler.map((ders, di) => {
-                              const renk = getDersRenk(ders.dersKodu);
-                              return (
-                                <div 
-                                  key={di}
-                                  className={`${renk.bg} border ${renk.border} rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow`}
-                                >
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-xl">{renk.icon}</span>
-                                    <h4 className={`font-bold ${renk.text}`}>{ders.dersAdi}</h4>
-                                  </div>
-                                  
-                                  <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-slate-500">Soru:</span>
-                                      <span className="font-semibold text-slate-700">{ders.soruSayisi}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-green-600">Doğru:</span>
-                                      <span className="font-bold text-green-600">{ders.dogru}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-red-600">Yanlış:</span>
-                                      <span className="font-bold text-red-600">{ders.yanlis}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-slate-400">Boş:</span>
-                                      <span className="text-slate-500">{ders.bos}</span>
-                                    </div>
-                                    <div className="border-t border-slate-200 pt-2 mt-2">
-                                      <div className="flex justify-between items-center">
-                                        <span className={`font-semibold ${renk.text}`}>Net:</span>
-                                        <span className={`font-bold text-lg ${renk.text}`}>{ders.net.toFixed(2)}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Başarı Barı */}
-                                    <div className="mt-2">
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span className="text-slate-400">Başarı</span>
-                                        <span className={renk.text}>{ders.basariOrani}%</span>
-                                      </div>
-                                      <div className="h-2 bg-white rounded-full overflow-hidden">
-                                        <div 
-                                          className={`h-full rounded-full transition-all ${
-                                            ders.basariOrani >= 70 ? 'bg-green-500' :
-                                            ders.basariOrani >= 50 ? 'bg-amber-500' :
-                                            'bg-red-500'
-                                          }`}
-                                          style={{ width: `${ders.basariOrani}%` }}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          
-                          {/* Öğrenci Karnesi Butonu */}
-                          <div className="mt-4 flex justify-end">
-                            <button
-                              onClick={() => router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam.id}&studentNo=${student.ogrenciNo}`)}
-                              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                            >
-                              <BarChart3 size={16} />
-                              Detaylı Karne Görüntüle
-                            </button>
-                          </div>
+                    return (
+                      <tr 
+                        key={student.id} 
+                        className={`${rowBg} hover:bg-[#e8f4fc] transition-colors cursor-pointer ${isSelected ? '!bg-[#d0e8f8]' : ''}`}
+                        onClick={() => toggleRow(student.id)}
+                      >
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 sticky left-0 z-10" style={{ backgroundColor: isSelected ? '#d0e8f8' : index % 2 === 0 ? 'white' : '#f8fafc' }}>
+                          {index + 1}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <button className="text-slate-400 hover:text-[#00a0e3]">▶</button>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-slate-700 font-mono text-xs">
+                          {student.ogrenciNo || '-'}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-slate-800 font-medium whitespace-nowrap">
+                          {student.ogrenciAdi}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center bg-[#fffafa]">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            student.sayisalKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {student.sayisalKitapcik || '-'}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center bg-[#fffafa]">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            student.sozelKitapcik === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {student.sozelKitapcik || '-'}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-semibold text-green-600 bg-[#fafffa]">
+                          {student.toplamDogru}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-semibold text-red-600 bg-[#fafffa]">
+                          {student.toplamYanlis}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-500 bg-[#fafffa]">
+                          {student.toplamBos}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-500 bg-[#fafffa]">
+                          {student.hataliSayisi || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-bold text-emerald-700 bg-[#fafffa]">
+                          {student.toplamNet.toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafffa]">
+                          {student.netYuzdesi?.toFixed(2).replace('.', ',')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center font-bold text-blue-700 bg-[#fafffa]">
+                          {student.toplamPuan.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.subeSira}/{Math.ceil((exam.ogrenciler?.length || 1) / 10)}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.siralama}/{exam.ogrenciler?.length || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.subeSira}/{Math.ceil((exam.ogrenciler?.length || 1) / 10)}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-600 bg-[#fafaff]">
+                          {student.siralama}/{exam.ogrenciler?.length || 0}
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                            title="Kaldır"
+                          >
+                            <X size={14} />
+                          </button>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-        {/* Footer */}
-        <div className="bg-white border-t border-slate-200 p-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <span className="text-slate-500">
-                Toplam: <strong>{exam.ogrenciler.length}</strong> öğrenci
-              </span>
-              <span className="text-slate-500">
-                Ortalama: <strong>{(exam.ogrenciler.reduce((s, o) => s + o.toplamNet, 0) / exam.ogrenciler.length).toFixed(2)}</strong> net
-              </span>
-              {selectedRows.size > 0 && (
-                <span className="text-blue-600">
-                  Seçili: <strong>{selectedRows.size}</strong>
-                </span>
-              )}
+            {/* Empty State */}
+            {filteredStudents.length === 0 && (
+              <div className="p-12 text-center">
+                <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm">Öğrenci bulunamadı</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Stats */}
+          <div className="mt-4 bg-white rounded-lg shadow-sm p-3 flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              Toplam: <strong>{exam.ogrenciler?.length || 0}</strong> öğrenci | 
+              Ort. Net: <strong className="text-emerald-600">{exam.ortalamaNet?.toFixed(2) || '0'}</strong> | 
+              Seçili: <strong className="text-[#00a0e3]">{selectedRows.size}</strong>
             </div>
             
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={loadData}
-                className="flex items-center gap-1 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded"
               >
                 <RefreshCw size={14} />
                 Yenile
               </button>
-              <button className="flex items-center gap-1 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded">
+              
+              <button
+                disabled={selectedRows.size === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#00a0e3] hover:bg-[#0090d0] disabled:bg-slate-300 text-white rounded"
+              >
                 <Download size={14} />
-                Karne İndir
+                Karne İndir ({selectedRows.size})
               </button>
-              <button 
-                onClick={() => window.print()}
-                className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded"
+              
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded"
               >
                 <Printer size={14} />
                 Yazdır
@@ -722,7 +538,7 @@ function KarneContent() {
 export default function KarnePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f4f7] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#00a0e3]" />
       </div>
     }>
