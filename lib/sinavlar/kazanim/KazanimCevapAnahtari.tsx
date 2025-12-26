@@ -267,33 +267,41 @@ export default function KazanimCevapAnahtari({
         return -1;
       };
 
-      // Sütun indekslerini bul - Excel'deki başlıklara göre
-      // DERS KODU | DERS | KİTAPÇIK A | SORU DEĞERİ | CEVAP | B KİTAPÇIĞI CEVAP | KAZANIM KODU | KAZANIM METNİ
-      const testKoduCol = findCol(['DERS KODU', 'DERSKODU', 'TEST KODU', 'TESTKODU', 'TEST']);
-      const dersAdiCol = findCol(['DERS', 'DERSADI', 'DERS ADI']);
+      // ===========================================
+      // SÜTUN İNDEKSLERİNİ BUL - Excel başlıklarına göre
+      // ===========================================
+      // Excel sıralaması: DERS KODU | DERS | KİTAPÇIK A | SORU DEĞERİ | CEVAP | B KİTAPÇIĞI CEVAP | KAZANIM KODU | KAZANIM METNİ
       
-      // A/B/C/D Kitapçık Soru Numaraları
-      const aSoruNoCol = findCol(['KİTAPÇIK A', 'KITAPCIK A', 'A SORU NO', 'ASORUNO', 'A SORU', 'SORU NO', 'SORUNO']);
-      const bSoruNoCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'KİTAPÇIK B', 'KITAPCIK B', 'B SORU NO', 'BSORUNO', 'B SORU']);
-      const cSoruNoCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'KİTAPÇIK C', 'KITAPCIK C', 'C SORU NO', 'CSORUNO', 'C SORU']);
-      const dSoruNoCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'KİTAPÇIK D', 'KITAPCIK D', 'D SORU NO', 'DSORUNO', 'D SORU']);
+      // 1. DERS KODU (Sütun A)
+      const testKoduCol = findCol(['DERS KODU', 'DERSKODU', 'DERS_KODU', 'TEST KODU', 'TESTKODU']);
       
-      // Soru Değeri
-      const soruDegeriCol = findCol(['SORU DEĞERİ', 'SORU DEGERI', 'SORUDEGERI', 'DEGER', 'PUAN']);
+      // 2. DERS ADI (Sütun B)
+      const dersAdiCol = findCol(['DERS', 'DERSADI', 'DERS ADI', 'DERS_ADI']);
       
-      // A Kitapçığı Cevabı (ana cevap sütunu)
-      const cevapCol = findCol(['CEVAP', 'DOGRUCEVAP', 'DOGRU CEVAP', 'YANIT', 'DOĞRU CEVAP', 'DOGRU', 'A CEVAP', 'A CEVABI']);
+      // 3. KİTAPÇIK A = Soru Numarası (Sütun C) - 1, 2, 3, 4... diye gider
+      const aSoruNoCol = findCol(['KİTAPÇIK A', 'KITAPCIK A', 'KITAPCIK_A', 'A SORU NO', 'SORU NO', 'SORUNO', 'SORU NUMARASI']);
       
-      // ✨ B KİTAPÇIĞI CEVAP - Farklı kitapçık cevapları
-      const bCevapCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B CEVAP', 'B CEVABI', 'B KİT CEVAP']);
-      const cCevapCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI', 'C KİT CEVAP']);
-      const dCevapCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'D CEVAP', 'D CEVABI', 'D KİT CEVAP']);
+      // 4. SORU DEĞERİ (Sütun D) - genelde hep 1
+      const soruDegeriCol = findCol(['SORU DEĞERİ', 'SORU DEGERI', 'SORUDEGERI', 'SORU_DEGERI', 'DEGER', 'PUAN']);
       
-      console.log('📚 Kitapçık Cevap Sütunları:', {
-        'A Cevap': cevapCol >= 0 ? headers[cevapCol] : 'YOK',
-        'B Cevap': bCevapCol >= 0 ? headers[bCevapCol] : 'YOK',
-        'C Cevap': cCevapCol >= 0 ? headers[cCevapCol] : 'YOK',
-        'D Cevap': dCevapCol >= 0 ? headers[dCevapCol] : 'YOK',
+      // 5. CEVAP = A Kitapçığı Doğru Cevabı (Sütun E) - A, D, B, A... gibi
+      const cevapCol = findCol(['CEVAP', 'DOĞRU CEVAP', 'DOGRU CEVAP', 'DOGRUCEVAP', 'YANIT', 'A CEVAP', 'A CEVABI']);
+      
+      // 6. B KİTAPÇIĞI CEVAP = B Kitapçığı Doğru Cevabı (Sütun F) - A, D, B, A... gibi
+      const bCevapCol = findCol(['B KİTAPÇIĞI CEVAP', 'B KITAPCIGI CEVAP', 'B_KITAPCIGI_CEVAP', 'B CEVAP', 'B CEVABI', 'KITAPCIK B CEVAP']);
+      
+      // 7-8. C ve D Kitapçıkları (opsiyonel)
+      const cCevapCol = findCol(['C KİTAPÇIĞI CEVAP', 'C KITAPCIGI CEVAP', 'C CEVAP', 'C CEVABI']);
+      const dCevapCol = findCol(['D KİTAPÇIĞI CEVAP', 'D KITAPCIGI CEVAP', 'D CEVAP', 'D CEVABI']);
+      
+      // Debug log - hangi sütunlar algılandı?
+      console.log('📊 EXCEL SÜTUN ANALİZİ:', {
+        'DERS KODU (Sütun A)': testKoduCol >= 0 ? `✅ ${testKoduCol}: "${headers[testKoduCol]}"` : '❌ YOK',
+        'DERS (Sütun B)': dersAdiCol >= 0 ? `✅ ${dersAdiCol}: "${headers[dersAdiCol]}"` : '❌ YOK',
+        'KİTAPÇIK A (Sütun C)': aSoruNoCol >= 0 ? `✅ ${aSoruNoCol}: "${headers[aSoruNoCol]}"` : '❌ YOK',
+        'SORU DEĞERİ (Sütun D)': soruDegeriCol >= 0 ? `✅ ${soruDegeriCol}: "${headers[soruDegeriCol]}"` : '❌ YOK',
+        'CEVAP (Sütun E)': cevapCol >= 0 ? `✅ ${cevapCol}: "${headers[cevapCol]}"` : '❌ YOK',
+        'B KİTAPÇIĞI CEVAP (Sütun F)': bCevapCol >= 0 ? `✅ ${bCevapCol}: "${headers[bCevapCol]}"` : '❌ YOK',
       });
       
       // Kazanım Kodu ve Metni - ayrı ayrı ara
@@ -329,26 +337,13 @@ export default function KazanimCevapAnahtari({
       }
       
       // Algılanan sütunları logla
-      console.log('📊 Algılanan Sütunlar:', {
-        'TEST KODU': testKoduCol >= 0 ? headers[testKoduCol] : 'YOK',
-        'DERSADI': dersAdiCol >= 0 ? headers[dersAdiCol] : 'YOK',
-        'A Soru No': aSoruNoCol >= 0 ? headers[aSoruNoCol] : 'YOK',
-        'B Soru No': bSoruNoCol >= 0 ? headers[bSoruNoCol] : 'YOK',
-        'C Soru No': cSoruNoCol >= 0 ? headers[cSoruNoCol] : 'YOK',
-        'D Soru No': dSoruNoCol >= 0 ? headers[dSoruNoCol] : 'YOK',
-        'DoğruCevap': cevapCol >= 0 ? headers[cevapCol] : 'YOK',
-        'Kazanım Kodu': kazanimKoduCol >= 0 ? headers[kazanimKoduCol] : 'YOK',
-        'Kazanım Metni': kazanimMetniCol >= 0 ? headers[kazanimMetniCol] : 'YOK',
-      });
-
-      // Kitapçık türlerini belirle
-      const kitapciklar: string[] = [];
-      if (aSoruNoCol >= 0) kitapciklar.push('A');
-      if (bSoruNoCol >= 0) kitapciklar.push('B');
-      if (cSoruNoCol >= 0) kitapciklar.push('C');
-      if (dSoruNoCol >= 0) kitapciklar.push('D');
+      // Kitapçık türlerini belirle - CEVAP sütunlarına göre
+      const kitapciklar: string[] = ['A']; // A her zaman var
+      if (bCevapCol >= 0) kitapciklar.push('B');
+      if (cCevapCol >= 0) kitapciklar.push('C');
+      if (dCevapCol >= 0) kitapciklar.push('D');
       
-      console.log('📚 Algılanan Kitapçıklar:', kitapciklar.join(', ') || 'Tek kitapçık');
+      console.log('📚 Algılanan Kitapçıklar:', kitapciklar.join(', '), '- Kazanım Kodu:', kazanimKoduCol >= 0 ? headers[kazanimKoduCol] : 'YOK');
 
       // Verileri parse et
       const parsed: CevapAnahtariSatir[] = [];
@@ -413,57 +408,64 @@ export default function KazanimCevapAnahtari({
 
         if (!['A', 'B', 'C', 'D', 'E'].includes(cevap)) continue;
 
-        // Kitapçık soru numaralarını al
-        const kitapcikSoruNo: { A?: number; B?: number; C?: number; D?: number } = {
-          A: soruNo
-        };
-
-        if (bSoruNoCol >= 0 && row[bSoruNoCol]) {
-          const bNo = parseInt(String(row[bSoruNoCol]));
-          if (!isNaN(bNo) && bNo > 0) kitapcikSoruNo.B = bNo;
-        }
-        if (cSoruNoCol >= 0 && row[cSoruNoCol]) {
-          const cNo = parseInt(String(row[cSoruNoCol]));
-          if (!isNaN(cNo) && cNo > 0) kitapcikSoruNo.C = cNo;
-        }
-        if (dSoruNoCol >= 0 && row[dSoruNoCol]) {
-          const dNo = parseInt(String(row[dSoruNoCol]));
-          if (!isNaN(dNo) && dNo > 0) kitapcikSoruNo.D = dNo;
-        }
-
-        // Soru değerini al
+        // ===========================================
+        // SORU DEĞERİNİ AL (Sütun D)
+        // ===========================================
         let soruDegeri = 1;
-        if (soruDegeriCol >= 0 && row[soruDegeriCol]) {
-          soruDegeri = parseFloat(String(row[soruDegeriCol])) || 1;
+        if (soruDegeriCol >= 0 && row[soruDegeriCol] !== undefined && row[soruDegeriCol] !== null) {
+          const deger = parseFloat(String(row[soruDegeriCol]));
+          if (!isNaN(deger) && deger > 0) {
+            soruDegeri = deger;
+          }
         }
         
-        // ✨ Kitapçık cevaplarını al (A, B, C, D)
-        const kitapcikCevaplari: { A?: 'A' | 'B' | 'C' | 'D' | 'E'; B?: 'A' | 'B' | 'C' | 'D' | 'E'; C?: 'A' | 'B' | 'C' | 'D' | 'E'; D?: 'A' | 'B' | 'C' | 'D' | 'E'; } = {
+        // ===========================================
+        // KİTAPÇIK CEVAPLARINI AL
+        // ===========================================
+        // A kitapçığı cevabı = CEVAP sütunu (Sütun E)
+        // B kitapçığı cevabı = B KİTAPÇIĞI CEVAP sütunu (Sütun F)
+        const kitapcikCevaplari: { 
+          A?: 'A' | 'B' | 'C' | 'D' | 'E'; 
+          B?: 'A' | 'B' | 'C' | 'D' | 'E'; 
+          C?: 'A' | 'B' | 'C' | 'D' | 'E'; 
+          D?: 'A' | 'B' | 'C' | 'D' | 'E'; 
+        } = {
           A: cevap as 'A' | 'B' | 'C' | 'D' | 'E'
         };
         
-        // B Kitapçığı cevabı
-        if (bCevapCol >= 0 && row[bCevapCol]) {
-          const bCevap = String(row[bCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(bCevap)) {
-            kitapcikCevaplari.B = bCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+        // B Kitapçığı cevabını al (Sütun F)
+        if (bCevapCol >= 0 && row[bCevapCol] !== undefined && row[bCevapCol] !== null) {
+          const bCevapRaw = String(row[bCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(bCevapRaw)) {
+            kitapcikCevaplari.B = bCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
           }
         }
         
-        // C Kitapçığı cevabı
-        if (cCevapCol >= 0 && row[cCevapCol]) {
-          const cCevap = String(row[cCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(cCevap)) {
-            kitapcikCevaplari.C = cCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+        // C Kitapçığı cevabını al (varsa)
+        if (cCevapCol >= 0 && row[cCevapCol] !== undefined && row[cCevapCol] !== null) {
+          const cCevapRaw = String(row[cCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(cCevapRaw)) {
+            kitapcikCevaplari.C = cCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
           }
         }
         
-        // D Kitapçığı cevabı
-        if (dCevapCol >= 0 && row[dCevapCol]) {
-          const dCevap = String(row[dCevapCol]).toUpperCase().trim();
-          if (['A', 'B', 'C', 'D', 'E'].includes(dCevap)) {
-            kitapcikCevaplari.D = dCevap as 'A' | 'B' | 'C' | 'D' | 'E';
+        // D Kitapçığı cevabını al (varsa)
+        if (dCevapCol >= 0 && row[dCevapCol] !== undefined && row[dCevapCol] !== null) {
+          const dCevapRaw = String(row[dCevapCol]).toUpperCase().trim();
+          if (['A', 'B', 'C', 'D', 'E'].includes(dCevapRaw)) {
+            kitapcikCevaplari.D = dCevapRaw as 'A' | 'B' | 'C' | 'D' | 'E';
           }
+        }
+        
+        // Debug: İlk 3 satır için detaylı log
+        if (i <= 3) {
+          console.log(`📝 Satır ${i}:`, {
+            'Soru No (KİTAPÇIK A)': soruNo,
+            'Soru Değeri': soruDegeri,
+            'A Cevap': kitapcikCevaplari.A,
+            'B Cevap': kitapcikCevaplari.B || 'YOK',
+            'Raw B': row[bCevapCol]
+          });
         }
         
         // Kazanım bilgilerini al
