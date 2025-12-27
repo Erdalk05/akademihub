@@ -988,81 +988,165 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         })}
       </div>
 
-      {/* FOOTER - KAYDET */}
-      <div className="border-t border-gray-100 p-4 bg-gray-50 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          <span className="font-medium text-emerald-600">{stats.doluSoru}</span> cevap, 
-          <span className="font-medium text-blue-600 ml-1">{stats.kazanimli}</span> kazanım girildi
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              console.log('🔵 Manuel Cevap Anahtarı - Kaydet butonuna tıklandı');
-              
-              // Kitapçık A'yı ana veri olarak al, diğer kitapçıkları eşle
-              const sorularA = kitapcikVerileri['A'];
-              const sorularB = kitapcikVerileri['B'];
-              const sorularC = kitapcikVerileri['C'];
-              const sorularD = kitapcikVerileri['D'];
+      {/* FOOTER - KİTAPÇIK KAYDET + DEVAM ET BUTONLARI */}
+      {(() => {
+        // Tüm kitapçıkların doluluk durumları
+        const kitapcikDoluluklari = {
+          A: kitapcikVerileri['A'].filter(s => s.cevap).length,
+          B: kitapcikVerileri['B'].filter(s => s.cevap).length,
+          C: kitapcikVerileri['C'].filter(s => s.cevap).length,
+          D: kitapcikVerileri['D'].filter(s => s.cevap).length,
+        };
+        
+        const mevcutKitapcikTam = kitapcikDoluluklari[aktifKitapcik] === 90;
+        const tumKitapciklerTam = kitapcikDoluluklari.A === 90 && kitapcikDoluluklari.B === 90 && 
+                                   kitapcikDoluluklari.C === 90 && kitapcikDoluluklari.D === 90;
+        
+        // Sonraki kitapçık
+        const sonrakiKitapcikMap: Record<KitapcikTuru, KitapcikTuru | null> = {
+          'A': 'B', 'B': 'C', 'C': 'D', 'D': null
+        };
+        const sonrakiKitapcik = sonrakiKitapcikMap[aktifKitapcik];
+        
+        // En az bir kitapçık tam mı?
+        const enAzBirKitapcikTam = kitapcikDoluluklari.A === 90 || kitapcikDoluluklari.B === 90 || 
+                                    kitapcikDoluluklari.C === 90 || kitapcikDoluluklari.D === 90;
 
-              // Geçerli cevap kontrolü
-              const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
-                if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
-                return undefined;
-              };
+        // Kaydet fonksiyonu
+        const handleKaydet = () => {
+          console.log('🔵 Manuel Cevap Anahtarı - Kaydet butonuna tıklandı');
+          
+          const sorularA = kitapcikVerileri['A'];
+          const sorularB = kitapcikVerileri['B'];
+          const sorularC = kitapcikVerileri['C'];
+          const sorularD = kitapcikVerileri['D'];
 
-              // CevapAnahtariSatir formatına dönüştür
-              // ÖNEMLİ: Orijinal index'i korumak için önce map sonra filter kullanıyoruz
-              const cevapAnahtari: CevapAnahtariSatir[] = [];
+          const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
+            if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
+            return undefined;
+          };
+
+          const cevapAnahtari: CevapAnahtariSatir[] = [];
+          
+          sorularA.forEach((soru, originalIdx) => {
+            if (!soru.cevap) return;
+            
+            const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
+            const cevapA = validCevap(soru.cevap);
+            const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
+            const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
+            const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
+            
+            cevapAnahtari.push({
+              soruNo: soru.globalSoruNo,
+              dogruCevap: cevapA || 'A',
+              dersKodu: soru.dersKodu,
+              dersAdi: ders?.ad || soru.dersKodu,
+              kazanimKodu: soru.kazanimKodu || undefined,
+              kazanimMetni: soru.kazanimMetni || undefined,
+              kitapcikCevaplari: { A: cevapA, B: cevapB, C: cevapC, D: cevapD },
+            });
+          });
+          
+          console.log('✅ Cevap anahtarı oluşturuldu:', cevapAnahtari.length, 'soru');
+          
+          if (onSave) {
+            onSave(cevapAnahtari);
+            console.log('✅ onSave callback çağrıldı');
+          }
+        };
+
+        return (
+          <div className="border-t border-gray-100 p-4 bg-gradient-to-r from-gray-50 to-emerald-50">
+            {/* Kitapçık Durumları */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                {KITAPCIK_TURLERI.map(kit => (
+                  <div 
+                    key={kit}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                      kitapcikDoluluklari[kit] === 90
+                        ? 'bg-green-100 text-green-700 ring-2 ring-green-300'
+                        : kitapcikDoluluklari[kit] > 0
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    <span className="font-bold">{kit}</span>
+                    {kitapcikDoluluklari[kit] === 90 ? (
+                      <Check size={14} className="text-green-600" />
+                    ) : (
+                      <span className="text-xs">{kitapcikDoluluklari[kit]}/90</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="text-sm text-gray-500">
+                Toplam: <span className="font-bold text-emerald-600">
+                  {kitapcikDoluluklari.A + kitapcikDoluluklari.B + kitapcikDoluluklari.C + kitapcikDoluluklari.D}
+                </span> / 360 cevap
+              </div>
+            </div>
+
+            {/* Butonlar */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {mevcutKitapcikTam ? (
+                  <span className="text-green-600 font-medium flex items-center gap-1">
+                    <Check size={16} />
+                    Kitapçık {aktifKitapcik} tamamlandı!
+                  </span>
+                ) : (
+                  <span>
+                    Kitapçık {aktifKitapcik}: <span className="font-medium">{kitapcikDoluluklari[aktifKitapcik]}/90</span> cevap
+                  </span>
+                )}
+              </div>
               
-              sorularA.forEach((soru, originalIdx) => {
-                // Cevabı olmayan soruları atla
-                if (!soru.cevap) return;
-                
-                const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
-                const cevapA = validCevap(soru.cevap);
-                // Orijinal index'i kullan (filter sonrası değil!)
-                const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
-                const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
-                const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
-                
-                cevapAnahtari.push({
-                  soruNo: soru.globalSoruNo,
-                  dogruCevap: cevapA || 'A', // Varsayılan A
-                  dersKodu: soru.dersKodu,
-                  dersAdi: ders?.ad || soru.dersKodu,
-                  kazanimKodu: soru.kazanimKodu || undefined,
-                  kazanimMetni: soru.kazanimMetni || undefined,
-                  kitapcikCevaplari: {
-                    A: cevapA,
-                    B: cevapB,
-                    C: cevapC,
-                    D: cevapD,
-                  },
-                });
-              });
-              
-              console.log('✅ Cevap anahtarı oluşturuldu:', cevapAnahtari.length, 'soru');
-              
-              if (onSave) {
-                onSave(cevapAnahtari);
-                console.log('✅ onSave callback çağrıldı');
-              } else {
-                console.warn('⚠️ onSave prop tanımlı değil!');
-              }
-            }}
-            disabled={stats.doluSoru === 0}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
-              stats.doluSoru > 0
-                ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <Check size={18} />
-            Kaydet ve Devam Et ({stats.doluSoru}/90)
-          </button>
-        </div>
-      </div>
+              <div className="flex items-center gap-3">
+                {/* Kaydet ve Sonraki Kitapçığa Geç Butonu */}
+                {mevcutKitapcikTam && sonrakiKitapcik && (
+                  <button
+                    onClick={() => {
+                      setAktifKitapcik(sonrakiKitapcik);
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-lg shadow-blue-200"
+                  >
+                    <span>Kaydet → {sonrakiKitapcik} Kitapçığına Geç</span>
+                    <ChevronRight size={18} />
+                  </button>
+                )}
+
+                {/* Kaydet ve Devam Et Butonu - Sadece en az bir kitapçık tamsa */}
+                {enAzBirKitapcikTam && (
+                  <button
+                    onClick={handleKaydet}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
+                      tumKitapciklerTam
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200 ring-2 ring-emerald-300'
+                        : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
+                    }`}
+                  >
+                    <Check size={18} />
+                    {tumKitapciklerTam ? 'Tümü Tamam! Kaydet ve Devam Et' : 'Kaydet ve Devam Et'}
+                  </button>
+                )}
+
+                {/* Eğer hiçbir kitapçık tam değilse devre dışı buton */}
+                {!enAzBirKitapcikTam && (
+                  <button
+                    disabled
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-300 text-gray-500 rounded-xl font-medium cursor-not-allowed"
+                  >
+                    <AlertCircle size={18} />
+                    Önce bir kitapçığı tamamlayın
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
