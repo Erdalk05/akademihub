@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileSpreadsheet,
@@ -104,6 +104,40 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     
     return initial;
   });
+
+  // ✅ INITIAL DATA (wizard state) → manuel ekranı geri doldur
+  // Kritik: Step değişip geri gelince ekran boş görünüyordu (veri kayboldu sanılıyordu).
+  useEffect(() => {
+    if (!initialData || initialData.length === 0) return;
+
+    setKitapcikVerileri(prev => {
+      const next: Record<KitapcikTuru, SoruCevap[]> = {
+        A: prev.A.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
+        B: prev.B.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
+        C: prev.C.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
+        D: prev.D.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
+      };
+
+      initialData.forEach(row => {
+        const idx = (row.soruNo || 0) - 1; // soruNo global (1-90)
+        if (idx < 0 || idx >= 90) return;
+
+        // Kazanım bilgisi A'ya yazılıyor (ortak bilgi)
+        next.A[idx] = {
+          ...next.A[idx],
+          cevap: row.kitapcikCevaplari?.A || next.A[idx].cevap,
+          kazanimKodu: row.kazanimKodu || next.A[idx].kazanimKodu,
+          kazanimMetni: row.kazanimMetni || next.A[idx].kazanimMetni,
+        };
+
+        next.B[idx] = { ...next.B[idx], cevap: row.kitapcikCevaplari?.B || next.B[idx].cevap };
+        next.C[idx] = { ...next.C[idx], cevap: row.kitapcikCevaplari?.C || next.C[idx].cevap };
+        next.D[idx] = { ...next.D[idx], cevap: row.kitapcikCevaplari?.D || next.D[idx].cevap };
+      });
+
+      return next;
+    });
+  }, [initialData]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // YARDIMCI FONKSİYONLAR
@@ -271,6 +305,52 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     C: new Set(),
     D: new Set(),
   }));
+
+  // ✅ Tek yerden cevap anahtarı üret (wizard'a kaydetmek için)
+  const buildCevapAnahtari = useCallback((): CevapAnahtariSatir[] => {
+    const sorularA = kitapcikVerileri['A'];
+    const sorularB = kitapcikVerileri['B'];
+    const sorularC = kitapcikVerileri['C'];
+    const sorularD = kitapcikVerileri['D'];
+
+    const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
+      if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
+      return undefined;
+    };
+
+    const cevapAnahtari: CevapAnahtariSatir[] = [];
+    sorularA.forEach((soru, originalIdx) => {
+      if (!soru.cevap) return;
+      const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
+
+      const cevapA = validCevap(soru.cevap);
+      const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
+      const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
+      const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
+
+      cevapAnahtari.push({
+        soruNo: soru.globalSoruNo,
+        dogruCevap: cevapA || 'A',
+        dersKodu: soru.dersKodu,
+        dersAdi: ders?.ad || soru.dersKodu,
+        kazanimKodu: soru.kazanimKodu || undefined,
+        kazanimMetni: soru.kazanimMetni || undefined,
+        kitapcikCevaplari: { A: cevapA, B: cevapB, C: cevapC, D: cevapD },
+      });
+    });
+
+    return cevapAnahtari;
+  }, [kitapcikVerileri]);
+
+  const saveToWizard = useCallback(() => {
+    const data = buildCevapAnahtari();
+    if (!onSave) {
+      console.warn('⚠️ onSave prop tanımlı değil!');
+      return;
+    }
+    onSave(data);
+    console.log('✅ onSave çağrıldı:', data.length, 'soru');
+  }, [buildCevapAnahtari, onSave]);
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
@@ -867,6 +947,8 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
             <div className="mt-4 flex items-center justify-end">
               <button
                 onClick={() => {
+                  // ✅ Wizard state'ine gerçek kaydet
+                  saveToWizard();
                   // Bu kitapçık için tüm dersleri kilitle (UI stabil kalsın)
                   setKilitliDersler(prev => ({
                     ...prev,
@@ -1109,48 +1191,10 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         const enAzBirKitapcikTam = kitapcikDoluluklari.A === 90 || kitapcikDoluluklari.B === 90 || 
                                     kitapcikDoluluklari.C === 90 || kitapcikDoluluklari.D === 90;
 
-        // Kaydet fonksiyonu
+        // Kaydet fonksiyonu (tek yerden)
         const handleKaydet = () => {
           console.log('🔵 Manuel Cevap Anahtarı - Kaydet butonuna tıklandı');
-          
-          const sorularA = kitapcikVerileri['A'];
-          const sorularB = kitapcikVerileri['B'];
-          const sorularC = kitapcikVerileri['C'];
-          const sorularD = kitapcikVerileri['D'];
-
-          const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
-            if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
-            return undefined;
-          };
-
-          const cevapAnahtari: CevapAnahtariSatir[] = [];
-          
-          sorularA.forEach((soru, originalIdx) => {
-            if (!soru.cevap) return;
-            
-            const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
-            const cevapA = validCevap(soru.cevap);
-            const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
-            const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
-            const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
-            
-            cevapAnahtari.push({
-              soruNo: soru.globalSoruNo,
-              dogruCevap: cevapA || 'A',
-              dersKodu: soru.dersKodu,
-              dersAdi: ders?.ad || soru.dersKodu,
-              kazanimKodu: soru.kazanimKodu || undefined,
-              kazanimMetni: soru.kazanimMetni || undefined,
-              kitapcikCevaplari: { A: cevapA, B: cevapB, C: cevapC, D: cevapD },
-            });
-          });
-          
-          console.log('✅ Cevap anahtarı oluşturuldu:', cevapAnahtari.length, 'soru');
-          
-          if (onSave) {
-            onSave(cevapAnahtari);
-            console.log('✅ onSave callback çağrıldı');
-          }
+          saveToWizard();
         };
 
         return (
