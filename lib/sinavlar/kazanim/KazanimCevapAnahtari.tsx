@@ -243,47 +243,88 @@ function getDersTamAdi(kod: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ✅ KAZANIM KODUNDAN DERS ÇIKARMA - ÖNEMLİ!
+// ✅ KAZANIM KODUNDAN DERS ÇIKARMA - GENİŞLETİLMİŞ!
 // ═══════════════════════════════════════════════════════════════════════════
+// MEB ve Özdebir kazanım formatları:
 // T.8.3.5 → TUR (Türkçe)
 // M.8.1.1.1 → MAT (Matematik)
 // F.8.2.1.1 → FEN (Fen Bilimleri)
-// İTA.8.2.1 veya ITA.8.2.1 → INK (İnkılap Tarihi)
-// B.1.1 → DIN (Din Kültürü - "B" din için kullanılır)
-// E8.1.R2 veya E.8.1.R2 → ING (İngilizce)
+// İTA.8.2.1, ITA.8.2.1, SB.8.x → INK (İnkılap Tarihi / Sosyal Bilimler)
+// B.1.1, DKAB.8.x, D.8.x → DIN (Din Kültürü)
+// E8.1.R2, E.8.x, ENG.x, İNG.x → ING (İngilizce)
 // ═══════════════════════════════════════════════════════════════════════════
 function getDersKodundanKazanim(kazanimKodu: string): string | null {
   if (!kazanimKodu) return null;
   
   const upper = kazanimKodu.toUpperCase().trim();
+  const normalized = normalizeTurkish(upper);
   
-  // Kazanım kodu pattern'leri
-  // T.8.3.5 → Türkçe
-  if (upper.startsWith('T.')) return 'TUR';
+  // ═══════════════════════════════════════════════════════════════════════
+  // TÜRKÇE - T.8.x.x, TUR.x, TR.x
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('T.') || upper.startsWith('TUR.') || upper.startsWith('TR.')) {
+    return 'TUR';
+  }
   
-  // M.8.1.1.1 → Matematik
-  if (upper.startsWith('M.')) return 'MAT';
+  // ═══════════════════════════════════════════════════════════════════════
+  // MATEMATİK - M.8.x.x, MAT.x
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('M.') || upper.startsWith('MAT.')) {
+    return 'MAT';
+  }
   
-  // F.8.1.1.1 → Fen Bilimleri
-  if (upper.startsWith('F.')) return 'FEN';
+  // ═══════════════════════════════════════════════════════════════════════
+  // FEN BİLİMLERİ - F.8.x.x, FEN.x
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('F.') || upper.startsWith('FEN.')) {
+    return 'FEN';
+  }
   
-  // İTA.8.2.1 veya ITA.8.2.1 → İnkılap Tarihi
-  if (upper.startsWith('İTA.') || upper.startsWith('ITA.') || upper.startsWith('İT.') || upper.startsWith('IT.')) return 'INK';
+  // ═══════════════════════════════════════════════════════════════════════
+  // İNKILAP TARİHİ - İTA.x, ITA.x, İT.x, IT.x, SB.8.x (Sosyal Bilimler)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('İTA.') || upper.startsWith('ITA.') || 
+      upper.startsWith('İT.') || upper.startsWith('IT.') ||
+      upper.startsWith('SB.') || upper.startsWith('SB8.') ||
+      normalized.startsWith('ITA.') || normalized.startsWith('IT.')) {
+    return 'INK';
+  }
   
-  // B.1.1 → Din Kültürü (MEB'de "B" din kültürü için kullanılır)
-  if (upper.startsWith('B.')) return 'DIN';
+  // ═══════════════════════════════════════════════════════════════════════
+  // DİN KÜLTÜRÜ - B.x.x, D.8.x, DKAB.x, DIN.x
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('B.') || upper.startsWith('D.8') || 
+      upper.startsWith('DKAB.') || upper.startsWith('DIN.') ||
+      upper.startsWith('DİN.')) {
+    return 'DIN';
+  }
   
-  // E8.1.R2 veya E.8.1.R2 → İngilizce
-  if (upper.startsWith('E8.') || upper.startsWith('E.8') || upper.startsWith('ENG.')) return 'ING';
+  // ═══════════════════════════════════════════════════════════════════════
+  // İNGİLİZCE - E8.x, E.8.x, ENG.x, İNG.x, ING.x, YD.x (Yabancı Dil)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('E8.') || upper.startsWith('E.8') || 
+      upper.startsWith('ENG.') || upper.startsWith('İNG.') || 
+      upper.startsWith('ING.') || upper.startsWith('YD.') ||
+      normalized.startsWith('ING.')) {
+    return 'ING';
+  }
   
-  // SOS veya S. → Sosyal Bilgiler
-  if (upper.startsWith('SOS.') || upper.startsWith('S.')) return 'SOS';
+  // ═══════════════════════════════════════════════════════════════════════
+  // SOSYAL BİLGİLER (5-7. sınıf) - SOS.x, S.x
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('SOS.') || upper.startsWith('S.5') || 
+      upper.startsWith('S.6') || upper.startsWith('S.7')) {
+    return 'SOS';
+  }
   
-  // Fizik, Kimya, Biyoloji
-  if (upper.startsWith('FİZ.') || upper.startsWith('FIZ.')) return 'FIZ';
-  if (upper.startsWith('KİM.') || upper.startsWith('KIM.')) return 'KIM';
+  // ═══════════════════════════════════════════════════════════════════════
+  // FİZİK, KİMYA, BİYOLOJİ (Lise)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (upper.startsWith('FİZ.') || upper.startsWith('FIZ.') || normalized.startsWith('FIZ.')) return 'FIZ';
+  if (upper.startsWith('KİM.') || upper.startsWith('KIM.') || normalized.startsWith('KIM.')) return 'KIM';
   if (upper.startsWith('BİY.') || upper.startsWith('BIY.') || upper.startsWith('BIO.')) return 'BIO';
   
+  // Bulunamadı
   return null;
 }
 
@@ -547,14 +588,27 @@ export default function KazanimCevapAnahtari({
           currentTestKodu = String(row[testKoduCol]).trim();
         }
 
-        // Ders kodunu ve adını al
+        // ═══════════════════════════════════════════════════════════════════════
+        // DERS KODU VE ADI ALGILA - GELİŞTİRİLMİŞ
+        // ═══════════════════════════════════════════════════════════════════════
         let currentDersAdi = '';
+        let dersAlgilamaYontemi = '';
+        
+        // 1. Önce DERS sütunundan al
         if (dersAdiCol >= 0 && row[dersAdiCol]) {
           currentDersAdi = String(row[dersAdiCol]).trim();
           currentDers = getDersKodu(currentDersAdi);
-        } else if (testKoduCol >= 0 && row[testKoduCol]) {
-          // Test kodundan ders çıkar (TUR1 -> TUR)
+          dersAlgilamaYontemi = 'DERS_SUTUNU';
+        } 
+        // 2. TEST KODU sütunundan çıkar
+        else if (testKoduCol >= 0 && row[testKoduCol]) {
           currentDers = getDersKodu(String(row[testKoduCol]));
+          dersAlgilamaYontemi = 'TEST_KODU';
+        }
+        
+        // Debug: İlk 5 satır için ders algılama
+        if (i <= 5) {
+          console.log(`📗 Satır ${i}: Ders="${currentDersAdi}" → Kod="${currentDers}" (${dersAlgilamaYontemi})`);
         }
 
         // A Soru numarasını al
@@ -668,18 +722,30 @@ export default function KazanimCevapAnahtari({
         const kazanimMetni = kazanimMetniCol >= 0 ? String(row[kazanimMetniCol] || '').trim() : '';
 
         // ═══════════════════════════════════════════════════════════════════════
-        // ✅ KAZANIM KODUNDAN DERS ÇIKARMA - ÖNCELİKLİ!
+        // ✅ KAZANIM KODUNDAN DERS ÇIKARMA - EN GÜÇLÜ YÖNTEMİ KULLAN
         // ═══════════════════════════════════════════════════════════════════════
-        // Eğer ders adı bulunamadıysa veya varsayılan "TUR" ise,
-        // kazanım kodundan ders çıkarmayı dene:
+        // Kazanım kodu varsa, önce ondan ders çıkarmayı dene (daha güvenilir)
         // F.8.2.1.1 → FEN, T.8.3.5 → TUR, M.8.1.1.1 → MAT vb.
         let finalDersKodu = currentDers;
+        let finalDersAdi = currentDersAdi;
+        
+        // Kazanım kodundan ders çıkar
         if (kazanimKodu) {
           const dersFromKazanim = getDersKodundanKazanim(kazanimKodu);
           if (dersFromKazanim) {
             finalDersKodu = dersFromKazanim;
-            console.log(`🎯 Kazanım kodundan ders çıkarıldı: ${kazanimKodu} → ${dersFromKazanim}`);
+            finalDersAdi = getDersTamAdi(dersFromKazanim);
+            
+            // Debug: İlk birkaç satır için log
+            if (i <= 10) {
+              console.log(`🎯 Kazanım kodundan ders: ${kazanimKodu} → ${dersFromKazanim} (${finalDersAdi})`);
+            }
           }
+        }
+        
+        // Eğer hala TUR ise ve kazanım kodu var ama algılanamadıysa uyar
+        if (finalDersKodu === 'TUR' && kazanimKodu && !kazanimKodu.toUpperCase().startsWith('T.')) {
+          console.warn(`⚠️ Ders algılanamadı: Kazanım="${kazanimKodu}", DersAdi="${currentDersAdi}" → Varsayılan TUR`);
         }
 
         // ✅ KİTAPÇIK CEVAPLARINI HER ZAMAN KAYDET
