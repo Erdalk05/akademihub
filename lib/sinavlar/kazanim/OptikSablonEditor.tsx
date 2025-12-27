@@ -53,6 +53,7 @@ const OPSIYONEL_ALANLAR = [
   { id: 'cinsiyet', label: 'Cinsiyet', icon: '⚤', color: '#06B6D4' },
   { id: 'kurum_kodu', label: 'Kurum Kodu', icon: '🏛️', color: '#84CC16' },
   { id: 'cep_telefonu', label: 'Cep Telefonu', icon: '📱', color: '#F97316' },
+  { id: 'bos', label: 'Boş Alan', icon: '⬜', color: '#9CA3AF' },
 ];
 
 // Tüm alan tipleri (eski uyumluluk için)
@@ -581,29 +582,58 @@ export default function OptikSablonEditor({
         <div className="space-y-4">
           {/* HIZLI ALAN TANIMLAMA - 3 SÜTUN */}
           <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200">
-            <h3 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
-              ⚡ Hızlı Alan Tanımlama (Sayı Girin)
-            </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                ⚡ Hızlı Alan Tanımlama
+              </h3>
+              {activeAlanTipi && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full animate-pulse">
+                    🎯 "{ALAN_TIPLERI.find(a => a.id === activeAlanTipi)?.label}" seçili - Haritadan seç veya rakam gir
+                  </span>
+                  <button onClick={clearSelection} className="text-xs text-slate-500 hover:text-red-500">✕</button>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
               {[...ZORUNLU_ALANLAR, ...OPSIYONEL_ALANLAR].map((tip) => {
                 const existingField = alanlar.find(a => a.alan === tip.id);
                 const isZorunlu = ZORUNLU_ALANLAR.some(z => z.id === tip.id);
+                const isActive = activeAlanTipi === tip.id;
                 return (
                   <div 
                     key={tip.id} 
-                    className="flex items-center gap-2 p-2 bg-white rounded-lg border"
-                    style={{ borderColor: existingField ? '#10B981' : (isZorunlu ? '#fca5a5' : '#e2e8f0') }}
+                    className={`flex items-center gap-1 p-2 bg-white rounded-lg border-2 transition-all cursor-pointer ${
+                      isActive ? 'ring-2 ring-blue-400 border-blue-500 shadow-lg scale-[1.02]' : ''
+                    }`}
+                    style={{ 
+                      borderColor: isActive ? '#3B82F6' : existingField ? '#10B981' : (isZorunlu ? '#fca5a5' : '#e2e8f0'),
+                      backgroundColor: isActive ? '#EFF6FF' : existingField ? '#F0FDF4' : 'white'
+                    }}
                   >
-                    <span className="text-lg">{tip.icon}</span>
-                    <span className="text-xs font-medium text-slate-700 w-20 truncate">{tip.label}</span>
+                    {/* TIKLANABİLİR ALAN İSMİ */}
+                    <button
+                      onClick={() => setActiveAlanTipi(isActive ? null : tip.id)}
+                      className={`flex items-center gap-1 flex-shrink-0 px-1 py-0.5 rounded transition-all ${
+                        isActive ? 'bg-blue-200' : 'hover:bg-slate-100'
+                      }`}
+                      title={isActive ? 'Seçimi iptal et' : 'Karakter haritasından seçmek için tıkla'}
+                    >
+                      <span className="text-base">{tip.icon}</span>
+                      <span className={`text-[10px] font-medium truncate max-w-[60px] ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                        {tip.label.split(' ')[0]}
+                      </span>
+                    </button>
+                    
+                    {/* MANUEL GİRİŞ */}
                     <input
                       id={`start-${tip.id}`}
                       type="number"
                       min="1"
                       max="999"
                       placeholder="Baş"
-                      defaultValue={existingField?.baslangic || ''}
-                      className="w-12 px-1 py-1 text-xs text-center font-mono border rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={existingField?.baslangic || ''}
+                      className="w-10 px-0.5 py-1 text-[10px] text-center font-mono border rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       onChange={(e) => {
                         const start = parseInt(e.target.value) || 0;
                         const endInput = document.getElementById(`end-${tip.id}`) as HTMLInputElement;
@@ -616,15 +646,15 @@ export default function OptikSablonEditor({
                         }
                       }}
                     />
-                    <span className="text-slate-400">-</span>
+                    <span className="text-slate-300 text-[10px]">-</span>
                     <input
                       id={`end-${tip.id}`}
                       type="number"
                       min="1"
                       max="999"
                       placeholder="Bit"
-                      defaultValue={existingField?.bitis || ''}
-                      className="w-12 px-1 py-1 text-xs text-center font-mono border rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={existingField?.bitis || ''}
+                      className="w-10 px-0.5 py-1 text-[10px] text-center font-mono border rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       onChange={(e) => {
                         const end = parseInt(e.target.value) || 0;
                         const startInput = document.getElementById(`start-${tip.id}`) as HTMLInputElement;
@@ -639,11 +669,14 @@ export default function OptikSablonEditor({
                     />
                     {existingField && (
                       <button
-                        onClick={() => setAlanlar(prev => prev.filter(a => a.alan !== tip.id))}
-                        className="p-1 text-red-500 hover:bg-red-100 rounded"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAlanlar(prev => prev.filter(a => a.alan !== tip.id));
+                        }}
+                        className="p-0.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
                         title="Sil"
                       >
-                        <Trash2 size={12} />
+                        <X size={10} />
                       </button>
                     )}
                   </div>
@@ -727,15 +760,19 @@ export default function OptikSablonEditor({
             
             {/* BİLGİ */}
             <p className="text-xs text-emerald-600 mt-2">
-              💡 Başlangıç ve bitiş numaralarını girin, Tab ile geçin. Otomatik kaydedilir.
+              💡 <b>1. Yol:</b> Alan adına tıkla → Haritadan karakterleri seç | <b>2. Yol:</b> Başlangıç-Bitiş rakamlarını elle gir
             </p>
           </div>
           
           {/* Karakter Haritası - TEK SATIR YATAY */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
+            activeAlanTipi ? 'border-blue-400 shadow-lg ring-2 ring-blue-200' : 'border-slate-200'
+          }`}>
+            <div className={`p-3 border-b flex items-center justify-between ${
+              activeAlanTipi ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'
+            }`}>
               <div className="flex items-center gap-2">
-                <Ruler size={16} className="text-slate-500" />
+                <Ruler size={16} className={activeAlanTipi ? 'text-blue-500' : 'text-slate-500'} />
                 <span className="text-sm font-medium text-slate-700">Karakter Haritası</span>
                 {selectedRange && (
                   <span className="text-sm bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
@@ -744,15 +781,21 @@ export default function OptikSablonEditor({
                 )}
               </div>
               {activeAlanTipi && (
-                <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                  clickMode === 'first' 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-orange-100 text-orange-700'
-                }`}>
-                  {clickMode === 'first' 
-                    ? '🎯 1. Başlangıç için tıklayın' 
-                    : '🏁 2. Bitiş için tıklayın (veya Shift+tıklama)'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-blue-700">
+                    {ALAN_TIPLERI.find(a => a.id === activeAlanTipi)?.icon} {ALAN_TIPLERI.find(a => a.id === activeAlanTipi)?.label}
+                  </span>
+                  <span className={`text-sm px-3 py-1 rounded-full font-medium animate-pulse ${
+                    clickMode === 'first' 
+                      ? 'bg-green-100 text-green-700 border border-green-300' 
+                      : 'bg-orange-100 text-orange-700 border border-orange-300'
+                  }`}>
+                    {clickMode === 'first' 
+                      ? '👆 Başlangıç karakterini seçin' 
+                      : '👆 Bitiş karakterini seçin'}
+                  </span>
+                  <button onClick={clearSelection} className="text-xs text-slate-500 hover:text-red-500 ml-2">✕ İptal</button>
+                </div>
               )}
             </div>
             
