@@ -249,6 +249,65 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     kazanimli: kitapcikVerileri[aktifKitapcik].filter(s => s.kazanimKodu).length
   };
 
+  // Ders bazlı cevap state'leri
+  const [dersCevaplari, setDersCevaplari] = useState<Record<string, string>>({
+    TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: ''
+  });
+
+  // Ders bazlı cevap yapıştır
+  const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
+    const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+    if (!ders) return;
+
+    // Cevapları temizle ve büyük harfe çevir
+    const temizCevaplar = cevaplar.toUpperCase().replace(/[^ABCDE]/g, '');
+    
+    // Dersin başlangıç index'ini bul
+    let baslangicIndex = 0;
+    for (const d of LGS_DERSLER) {
+      if (d.kod === dersKodu) break;
+      baslangicIndex += d.soruSayisi;
+    }
+
+    // Cevapları uygula
+    setKitapcikVerileri(prev => {
+      const yeniSorular = [...prev[aktifKitapcik]];
+      temizCevaplar.split('').forEach((cevap, idx) => {
+        if (idx < ders.soruSayisi) {
+          const soruIndex = baslangicIndex + idx;
+          if (yeniSorular[soruIndex]) {
+            yeniSorular[soruIndex] = {
+              ...yeniSorular[soruIndex],
+              cevap: cevap as CevapSecenegi
+            };
+          }
+        }
+      });
+      return { ...prev, [aktifKitapcik]: yeniSorular };
+    });
+
+    // State'i temizle
+    setDersCevaplari(prev => ({ ...prev, [dersKodu]: '' }));
+    
+    console.log(`✅ ${ders.ad} için ${temizCevaplar.length} cevap uygulandı`);
+  }, [aktifKitapcik]);
+
+  // Ders için girilen cevap sayısı
+  const getDersCevapSayisi = useCallback((dersKodu: string) => {
+    const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+    if (!ders) return 0;
+    
+    let baslangicIndex = 0;
+    for (const d of LGS_DERSLER) {
+      if (d.kod === dersKodu) break;
+      baslangicIndex += d.soruSayisi;
+    }
+
+    return kitapcikVerileri[aktifKitapcik]
+      .slice(baslangicIndex, baslangicIndex + ders.soruSayisi)
+      .filter(s => s.cevap).length;
+  }, [aktifKitapcik, kitapcikVerileri]);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
@@ -452,7 +511,101 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         </AnimatePresence>
       </div>
 
-      {/* DERS BAZLI CEVAP GİRİŞİ */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* HIZLI DERS BAZLI CEVAP GİRİŞ TABLOSU */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles size={20} className="text-indigo-600" />
+            <h3 className="font-bold text-indigo-800">⚡ Hızlı Ders Bazlı Cevap Girişi</h3>
+          </div>
+          <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">Her derse direkt yapıştır!</span>
+        </div>
+        
+        <div className="bg-white rounded-xl border border-indigo-200 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-indigo-50 text-left text-xs font-medium text-indigo-700">
+                <th className="px-3 py-2 w-32">Ders</th>
+                <th className="px-3 py-2 w-16 text-center">Soru</th>
+                <th className="px-3 py-2">Cevapları Yapıştır (örn: ABCDABCD...)</th>
+                <th className="px-3 py-2 w-24 text-center">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LGS_DERSLER.map(ders => {
+                const doluluk = getDersCevapSayisi(ders.kod);
+                const yuzde = Math.round((doluluk / ders.soruSayisi) * 100);
+                
+                return (
+                  <tr key={ders.kod} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{ders.icon}</span>
+                        <span className="font-medium text-sm" style={{ color: ders.renk }}>
+                          {ders.ad.split(' ')[0]}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center text-sm font-bold" style={{ color: ders.renk }}>
+                      {ders.soruSayisi}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={dersCevaplari[ders.kod] || ''}
+                          onChange={(e) => {
+                            const deger = e.target.value.toUpperCase();
+                            setDersCevaplari(prev => ({ ...prev, [ders.kod]: deger }));
+                            
+                            // Soru sayısına ulaştığında otomatik uygula
+                            if (deger.replace(/[^ABCDE]/g, '').length >= ders.soruSayisi) {
+                              handleDersCevapYapistir(ders.kod, deger);
+                            }
+                          }}
+                          placeholder={`${ders.soruSayisi} karakter (${ders.ad.split(' ')[0]})`}
+                          maxLength={ders.soruSayisi + 5}
+                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          style={{ borderColor: dersCevaplari[ders.kod] ? ders.renk : undefined }}
+                        />
+                        <button
+                          onClick={() => handleDersCevapYapistir(ders.kod, dersCevaplari[ders.kod] || '')}
+                          disabled={!dersCevaplari[ders.kod]}
+                          className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Check size={14} />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full transition-all"
+                            style={{ width: `${yuzde}%`, backgroundColor: ders.renk }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium" style={{ color: ders.renk }}>
+                          {doluluk}/{ders.soruSayisi}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="mt-2 text-xs text-indigo-600 flex items-center gap-1">
+          <AlertCircle size={12} />
+          Her ders için cevap sayısına ulaştığında otomatik uygulanır
+        </div>
+      </div>
+
+      {/* DERS BAZLI DETAYLI CEVAP GİRİŞİ */}
       <div className="p-4 max-h-[600px] overflow-y-auto">
         {LGS_DERSLER.map((ders, dersIdx) => {
           const dersSorulari = kitapcikVerileri[aktifKitapcik].filter(s => s.dersKodu === ders.kod);
@@ -500,6 +653,32 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-2 space-y-1 pl-4"
                   >
+                    {/* 🚀 HIZLI YAPISTIR ALANI - Her Ders İçin */}
+                    <div className="flex items-center gap-2 p-2 rounded-lg mb-2" style={{ backgroundColor: `${ders.renk}10` }}>
+                      <ClipboardPaste size={16} style={{ color: ders.renk }} />
+                      <input
+                        type="text"
+                        placeholder={`${ders.soruSayisi} cevabı yapıştır: ABCD... (${ders.ad})`}
+                        maxLength={ders.soruSayisi + 5}
+                        className="flex-1 px-3 py-1.5 border rounded-lg text-sm font-mono uppercase focus:ring-2"
+                        style={{ borderColor: ders.renk + '40', backgroundColor: 'white' }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleDersCevapYapistir(ders.kod, (e.target as HTMLInputElement).value);
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }}
+                        onChange={(e) => {
+                          const deger = e.target.value.toUpperCase().replace(/[^ABCDE]/g, '');
+                          if (deger.length >= ders.soruSayisi) {
+                            handleDersCevapYapistir(ders.kod, deger);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <span className="text-xs" style={{ color: ders.renk }}>{ders.soruSayisi} karakter</span>
+                    </div>
+
                     {/* Başlık Satırı */}
                     <div className="grid grid-cols-12 gap-2 px-2 py-1 text-xs font-medium text-gray-500 border-b border-gray-100">
                       <div className="col-span-1">No</div>
