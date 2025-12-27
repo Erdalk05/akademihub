@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
+// 🇹🇷 Türkçe büyük harf dönüşümü
+const turkishToUpperCase = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/i/g, 'İ')
+    .replace(/ı/g, 'I')
+    .replace(/ş/g, 'Ş')
+    .replace(/ğ/g, 'Ğ')
+    .replace(/ü/g, 'Ü')
+    .replace(/ö/g, 'Ö')
+    .replace(/ç/g, 'Ç')
+    .toUpperCase()
+    .trim();
+};
+
 export const runtime = 'nodejs';
 
 const getAccessTokenFromRequest = (req: NextRequest): string | undefined => {
@@ -143,6 +158,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const supabase = getServiceRoleClient();
+
+    // 🇹🇷 Ad ve Soyad'ı TÜRKÇE BÜYÜK HARFE çevir
+    if (body.first_name) {
+      body.first_name = turkishToUpperCase(body.first_name);
+    }
+    if (body.last_name) {
+      body.last_name = turkishToUpperCase(body.last_name);
+    }
 
     // TC Kimlik kontrolü (eğer varsa)
     if (body.tc_id || body.tc_no) {

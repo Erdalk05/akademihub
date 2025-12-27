@@ -72,18 +72,31 @@ const STEPS = [
   { id: 5, title: 'Önizleme', icon: BarChart3, description: 'Sonuçları gör' },
 ];
 
-// Öğrenci adını temizle - sayıları kaldır
+// 🇹🇷 Türkçe büyük harf dönüşümü
+const turkishToUpperCase = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/i/g, 'İ')
+    .replace(/ı/g, 'I')
+    .replace(/ş/g, 'Ş')
+    .replace(/ğ/g, 'Ğ')
+    .replace(/ü/g, 'Ü')
+    .replace(/ö/g, 'Ö')
+    .replace(/ç/g, 'Ç')
+    .toUpperCase();
+};
+
+// Öğrenci adını temizle ve TÜRKÇE BÜYÜK HARFE çevir
 const cleanName = (name: string): string => {
   if (!name) return '';
-  // Baştaki sayıları kaldır
-  let cleaned = name.replace(/^[\d\s]+/, '').trim();
-  // Ortadaki sayıları da kaldır
-  cleaned = cleaned.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
-  // Başharfleri büyük yap
-  return cleaned.split(' ')
-    .filter(w => w.length > 0)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ') || name;
+  // Baştaki ve ortadaki sayıları kaldır
+  let cleaned = name
+    .replace(/^[\d\s]+/, '')
+    .replace(/\d+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // 🇹🇷 TÜRKÇE BÜYÜK HARFE ÇEVİR
+  return turkishToUpperCase(cleaned) || name;
 };
 
 export default function SinavSihirbazi({

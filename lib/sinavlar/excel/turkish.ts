@@ -148,3 +148,71 @@ export function turkishSort(arr: string[]): string[] {
   });
 }
 
+/**
+ * 🇹🇷 TÜRKÇE BÜYÜK HARF DÖNÜŞÜMÜ
+ * JavaScript'in toUpperCase() fonksiyonu Türkçe karakterleri yanlış işler:
+ * - i → I (yanlış, İ olmalı)
+ * - ı → I (doğru)
+ * 
+ * Bu fonksiyon Türkçe karakterleri doğru şekilde büyük harfe çevirir:
+ * - i → İ
+ * - ı → I  
+ * - ş → Ş
+ * - ğ → Ğ
+ * - ü → Ü
+ * - ö → Ö
+ * - ç → Ç
+ */
+export function turkishToUpperCase(text: string | null | undefined): string {
+  if (!text) return '';
+  
+  return text
+    .replace(/i/g, 'İ')   // Türkçe i → İ (EN ÖNEMLİ!)
+    .replace(/ı/g, 'I')   // Türkçe ı → I
+    .replace(/ş/g, 'Ş')
+    .replace(/ğ/g, 'Ğ')
+    .replace(/ü/g, 'Ü')
+    .replace(/ö/g, 'Ö')
+    .replace(/ç/g, 'Ç')
+    .toUpperCase();       // Geri kalan karakterler için standart dönüşüm
+}
+
+/**
+ * 🇹🇷 TÜRKÇE KÜÇÜK HARF DÖNÜŞÜMÜ
+ * JavaScript'in toLowerCase() fonksiyonu Türkçe karakterleri yanlış işler:
+ * - I → i (yanlış, ı olmalı)
+ * - İ → i (doğru)
+ * 
+ * Bu fonksiyon Türkçe karakterleri doğru şekilde küçük harfe çevirir:
+ */
+export function turkishToLowerCase(text: string | null | undefined): string {
+  if (!text) return '';
+  
+  return text
+    .replace(/I/g, 'ı')   // Türkçe I → ı (EN ÖNEMLİ!)
+    .replace(/İ/g, 'i')   // Türkçe İ → i
+    .replace(/Ş/g, 'ş')
+    .replace(/Ğ/g, 'ğ')
+    .replace(/Ü/g, 'ü')
+    .replace(/Ö/g, 'ö')
+    .replace(/Ç/g, 'ç')
+    .toLowerCase();       // Geri kalan karakterler için standart dönüşüm
+}
+
+/**
+ * 🇹🇷 İSİM FORMATLAMA (Ad Soyad → BÜYÜK HARF)
+ * Öğrenci isimlerini Türkçe büyük harfe çevirir ve temizler
+ */
+export function formatTurkishName(text: string | null | undefined): string {
+  if (!text) return '';
+  
+  // Sayıları ve fazla boşlukları temizle
+  const cleaned = text
+    .replace(/\d+/g, '')           // Sayıları kaldır
+    .replace(/\s+/g, ' ')          // Fazla boşlukları tek boşluğa indir
+    .trim();                       // Baş ve sondaki boşlukları kaldır
+  
+  // Türkçe büyük harfe çevir
+  return turkishToUpperCase(cleaned);
+}
+

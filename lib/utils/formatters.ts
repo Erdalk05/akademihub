@@ -119,6 +119,45 @@ export const capitalize = (str: string): string => {
 };
 
 /**
+ * 🇹🇷 TÜRKÇE BÜYÜK HARF DÖNÜŞÜMÜ
+ * JavaScript'in toUpperCase() fonksiyonu Türkçe karakterleri yanlış işler.
+ * Bu fonksiyon Türkçe karakterleri doğru şekilde büyük harfe çevirir:
+ * - i → İ (EN ÖNEMLİ!)
+ * - ı → I
+ * - ş → Ş, ğ → Ğ, ü → Ü, ö → Ö, ç → Ç
+ */
+export const turkishToUpperCase = (text: string | null | undefined): string => {
+  if (!text) return '';
+  
+  return text
+    .replace(/i/g, 'İ')   // Türkçe i → İ
+    .replace(/ı/g, 'I')   // Türkçe ı → I
+    .replace(/ş/g, 'Ş')
+    .replace(/ğ/g, 'Ğ')
+    .replace(/ü/g, 'Ü')
+    .replace(/ö/g, 'Ö')
+    .replace(/ç/g, 'Ç')
+    .toUpperCase();
+};
+
+/**
+ * 🇹🇷 İSİM FORMATLAMA (Ad Soyad → BÜYÜK HARF TÜRKÇe)
+ * Öğrenci isimlerini Türkçe büyük harfe çevirir ve temizler
+ */
+export const formatTurkishName = (text: string | null | undefined): string => {
+  if (!text) return '';
+  
+  // Sayıları ve fazla boşlukları temizle
+  const cleaned = text
+    .replace(/\d+/g, '')           // Sayıları kaldır
+    .replace(/\s+/g, ' ')          // Fazla boşlukları tek boşluğa indir
+    .trim();                       // Baş ve sondaki boşlukları kaldır
+  
+  // Türkçe büyük harfe çevir
+  return turkishToUpperCase(cleaned);
+};
+
+/**
  * Türkçe kelime ile katılı
  */
 export const joinWithComma = (items: string[]): string => {

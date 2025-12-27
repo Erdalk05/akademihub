@@ -163,7 +163,21 @@ export default function OptikVeriParser({
     return result;
   }, []);
 
-  // Öğrenci adını temizle - baştaki sayıları, sondaki cevap sızıntısını ve gereksiz karakterleri kaldır
+  // 🇹🇷 Türkçe büyük harf dönüşümü
+  const turkishToUpperCase = useCallback((text: string): string => {
+    if (!text) return '';
+    return text
+      .replace(/i/g, 'İ')
+      .replace(/ı/g, 'I')
+      .replace(/ş/g, 'Ş')
+      .replace(/ğ/g, 'Ğ')
+      .replace(/ü/g, 'Ü')
+      .replace(/ö/g, 'Ö')
+      .replace(/ç/g, 'Ç')
+      .toUpperCase();
+  }, []);
+
+  // Öğrenci adını temizle ve TÜRKÇE BÜYÜK HARFE çevir
   const cleanStudentName = useCallback((name: string): string => {
     if (!name) return '';
     
@@ -173,27 +187,13 @@ export default function OptikVeriParser({
     cleaned = cleaned.replace(/^[\d\s]+/, '').trim();
     
     // 2. Ortadaki sayıları da kaldır (eğer harflerle birleşikse)
-    // Örn: "ÖYKÜ123ELİ" -> "ÖYKÜ ELİ"
     cleaned = cleaned.replace(/\d+/g, ' ').trim();
     
     // 3. Sondaki gereksiz karakterleri kaldır
     cleaned = cleaned.replace(/[\d\s]+$/, '').trim();
     
-    // ═══════════════════════════════════════════════════════════════════════════
     // 4. CEVAP SIZINTISINI TEMİZLE - İsim sonundaki A, B, C, D karakterlerini kaldır
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Örnek: "Onur Gürsoy Ad" -> "Onur Gürsoy"
-    // Örnek: "Teoman Saylan Aac" -> "Teoman Saylan"
-    // Örnek: "Ali Çınar Kiliçoğlu Abd" -> "Ali Çınar Kiliçoğlu"
-    // Bu karakterler cevap anahtarından sızan karakterlerdir (ABCD cevapları)
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    // Sondaki sadece A, B, C, D harflerinden oluşan kısmı kaldır (1-5 karakter)
-    // Ama "Ahmet" gibi isimlerdeki "A"yı kaldırma - sadece boşluktan sonraki kısmı
     cleaned = cleaned.replace(/\s+[ABCD]{1,5}$/i, '').trim();
-    
-    // Alternatif pattern: İsimden sonra gelen ve sadece A, B, C, D içeren kısım
-    // Örn: "MEHMET İNLİ  ABC" -> "MEHMET İNLİ"
     cleaned = cleaned.replace(/\s{2,}[ABCD]+$/i, '').trim();
     
     // 5. Birden fazla boşluğu tek boşluğa indir
@@ -202,22 +202,14 @@ export default function OptikVeriParser({
     // 6. Türkçe karakterleri düzelt
     cleaned = fixTurkishChars(cleaned);
     
-    // 6. Çok kısa isimleri filtrele (en az 2 karakter)
-    if (cleaned.length < 2) return name; // Orijinali döndür
+    // 7. Çok kısa isimleri filtrele (en az 2 karakter)
+    if (cleaned.length < 2) return name;
     
-    // 7. Ad Soyad formatına dönüştür (başharfler büyük)
-    cleaned = cleaned.split(' ')
-      .filter(word => word.length > 0) // Boş kelimelerı filtrele
-      .map(word => {
-        // Türkçe karakterler için özel işlem
-        const firstChar = word.charAt(0).toUpperCase();
-        const rest = word.slice(1).toLowerCase();
-        return firstChar + rest;
-      })
-      .join(' ');
+    // 🇹🇷 8. TÜRKÇE BÜYÜK HARFE ÇEVİR (tüm isimler büyük harf olacak)
+    cleaned = turkishToUpperCase(cleaned);
     
     return cleaned;
-  }, [fixTurkishChars]);
+  }, [fixTurkishChars, turkishToUpperCase]);
 
   // Öğrenci eşleştirme - parseData'dan ÖNCE tanımlanmalı
   const matchStudentsInternal = useCallback((data: ParsedOptikSatir[]) => {
@@ -342,8 +334,7 @@ export default function OptikVeriParser({
     const alanTanimlari = sablon.alanTanimlari || [];
     
     if (alanTanimlari.length === 0) {
-      console.error('❌ Şablonda alan tanımları yok!');
-      setError('Şablonda alan tanımları bulunamadı. Lütfen farklı bir şablon seçin.');
+      console.error('❌ Şablonda alan tanımları yok! Lütfen farklı bir şablon seçin.');
       setIsParsing(false);
       return;
     }
@@ -542,7 +533,7 @@ export default function OptikVeriParser({
       }
 
       parsed.hatalar = hatalar;
-      parsed.isValid = hatalar.length === 0 && parsed.ogrenciNo && parsed.ogrenciAdi;
+      parsed.isValid = hatalar.length === 0 && !!parsed.ogrenciNo && !!parsed.ogrenciAdi;
       results.push(parsed);
     });
 

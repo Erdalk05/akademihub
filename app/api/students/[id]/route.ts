@@ -3,6 +3,21 @@ import { getServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
+// 🇹🇷 Türkçe büyük harf dönüşümü
+const turkishToUpperCase = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/i/g, 'İ')
+    .replace(/ı/g, 'I')
+    .replace(/ş/g, 'Ş')
+    .replace(/ğ/g, 'Ğ')
+    .replace(/ü/g, 'Ü')
+    .replace(/ö/g, 'Ö')
+    .replace(/ç/g, 'Ç')
+    .toUpperCase()
+    .trim();
+};
+
 // GET /api/students/:id
 // Tek bir öğrencinin detaylı bilgilerini getirir
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -77,6 +92,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const body = await req.json();
     const supabase = getServiceRoleClient();
+
+    // 🇹🇷 Ad ve Soyad'ı TÜRKÇE BÜYÜK HARFE çevir
+    if (body.first_name) {
+      body.first_name = turkishToUpperCase(body.first_name);
+    }
+    if (body.last_name) {
+      body.last_name = turkishToUpperCase(body.last_name);
+    }
 
     // Remove fields that shouldn't be updated directly
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
