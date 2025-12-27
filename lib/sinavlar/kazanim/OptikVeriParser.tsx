@@ -349,8 +349,68 @@ export default function OptikVeriParser({
     console.log('───────────────────────────────────────────────────');
 
     setIsParsing(true);
-    const lines = rawContent.trim().split('\n');
+    // ⚠️ ÖNEMLİ: rawContent.trim() SON SATIRDAKİ sabit genişlik boşluklarını kırpabilir.
+    // Özdebir gibi sabit genişlik formatlarda bu kaymaya sebep olur.
+    const lines = rawContent.replace(/\r\n/g, '\n').split('\n');
     const results: ParsedOptikSatir[] = [];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ÖZDEBİR GİBİ ŞABLONLARDA CEVAP POZİSYONLARINI OTOMATİK TESPİT ET
+    // - Bazı formlarda "cevaplar" alanı 90 sorudan daha uzun olabilir (örn: 120 karakter)
+    // - Bu alan içinde format/ayraç boşlukları bulunur. "1 karakter = 1 soru" yaklaşımı kaymaya yol açar.
+    // - Çözüm: Tüm satırlarda A/B/C/D/E görülme sıklığına göre 90 gerçek soru pozisyonunu seç.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const normalizeAlanTipi = (t: string) => (t || '').toLowerCase().replace(/[\s_-]+/g, '_').trim();
+    const cevapAlan = alanTanimlari.find(a => {
+      if (!a) return false;
+      const alanTipi = normalizeAlanTipi(a.alan || '');
+      const labelLower = (a.label || '').toLowerCase();
+      return ['cevaplar', 'cevap', 'answers', 'yanitlar'].includes(alanTipi) || labelLower.includes('cevap');
+    });
+
+    let cevapPozisyonlari: number[] | null = null;
+    if (cevapAlan && typeof cevapAlan.baslangic === 'number' && typeof cevapAlan.bitis === 'number') {
+      const cevapLen = cevapAlan.bitis - cevapAlan.baslangic + 1;
+
+      if (cevapLen > sablon.toplamSoru) {
+        const frekans = Array.from({ length: cevapLen }, () => 0);
+        const cStart = cevapAlan.baslangic - 1;
+        const cEnd = cevapAlan.bitis; // substring end exclusive
+
+        lines.forEach((line) => {
+          if (!line || !line.trim()) return;
+          const cevapStr = line.substring(cStart, Math.min(cEnd, line.length));
+          const maxJ = Math.min(cevapStr.length, cevapLen);
+          for (let j = 0; j < maxJ; j++) {
+            const ch = (cevapStr[j] || '').toUpperCase();
+            if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+              frekans[j]++;
+            }
+          }
+        });
+
+        // En çok işaret görülen 90 pozisyonu seç
+        const sorted = frekans
+          .map((count, idx) => ({ idx, count }))
+          .sort((a, b) => (b.count - a.count) || (a.idx - b.idx));
+
+        const best = sorted.slice(0, sablon.toplamSoru).map(x => x.idx).sort((a, b) => a - b);
+
+        // Güvenlik: Eğer çok az pozisyonda harf bulunuyorsa (ör. veri az), yine de fallback'e bırak
+        const pozitifSayisi = sorted.filter(x => x.count > 0).length;
+        if (pozitifSayisi >= Math.min(sablon.toplamSoru, 30)) {
+          cevapPozisyonlari = best;
+          console.log(
+            `✅ Cevap pozisyonları tespit edildi: cevapLen=${cevapLen}, toplamSoru=${sablon.toplamSoru}, pozitifPozisyon=${pozitifSayisi}`
+          );
+          console.log('   İlk 15 pozisyon:', cevapPozisyonlari.slice(0, 15).join(', '));
+        } else {
+          console.warn(
+            `⚠️ Cevap pozisyon tespiti için yeterli veri yok gibi görünüyor (pozitifPozisyon=${pozitifSayisi}). Fallback parse kullanılacak.`
+          );
+        }
+      }
+    }
 
     lines.forEach((line, index) => {
       if (!line.trim()) return;
@@ -498,16 +558,30 @@ export default function OptikVeriParser({
             // Cevapları ayrıştır - TAM ARALIKTAN al
             const cevapStr = line.substring(startIdx, Math.min(endIdx, line.length));
             if (index < 3) console.log(`      → CEVAPLAR: "${cevapStr.substring(0, 20)}..." (${cevapStr.length} karakter)`);
-            for (let i = 0; i < sablon.toplamSoru; i++) {
-              if (i >= cevapStr.length) {
-                parsed.cevaplar.push(null);
-                continue;
+            // ✅ Özdebir gibi (cevap alanı > toplam soru) şablonlarda pozisyonlu okuma
+            if (cevapPozisyonlari && cevapPozisyonlari.length === sablon.toplamSoru) {
+              for (let i = 0; i < sablon.toplamSoru; i++) {
+                const pos = cevapPozisyonlari[i];
+                const ch = (cevapStr[pos] || '').toUpperCase();
+                if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+                  parsed.cevaplar.push(ch);
+                } else {
+                  parsed.cevaplar.push(null);
+                }
               }
-              const cevap = cevapStr[i]?.toUpperCase();
-              if (['A', 'B', 'C', 'D', 'E'].includes(cevap)) {
-                parsed.cevaplar.push(cevap);
-              } else {
-                parsed.cevaplar.push(null); // Boş veya geçersiz
+            } else {
+              // Fallback: Eski davranış (cevaplar alanı zaten 90 karakterse uygundur)
+              for (let i = 0; i < sablon.toplamSoru; i++) {
+                if (i >= cevapStr.length) {
+                  parsed.cevaplar.push(null);
+                  continue;
+                }
+                const cevap = (cevapStr[i] || '').toUpperCase();
+                if (cevap === 'A' || cevap === 'B' || cevap === 'C' || cevap === 'D' || cevap === 'E') {
+                  parsed.cevaplar.push(cevap);
+                } else {
+                  parsed.cevaplar.push(null); // Boş veya geçersiz
+                }
               }
             }
             break;
