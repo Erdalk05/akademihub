@@ -163,7 +163,7 @@ export default function OptikVeriParser({
     return result;
   }, []);
 
-  // Öğrenci adını temizle - baştaki sayıları ve gereksiz karakterleri kaldır
+  // Öğrenci adını temizle - baştaki sayıları, sondaki cevap sızıntısını ve gereksiz karakterleri kaldır
   const cleanStudentName = useCallback((name: string): string => {
     if (!name) return '';
     
@@ -179,10 +179,27 @@ export default function OptikVeriParser({
     // 3. Sondaki gereksiz karakterleri kaldır
     cleaned = cleaned.replace(/[\d\s]+$/, '').trim();
     
-    // 4. Birden fazla boşluğu tek boşluğa indir
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 4. CEVAP SIZINTISINI TEMİZLE - İsim sonundaki A, B, C, D karakterlerini kaldır
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Örnek: "Onur Gürsoy Ad" -> "Onur Gürsoy"
+    // Örnek: "Teoman Saylan Aac" -> "Teoman Saylan"
+    // Örnek: "Ali Çınar Kiliçoğlu Abd" -> "Ali Çınar Kiliçoğlu"
+    // Bu karakterler cevap anahtarından sızan karakterlerdir (ABCD cevapları)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Sondaki sadece A, B, C, D harflerinden oluşan kısmı kaldır (1-5 karakter)
+    // Ama "Ahmet" gibi isimlerdeki "A"yı kaldırma - sadece boşluktan sonraki kısmı
+    cleaned = cleaned.replace(/\s+[ABCD]{1,5}$/i, '').trim();
+    
+    // Alternatif pattern: İsimden sonra gelen ve sadece A, B, C, D içeren kısım
+    // Örn: "MEHMET İNLİ  ABC" -> "MEHMET İNLİ"
+    cleaned = cleaned.replace(/\s{2,}[ABCD]+$/i, '').trim();
+    
+    // 5. Birden fazla boşluğu tek boşluğa indir
     cleaned = cleaned.replace(/\s+/g, ' ');
     
-    // 5. Türkçe karakterleri düzelt
+    // 6. Türkçe karakterleri düzelt
     cleaned = fixTurkishChars(cleaned);
     
     // 6. Çok kısa isimleri filtrele (en az 2 karakter)
