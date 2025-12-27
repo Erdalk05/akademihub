@@ -289,7 +289,7 @@ export default function OptikSablonEditor({
 
     setAlanlar(prev => {
       const filtered = prev.filter(a => a.alan !== tipId);
-      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+      return [...filtered, yeniAlan].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
     });
   }, []);
 
@@ -336,7 +336,7 @@ export default function OptikSablonEditor({
       const filtered = prev.filter(a => 
         !(yeniAlan.baslangic <= a.bitis && yeniAlan.bitis >= a.baslangic)
       );
-      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+      return [...filtered, yeniAlan].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
     });
 
     // Seçimi temizle
@@ -361,7 +361,7 @@ export default function OptikSablonEditor({
 
     setAlanlar(prev => {
       const filtered = prev.filter(a => a.alan !== tipId);
-      return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+      return [...filtered, yeniAlan].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
     });
   }, []);
 
@@ -424,7 +424,13 @@ export default function OptikSablonEditor({
   // İstatistikler
   const stats = useMemo(() => {
     const totalChars = ornekSatir.length;
-    const mappedChars = alanlar.reduce((sum, a) => sum + (a.bitis - a.baslangic + 1), 0);
+    // GÜVENLİ ERİŞİM: baslangic veya bitis undefined olabilir
+    const mappedChars = alanlar.reduce((sum, a) => {
+      if (typeof a?.baslangic === 'number' && typeof a?.bitis === 'number') {
+        return sum + (a.bitis - a.baslangic + 1);
+      }
+      return sum;
+    }, 0);
     return {
       totalChars,
       mappedChars,
@@ -641,7 +647,7 @@ export default function OptikSablonEditor({
                         if (start > 0) {
                           setAlanlar(prev => {
                             const filtered = prev.filter(a => a.alan !== tip.id);
-                            return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color }].sort((a, b) => a.baslangic - b.baslangic);
+                            return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color }].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
                           });
                         }
                       }}
@@ -662,7 +668,7 @@ export default function OptikSablonEditor({
                         if (start > 0 && end >= start) {
                           setAlanlar(prev => {
                             const filtered = prev.filter(a => a.alan !== tip.id);
-                            return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end, label: tip.label, color: tip.color }].sort((a, b) => a.baslangic - b.baslangic);
+                            return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end, label: tip.label, color: tip.color }].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
                           });
                         }
                       }}
@@ -708,7 +714,7 @@ export default function OptikSablonEditor({
                         if (start > 0) {
                           setAlanlar(prev => {
                             const filtered = prev.filter(a => a.customLabel !== tip.label);
-                            return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => a.baslangic - b.baslangic);
+                            return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
                           });
                         }
                       }}
@@ -729,7 +735,7 @@ export default function OptikSablonEditor({
                         if (start > 0 && end >= start) {
                           setAlanlar(prev => {
                             const filtered = prev.filter(a => a.customLabel !== tip.label);
-                            return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => a.baslangic - b.baslangic);
+                            return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0));
                           });
                         }
                       }}

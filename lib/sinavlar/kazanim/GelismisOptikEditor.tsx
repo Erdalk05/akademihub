@@ -185,7 +185,7 @@ export default function GelismisOptikEditor({
         color: alanTipi.color
       };
 
-      setAlanlar(prev => [...prev, yeniAlan].sort((a, b) => a.baslangic - b.baslangic));
+      setAlanlar(prev => [...prev, yeniAlan].sort((a, b) => (a?.baslangic || 0) - (b?.baslangic || 0)));
 
       // Cevaplar alanı ise başlangıç pozisyonunu güncelle
       if (activeAlanTipi === 'cevaplar') {
@@ -266,7 +266,13 @@ export default function GelismisOptikEditor({
   // İstatistikler
   const stats = useMemo(() => {
     const totalChars = ornekSatir.length;
-    const mappedChars = alanlar.reduce((sum, a) => sum + (a.bitis - a.baslangic + 1), 0);
+    // GÜVENLİ ERİŞİM: baslangic veya bitis undefined olabilir
+    const mappedChars = alanlar.reduce((sum, a) => {
+      if (typeof a?.baslangic === 'number' && typeof a?.bitis === 'number') {
+        return sum + (a.bitis - a.baslangic + 1);
+      }
+      return sum;
+    }, 0);
     return {
       totalChars,
       mappedChars,
