@@ -820,24 +820,25 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
               onDrop={() => handleDersDrop(ders.kod)}
               onDragEnd={handleDersDragEnd}
             >
-              {/* Ders Başlığı - Sürüklenebilir */}
+              {/* Ders Başlığı - Tıkla Aç/Kapa + Sürükle */}
               <div
-                className="w-full flex items-center justify-between p-3 rounded-xl transition-all hover:bg-gray-50 cursor-grab active:cursor-grabbing"
+                onClick={() => toggleDers(ders.kod)}
+                className="w-full flex items-center justify-between p-3 rounded-xl transition-all hover:bg-gray-50 cursor-pointer select-none"
                 style={{ backgroundColor: `${ders.renk}10` }}
               >
                 <div className="flex items-center gap-3">
-                  {/* Sürükleme Tutacağı */}
-                  <div className="text-gray-400 hover:text-gray-600">
+                  {/* Sürükleme Tutacağı - Sadece bu sürüklenebilir */}
+                  <div 
+                    className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing p-1"
+                    onClick={(e) => e.stopPropagation()} // Sürüklerken aç/kapa yapmasın
+                  >
                     <GripVertical size={20} />
                   </div>
                   <span className="text-2xl">{ders.icon}</span>
-                  <button 
-                    onClick={() => toggleDers(ders.kod)}
-                    className="text-left"
-                  >
+                  <div className="text-left">
                     <div className="font-semibold" style={{ color: ders.renk }}>{ders.ad}</div>
                     <div className="text-xs text-gray-500">{ders.soruSayisi} Soru</div>
-                  </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-sm font-medium" style={{ color: ders.renk }}>
@@ -852,9 +853,9 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                       }}
                     />
                   </div>
-                  <button onClick={() => toggleDers(ders.kod)}>
-                    {isAcik ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                  </button>
+                  <div className="transition-transform" style={{ transform: isAcik ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                    <ChevronRight size={20} />
+                  </div>
                 </div>
               </div>
 
