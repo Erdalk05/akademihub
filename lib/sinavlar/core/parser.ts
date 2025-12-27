@@ -64,10 +64,10 @@ import {
  */
 export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // ═══════════════════════════════════════════════════════════════════════
-  // MEB STANDART FORMAT (205 karakter) - ALIGNMENT FIX UYGULANMIŞ
+  // MEB STANDART FORMAT (206 karakter) - FINAL ALIGNMENT FIX V2
   // ═══════════════════════════════════════════════════════════════════════
   // NOT: Bu format Özdebir ile aynı yapıyı kullanır
-  // Kurum kodu olmayan kurumlar için school alanı opsiyonel
+  // "Onur Gürsoy Ad" sorunu çözüldü - 3 karakterlik buffer eklendi
   // ═══════════════════════════════════════════════════════════════════════
   MEB_STANDARD: {
     school: { start: 0, end: 9 },          // line.substring(0, 10).trim() → kurum_kodu (10 kr)
@@ -76,18 +76,18 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
     classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
     booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
     gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
-    name: { start: 29, end: 53 },          // line.substring(29, 54).trim() → ad_soyad (25 kr)
-    // BUFFER: index 54 = boşluk (ad soyad ile cevaplar arası)
-    answers: { start: 55, end: 204 },      // line.substring(55, 205) → cevaplar (150 kr)
+    name: { start: 29, end: 52 },          // line.substring(29, 53).trim() → ad_soyad (24 kr - KISALTILDI)
+    // BUFFER: index 53, 54, 55 = 3 karakterlik boşluk (sızıntı önler)
+    answers: { start: 56, end: 205 },      // line.substring(56, 206) → cevaplar (150 kr)
   },
   
   // ═══════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR FORMATI (205 karakter) - ALIGNMENT FIX
+  // ÖZDEBİR FORMATI (206 karakter) - FINAL ALIGNMENT FIX V2
   // ═══════════════════════════════════════════════════════════════════════
   // Özdebir yayıncılık LGS optik form formatı
   // 150 cevap karakteri içerir (90 soru + boşluklar)
   // 
-  // STRICT KARAKTER HARİTASI (TASK: ALIGNMENT FIX):
+  // STRICT KARAKTER HARİTASI (V2 - "Onur Gürsoy Ad" sorunu çözüldü):
   // ┌──────────────────────────────────────────────────────────────────────┐
   // │ ALAN           │ substring()       │ KARAKTER │ AÇIKLAMA              │
   // ├──────────────────────────────────────────────────────────────────────┤
@@ -97,13 +97,13 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // │ class_name     │ (25, 27)          │ 2 kr     │ Sınıf/Şube            │
   // │ booklet_type   │ (27, 28)          │ 1 kr     │ Kitapçık (A/B)        │
   // │ gender         │ (28, 29)          │ 1 kr     │ Cinsiyet (E/K)        │
-  // │ full_name      │ (29, 54)          │ 25 kr    │ Ad Soyad              │
-  // │ --- BUFFER --- │ (54, 55)          │ 1 kr     │ Boşluk (ad-cevap arası)│
-  // │ raw_answers    │ (55, 205)         │ 150 kr   │ Cevaplar              │
+  // │ full_name      │ (29, 53)          │ 24 kr    │ Ad Soyad (KISALTİLDİ) │
+  // │ --- BUFFER --- │ (53, 56)          │ 3 kr     │ Boşluk (sızıntı önler)│
+  // │ raw_answers    │ (56, 206)         │ 150 kr   │ Cevaplar              │
   // └──────────────────────────────────────────────────────────────────────┘
   //
-  // ÖNEMLİ: Ad Soyad (29-53) ile Cevaplar (55-204) arasında 1 karakterlik
-  //         buffer (index 54) var. Bu karakter sızıntısını önler!
+  // ÖNEMLİ: Ad Soyad (29-52) ile Cevaplar (56-205) arasında 3 karakterlik
+  //         buffer (index 53, 54, 55) var. Bu "Ad" sızıntısını kesin önler!
   //
   // DERS SIRALAMASI (Özdebir LGS - cevaplar içinde):
   // - Türkçe: [0-20] 20 soru
@@ -120,9 +120,9 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
     classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
     booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
     gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
-    name: { start: 29, end: 53 },          // line.substring(29, 54).trim() → ad_soyad (25 kr)
-    // BUFFER: index 54 = boşluk (ad soyad ile cevaplar arası)
-    answers: { start: 55, end: 204 },      // line.substring(55, 205) → cevaplar (150 kr)
+    name: { start: 29, end: 52 },          // line.substring(29, 53).trim() → ad_soyad (24 kr - KISALTILDI)
+    // BUFFER: index 53, 54, 55 = 3 karakterlik boşluk (ad soyad sızıntısını önler)
+    answers: { start: 56, end: 205 },      // line.substring(56, 206) → cevaplar (150 kr)
   },
   
   // Standart LGS optik formu (eski format)
@@ -167,8 +167,8 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
  * Minimum satır uzunluğu kontrolü
  * 204 karakterden kısa satırlar FAILED olarak işaretlenir
  */
-// Minimum satır uzunluğu: 205 karakter (55 meta + 150 cevap)
-export const MIN_LINE_LENGTH = 205;
+// Minimum satır uzunluğu: 206 karakter (56 meta/buffer + 150 cevap)
+export const MIN_LINE_LENGTH = 206;
 
 // ============================================
 // 🔧 PARSER MOTOR

@@ -282,18 +282,19 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'ozdebir-lgs-90',
-    ad: 'ÖZDEBİR - LGS 90 Soru (205 Karakter)',
+    ad: 'ÖZDEBİR - LGS 90 Soru (206 Karakter)',
     yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir LGS optik formu - ALIGNMENT FIX: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 25][Buffer 1][Cevaplar 150]',
+    aciklama: 'Özdebir LGS optik formu - V2 FIX: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 24][Buffer 3][Cevaplar 150]',
     sinifSeviyeleri: ['8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
-    satirUzunlugu: 205, // 55 meta + 150 cevap = 205 karakter
+    satirUzunlugu: 206, // 56 meta/buffer + 150 cevap = 206 karakter
     alanlar: {
       // ┌─────────────────────────────────────────────────────────────────────┐
-      // │ STRICT KARAKTER HARİTASI (ALIGNMENT FIX)                            │
+      // │ STRICT KARAKTER HARİTASI (V2 - "Onur Gürsoy Ad" sorunu çözüldü)     │
       // ├─────────────────────────────────────────────────────────────────────┤
       // │ baslangic-bitis 1-indexed, substring() için 0-indexed kullanılır   │
+      // │ AdSoyad 24 karaktere kısaltıldı, 3 karakterlik buffer eklendi      │
       // └─────────────────────────────────────────────────────────────────────┘
       kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → 10 karakter
       ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → 4 karakter
@@ -301,9 +302,9 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
       sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → 2 karakter
       kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → 1 karakter
       cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → 1 karakter (E/K)
-      ogrenciAdi: { baslangic: 30, bitis: 54 },    // substring(29, 54) → 25 karakter
-      // BUFFER: karakter 55 (index 54) = boşluk - Ad Soyad ile Cevaplar arası
-      cevaplar: { baslangic: 56, bitis: 205 },     // substring(55, 205) → 150 karakter
+      ogrenciAdi: { baslangic: 30, bitis: 53 },    // substring(29, 53) → 24 karakter (KISALTILDI)
+      // BUFFER: karakter 54, 55, 56 (index 53, 54, 55) = 3 boşluk - Sızıntı önler
+      cevaplar: { baslangic: 57, bitis: 206 },     // substring(56, 206) → 150 karakter
     },
     // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
     // NOT: Bu pozisyonlar cevap string'i içindeki relative pozisyonlardır
