@@ -619,10 +619,72 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
       {/* HIZLI DERS BAZLI CEVAP GİRİŞ TABLOSU */}
       {/* ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+        {/* KİTAPÇIK SEÇİCİ - Hızlı Tablo İçin */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-indigo-200">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-indigo-700">📚 Kitapçık Seç:</span>
+            <div className="flex items-center gap-1">
+              {KITAPCIK_TURLERI.map(kit => {
+                const kitDoluluk = kitapcikVerileri[kit].filter(s => s.cevap).length;
+                const isTam = kitDoluluk === 90;
+                
+                return (
+                  <button
+                    key={kit}
+                    onClick={() => {
+                      setAktifKitapcik(kit);
+                      // Kilit durumlarını sıfırla (yeni kitapçık için)
+                      setKilitliDersler(new Set());
+                    }}
+                    className={`relative w-14 h-10 rounded-lg font-bold text-lg transition-all ${
+                      aktifKitapcik === kit
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300 scale-105 ring-2 ring-indigo-400'
+                        : isTam
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200 border-2 border-green-400'
+                          : kitDoluluk > 0
+                            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300'
+                            : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200'
+                    }`}
+                  >
+                    {kit}
+                    {/* Doluluk göstergesi */}
+                    {isTam && aktifKitapcik !== kit && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <Check size={10} className="text-white" />
+                      </span>
+                    )}
+                    {!isTam && kitDoluluk > 0 && aktifKitapcik !== kit && (
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-amber-500 text-white px-1 rounded">
+                        {kitDoluluk}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Aktif kitapçık bilgisi */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-indigo-600">
+              Aktif: <span className="font-bold text-indigo-800">Kitapçık {aktifKitapcik}</span>
+            </span>
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length === 90
+                ? 'bg-green-100 text-green-700'
+                : kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length > 0
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-600'
+            }`}>
+              {kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length}/90 cevap
+            </span>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={20} className="text-indigo-600" />
-            <h3 className="font-bold text-indigo-800">⚡ Hızlı Ders Bazlı Cevap Girişi</h3>
+            <h3 className="font-bold text-indigo-800">⚡ Hızlı Ders Bazlı Cevap Girişi - Kitapçık {aktifKitapcik}</h3>
           </div>
           <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">Her derse direkt yapıştır!</span>
         </div>
