@@ -210,86 +210,103 @@ function parseLine(
     };
   }
 
-  // === FIXED-WIDTH EXTRACTION ===
-  let studentNo = extractFixedWidth(line, template.studentNo.start, template.studentNo.end);
-  let tc = extractFixedWidth(line, template.tc.start, template.tc.end);
-  let name = extractFixedWidth(line, template.name.start, template.name.end);
-  let bookletChar = extractFixedWidth(line, template.booklet.start, template.booklet.end);
-  let answers = extractFixedWidth(line, template.answers.start, template.answers.end);
+  // ═══════════════════════════════════════════════════════════════════════
+  // ROBUST FIXED-WIDTH EXTRACTION
+  // ═══════════════════════════════════════════════════════════════════════
+  // KURAL 1: ASLA split() kullanma, sadece substring(start, end) kullan
+  // KURAL 2: Her alanı trim() ile temizle, boşsa NULL/"Tanımsız"
+  // KURAL 3: Ad Soyad OCR temizliği yap ama 25 karakter koru
+  // KURAL 4: Cevaplarda boşluk = "soru boş bırakıldı"
+  // ═══════════════════════════════════════════════════════════════════════
   
-  // Opsiyonel alanlar
+  // Okul/Kurum Kodu (opsiyonel)
+  let school = template.school
+    ? line.substring(template.school.start, template.school.end + 1).trim()
+    : undefined;
+  if (school === '') school = undefined;
+  
+  // Öğrenci Numarası - sadece rakamları al
+  let studentNo = line.substring(template.studentNo.start, template.studentNo.end + 1).trim();
+  studentNo = studentNo.replace(/\D/g, ''); // Sadece rakamlar
+  if (studentNo === '') studentNo = 'Tanımsız';
+  
+  // TC Kimlik Numarası - sadece rakamları al
+  let tc = line.substring(template.tc.start, template.tc.end + 1).trim();
+  tc = tc.replace(/\D/g, ''); // Sadece rakamlar
+  if (tc === '') tc = '';  // Boş bırakılabilir
+  
+  // Sınıf/Şube Kodu (opsiyonel)
   let classCode = template.classCode 
-    ? extractFixedWidth(line, template.classCode.start, template.classCode.end)
+    ? line.substring(template.classCode.start, template.classCode.end + 1).trim()
     : undefined;
-    
-  // Cinsiyet alanı (Özdebir formatı için)
+  if (classCode === '') classCode = undefined;
+  
+  // Kitapçık Türü
+  let bookletChar = line.substring(template.booklet.start, template.booklet.end + 1).trim();
+  if (bookletChar === '') bookletChar = 'A'; // Varsayılan A
+  
+  // Cinsiyet (opsiyonel - Özdebir formatı)
   let gender = template.gender
-    ? extractFixedWidth(line, template.gender.start, template.gender.end)
+    ? line.substring(template.gender.start, template.gender.end + 1).trim()
     : undefined;
-
-  // === REGEX FALLBACK (Tutarsız boşluklar için) ===
-  // Eğer temel alanlar boşsa, regex ile deneyelim
-  if (!studentNo || !tc || !name) {
-    // Farklı formatlar için regex denemeleri
-    const patterns = [
-      // Format: No|TC|Ad Soyad|Kitapçık|Cevaplar
-      /^(\d{1,10})\s*(\d{11})\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s]{5,50})\s*([ABCD])\s*([A-E\s\-\*]+)$/i,
-      // Format: TC|No|Ad Soyad|Kitapçık|Cevaplar
-      /^(\d{11})\s*(\d{1,10})\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s]{5,50})\s*([ABCD])\s*([A-E\s\-\*]+)$/i,
-      // Sadece numaralar ve cevaplar (isimsiz)
-      /^(\d{1,10})\s*(\d{11})?\s*[A-Z]?\s*([A-E\s\-\*]{20,})$/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = line.match(pattern);
-      if (match) {
-        // İlk eşleşen pattern'e göre atama yap
-        if (pattern === patterns[0]) {
-          studentNo = studentNo || match[1];
-          tc = tc || match[2];
-          name = name || match[3];
-          bookletChar = bookletChar || match[4];
-          answers = answers || match[5];
-        } else if (pattern === patterns[1]) {
-          tc = tc || match[1];
-          studentNo = studentNo || match[2];
-          name = name || match[3];
-          bookletChar = bookletChar || match[4];
-          answers = answers || match[5];
-        }
-        break;
-      }
-    }
-  }
-
-  // === NORMALIZATION ===
-  studentNo = normalizeText(studentNo).replace(/\D/g, ''); // Sadece rakamlar
-  tc = normalizeText(tc).replace(/\D/g, '');
+  if (gender === '') gender = undefined;
+    
+  // ═══════════════════════════════════════════════════════════════════════
+  // AD SOYAD - OCR TEMİZLİĞİ (25 karakter korunur)
+  // ═══════════════════════════════════════════════════════════════════════
+  // OCR bozukluklarını temizle: ı→I, «→C, ÷→O
+  // ═══════════════════════════════════════════════════════════════════════
+  let nameRaw = line.substring(template.name.start, template.name.end + 1);
+  // OCR karakter düzeltmeleri
+  let name = nameRaw
+    .replace(/ı/g, 'I')
+    .replace(/«/g, 'C')
+    .replace(/»/g, '')
+    .replace(/÷/g, 'O')
+    .replace(/×/g, '')
+    .replace(/\?/g, '')
+    .replace(/\*/g, '')
+    .trim();
+  // Boşsa varsayılan değer
+  if (name === '') name = 'Tanımsız';
+  // İsmi normalize et (ilk harfler büyük)
   name = normalizeName(name);
-  answers = normalizeText(answers).toUpperCase();
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CEVAPLAR BLOĞU - BOŞLUK = BOŞ CEVAP
+  // ═══════════════════════════════════════════════════════════════════════
+  // Karakterleri atlama! Boşluk = soru boş bırakıldı
+  // A, B, C, D, E = geçerli cevaplar
+  // Boşluk, -, * = boş cevap (korunur)
+  // ═══════════════════════════════════════════════════════════════════════
+  let answers = line.substring(template.answers.start, template.answers.end + 1);
+  // TRIM YAPMA! Cevaplardaki boşluklar önemli
+  // Sadece büyük harfe çevir, karakterleri koru
+  answers = answers.toUpperCase();
   
   const booklet = parseBooklet(bookletChar);
 
-  // === VALIDATION & CONFLICT DETECTION ===
+  // ═══════════════════════════════════════════════════════════════════════
+  // VALIDATION & CONFLICT DETECTION
+  // ═══════════════════════════════════════════════════════════════════════
   const conflicts: string[] = [];
 
   // Öğrenci numarası kontrolü
-  if (!studentNo || studentNo.length === 0) {
-    conflicts.push('Öğrenci numarası eksik');
+  if (!studentNo || studentNo === 'Tanımsız' || studentNo.length === 0) {
+    conflicts.push('Öğrenci numarası eksik veya okunamadı');
   }
 
-  // TC kontrolü
-  if (tc && tc.length === 11) {
-    if (!validateTC(tc)) {
-      conflicts.push('Geçersiz TC Kimlik numarası');
-    }
-  } else if (tc && tc.length > 0 && tc.length !== 11) {
-    conflicts.push(`TC uzunluğu hatalı: ${tc.length} karakter`);
+  // TC kontrolü (opsiyonel - boş olabilir)
+  if (tc && tc.length > 0 && tc.length !== 11) {
+    conflicts.push(`TC uzunluğu hatalı: ${tc.length} karakter (11 olmalı)`);
+  } else if (tc && tc.length === 11 && !validateTC(tc)) {
+    // TC var ve 11 karakter ama geçersiz
+    conflicts.push('TC Kimlik algoritma hatası');
   }
 
   // İsim kontrolü
-  if (!name || name.length < 3) {
-    conflicts.push('İsim eksik veya çok kısa');
+  if (!name || name === 'Tanımsız' || name.length < 2) {
+    conflicts.push('İsim eksik veya okunamadı');
   }
 
   // Cevap kontrolü
@@ -297,24 +314,34 @@ function parseLine(
     conflicts.push('Cevaplar eksik veya çok kısa');
   }
 
-  // Geçersiz cevap karakterleri
-  const invalidChars = answers.match(/[^A-E\s\-\*]/g);
-  if (invalidChars && invalidChars.length > 0) {
-    conflicts.push(`Geçersiz cevap karakterleri: ${[...new Set(invalidChars)].join(', ')}`);
+  // Geçersiz cevap karakterleri (boşluk hariç - boşluk geçerli)
+  const validAnswerChars = /^[A-E\s\-\*]+$/;
+  if (answers && !validAnswerChars.test(answers)) {
+    const invalidChars = answers.match(/[^A-E\s\-\*]/g);
+    if (invalidChars && invalidChars.length > 0) {
+      // Sadece uyarı - parse devam eder
+      conflicts.push(`Beklenmeyen karakterler (görmezden geliniyor): ${[...new Set(invalidChars)].slice(0, 5).join(', ')}`);
+    }
   }
 
-  // === STATUS BELİRLEME ===
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATUS BELİRLEME
+  // ═══════════════════════════════════════════════════════════════════════
   let status: ParseStatus = 'SUCCESS';
   if (conflicts.length > 0) {
     // Kritik alan eksikliği = FAILED
-    if (!studentNo && !tc && !name) {
+    const hasStudentNo = studentNo && studentNo !== 'Tanımsız';
+    const hasName = name && name !== 'Tanımsız';
+    const hasAnswers = answers && answers.length >= 10;
+    
+    if (!hasStudentNo && !hasName && !hasAnswers) {
       status = 'FAILED';
     }
-    // Bazı sorunlar var ama parse edilebilir = CONFLICT
-    else if (conflicts.some(c => c.includes('Geçersiz TC') || c.includes('eksik'))) {
+    // TC veya öğrenci no eksik ama diğerleri var = CONFLICT
+    else if (conflicts.some(c => c.includes('eksik') || c.includes('okunamadı'))) {
       status = 'CONFLICT';
     }
-    // Küçük sorunlar = PARTIAL
+    // Sadece uyarılar = PARTIAL
     else {
       status = 'PARTIAL';
     }
@@ -325,13 +352,14 @@ function parseLine(
     rawLine,
     status,
     conflictReason: conflicts.length > 0 ? conflicts.join('; ') : undefined,
-    studentNo,
-    tc,
-    name,
+    studentNo: studentNo === 'Tanımsız' ? '' : studentNo,
+    tc: tc || '',
+    name: name === 'Tanımsız' ? '' : name,
     booklet,
     answers,
     classCode,
-    gender,  // Cinsiyet (E/K) - Özdebir formatı için
+    school,   // Kurum kodu (Özdebir formatı için)
+    gender,   // Cinsiyet (E/K) - Özdebir formatı için
   };
 }
 
