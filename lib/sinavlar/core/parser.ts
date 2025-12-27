@@ -64,34 +64,48 @@ import {
  */
 export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // ═══════════════════════════════════════════════════════════════════════
-  // MEB STANDART FORMAT (204 karakter) - YENİ VARSAYILAN
+  // MEB STANDART FORMAT (205 karakter) - ALIGNMENT FIX UYGULANMIŞ
+  // ═══════════════════════════════════════════════════════════════════════
+  // NOT: Bu format Özdebir ile aynı yapıyı kullanır
+  // Kurum kodu olmayan kurumlar için school alanı opsiyonel
   // ═══════════════════════════════════════════════════════════════════════
   MEB_STANDARD: {
-    studentNo: { start: 9, end: 12 },      // [10-13] 4 karakter (0-indexed: 9-12)
-    tc: { start: 14, end: 24 },            // [15-25] 11 karakter (0-indexed: 14-24)
-    classCode: { start: 25, end: 26 },     // [26-27] 2 karakter - Sınıf (0-indexed: 25-26)
-    booklet: { start: 27, end: 27 },       // [28-28] 1 karakter (0-indexed: 27)
-    name: { start: 29, end: 53 },          // [30-54] 25 karakter (0-indexed: 29-53)
-    answers: { start: 54, end: 203 },      // [55-204] 150 karakter (0-indexed: 54-203)
+    school: { start: 0, end: 9 },          // line.substring(0, 10).trim() → kurum_kodu (10 kr)
+    studentNo: { start: 10, end: 13 },     // line.substring(10, 14).trim() → ogrenci_no (4 kr)
+    tc: { start: 14, end: 24 },            // line.substring(14, 25).trim() → tc_kimlik (11 kr)
+    classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
+    booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
+    gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
+    name: { start: 29, end: 53 },          // line.substring(29, 54).trim() → ad_soyad (25 kr)
+    // BUFFER: index 54 = boşluk (ad soyad ile cevaplar arası)
+    answers: { start: 55, end: 204 },      // line.substring(55, 205) → cevaplar (150 kr)
   },
   
   // ═══════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR FORMATI (204 karakter) - GÜNCEL VERSİYON
+  // ÖZDEBİR FORMATI (205 karakter) - ALIGNMENT FIX
   // ═══════════════════════════════════════════════════════════════════════
   // Özdebir yayıncılık LGS optik form formatı
   // 150 cevap karakteri içerir (90 soru + boşluklar)
   // 
-  // KARAKTER HARİTASI:
-  // - line.substring(0, 10)  → kurum_kodu (10 kr)
-  // - line.substring(10, 14) → ogrenci_no (4 kr)
-  // - line.substring(14, 25) → tc_kimlik (11 kr)
-  // - line.substring(25, 27) → sinif_sube (2 kr)
-  // - line.substring(27, 28) → kitapcik_turu (1 kr)
-  // - line.substring(28, 29) → cinsiyet (1 kr)
-  // - line.substring(29, 54) → ad_soyad (25 kr)
-  // - line.substring(54, 204) → tum_cevaplar (150 kr)
+  // STRICT KARAKTER HARİTASI (TASK: ALIGNMENT FIX):
+  // ┌──────────────────────────────────────────────────────────────────────┐
+  // │ ALAN           │ substring()       │ KARAKTER │ AÇIKLAMA              │
+  // ├──────────────────────────────────────────────────────────────────────┤
+  // │ institution    │ (0, 10)           │ 10 kr    │ Kurum Kodu            │
+  // │ student_no     │ (10, 14)          │ 4 kr     │ Öğrenci No            │
+  // │ tc_no          │ (14, 25)          │ 11 kr    │ TC Kimlik             │
+  // │ class_name     │ (25, 27)          │ 2 kr     │ Sınıf/Şube            │
+  // │ booklet_type   │ (27, 28)          │ 1 kr     │ Kitapçık (A/B)        │
+  // │ gender         │ (28, 29)          │ 1 kr     │ Cinsiyet (E/K)        │
+  // │ full_name      │ (29, 54)          │ 25 kr    │ Ad Soyad              │
+  // │ --- BUFFER --- │ (54, 55)          │ 1 kr     │ Boşluk (ad-cevap arası)│
+  // │ raw_answers    │ (55, 205)         │ 150 kr   │ Cevaplar              │
+  // └──────────────────────────────────────────────────────────────────────┘
   //
-  // DERS SIRALAMASI (Özdebir LGS):
+  // ÖNEMLİ: Ad Soyad (29-53) ile Cevaplar (55-204) arasında 1 karakterlik
+  //         buffer (index 54) var. Bu karakter sızıntısını önler!
+  //
+  // DERS SIRALAMASI (Özdebir LGS - cevaplar içinde):
   // - Türkçe: [0-20] 20 soru
   // - Sosyal: [20-30] 10 soru
   // - Din: [30-40] 10 soru
@@ -100,14 +114,15 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // - Fen: [70-90] 20 soru
   // ═══════════════════════════════════════════════════════════════════════
   OZDEBIR: {
-    school: { start: 0, end: 9 },          // line.substring(0, 10) → kurum_kodu (10 kr)
-    studentNo: { start: 10, end: 13 },     // line.substring(10, 14) → ogrenci_no (4 kr)
-    tc: { start: 14, end: 24 },            // line.substring(14, 25) → tc_kimlik (11 kr)
-    classCode: { start: 25, end: 26 },     // line.substring(25, 27) → sinif_sube (2 kr)
-    booklet: { start: 27, end: 27 },       // line.substring(27, 28) → kitapcik_turu (1 kr)
-    gender: { start: 28, end: 28 },        // line.substring(28, 29) → cinsiyet (1 kr)
-    name: { start: 29, end: 53 },          // line.substring(29, 54) → ad_soyad (25 kr)
-    answers: { start: 54, end: 203 },      // line.substring(54, 204) → tum_cevaplar (150 kr)
+    school: { start: 0, end: 9 },          // line.substring(0, 10).trim() → kurum_kodu (10 kr)
+    studentNo: { start: 10, end: 13 },     // line.substring(10, 14).trim() → ogrenci_no (4 kr)
+    tc: { start: 14, end: 24 },            // line.substring(14, 25).trim() → tc_kimlik (11 kr)
+    classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
+    booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
+    gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
+    name: { start: 29, end: 53 },          // line.substring(29, 54).trim() → ad_soyad (25 kr)
+    // BUFFER: index 54 = boşluk (ad soyad ile cevaplar arası)
+    answers: { start: 55, end: 204 },      // line.substring(55, 205) → cevaplar (150 kr)
   },
   
   // Standart LGS optik formu (eski format)
@@ -152,7 +167,8 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
  * Minimum satır uzunluğu kontrolü
  * 204 karakterden kısa satırlar FAILED olarak işaretlenir
  */
-export const MIN_LINE_LENGTH = 204;
+// Minimum satır uzunluğu: 205 karakter (55 meta + 150 cevap)
+export const MIN_LINE_LENGTH = 205;
 
 // ============================================
 // 🔧 PARSER MOTOR

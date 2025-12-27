@@ -282,24 +282,31 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'ozdebir-lgs-90',
-    ad: 'ÖZDEBİR - LGS 90 Soru (204 Karakter)',
+    ad: 'ÖZDEBİR - LGS 90 Soru (205 Karakter)',
     yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir LGS optik formu - Format: [Kurum 10kr][Öğr No 4kr][TC 11kr][Sınıf 2kr][Kitapçık 1kr][Cinsiyet 1kr][Ad Soyad 25kr][Cevaplar 150kr]',
+    aciklama: 'Özdebir LGS optik formu - ALIGNMENT FIX: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 25][Buffer 1][Cevaplar 150]',
     sinifSeviyeleri: ['8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
-    satirUzunlugu: 204,
+    satirUzunlugu: 205, // 55 meta + 150 cevap = 205 karakter
     alanlar: {
-      kurumKodu: { baslangic: 1, bitis: 10 },      // line.substring(0, 10) → 10 karakter
-      ogrenciNo: { baslangic: 11, bitis: 14 },     // line.substring(10, 14) → 4 karakter
-      tcKimlik: { baslangic: 15, bitis: 25 },      // line.substring(14, 25) → 11 karakter
-      sinif: { baslangic: 26, bitis: 27 },         // line.substring(25, 27) → 2 karakter
-      kitapcik: { baslangic: 28, bitis: 28 },      // line.substring(27, 28) → 1 karakter
-      cinsiyet: { baslangic: 29, bitis: 29 },      // line.substring(28, 29) → 1 karakter (E/K)
-      ogrenciAdi: { baslangic: 30, bitis: 54 },    // line.substring(29, 54) → 25 karakter
-      cevaplar: { baslangic: 55, bitis: 204 },     // line.substring(54, 204) → 150 karakter
+      // ┌─────────────────────────────────────────────────────────────────────┐
+      // │ STRICT KARAKTER HARİTASI (ALIGNMENT FIX)                            │
+      // ├─────────────────────────────────────────────────────────────────────┤
+      // │ baslangic-bitis 1-indexed, substring() için 0-indexed kullanılır   │
+      // └─────────────────────────────────────────────────────────────────────┘
+      kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → 10 karakter
+      ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → 4 karakter
+      tcKimlik: { baslangic: 15, bitis: 25 },      // substring(14, 25) → 11 karakter
+      sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → 2 karakter
+      kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → 1 karakter
+      cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → 1 karakter (E/K)
+      ogrenciAdi: { baslangic: 30, bitis: 54 },    // substring(29, 54) → 25 karakter
+      // BUFFER: karakter 55 (index 54) = boşluk - Ad Soyad ile Cevaplar arası
+      cevaplar: { baslangic: 56, bitis: 205 },     // substring(55, 205) → 150 karakter
     },
     // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
+    // NOT: Bu pozisyonlar cevap string'i içindeki relative pozisyonlardır
     dersDagilimi: [
       { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
       { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 20, bitis: 30, soruSayisi: 10 },
