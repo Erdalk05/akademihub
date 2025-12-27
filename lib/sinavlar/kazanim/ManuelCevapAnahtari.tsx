@@ -261,6 +261,9 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
   const [dersCevaplari, setDersCevaplari] = useState<Record<string, string>>({
     TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: ''
   });
+  
+  // 🔒 KİLİT SİSTEMİ - Kaydedilen dersler kilitlenir
+  const [kilitliDersler, setKilitliDersler] = useState<Set<string>>(new Set());
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
@@ -294,10 +297,15 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
       return { ...prev, [aktifKitapcik]: yeniSorular };
     });
 
-    // State'i temizle
+    // State'i temizle ve kilitle
     setDersCevaplari(prev => ({ ...prev, [dersKodu]: '' }));
     
-    console.log(`✅ ${ders.ad} için ${temizCevaplar.length} cevap uygulandı`);
+    // Tam cevap girildiyse kilitle
+    if (temizCevaplar.length >= ders.soruSayisi) {
+      setKilitliDersler(prev => new Set([...prev, dersKodu]));
+    }
+    
+    console.log(`✅ ${ders.ad} için ${temizCevaplar.length} cevap uygulandı ve kilitlendi`);
   }, [aktifKitapcik]);
 
   // Ders için girilen cevap sayısı
@@ -633,59 +641,137 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
               {siraliDersler.map(ders => {
                 const doluluk = getDersCevapSayisi(ders.kod);
                 const yuzde = Math.round((doluluk / ders.soruSayisi) * 100);
+                const isKilitli = kilitliDersler.has(ders.kod);
+                const isTam = doluluk === ders.soruSayisi;
+                
+                // Girilen karakter sayısı (sadece A-E)
+                const girilenKarakter = (dersCevaplari[ders.kod] || '').replace(/[^ABCDE]/g, '').length;
+                const isEksik = girilenKarakter > 0 && girilenKarakter < ders.soruSayisi;
+                const isFazla = girilenKarakter > ders.soruSayisi;
                 
                 return (
-                  <tr key={ders.kod} className="border-t border-gray-100 hover:bg-gray-50">
+                  <tr 
+                    key={ders.kod} 
+                    className={`border-t transition-all ${
+                      isKilitli 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'border-gray-100 hover:bg-gray-50'
+                    }`}
+                  >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{ders.icon}</span>
                         <span className="font-medium text-sm" style={{ color: ders.renk }}>
                           {ders.ad.split(' ')[0]}
                         </span>
+                        {/* Kilit ikonu */}
+                        {isKilitli && (
+                          <span className="text-green-600" title="Kilitli - Çift tıkla ile aç">🔒</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center text-sm font-bold" style={{ color: ders.renk }}>
                       {ders.soruSayisi}
                     </td>
                     <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={dersCevaplari[ders.kod] || ''}
-                          onChange={(e) => {
-                            const deger = e.target.value.toUpperCase();
-                            setDersCevaplari(prev => ({ ...prev, [ders.kod]: deger }));
-                            
-                            // Soru sayısına ulaştığında otomatik uygula
-                            if (deger.replace(/[^ABCDE]/g, '').length >= ders.soruSayisi) {
-                              handleDersCevapYapistir(ders.kod, deger);
-                            }
+                      {isKilitli ? (
+                        // KİLİTLİ DURUM - Çift tıkla ile aç
+                        <div 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-green-100 border border-green-300 rounded-lg cursor-pointer"
+                          onDoubleClick={() => {
+                            setKilitliDersler(prev => {
+                              const yeni = new Set(prev);
+                              yeni.delete(ders.kod);
+                              return yeni;
+                            });
                           }}
-                          placeholder={`${ders.soruSayisi} karakter (${ders.ad.split(' ')[0]})`}
-                          maxLength={ders.soruSayisi + 5}
-                          className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          style={{ borderColor: dersCevaplari[ders.kod] ? ders.renk : undefined }}
-                        />
-                        <button
-                          onClick={() => handleDersCevapYapistir(ders.kod, dersCevaplari[ders.kod] || '')}
-                          disabled={!dersCevaplari[ders.kod]}
-                          className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Çift tıkla ile kilidi aç"
                         >
-                          <Check size={14} />
-                        </button>
-                      </div>
+                          <Check size={16} className="text-green-600" />
+                          <span className="text-sm font-medium text-green-700">
+                            ✓ {ders.soruSayisi} cevap kaydedildi
+                          </span>
+                          <span className="text-xs text-green-600 ml-auto">Çift tıkla → Düzenle</span>
+                        </div>
+                      ) : (
+                        // GİRİŞ DURUMU
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 relative">
+                            <input
+                              type="text"
+                              value={dersCevaplari[ders.kod] || ''}
+                              onChange={(e) => {
+                                const deger = e.target.value.toUpperCase();
+                                setDersCevaplari(prev => ({ ...prev, [ders.kod]: deger }));
+                                
+                                // Tam sayıya ulaştığında otomatik uygula
+                                const temizDeger = deger.replace(/[^ABCDE]/g, '');
+                                if (temizDeger.length === ders.soruSayisi) {
+                                  handleDersCevapYapistir(ders.kod, deger);
+                                }
+                              }}
+                              placeholder={`${ders.soruSayisi} karakter girin...`}
+                              maxLength={ders.soruSayisi + 10}
+                              className={`w-full px-3 py-1.5 pr-16 border rounded-lg text-sm font-mono uppercase focus:ring-2 transition-all ${
+                                isEksik 
+                                  ? 'border-amber-400 bg-amber-50 focus:ring-amber-500' 
+                                  : isFazla 
+                                    ? 'border-red-400 bg-red-50 focus:ring-red-500'
+                                    : girilenKarakter === ders.soruSayisi
+                                      ? 'border-green-400 bg-green-50 focus:ring-green-500'
+                                      : 'border-gray-200 focus:ring-indigo-500'
+                              }`}
+                            />
+                            {/* Karakter Sayacı */}
+                            <div className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-0.5 rounded ${
+                              girilenKarakter === 0
+                                ? 'bg-gray-200 text-gray-500'
+                                : girilenKarakter === ders.soruSayisi
+                                  ? 'bg-green-500 text-white'
+                                  : isEksik
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-red-500 text-white'
+                            }`}>
+                              {girilenKarakter}/{ders.soruSayisi}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDersCevapYapistir(ders.kod, dersCevaplari[ders.kod] || '')}
+                            disabled={girilenKarakter !== ders.soruSayisi}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              girilenKarakter === ders.soruSayisi
+                                ? 'bg-green-500 text-white hover:bg-green-600 shadow-md'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                            title={girilenKarakter === ders.soruSayisi ? 'Kaydet ve Kilitle' : `${ders.soruSayisi - girilenKarakter} karakter daha gerekli`}
+                          >
+                            <Check size={14} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full transition-all"
-                            style={{ width: `${yuzde}%`, backgroundColor: ders.renk }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium" style={{ color: ders.renk }}>
-                          {doluluk}/{ders.soruSayisi}
-                        </span>
+                        {isTam || isKilitli ? (
+                          // TAM - Yeşil Tik
+                          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                            <Check size={14} className="text-green-600" />
+                            <span className="text-xs font-bold text-green-700">TAMAM</span>
+                          </div>
+                        ) : (
+                          // İlerleme Çubuğu
+                          <>
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full transition-all"
+                                style={{ width: `${yuzde}%`, backgroundColor: ders.renk }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium" style={{ color: ders.renk }}>
+                              {doluluk}/{ders.soruSayisi}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
