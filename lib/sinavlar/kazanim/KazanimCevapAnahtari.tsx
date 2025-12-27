@@ -242,6 +242,51 @@ function getDersTamAdi(kod: string): string {
   return DERS_TAM_ADLARI[kod] || DERS_ISIMLERI[kod] || kod;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ✅ KAZANIM KODUNDAN DERS ÇIKARMA - ÖNEMLİ!
+// ═══════════════════════════════════════════════════════════════════════════
+// T.8.3.5 → TUR (Türkçe)
+// M.8.1.1.1 → MAT (Matematik)
+// F.8.2.1.1 → FEN (Fen Bilimleri)
+// İTA.8.2.1 veya ITA.8.2.1 → INK (İnkılap Tarihi)
+// B.1.1 → DIN (Din Kültürü - "B" din için kullanılır)
+// E8.1.R2 veya E.8.1.R2 → ING (İngilizce)
+// ═══════════════════════════════════════════════════════════════════════════
+function getDersKodundanKazanim(kazanimKodu: string): string | null {
+  if (!kazanimKodu) return null;
+  
+  const upper = kazanimKodu.toUpperCase().trim();
+  
+  // Kazanım kodu pattern'leri
+  // T.8.3.5 → Türkçe
+  if (upper.startsWith('T.')) return 'TUR';
+  
+  // M.8.1.1.1 → Matematik
+  if (upper.startsWith('M.')) return 'MAT';
+  
+  // F.8.1.1.1 → Fen Bilimleri
+  if (upper.startsWith('F.')) return 'FEN';
+  
+  // İTA.8.2.1 veya ITA.8.2.1 → İnkılap Tarihi
+  if (upper.startsWith('İTA.') || upper.startsWith('ITA.') || upper.startsWith('İT.') || upper.startsWith('IT.')) return 'INK';
+  
+  // B.1.1 → Din Kültürü (MEB'de "B" din kültürü için kullanılır)
+  if (upper.startsWith('B.')) return 'DIN';
+  
+  // E8.1.R2 veya E.8.1.R2 → İngilizce
+  if (upper.startsWith('E8.') || upper.startsWith('E.8') || upper.startsWith('ENG.')) return 'ING';
+  
+  // SOS veya S. → Sosyal Bilgiler
+  if (upper.startsWith('SOS.') || upper.startsWith('S.')) return 'SOS';
+  
+  // Fizik, Kimya, Biyoloji
+  if (upper.startsWith('FİZ.') || upper.startsWith('FIZ.')) return 'FIZ';
+  if (upper.startsWith('KİM.') || upper.startsWith('KIM.')) return 'KIM';
+  if (upper.startsWith('BİY.') || upper.startsWith('BIY.') || upper.startsWith('BIO.')) return 'BIO';
+  
+  return null;
+}
+
 function getDersRenk(kod: string) {
   return DERS_RENKLERI[kod] || { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
 }
@@ -622,13 +667,28 @@ export default function KazanimCevapAnahtari({
         const kazanimKodu = kazanimKoduCol >= 0 ? String(row[kazanimKoduCol] || '').trim() : '';
         const kazanimMetni = kazanimMetniCol >= 0 ? String(row[kazanimMetniCol] || '').trim() : '';
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // ✅ KAZANIM KODUNDAN DERS ÇIKARMA - ÖNCELİKLİ!
+        // ═══════════════════════════════════════════════════════════════════════
+        // Eğer ders adı bulunamadıysa veya varsayılan "TUR" ise,
+        // kazanım kodundan ders çıkarmayı dene:
+        // F.8.2.1.1 → FEN, T.8.3.5 → TUR, M.8.1.1.1 → MAT vb.
+        let finalDersKodu = currentDers;
+        if (kazanimKodu) {
+          const dersFromKazanim = getDersKodundanKazanim(kazanimKodu);
+          if (dersFromKazanim) {
+            finalDersKodu = dersFromKazanim;
+            console.log(`🎯 Kazanım kodundan ders çıkarıldı: ${kazanimKodu} → ${dersFromKazanim}`);
+          }
+        }
+
         // ✅ KİTAPÇIK CEVAPLARINI HER ZAMAN KAYDET
         // A cevabı her zaman var, B/C/D varsa onlar da eklenir
         parsed.push({
           soruNo,
           dogruCevap: cevap as 'A' | 'B' | 'C' | 'D' | 'E',
-          dersKodu: currentDers,
-          dersAdi: currentDersAdi || getDersTamAdi(currentDers),
+          dersKodu: finalDersKodu,
+          dersAdi: getDersTamAdi(finalDersKodu),
           testKodu: currentTestKodu || '', // ✅ Her zaman kaydet (boş string olsa bile)
           soruDegeri: soruDegeri, // ✅ Her zaman kaydet (1 olsa bile)
           kazanimKodu: kazanimKodu || undefined,
@@ -742,10 +802,23 @@ export default function KazanimCevapAnahtari({
           }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // ✅ KAZANIM KODUNDAN DERS ÇIKARMA
+        // ═══════════════════════════════════════════════════════════════════════
+        let finalDersKodu = currentDers;
+        if (kazanimKodu) {
+          const dersFromKazanim = getDersKodundanKazanim(kazanimKodu);
+          if (dersFromKazanim) {
+            finalDersKodu = dersFromKazanim;
+            console.log(`🎯 Kazanım kodundan ders çıkarıldı: ${kazanimKodu} → ${dersFromKazanim}`);
+          }
+        }
+
         parsed.push({
           soruNo,
           dogruCevap: cevap as 'A' | 'B' | 'C' | 'D' | 'E',
-          dersKodu: currentDers,
+          dersKodu: finalDersKodu,
+          dersAdi: getDersTamAdi(finalDersKodu),
           kazanimKodu: kazanimKodu || undefined,
           kazanimMetni: kazanimMetni || undefined,
           zorluk: 0.5
@@ -1323,11 +1396,28 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                           {row.testKodu || '-'}
                                         </span>
                                       </td>
-                                      {/* ✅ Ders Adı - Her zaman göster */}
+                                      {/* ✅ Ders Adı - DÜZENLENEBİLİR */}
                                       <td className="px-2 py-2 text-left">
-                                        <span className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                                          {row.dersAdi || getDersTamAdi(row.dersKodu)}
-                                        </span>
+                                        {isEditing ? (
+                                          <select
+                                            value={row.dersKodu}
+                                            onChange={(e) => {
+                                              const newData = [...parsedData];
+                                              newData[globalIndex].dersKodu = e.target.value;
+                                              newData[globalIndex].dersAdi = getDersTamAdi(e.target.value);
+                                              setParsedData(newData);
+                                            }}
+                                            className="w-full px-1 py-1 border rounded text-xs"
+                                          >
+                                            {Object.entries(DERS_TAM_ADLARI).map(([kod, ad]) => (
+                                              <option key={kod} value={kod}>{ad}</option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                                            {row.dersAdi || getDersTamAdi(row.dersKodu)}
+                                          </span>
+                                        )}
                                       </td>
                                       {/* ✅ Kitapçık A (Soru No) - Her zaman göster */}
                                       <td className="px-2 py-2 text-center">
@@ -1337,21 +1427,52 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                       <td className="px-2 py-2 text-center text-slate-600 text-sm font-medium">
                                         {row.soruDegeri || 1}
                                       </td>
-                                      {/* ✅ A Kitapçığı Cevabı (Doğru Cevap) */}
+                                      {/* ✅ A Kitapçığı Cevabı (Doğru Cevap) - DÜZENLENEBİLİR */}
                                       <td className="px-2 py-2 text-center">
-                                        <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm">
-                                          {row.kitapcikCevaplari?.A || row.dogruCevap}
-                                        </span>
+                                        {isEditing ? (
+                                          <select
+                                            value={row.dogruCevap}
+                                            onChange={(e) => handleEdit(globalIndex, 'dogruCevap', e.target.value)}
+                                            className="w-12 px-1 py-1 border rounded text-sm text-center font-bold"
+                                          >
+                                            {['A', 'B', 'C', 'D', 'E'].map(c => (
+                                              <option key={c} value={c}>{c}</option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm">
+                                            {row.kitapcikCevaplari?.A || row.dogruCevap}
+                                          </span>
+                                        )}
                                       </td>
-                                      {/* ✅ B Kitapçığı Soru Numarası - Her zaman göster */}
+                                      {/* ✅ B Kitapçığı Soru Numarası - DÜZENLENEBİLİR */}
                                       <td className="px-2 py-2 text-center">
-                                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-sm ${
-                                          row.kitapcikSoruNo?.B 
-                                            ? 'bg-amber-100 text-amber-700' 
-                                            : 'bg-slate-100 text-slate-400'
-                                        }`}>
-                                          {row.kitapcikSoruNo?.B || '-'}
-                                        </span>
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            value={row.kitapcikSoruNo?.B || ''}
+                                            onChange={(e) => {
+                                              const newData = [...parsedData];
+                                              if (!newData[globalIndex].kitapcikSoruNo) {
+                                                newData[globalIndex].kitapcikSoruNo = {};
+                                              }
+                                              const val = parseInt(e.target.value);
+                                              newData[globalIndex].kitapcikSoruNo!.B = isNaN(val) ? undefined : val;
+                                              setParsedData(newData);
+                                            }}
+                                            className="w-12 px-1 py-1 border rounded text-sm text-center"
+                                            placeholder="B"
+                                            min="1"
+                                          />
+                                        ) : (
+                                          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-sm ${
+                                            row.kitapcikSoruNo?.B 
+                                              ? 'bg-amber-100 text-amber-700' 
+                                              : 'bg-slate-100 text-slate-400'
+                                          }`}>
+                                            {row.kitapcikSoruNo?.B || '-'}
+                                          </span>
+                                        )}
                                       </td>
                                       {/* C Kitapçığı Soru No - Varsa göster */}
                                       {parsedData.some(p => p.kitapcikSoruNo?.C) && (
@@ -1409,16 +1530,18 @@ TUR1    TÜRKÇE    2    19    A    T.8.3.6    ...`}
                                         )}
                                       </td>
                                       <td className="px-3 py-2 text-center">
-                                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center justify-center gap-1">
                                           <button
                                             onClick={() => setEditingIndex(isEditing ? null : globalIndex)}
-                                            className={`p-1.5 rounded hover:bg-slate-200 ${isEditing ? 'bg-emerald-100 text-emerald-600' : 'text-slate-500'}`}
+                                            className={`p-1.5 rounded hover:bg-slate-200 transition-colors ${isEditing ? 'bg-emerald-100 text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}
+                                            title={isEditing ? 'Kaydet' : 'Düzenle'}
                                           >
                                             {isEditing ? <Check size={14} /> : <Edit3 size={14} />}
                                           </button>
                                           <button
                                             onClick={() => handleDeleteRow(globalIndex)}
-                                            className="p-1.5 rounded hover:bg-red-100 text-slate-500 hover:text-red-600"
+                                            className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors"
+                                            title="Sil"
                                           >
                                             <Trash2 size={14} />
                                           </button>
