@@ -932,10 +932,17 @@ export function cevapAnahtarindanYapilandirmaOlustur(
   kitapciklar.add('A'); // A her zaman var
   
   cevapAnahtari.forEach(satir => {
+    // ✨ Manuel Cevap Anahtarı desteği - kitapcikCevaplari kontrolü
+    if (satir.kitapcikCevaplari?.B) kitapciklar.add('B');
+    if (satir.kitapcikCevaplari?.C) kitapciklar.add('C');
+    if (satir.kitapcikCevaplari?.D) kitapciklar.add('D');
+    // Eski yöntem - kitapcikSoruNo kontrolü
     if (satir.kitapcikSoruNo?.B) kitapciklar.add('B');
     if (satir.kitapcikSoruNo?.C) kitapciklar.add('C');
     if (satir.kitapcikSoruNo?.D) kitapciklar.add('D');
   });
+  
+  console.log('📚 Tespit edilen kitapçıklar:', Array.from(kitapciklar).join(', '));
   
   // Testleri oluştur
   let simdikiSoru = 1;
@@ -969,36 +976,52 @@ export function cevapAnahtarindanYapilandirmaOlustur(
     
     (['B', 'C', 'D'] as const).forEach(kit => {
       if (kitapciklar.has(kit)) {
-        // Debug: kitapcikSoruNo kontrolü
-        const hasKitapcikData = satirlar.some(s => s.kitapcikSoruNo?.[kit]);
+        // ═══════════════════════════════════════════════════════════════════════
+        // ✨ YENİ: kitapcikCevaplari KONTROLÜ (Manuel Cevap Anahtarı desteği)
+        // ═══════════════════════════════════════════════════════════════════════
+        const hasKitapcikCevaplari = satirlar.some(s => s.kitapcikCevaplari?.[kit]);
+        const hasKitapcikSoruNo = satirlar.some(s => s.kitapcikSoruNo?.[kit]);
         
-        if (!hasKitapcikData) {
-          console.warn(`⚠️ ${dersKodu}: ${kit} kitapçığı için soru numarası verisi bulunamadı! A sırası kullanılacak.`);
-        } else {
-          console.log(`✅ ${dersKodu}: ${kit} kitapçığı için soru numarası verisi mevcut`);
+        if (hasKitapcikCevaplari) {
+          // ✅ Manuel Cevap Anahtarı kullanılmış - Her kitapçık için ayrı cevap var!
+          console.log(`✅ ${dersKodu}: ${kit} kitapçığı için DOĞRUDAN CEVAP verisi mevcut (Manuel Giriş)`);
           
-          // İlk 3 satır için debug
-          satirlar.slice(0, 3).forEach((s, i) => {
-            console.log(`   A soru ${s.soruNo} → ${kit} soru ${s.kitapcikSoruNo?.[kit]} → cevap ${s.dogruCevap}`);
+          // A sıralamasını koru, ama kitapçık cevabını kullan
+          kitapcikCevaplari.push({
+            kitapcik: kit,
+            cevaplar: satirlar.map(s => s.kitapcikCevaplari?.[kit] || s.dogruCevap)
+          });
+          
+          // Debug: İlk 5 cevap karşılaştırması
+          console.log(`   ${kit} kitapçığı ilk 5 cevap:`, satirlar.slice(0, 5).map(s => 
+            `A:${s.dogruCevap}→${kit}:${s.kitapcikCevaplari?.[kit] || '?'}`
+          ).join(', '));
+          
+        } else if (hasKitapcikSoruNo) {
+          // Eski yöntem: Soru numarası sıralaması
+          console.log(`📋 ${dersKodu}: ${kit} kitapçığı için soru numarası verisi mevcut (Sıralama)`);
+          
+          // Kitapçık soru numaralarına göre sırala
+          const kitSatirlar = [...satirlar].sort((a, b) => {
+            const aNo = a.kitapcikSoruNo?.[kit] || a.soruNo;
+            const bNo = b.kitapcikSoruNo?.[kit] || b.soruNo;
+            return aNo - bNo;
+          });
+          
+          kitapcikCevaplari.push({
+            kitapcik: kit,
+            cevaplar: kitSatirlar.map(s => s.dogruCevap)
+          });
+          
+        } else {
+          // Hiçbir veri yok - A kitapçığı cevaplarını kullan
+          console.warn(`⚠️ ${dersKodu}: ${kit} kitapçığı için veri bulunamadı! A cevapları kullanılacak.`);
+          
+          kitapcikCevaplari.push({
+            kitapcik: kit,
+            cevaplar: satirlar.map(s => s.dogruCevap)
           });
         }
-        
-        // Kitapçık soru numaralarına göre sırala
-        const kitSatirlar = [...satirlar].sort((a, b) => {
-          const aNo = a.kitapcikSoruNo?.[kit] || a.soruNo;
-          const bNo = b.kitapcikSoruNo?.[kit] || b.soruNo;
-          return aNo - bNo;
-        });
-        
-        // Debug: Sıralanmış ilk 3 cevap
-        if (hasKitapcikData) {
-          console.log(`   ${kit} kitapçığı cevap sırası (ilk 4):`, kitSatirlar.slice(0, 4).map(s => s.dogruCevap).join(', '));
-        }
-        
-        kitapcikCevaplari.push({
-          kitapcik: kit,
-          cevaplar: kitSatirlar.map(s => s.dogruCevap)
-        });
       }
     });
     
