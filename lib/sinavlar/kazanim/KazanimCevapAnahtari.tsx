@@ -62,9 +62,14 @@ const DERS_ALIASES: Record<string, string> = {
   'MATEMATİK': 'MAT', 'MATEMATIK': 'MAT', 'MAT': 'MAT', 'MAT1': 'MAT', 'MAT2': 'MAT',
   // Fen
   'FEN BİLİMLERİ': 'FEN', 'FEN BILIMLERI': 'FEN', 'FEN': 'FEN', 'FEN BİLGİSİ': 'FEN', 'FEN1': 'FEN', 'FEN2': 'FEN',
+  // BOŞLUKSUZ versiyonlar
+  'FENBİLİMLERİ': 'FEN', 'FENBILIMLERI': 'FEN', 'FENBİLGİSİ': 'FEN', 'FENBILGISI': 'FEN',
   // Sosyal Bilgiler (5. sınıf vb.)
   'SOSYAL BİLGİLER': 'SOS', 'SOSYAL BILGILER': 'SOS', 'SOSYAL': 'SOS', 'SOS': 'SOS', 'SOS1': 'SOS',
+  // BOŞLUKSUZ versiyonlar
+  'SOSYALBİLGİLER': 'SOS', 'SOSYALBILGILER': 'SOS',
   // ✅ İNKILAP TARİHİ - LGS için AYRI DERS!
+  // Boşluklu versiyonlar
   'T.C. İNKILAP TARİHİ VE ATATÜRKÇÜLÜK': 'INK', 
   'T.C. İNKILAP TARİHİ': 'INK', 
   'T.C. INKILAP TARIHI VE ATATÜRKÇÜLÜK': 'INK',
@@ -77,15 +82,32 @@ const DERS_ALIASES: Record<string, string> = {
   'İNK': 'INK', 'INK': 'INK', 
   'TC İNKILAP': 'INK', 'TC INKILAP': 'INK',
   'ATATÜRKÇÜLÜK': 'INK',
+  // ✅ BOŞLUKSUZ versiyonlar (getDersKodu normalize ediyor!)
+  'T.C.İNKILAPTARİHİVEATATÜRKÇÜLÜK': 'INK',
+  'T.C.INKILAPTARIHIVEATATÜRKÇÜLÜK': 'INK',
+  'T.C.INKILAPTARIHIVEATATÜRKCULUK': 'INK',
+  'İNKILAPTARİHİVEATATÜRKÇÜLÜK': 'INK',
+  'INKILAPTARIHIVEATATÜRKÇÜLÜK': 'INK',
+  'INKILAPTARIHIVEATATÜRKCULUK': 'INK',
+  'İNKILAPTARİHİ': 'INK',
+  'INKILAPTARIHI': 'INK',
+  'TCİNKILAP': 'INK', 'TCINKILAP': 'INK',
   // İngilizce / Yabancı Dil
   'İNGİLİZCE': 'ING', 'INGILIZCE': 'ING', 'İNG': 'ING', 'ING': 'ING', 'ENG': 'ING', 'ING1': 'ING',
   'YABANCI DİL': 'ING', 'YABANCI DIL': 'ING', 'YAB': 'ING', 'YAB DİL': 'ING',
+  // BOŞLUKSUZ versiyonlar
+  'YABANCIDİL': 'ING', 'YABANCIDIL': 'ING',
   // ✅ DİN KÜLTÜRÜ - LGS için AYRI DERS!
+  // Boşluklu versiyonlar
   'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DIN', 
   'DIN KULTURU VE AHLAK BILGISI': 'DIN',
   'DİN KÜLTÜRÜ': 'DIN', 'DIN KULTURU': 'DIN', 
   'DİN': 'DIN', 'DIN': 'DIN', 
   'DKAB': 'DIN', 'DIN1': 'DIN',
+  // ✅ BOŞLUKSUZ versiyonlar
+  'DİNKÜLTÜRÜVEAHLAKBİLGİSİ': 'DIN',
+  'DINKULTUREVEAHLAKBILGISI': 'DIN',
+  'DİNKÜLTÜRÜ': 'DIN', 'DINKULTURU': 'DIN',
   // Tarih
   'TARİH': 'TAR', 'TARIH': 'TAR', 'TAR': 'TAR', 'TAR1': 'TAR',
   // Coğrafya
