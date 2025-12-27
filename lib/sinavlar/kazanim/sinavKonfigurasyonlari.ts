@@ -253,71 +253,6 @@ export interface OptikFormSablonu {
 }
 
 export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR ŞABLONU (204 karakter) - GÜNCEL VERSİYON
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Özdebir yayıncılık LGS optik form formatı
-  // 150 cevap karakteri içerir (90 soru + offset boşluklar)
-  // 
-  // KARAKTER HARİTASI:
-  // - line.substring(0, 10)  → kurum_kodu (10 kr)
-  // - line.substring(10, 14) → ogrenci_no (4 kr)
-  // - line.substring(14, 25) → tc_kimlik (11 kr)
-  // - line.substring(25, 27) → sinif_sube (2 kr)
-  // - line.substring(27, 28) → kitapcik_turu (1 kr)
-  // - line.substring(28, 29) → cinsiyet (1 kr)
-  // - line.substring(29, 54) → ad_soyad (25 kr)
-  // - line.substring(54, 204) → tum_cevaplar (150 kr)
-  //
-  // DERS BAZLI AYRIŞTIRMA (ÖZDEBİR SIRALAMASI):
-  // - Türkçe (1-20): cevaplar[0-20]   → 20 soru
-  // - Sosyal (1-10): cevaplar[20-30]  → 10 soru
-  // - Din (1-10): cevaplar[30-40]     → 10 soru
-  // - İngilizce (1-10): cevaplar[40-50] → 10 soru
-  // - Matematik (1-20): cevaplar[50-70] → 20 soru
-  // - Fen (1-20): cevaplar[70-90]     → 20 soru
-  //
-  // B KİTAPÇIĞI: Excel'deki 'B Kitapçığı Dönüşümü' sütununa göre A'ya dönüştürülür
-  // PUANLAMA: MEB 500 tam puan standardı (Ham*400/270 + 100)
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: 'ozdebir-lgs-90',
-    ad: 'ÖZDEBİR - LGS 90 Soru (204 Karakter)',
-    yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir LGS optik formu - DOĞRULANMIŞ: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 25][Cevaplar 150]',
-    sinifSeviyeleri: ['8'],
-    sinavTurleri: ['LGS', 'DENEME'],
-    toplamSoru: 90,
-    satirUzunlugu: 204, // 54 meta + 150 cevap = 204 karakter (DOĞRULANMIŞ)
-    alanlar: {
-      // ┌─────────────────────────────────────────────────────────────────────┐
-      // │ DOĞRULANMIŞ KARAKTER HARİTASI (Gerçek TXT verisi ile test edildi)  │
-      // ├─────────────────────────────────────────────────────────────────────┤
-      // │ Örnek: "908125   301  159010003328EAKELıF ARDU«LU          ABBAA..."│
-      // └─────────────────────────────────────────────────────────────────────┘
-      kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → "908125   3"
-      ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → "01  "
-      tcKimlik: { baslangic: 15, bitis: 25 },      // substring(14, 25) → "15901000332"
-      sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → "8E"
-      kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → "A"
-      cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → "K" (Kız)
-      ogrenciAdi: { baslangic: 30, bitis: 54 },    // substring(29, 54) → 25 karakter ✓
-      cevaplar: { baslangic: 55, bitis: 204 },     // substring(54, 204) → 150 karakter ✓
-    },
-    // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
-    // NOT: Bu pozisyonlar cevap string'i içindeki relative pozisyonlardır
-    dersDagilimi: [
-      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
-      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 20, bitis: 30, soruSayisi: 10 },
-      { dersKodu: 'DIN', dersAdi: 'Din Kültürü', baslangic: 30, bitis: 40, soruSayisi: 10 },
-      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 40, bitis: 50, soruSayisi: 10 },
-      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 50, bitis: 70, soruSayisi: 20 },
-      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 70, bitis: 90, soruSayisi: 20 },
-    ],
-    onerilenIcon: '📙',
-    renk: '#DC2626'
-  },
-  
   // ============= LGS ŞABLONLARI =============
   {
     id: 'nar-lgs-90',
@@ -337,26 +272,6 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
     },
     onerilenIcon: '📗',
     renk: '#10B981'
-  },
-  {
-    id: 'dikmen-lgs-90',
-    ad: 'Dikmen Çözüm - LGS 90 Soru',
-    yayinevi: 'Dikmen Çözüm',
-    aciklama: 'Dikmen Çözüm Kurs optik formu - Format: [Sınıf Kodu][Öğr No][Ad Soyad][TC][Sınıf][Kitapçık][Cevaplar]',
-    sinifSeviyeleri: ['8'],
-    sinavTurleri: ['LGS', 'DENEME'],
-    toplamSoru: 90,
-    satirUzunlugu: 180,
-    alanlar: {
-      ogrenciNo: { baslangic: 5, bitis: 10 },      // Öğrenci numarası
-      ogrenciAdi: { baslangic: 11, bitis: 35 },    // Ad Soyad (25 karakter)
-      tcKimlik: { baslangic: 36, bitis: 47 },      // TC (11 karakter)
-      sinif: { baslangic: 48, bitis: 49 },         // Sınıf
-      kitapcik: { baslangic: 50, bitis: 50 },      // Kitapçık
-      cevaplar: { baslangic: 53, bitis: 142 },     // 90 cevap
-    },
-    onerilenIcon: '🏫',
-    renk: '#059669'
   },
   {
     id: 'netbil-lgs-90',
