@@ -10,6 +10,19 @@
 // ============================================
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PROMPT V5.0 UYUMLU - KARAKTER NORMALİZASYONU
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Öğrenci isimlerindeki OCR hatalarını temizler:
+ * - ALı -> ALI
+ * - «EVıK -> CEVIK
+ * - ı -> I (büyük harf kontekstinde)
+ * - OCR sembol hataları (◆, -, ?, « vb.)
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/**
  * Türkçe karakter düzeltme haritası
  * OCR ve optik okuyucu hatalarını düzeltir
  */
@@ -19,6 +32,17 @@ const TURKISH_CHAR_MAP: Record<string, string> = {
   '': 'İ',
   '\u0000': '',
   '\ufffd': '',
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // YENİ: OCR SEMBOLLERİ (PROMPT V5.0)
+  // ═══════════════════════════════════════════════════════════════════════
+  '«': 'C',   // «EVıK -> CEVIK
+  '»': '',    // Kapanış çevronu
+  '÷': '',    // Bölme işareti (gereksiz)
+  '×': '',    // Çarpma işareti (gereksiz)
+  '?': '',    // OCR okuyamadığı karakterler
+  '-': '',    // Tire (isim ortasında gereksiz)
+  '_': ' ',   // Alt tire -> boşluk
   
   // Küçük harfler - birleşik karakterler
   'i̇': 'i',
@@ -42,6 +66,12 @@ const TURKISH_CHAR_MAP: Record<string, string> = {
   '\u015f': 'ş', // s with cedilla
   '\u011e': 'Ğ', // G with breve
   '\u011f': 'ğ', // g with breve
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // YENİ: RAKAM VE HARF KARIŞIKLIKLARI
+  // ═══════════════════════════════════════════════════════════════════════
+  '0': 'O',   // İsim içinde 0 -> O olmalı (kontekste göre)
+  '1': 'I',   // İsim içinde 1 -> I olmalı (kontekste göre)
 };
 
 /**
@@ -69,16 +99,30 @@ export function normalizeText(text: string): string {
 
 /**
  * İsim normalleştirme - OCR hatalarını düzeltir ve formatlar
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PROMPT V5.0 UYUMLU
+ * Öğrenci isimlerindeki OCR hatalarını (ı, «, ÷, -, ?) temizler.
+ * Örnek: ALı -> ALI, «EVıK -> CEVIK
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 export function normalizeName(name: string): string {
   if (!name) return '';
   
   let result = normalizeText(name);
   
+  // ═══════════════════════════════════════════════════════════════════════
+  // YENİ: BÜYÜK HARF KONTEKSTINDE KÜÇÜK I DÜZELTME
+  // ALı -> ALI gibi durumları düzelt
+  // ═══════════════════════════════════════════════════════════════════════
+  result = result.replace(/([A-ZÇĞİÖŞÜ])ı/g, '$1I'); // Büyük harften sonra ı -> I
+  result = result.replace(/ı([A-ZÇĞİÖŞÜ])/g, 'I$1'); // ı'dan sonra büyük harf -> I
+  
   // Her kelimenin ilk harfini büyük yap (Türkçe kurallarına uygun)
   result = result
     .toLowerCase()
     .split(' ')
+    .filter(word => word.length > 0) // Boş kelimeleri filtrele
     .map(word => {
       if (!word) return '';
       
@@ -96,6 +140,37 @@ export function normalizeName(name: string): string {
     .join(' ');
   
   return result;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * YENİ: AGRESIF OCR TEMİZLEME (PROMPT V5.0)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * İsim alanındaki tüm OCR hatalarını agresif şekilde temizler.
+ * - Semboller kaldırılır
+ * - Ardışık boşluklar tek boşluğa indirilir
+ * - Başta ve sonda boşluklar temizlenir
+ */
+export function cleanOcrName(name: string): string {
+  if (!name) return '';
+  
+  let result = name;
+  
+  // OCR sembollerini kaldır
+  const ocrSymbols = ['◆', '«', '»', '÷', '×', '?', '*', '#', '@', '!', '&', '%', '$', '^', '=', '+', '<', '>', '[', ']', '{', '}', '|', '\\', '~', '`'];
+  for (const sym of ocrSymbols) {
+    result = result.split(sym).join('');
+  }
+  
+  // Ardışık boşlukları tek boşluğa indir
+  result = result.replace(/\s+/g, ' ');
+  
+  // Başta ve sonda boşlukları temizle
+  result = result.trim();
+  
+  // Normalize et
+  return normalizeName(result);
 }
 
 // ============================================

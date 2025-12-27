@@ -136,23 +136,30 @@ export const COLUMN_CONFIGS: Record<string, FuzzyMatchConfig> = {
     turkishNormalize: true
   },
   
-  // B KİTAPÇIĞI CEVABI - B kitapçığının doğru cevabı (A'dan farklı olabilir!)
-  B_CEVAP: {
-    target: 'B_CEVAP',
+  // ═══════════════════════════════════════════════════════════════════════
+  // B KİTAPÇIĞI SORU NUMARASI (PROMPT V5.0)
+  // ═══════════════════════════════════════════════════════════════════════
+  // DİKKAT: Bu sütun B kitapçığındaki SORU NUMARASINI içerir!
+  // A kitapçığında 1. soru = B kitapçığında 4. soru olabilir
+  // Cevap DEĞİL, sadece soru numarası eşleştirmesi için kullanılır
+  // ═══════════════════════════════════════════════════════════════════════
+  B_SORU_NO: {
+    target: 'B_KITAPCIGI_SORU_NO',
     aliases: [
-      'b kitapçığı cevap',
+      'b kitapçığı cevap',      // Eski format isimlendirmesi
       'b kitapcigi cevap',
-      'b kitapçığı cevabı',
-      'b kitapcigi cevabi',
-      'b cevap',
-      'b cevabı',
-      'b cevabi',
-      'b kit cevap',
-      'b kit. cevap',
-      'kitapçık b cevap',
-      'kitapcik b cevap'
+      'b kitapçığı dönüşümü',   // PROMPT V5.0 terminoloji
+      'b kitapcigi donusumu',
+      'b soru',
+      'b soru no',
+      'b_no',
+      'b no',
+      'b kitapçık',
+      'b kitapcik',
+      'b dönüşüm',
+      'b donusum'
     ],
-    threshold: 0.70,
+    threshold: 0.65,
     caseSensitive: false,
     turkishNormalize: true
   },
@@ -336,15 +343,23 @@ export function matchAllColumns(
   const results: Record<string, any> = {};
   const usedColumns = new Set<string>();
   
-  // Sort configs by priority (required first)
-  // Düzeltilmiş sıralama - Excel sütun sırasına göre
+  // ═══════════════════════════════════════════════════════════════════════
+  // PROMPT V5.0 UYUMLU - SÜTUN ÖNCELİK SIRASI
+  // ═══════════════════════════════════════════════════════════════════════
+  // Excel yükleme modülünü şu başlıkları tanıyacak şekilde güncelle:
+  // - DERS ADI: (Ders, Dersler, Subject)
+  // - A SORU NO: (Soru, No, Soru No, A Kitapçığı No)
+  // - B SORU NO: (B Kitapçığı Dönüşümü, B Soru, B_NO)
+  // - DOĞRU CEVAP: (Cevap Anahtarı, Doğru, Cevap, Key)
+  // - KAZANIM KODU: (Kazanımlar_1, Konu Kodu, Outcome)
+  // ═══════════════════════════════════════════════════════════════════════
   const priorityOrder = [
     'TEST_KODU',      // DERS KODU
     'DERS',           // DERS ADI
-    'KITAPCIK_A',     // KİTAPÇIK A (Soru No)
+    'KITAPCIK_A',     // KİTAPÇIK A (A Soru No)
     'SORU_DEGERI',    // SORU DEĞERİ (Puan)
-    'DOGRU_CEVAP',    // CEVAP (A Kitapçığı Cevabı)
-    'B_CEVAP',        // B KİTAPÇIĞI CEVABI
+    'DOGRU_CEVAP',    // CEVAP (Doğru Cevap)
+    'B_SORU_NO',      // B KİTAPÇIĞI DÖNÜŞÜMÜ (B Soru No) - PROMPT V5.0
     'C_CEVAP',        // C KİTAPÇIĞI CEVABI  
     'D_CEVAP',        // D KİTAPÇIĞI CEVABI
     'KAZANIM_KODU',   // KAZANIM KODU

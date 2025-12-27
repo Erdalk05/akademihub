@@ -41,11 +41,41 @@ import {
 // ============================================
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SABİT KARAKTER HARİTASI - PROMPT V5.0 UYUMLU
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * TXT dosyasındaki her satırı şu kesin aralıklara göre oku:
+ * - Öğrenci No: [10-13] → 4 karakter
+ * - TC Kimlik: [15-25] → 11 karakter
+ * - Sınıf: [26-27] → 2 karakter
+ * - Kitapçık: [28-28] → 1 karakter
+ * - Ad Soyad: [30-54] → 25 karakter
+ * - Cevaplar: [55-204] → 150 karakter (LGS için ilk 90 kullanılır)
+ * 
+ * MINIMUM SATIR UZUNLUĞU: 204 karakter
+ * 204 karakterden kısa satırlar hatalı olarak işaretlenir.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/**
  * Yaygın optik form şablonları
  * Her kurumun formatı farklı olabilir
  */
 export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
-  // Standart LGS optik formu
+  // ═══════════════════════════════════════════════════════════════════════
+  // MEB STANDART FORMAT (204 karakter) - YENİ VARSAYILAN
+  // ═══════════════════════════════════════════════════════════════════════
+  MEB_STANDARD: {
+    studentNo: { start: 9, end: 12 },      // [10-13] 4 karakter (0-indexed: 9-12)
+    tc: { start: 14, end: 24 },            // [15-25] 11 karakter (0-indexed: 14-24)
+    classCode: { start: 25, end: 26 },     // [26-27] 2 karakter - Sınıf (0-indexed: 25-26)
+    booklet: { start: 27, end: 27 },       // [28-28] 1 karakter (0-indexed: 27)
+    name: { start: 29, end: 53 },          // [30-54] 25 karakter (0-indexed: 29-53)
+    answers: { start: 54, end: 203 },      // [55-204] 150 karakter (0-indexed: 54-203)
+  },
+  
+  // Standart LGS optik formu (eski format)
   LGS_STANDARD: {
     studentNo: { start: 0, end: 9 },      // 10 karakter
     tc: { start: 10, end: 20 },            // 11 karakter
@@ -83,6 +113,12 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   },
 };
 
+/**
+ * Minimum satır uzunluğu kontrolü
+ * 204 karakterden kısa satırlar FAILED olarak işaretlenir
+ */
+export const MIN_LINE_LENGTH = 204;
+
 // ============================================
 // 🔧 PARSER MOTOR
 // ============================================
@@ -90,6 +126,11 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
 /**
  * Tek satırı parse eder
  * Fixed-Width öncelikli, Regex fallback
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PROMPT V5.0 UYUMLU - SATIIR DOĞRULAMA
+ * 204 karakterden kısa olan satırlar hatalı olarak işaretlenir ve atlanır.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 function parseLine(
   line: string,
@@ -105,6 +146,24 @@ function parseLine(
       rawLine,
       status: 'FAILED',
       conflictReason: 'Boş satır',
+      studentNo: '',
+      tc: '',
+      name: '',
+      booklet: null,
+      answers: '',
+    };
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SATIR UZUNLUĞU KONTROLÜ (PROMPT V5.0)
+  // MEB_STANDARD şablonu için minimum 204 karakter gerekli
+  // ═══════════════════════════════════════════════════════════════════════
+  if (template === DEFAULT_TEMPLATES.MEB_STANDARD && line.length < MIN_LINE_LENGTH) {
+    return {
+      lineNumber,
+      rawLine,
+      status: 'FAILED',
+      conflictReason: `Satır çok kısa: ${line.length} karakter (minimum ${MIN_LINE_LENGTH} olmalı)`,
       studentNo: '',
       tc: '',
       name: '',

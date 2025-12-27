@@ -305,8 +305,22 @@ export function evaluateExam(
 // ============================================
 
 /**
- * Kitapçık tipine göre cevap anahtarını döndürür
- * A kitapçığı referans, diğerleri rotasyonlu
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PROMPT V5.0 UYUMLU - KİTAPÇIK DÖNÜŞÜM MOTORU
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * B'den A'ya Dönüşüm: 
+ * - Öğrencinin kitapçığı 'B' ise, Excel'deki 'B Kitapçığı Dönüşümü' sütununu 
+ *   referans alarak cevapları 'A' formatına diz.
+ * 
+ * Örnek: 
+ * - Excel: A Soru No=1, B Kitapçığı Dönüşümü=14, Cevap=A
+ * - Öğrenci B kitapçığında 14. soruya A işaretlerse → A kitapçığı 1. soru ile eşleştirilir
+ * - Değerlendirme: A kitapçığının 1. sorusunun cevabı (A) ile karşılaştırılır
+ * 
+ * Hata Yönetimi: 
+ * - Kitapçık ne A ne B ise → "Eşleşme Hatası" olarak işaretle (null booklet)
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 function applyBookletRotation(
   answerKey: AnswerKeyItem[],
@@ -320,10 +334,16 @@ function applyBookletRotation(
   
   const rotation = rotationTable[booklet];
   if (!rotation) {
+    // PROMPT V5.0: Eşleşme hatası - kitapçık verisi yok
+    console.warn(`⚠️ Kitapçık ${booklet} için rotasyon tablosu bulunamadı!`);
     return answerKey;
   }
   
-  // Rotasyonu uygula
+  // ═══════════════════════════════════════════════════════════════════════
+  // ROTASYONU UYGULA
+  // B Kitapçığı Dönüşümü sütunundaki değer = öğrencinin cevapladığı soru no
+  // A Soru No = değerlendirme yapılacak referans soru
+  // ═══════════════════════════════════════════════════════════════════════
   return rotation.map((originalIndex, newIndex) => ({
     ...answerKey[originalIndex],
     questionNo: newIndex + 1,
