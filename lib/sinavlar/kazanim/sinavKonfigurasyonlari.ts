@@ -253,6 +253,65 @@ export interface OptikFormSablonu {
 }
 
 export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ÖZDEBİR YAYINLARI - 5-6-7 ve 8. SINIF (LGS) CEVAP KAĞIDI
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Form Özellikleri:
+  // - Kitapçık Türü: A / B
+  // - Cinsiyet: Kız / Erkek
+  // - MEB/Kurum Kodu: Kodlama alanı
+  // - T.C. Kimlik No: 11 haneli
+  // - Sınıf/Şube: Kodlama
+  // 
+  // CEVAP DAĞILIMI (90 Soru):
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ SÖZEL BÖLÜM                                                             │
+  // │ - Türkçe: 1-20 (20 soru)                                               │
+  // │ - Sosyal Bilgiler / T.C. İnkılap Tarihi ve Atatürkçülük: 1-10 (10 soru)│
+  // │ - Din Kültürü ve Ahlak Bilgisi: 1-10 (10 soru)                         │
+  // │ - Yabancı Dil (İngilizce): 1-10 (10 soru)                              │
+  // ├─────────────────────────────────────────────────────────────────────────┤
+  // │ SAYISAL BÖLÜM                                                           │
+  // │ - Matematik: 1-20 (20 soru)                                            │
+  // │ - Fen Bilimleri: 1-20 (20 soru)                                        │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  // TOPLAM: 20 + 10 + 10 + 10 + 20 + 20 = 90 soru
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'ozdebir-lgs-90',
+    ad: 'ÖZDEBİR - LGS 90 Soru (5-6-7-8. Sınıf)',
+    yayinevi: 'Özdebir Yayınları',
+    aciklama: 'Özdebir Yayınları LGS optik formu - Kurum Kodu, TC Kimlik, Cinsiyet, Kitapçık A/B destekli. SÖZEL: Türkçe(20), Sosyal(10), Din(10), İngilizce(10) | SAYISAL: Matematik(20), Fen(20)',
+    sinifSeviyeleri: ['5', '6', '7', '8'],
+    sinavTurleri: ['LGS', 'DENEME'],
+    toplamSoru: 90,
+    satirUzunlugu: 204,
+    alanlar: {
+      // ┌─────────────────────────────────────────────────────────────────────┐
+      // │ KARAKTER HARİTASI (TXT dosyasındaki pozisyonlar)                   │
+      // └─────────────────────────────────────────────────────────────────────┘
+      kurumKodu: { baslangic: 1, bitis: 10 },      // MEB/Kurum Kodu (10 karakter)
+      ogrenciNo: { baslangic: 11, bitis: 14 },     // Öğrenci Numarası (4 karakter)
+      tcKimlik: { baslangic: 15, bitis: 25 },      // T.C. Kimlik No (11 karakter)
+      sinif: { baslangic: 26, bitis: 27 },         // Sınıf/Şube (2 karakter)
+      kitapcik: { baslangic: 28, bitis: 28 },      // Kitapçık Türü: A veya B (1 karakter)
+      cinsiyet: { baslangic: 29, bitis: 29 },      // Cinsiyet: K (Kız) veya E (Erkek) (1 karakter)
+      ogrenciAdi: { baslangic: 30, bitis: 54 },    // Ad Soyad (25 karakter)
+      cevaplar: { baslangic: 55, bitis: 204 },     // Tüm Cevaplar (150 karakter)
+    },
+    // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler / İnkılap Tarihi', baslangic: 20, bitis: 30, soruSayisi: 10 },
+      { dersKodu: 'DIN', dersAdi: 'Din Kültürü ve Ahlak Bilgisi', baslangic: 30, bitis: 40, soruSayisi: 10 },
+      { dersKodu: 'ING', dersAdi: 'Yabancı Dil (İngilizce)', baslangic: 40, bitis: 50, soruSayisi: 10 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 70, bitis: 90, soruSayisi: 20 },
+    ],
+    onerilenIcon: '📙',
+    renk: '#DC2626'
+  },
+
   // ============= LGS ŞABLONLARI =============
   {
     id: 'nar-lgs-90',
