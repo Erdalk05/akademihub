@@ -153,88 +153,102 @@ export default function SablonKutuphanesi({
   const convertToOptikSablon = (formSablon: OptikFormSablonu): OptikSablon => {
     const alanTanimlari: OptikAlanTanimi[] = [];
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GÜVENLİ ERİŞİM: formSablon.alanlar veya alt alanlar undefined olabilir
+    // ═══════════════════════════════════════════════════════════════════════════
+    const alanlar = formSablon.alanlar || {};
+    
     // Kurum Kodu (Özdebir formatı için)
-    if (formSablon.alanlar.kurumKodu && formSablon.alanlar.kurumKodu.baslangic > 0) {
+    if (alanlar.kurumKodu?.baslangic && alanlar.kurumKodu.baslangic > 0) {
       alanTanimlari.push({
         alan: 'kurum_kodu',
-        baslangic: formSablon.alanlar.kurumKodu.baslangic,
-        bitis: formSablon.alanlar.kurumKodu.bitis,
+        baslangic: alanlar.kurumKodu.baslangic,
+        bitis: alanlar.kurumKodu.bitis || alanlar.kurumKodu.baslangic,
         label: 'Kurum Kodu',
         color: '#6366F1' // indigo
       });
     }
     
-    alanTanimlari.push({
-      alan: 'ogrenci_no',
-      baslangic: formSablon.alanlar.ogrenciNo.baslangic,
-      bitis: formSablon.alanlar.ogrenciNo.bitis,
-      label: 'Öğrenci No',
-      color: ALAN_RENKLERI.ogrenci_no
-    });
+    // Öğrenci No (zorunlu alan - varsayılan değerlerle)
+    if (alanlar.ogrenciNo?.baslangic) {
+      alanTanimlari.push({
+        alan: 'ogrenci_no',
+        baslangic: alanlar.ogrenciNo.baslangic,
+        bitis: alanlar.ogrenciNo.bitis || alanlar.ogrenciNo.baslangic,
+        label: 'Öğrenci No',
+        color: ALAN_RENKLERI.ogrenci_no
+      });
+    }
     
-    if (formSablon.alanlar.tcKimlik && formSablon.alanlar.tcKimlik.baslangic > 0) {
+    if (alanlar.tcKimlik?.baslangic && alanlar.tcKimlik.baslangic > 0) {
       alanTanimlari.push({
         alan: 'tc',
-        baslangic: formSablon.alanlar.tcKimlik.baslangic,
-        bitis: formSablon.alanlar.tcKimlik.bitis,
+        baslangic: alanlar.tcKimlik.baslangic,
+        bitis: alanlar.tcKimlik.bitis || alanlar.tcKimlik.baslangic,
         label: 'TC Kimlik',
         color: ALAN_RENKLERI.tc
       });
     }
     
-    if (formSablon.alanlar.sinif && formSablon.alanlar.sinif.baslangic > 0) {
+    if (alanlar.sinif?.baslangic && alanlar.sinif.baslangic > 0) {
       alanTanimlari.push({
         alan: 'sinif_no',
-        baslangic: formSablon.alanlar.sinif.baslangic,
-        bitis: formSablon.alanlar.sinif.bitis,
+        baslangic: alanlar.sinif.baslangic,
+        bitis: alanlar.sinif.bitis || alanlar.sinif.baslangic,
         label: 'Sınıf',
         color: ALAN_RENKLERI.sinif_no
       });
     }
     
-    if (formSablon.alanlar.kitapcik && formSablon.alanlar.kitapcik.baslangic > 0) {
+    if (alanlar.kitapcik?.baslangic && alanlar.kitapcik.baslangic > 0) {
       alanTanimlari.push({
         alan: 'kitapcik',
-        baslangic: formSablon.alanlar.kitapcik.baslangic,
-        bitis: formSablon.alanlar.kitapcik.bitis,
+        baslangic: alanlar.kitapcik.baslangic,
+        bitis: alanlar.kitapcik.bitis || alanlar.kitapcik.baslangic,
         label: 'Kitapçık',
         color: ALAN_RENKLERI.kitapcik
       });
     }
     
     // Cinsiyet (Özdebir formatı için)
-    if (formSablon.alanlar.cinsiyet && formSablon.alanlar.cinsiyet.baslangic > 0) {
+    if (alanlar.cinsiyet?.baslangic && alanlar.cinsiyet.baslangic > 0) {
       alanTanimlari.push({
         alan: 'cinsiyet',
-        baslangic: formSablon.alanlar.cinsiyet.baslangic,
-        bitis: formSablon.alanlar.cinsiyet.bitis,
+        baslangic: alanlar.cinsiyet.baslangic,
+        bitis: alanlar.cinsiyet.bitis || alanlar.cinsiyet.baslangic,
         label: 'Cinsiyet',
         color: '#EC4899' // pink
       });
     }
     
-    alanTanimlari.push({
-      alan: 'ogrenci_adi',
-      baslangic: formSablon.alanlar.ogrenciAdi.baslangic,
-      bitis: formSablon.alanlar.ogrenciAdi.bitis,
-      label: 'Öğrenci Adı',
-      color: ALAN_RENKLERI.ogrenci_adi
-    });
+    // Öğrenci Adı (zorunlu alan)
+    if (alanlar.ogrenciAdi?.baslangic) {
+      alanTanimlari.push({
+        alan: 'ogrenci_adi',
+        baslangic: alanlar.ogrenciAdi.baslangic,
+        bitis: alanlar.ogrenciAdi.bitis || alanlar.ogrenciAdi.baslangic,
+        label: 'Öğrenci Adı',
+        color: ALAN_RENKLERI.ogrenci_adi
+      });
+    }
     
-    alanTanimlari.push({
-      alan: 'cevaplar',
-      baslangic: formSablon.alanlar.cevaplar.baslangic,
-      bitis: formSablon.alanlar.cevaplar.bitis,
-      label: 'Cevaplar',
-      color: ALAN_RENKLERI.cevaplar
-    });
+    // Cevaplar (zorunlu alan)
+    if (alanlar.cevaplar?.baslangic) {
+      alanTanimlari.push({
+        alan: 'cevaplar',
+        baslangic: alanlar.cevaplar.baslangic,
+        bitis: alanlar.cevaplar.bitis || alanlar.cevaplar.baslangic,
+        label: 'Cevaplar',
+        color: ALAN_RENKLERI.cevaplar
+      });
+    }
     
     return {
       id: formSablon.id,
       sablonAdi: formSablon.ad,
       aciklama: formSablon.aciklama,
       alanTanimlari,
-      cevapBaslangic: formSablon.alanlar.cevaplar.baslangic,
+      cevapBaslangic: alanlar.cevaplar?.baslangic || 1,
       toplamSoru: formSablon.toplamSoru,
       isDefault: false,
       isActive: true
