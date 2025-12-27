@@ -76,19 +76,38 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   },
   
   // ═══════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR FORMATI (204 karakter)
+  // ÖZDEBİR FORMATI (204 karakter) - GÜNCEL VERSİYON
   // ═══════════════════════════════════════════════════════════════════════
-  // Özdebir yayıncılık optik form formatı
-  // Cinsiyet alanı dahil (gender: 28-29)
+  // Özdebir yayıncılık LGS optik form formatı
+  // 150 cevap karakteri içerir (90 soru + boşluklar)
+  // 
+  // KARAKTER HARİTASI:
+  // - line.substring(0, 10)  → kurum_kodu (10 kr)
+  // - line.substring(10, 14) → ogrenci_no (4 kr)
+  // - line.substring(14, 25) → tc_kimlik (11 kr)
+  // - line.substring(25, 27) → sinif_sube (2 kr)
+  // - line.substring(27, 28) → kitapcik_turu (1 kr)
+  // - line.substring(28, 29) → cinsiyet (1 kr)
+  // - line.substring(29, 54) → ad_soyad (25 kr)
+  // - line.substring(54, 204) → tum_cevaplar (150 kr)
+  //
+  // DERS SIRALAMASI (Özdebir LGS):
+  // - Türkçe: [0-20] 20 soru
+  // - Sosyal: [20-30] 10 soru
+  // - Din: [30-40] 10 soru
+  // - İngilizce: [40-50] 10 soru
+  // - Matematik: [50-70] 20 soru
+  // - Fen: [70-90] 20 soru
   // ═══════════════════════════════════════════════════════════════════════
   OZDEBIR: {
-    studentNo: { start: 9, end: 12 },      // line.substring(9, 13) → 4 karakter
-    tc: { start: 14, end: 24 },            // line.substring(14, 25) → 11 karakter
-    classCode: { start: 25, end: 26 },     // line.substring(25, 27) → 2 karakter (sınıf)
-    booklet: { start: 27, end: 27 },       // line.substring(27, 28) → 1 karakter
-    gender: { start: 28, end: 28 },        // line.substring(28, 29) → 1 karakter (cinsiyet)
-    name: { start: 29, end: 53 },          // line.substring(29, 54) → 25 karakter
-    answers: { start: 54, end: 203 },      // line.substring(54, 204) → 150 karakter
+    school: { start: 0, end: 9 },          // line.substring(0, 10) → kurum_kodu (10 kr)
+    studentNo: { start: 10, end: 13 },     // line.substring(10, 14) → ogrenci_no (4 kr)
+    tc: { start: 14, end: 24 },            // line.substring(14, 25) → tc_kimlik (11 kr)
+    classCode: { start: 25, end: 26 },     // line.substring(25, 27) → sinif_sube (2 kr)
+    booklet: { start: 27, end: 27 },       // line.substring(27, 28) → kitapcik_turu (1 kr)
+    gender: { start: 28, end: 28 },        // line.substring(28, 29) → cinsiyet (1 kr)
+    name: { start: 29, end: 53 },          // line.substring(29, 54) → ad_soyad (25 kr)
+    answers: { start: 54, end: 203 },      // line.substring(54, 204) → tum_cevaplar (150 kr)
   },
   
   // Standart LGS optik formu (eski format)

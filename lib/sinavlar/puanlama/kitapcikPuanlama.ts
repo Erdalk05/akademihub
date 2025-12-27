@@ -92,7 +92,7 @@ export const LGS_CONFIG = {
   yanlisKatsayisi: 3,  // 3 yanlış = 1 doğru götürür
   
   // ═══════════════════════════════════════════════════════════
-  // DERS YAPILANDIRMASI
+  // DERS YAPILANDIRMASI (MEB STANDART SIRALAMASI)
   // ═══════════════════════════════════════════════════════════
   // Max Ham Puan = (20×4) + (20×4) + (20×4) + (10×1) + (10×1) + (10×1) = 270
   // ═══════════════════════════════════════════════════════════
@@ -115,8 +115,14 @@ export const LGS_CONFIG = {
     'İNKILAP': 'INK',
     'INKILAP': 'INK',
     'INK': 'INK',
+    'SOSYAL BİLGİLER': 'SOS',
+    'SOSYAL BILGILER': 'SOS',
+    'SOSYAL': 'SOS',
+    'SOS': 'SOS',
     'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DIN',
     'DIN KULTURU VE AHLAK BILGISI': 'DIN',
+    'DİN KÜLTÜRÜ': 'DIN',
+    'DIN KULTURU': 'DIN',
     'DİN': 'DIN',
     'DIN': 'DIN',
     'İNGİLİZCE': 'ING',
@@ -130,6 +136,39 @@ export const LGS_CONFIG = {
     'FEN': 'FEN',
   } as Record<string, string>
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ÖZDEBİR LGS DERS SIRALAMASI
+// ═══════════════════════════════════════════════════════════════════════════
+// Özdebir optik formundaki cevap dizisindeki ders sıralaması ve pozisyonları
+// 150 karakterlik cevap alanından 90 soru çıkarılır
+// ═══════════════════════════════════════════════════════════════════════════
+export const OZDEBIR_DERS_DAGILIMI = [
+  { kod: 'TUR', ad: 'Türkçe', soruSayisi: 20, baslangic: 0, bitis: 20, katsayi: 4.0 },
+  { kod: 'SOS', ad: 'Sosyal Bilgiler', soruSayisi: 10, baslangic: 20, bitis: 30, katsayi: 1.0 },
+  { kod: 'DIN', ad: 'Din Kültürü', soruSayisi: 10, baslangic: 30, bitis: 40, katsayi: 1.0 },
+  { kod: 'ING', ad: 'İngilizce', soruSayisi: 10, baslangic: 40, bitis: 50, katsayi: 1.0 },
+  { kod: 'MAT', ad: 'Matematik', soruSayisi: 20, baslangic: 50, bitis: 70, katsayi: 4.0 },
+  { kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, baslangic: 70, bitis: 90, katsayi: 4.0 },
+];
+
+/**
+ * Özdebir cevap dizisini ders bazlı ayırır
+ * @param tumCevaplar 150 karakterlik cevap string'i
+ * @returns Her ders için cevap dizisi
+ */
+export function ozdebirCevaplariAyir(tumCevaplar: string): Record<string, string[]> {
+  const sonuc: Record<string, string[]> = {};
+  
+  for (const ders of OZDEBIR_DERS_DAGILIMI) {
+    // Cevap dizisinden ilgili bölümü al
+    const dersCevaplari = tumCevaplar.substring(ders.baslangic, ders.bitis);
+    // Karakter dizisine çevir
+    sonuc[ders.kod] = dersCevaplari.split('');
+  }
+  
+  return sonuc;
+}
 
 // ============ YARDIMCI FONKSİYONLAR ============
 

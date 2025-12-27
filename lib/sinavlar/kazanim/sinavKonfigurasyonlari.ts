@@ -225,13 +225,23 @@ export interface OptikFormSablonu {
   toplamSoru: number;
   satirUzunlugu: number;  // Optik formdan gelen satır karakter sayısı
   alanlar: {
+    kurumKodu?: { baslangic: number; bitis: number };  // Kurum/Okul kodu
     ogrenciNo: { baslangic: number; bitis: number };
     ogrenciAdi: { baslangic: number; bitis: number };
     tcKimlik?: { baslangic: number; bitis: number };
     sinif?: { baslangic: number; bitis: number };
     kitapcik?: { baslangic: number; bitis: number };
+    cinsiyet?: { baslangic: number; bitis: number };   // Cinsiyet (E/K)
     cevaplar: { baslangic: number; bitis: number };
   };
+  // Ders bazlı cevap ayrıştırma (cevap dizisi içindeki pozisyonlar)
+  dersDagilimi?: {
+    dersKodu: string;
+    dersAdi: string;
+    baslangic: number;  // Cevap dizisindeki başlangıç index
+    bitis: number;      // Cevap dizisindeki bitiş index
+    soruSayisi: number;
+  }[];
   kitapcikDonusum?: {
     A: number[];  // A kitapçığı soru sıralaması
     B: number[];  // B kitapçığı soru sıralaması
@@ -244,45 +254,60 @@ export interface OptikFormSablonu {
 
 export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
   // ═══════════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR ŞABLONU (204 karakter)
+  // ÖZDEBİR ŞABLONU (204 karakter) - GÜNCEL VERSİYON
   // ═══════════════════════════════════════════════════════════════════════════
-  // Özdebir yayıncılık optik form formatı - Cinsiyet alanı dahil
+  // Özdebir yayıncılık LGS optik form formatı
+  // 150 cevap karakteri içerir (90 soru + offset boşluklar)
   // 
-  // CHARACTER MAPPING:
-  // - student_no: line.substring(9, 13).trim()   → 4 karakter [10-13]
-  // - tc_no: line.substring(14, 25).trim()       → 11 karakter [15-25]
-  // - class_name: line.substring(25, 27).trim()  → 2 karakter [26-27]
-  // - booklet_type: line.substring(27, 28).trim()→ 1 karakter [28]
-  // - gender: line.substring(28, 29).trim()      → 1 karakter [29]
-  // - full_name: line.substring(29, 54).trim()   → 25 karakter [30-54]
-  // - all_answers: line.substring(54, 204)       → 150 karakter [55-204]
+  // KARAKTER HARİTASI:
+  // - line.substring(0, 10)  → kurum_kodu (10 kr)
+  // - line.substring(10, 14) → ogrenci_no (4 kr)
+  // - line.substring(14, 25) → tc_kimlik (11 kr)
+  // - line.substring(25, 27) → sinif_sube (2 kr)
+  // - line.substring(27, 28) → kitapcik_turu (1 kr)
+  // - line.substring(28, 29) → cinsiyet (1 kr)
+  // - line.substring(29, 54) → ad_soyad (25 kr)
+  // - line.substring(54, 204) → tum_cevaplar (150 kr)
   //
-  // DATA NORMALIZATION:
-  // - 'full_name' içindeki 'ı' → 'I', '«' → 'C', '÷' → 'O'
-  // - 'all_answers' içindeki boşluklar korunur (boş cevap = boşluk)
+  // DERS BAZLI AYRIŞTIRMA (ÖZDEBİR SIRALAMASI):
+  // - Türkçe (1-20): cevaplar[0-20]   → 20 soru
+  // - Sosyal (1-10): cevaplar[20-30]  → 10 soru
+  // - Din (1-10): cevaplar[30-40]     → 10 soru
+  // - İngilizce (1-10): cevaplar[40-50] → 10 soru
+  // - Matematik (1-20): cevaplar[50-70] → 20 soru
+  // - Fen (1-20): cevaplar[70-90]     → 20 soru
   //
-  // INTEGRATION:
-  // - 'booklet_type' = 'B' ise, Excel'deki 'B Kitapçığı Dönüşümü' kullanılır
-  // - MEB 500 tam puan standardında hesaplanır
+  // B KİTAPÇIĞI: Excel'deki 'B Kitapçığı Dönüşümü' sütununa göre A'ya dönüştürülür
+  // PUANLAMA: MEB 500 tam puan standardı (Ham*400/270 + 100)
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'ozdebir-lgs-90',
     ad: 'ÖZDEBİR - LGS 90 Soru (204 Karakter)',
     yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir standart LGS deneme optik formu - Format: [Öğr No 4kr][TC 11kr][Sınıf 2kr][Kitapçık 1kr][Cinsiyet 1kr][Ad Soyad 25kr][Cevaplar 150kr]',
+    aciklama: 'Özdebir LGS optik formu - Format: [Kurum 10kr][Öğr No 4kr][TC 11kr][Sınıf 2kr][Kitapçık 1kr][Cinsiyet 1kr][Ad Soyad 25kr][Cevaplar 150kr]',
     sinifSeviyeleri: ['8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
     satirUzunlugu: 204,
     alanlar: {
-      ogrenciNo: { baslangic: 10, bitis: 13 },     // line.substring(9, 13) → 4 karakter
+      kurumKodu: { baslangic: 1, bitis: 10 },      // line.substring(0, 10) → 10 karakter
+      ogrenciNo: { baslangic: 11, bitis: 14 },     // line.substring(10, 14) → 4 karakter
       tcKimlik: { baslangic: 15, bitis: 25 },      // line.substring(14, 25) → 11 karakter
       sinif: { baslangic: 26, bitis: 27 },         // line.substring(25, 27) → 2 karakter
       kitapcik: { baslangic: 28, bitis: 28 },      // line.substring(27, 28) → 1 karakter
-      // gender: { baslangic: 29, bitis: 29 },     // Cinsiyet (E/K) - ayrı işlenir
+      cinsiyet: { baslangic: 29, bitis: 29 },      // line.substring(28, 29) → 1 karakter (E/K)
       ogrenciAdi: { baslangic: 30, bitis: 54 },    // line.substring(29, 54) → 25 karakter
-      cevaplar: { baslangic: 55, bitis: 204 },     // line.substring(54, 204) → 150 karakter (ilk 90 kullanılır)
+      cevaplar: { baslangic: 55, bitis: 204 },     // line.substring(54, 204) → 150 karakter
     },
+    // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 20, bitis: 30, soruSayisi: 10 },
+      { dersKodu: 'DIN', dersAdi: 'Din Kültürü', baslangic: 30, bitis: 40, soruSayisi: 10 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 40, bitis: 50, soruSayisi: 10 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 70, bitis: 90, soruSayisi: 20 },
+    ],
     onerilenIcon: '📙',
     renk: '#DC2626'
   },
