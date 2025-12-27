@@ -1117,31 +1117,30 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                   </button>
                 )}
 
-                {/* Kaydet ve Devam Et Butonu - Sadece en az bir kitapçık tamsa */}
-                {enAzBirKitapcikTam && (
-                  <button
-                    onClick={handleKaydet}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
-                      tumKitapciklerTam
-                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200 ring-2 ring-emerald-300'
-                        : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
-                    }`}
-                  >
-                    <Check size={18} />
-                    {tumKitapciklerTam ? 'Tümü Tamam! Kaydet ve Devam Et' : 'Kaydet ve Devam Et'}
-                  </button>
-                )}
-
-                {/* Eğer hiçbir kitapçık tam değilse devre dışı buton */}
-                {!enAzBirKitapcikTam && (
-                  <button
-                    disabled
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-300 text-gray-500 rounded-xl font-medium cursor-not-allowed"
-                  >
-                    <AlertCircle size={18} />
-                    Önce bir kitapçığı tamamlayın
-                  </button>
-                )}
+                {/* Kaydet ve Devam Et Butonu - Herhangi bir cevap girildiğinde aktif */}
+                {(() => {
+                  const toplamCevap = kitapcikDoluluklari.A + kitapcikDoluluklari.B + kitapcikDoluluklari.C + kitapcikDoluluklari.D;
+                  const enAzBirCevapVar = toplamCevap > 0;
+                  
+                  return (
+                    <button
+                      onClick={handleKaydet}
+                      disabled={!enAzBirCevapVar}
+                      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
+                        enAzBirCevapVar
+                          ? tumKitapciklerTam
+                            ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200 ring-2 ring-emerald-300'
+                            : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Check size={18} />
+                      {tumKitapciklerTam 
+                        ? 'Tümü Tamam! Kaydet ve Devam Et' 
+                        : `Kaydet ve Devam Et (${toplamCevap} cevap)`}
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>
