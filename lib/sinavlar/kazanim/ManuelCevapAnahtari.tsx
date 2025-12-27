@@ -262,8 +262,15 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: ''
   });
   
-  // 🔒 KİLİT SİSTEMİ - Kaydedilen dersler kilitlenir
-  const [kilitliDersler, setKilitliDersler] = useState<Set<string>>(new Set());
+  // 🔒 KİLİT SİSTEMİ (KİTAPÇIK BAZLI)
+  // Kritik: Kilit tek Set olursa A'da kilitlenen dersler B'de de kilitli görünür
+  // ve B cevap anahtarı girilemez → B öğrencileri A anahtarıyla değerlendirilir (YANLIŞ).
+  const [kilitliDersler, setKilitliDersler] = useState<Record<KitapcikTuru, Set<string>>>(() => ({
+    A: new Set(),
+    B: new Set(),
+    C: new Set(),
+    D: new Set(),
+  }));
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
@@ -300,9 +307,12 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     // State'i temizle ve kilitle
     setDersCevaplari(prev => ({ ...prev, [dersKodu]: '' }));
     
-    // Tam cevap girildiyse kilitle
+    // Tam cevap girildiyse (aktif kitapçık için) kilitle
     if (temizCevaplar.length >= ders.soruSayisi) {
-      setKilitliDersler(prev => new Set([...prev, dersKodu]));
+      setKilitliDersler(prev => ({
+        ...prev,
+        [aktifKitapcik]: new Set([...prev[aktifKitapcik], dersKodu]),
+      }));
     }
     
     console.log(`✅ ${ders.ad} için ${temizCevaplar.length} cevap uygulandı ve kilitlendi`);
@@ -633,8 +643,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                     key={kit}
                     onClick={() => {
                       setAktifKitapcik(kit);
-                      // Kilit durumlarını sıfırla (yeni kitapçık için)
-                      setKilitliDersler(new Set());
+                      // ❗ Kilitler kitapçık bazlı tutulur, burada sıfırlanmaz
                     }}
                     className={`relative w-14 h-10 rounded-lg font-bold text-lg transition-all ${
                       aktifKitapcik === kit
@@ -703,7 +712,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
               {siraliDersler.map(ders => {
                 const doluluk = getDersCevapSayisi(ders.kod);
                 const yuzde = Math.round((doluluk / ders.soruSayisi) * 100);
-                const isKilitli = kilitliDersler.has(ders.kod);
+                const isKilitli = kilitliDersler[aktifKitapcik].has(ders.kod);
                 const isTam = doluluk === ders.soruSayisi;
                 
                 // Girilen karakter sayısı (sadece A-E)
@@ -742,9 +751,9 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                           className="flex items-center gap-2 px-3 py-1.5 bg-green-100 border border-green-300 rounded-lg cursor-pointer"
                           onDoubleClick={() => {
                             setKilitliDersler(prev => {
-                              const yeni = new Set(prev);
-                              yeni.delete(ders.kod);
-                              return yeni;
+                              const yeniSet = new Set(prev[aktifKitapcik]);
+                              yeniSet.delete(ders.kod);
+                              return { ...prev, [aktifKitapcik]: yeniSet };
                             });
                           }}
                           title="Çift tıkla ile kilidi aç"
@@ -847,6 +856,32 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
           <AlertCircle size={12} />
           Her ders için cevap sayısına ulaştığında otomatik uygulanır
         </div>
+
+        {/* ✅ Kitapçık bazlı "Kaydet" butonu (A bittiğinde A, B bittiğinde B) */}
+        {(() => {
+          const aktifDoluluk = kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length;
+          const aktifTam = aktifDoluluk === 90;
+          if (!aktifTam) return null;
+
+          return (
+            <div className="mt-4 flex items-center justify-end">
+              <button
+                onClick={() => {
+                  // Bu kitapçık için tüm dersleri kilitle (UI stabil kalsın)
+                  setKilitliDersler(prev => ({
+                    ...prev,
+                    [aktifKitapcik]: new Set(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']),
+                  }));
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
+                title={`Kitapçık ${aktifKitapcik} tamamlandı - kilitle`}
+              >
+                <Check size={18} />
+                Kitapçık {aktifKitapcik} Kaydet
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       {/* DERS BAZLI DETAYLI CEVAP GİRİŞİ - SÜRÜKLE-BIRAK DESTEKLİ */}
