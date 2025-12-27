@@ -578,6 +578,8 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
+              console.log('🔵 Manuel Cevap Anahtarı - Kaydet butonuna tıklandı');
+              
               // Kitapçık A'yı ana veri olarak al, diğer kitapçıkları eşle
               const sorularA = kitapcikVerileri['A'];
               const sorularB = kitapcikVerileri['B'];
@@ -591,32 +593,44 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
               };
 
               // CevapAnahtariSatir formatına dönüştür
-              const cevapAnahtari: CevapAnahtariSatir[] = sorularA
-                .filter(soru => soru.cevap) // Sadece cevabı olanları al
-                .map((soru, idx) => {
-                  const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
-                  const cevapA = validCevap(soru.cevap);
-                  const cevapB = validCevap(sorularB[idx]?.cevap || null);
-                  const cevapC = validCevap(sorularC[idx]?.cevap || null);
-                  const cevapD = validCevap(sorularD[idx]?.cevap || null);
-                  
-                  return {
-                    soruNo: soru.globalSoruNo,
-                    dogruCevap: cevapA || 'A', // Varsayılan A
-                    dersKodu: soru.dersKodu,
-                    dersAdi: ders?.ad || soru.dersKodu,
-                    kazanimKodu: soru.kazanimKodu || undefined,
-                    kazanimMetni: soru.kazanimMetni || undefined,
-                    kitapcikCevaplari: {
-                      A: cevapA,
-                      B: cevapB,
-                      C: cevapC,
-                      D: cevapD,
-                    },
-                  };
-                });
+              // ÖNEMLİ: Orijinal index'i korumak için önce map sonra filter kullanıyoruz
+              const cevapAnahtari: CevapAnahtariSatir[] = [];
               
-              onSave?.(cevapAnahtari);
+              sorularA.forEach((soru, originalIdx) => {
+                // Cevabı olmayan soruları atla
+                if (!soru.cevap) return;
+                
+                const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
+                const cevapA = validCevap(soru.cevap);
+                // Orijinal index'i kullan (filter sonrası değil!)
+                const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
+                const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
+                const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
+                
+                cevapAnahtari.push({
+                  soruNo: soru.globalSoruNo,
+                  dogruCevap: cevapA || 'A', // Varsayılan A
+                  dersKodu: soru.dersKodu,
+                  dersAdi: ders?.ad || soru.dersKodu,
+                  kazanimKodu: soru.kazanimKodu || undefined,
+                  kazanimMetni: soru.kazanimMetni || undefined,
+                  kitapcikCevaplari: {
+                    A: cevapA,
+                    B: cevapB,
+                    C: cevapC,
+                    D: cevapD,
+                  },
+                });
+              });
+              
+              console.log('✅ Cevap anahtarı oluşturuldu:', cevapAnahtari.length, 'soru');
+              
+              if (onSave) {
+                onSave(cevapAnahtari);
+                console.log('✅ onSave callback çağrıldı');
+              } else {
+                console.warn('⚠️ onSave prop tanımlı değil!');
+              }
             }}
             disabled={stats.doluSoru === 0}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
