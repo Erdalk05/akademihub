@@ -137,6 +137,8 @@ export default function SinavSihirbazi({
   const [parsedOgrenciler, setParsedOgrenciler] = useState<ParsedOptikSatir[]>([]);
   const [matchedData, setMatchedData] = useState<any[]>([]);
   const [sonuclar, setSonuclar] = useState<any[]>([]);
+  const [lastCalcAt, setLastCalcAt] = useState<string | null>(null);
+  const [lastCalcSig, setLastCalcSig] = useState<string | null>(null);
 
   // Adım geçişi
   const canProceed = useCallback(() => {
@@ -244,9 +246,23 @@ export default function SinavSihirbazi({
     console.log('📈 İstatistikler:', istatistikler);
 
     setSonuclar(results);
+    setLastCalcAt(new Date().toISOString());
+    // küçük bir imza (UI debug): cevapAnahtari + ogrenci sayısı
+    const first = cevapAnahtari.slice(0, 5).map(r => `${r.soruNo}:${r.dogruCevap}:${r.kitapcikCevaplari?.B || '-'}`).join('|');
+    setLastCalcSig(`${sinavBilgisi.tip}-${sinavBilgisi.sinifSeviyesi}-K:${cevapAnahtari.length}-O:${parsedOgrenciler.length}-F:${first}`);
   }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi]);
 
-  // Adım 4'ten 5'e geçerken sonuçları hesapla
+  // ✅ Sonuçların "cache" kalmasını engelle:
+  // - Cevap anahtarı veya öğrenci verisi değişince eski sonuçları sil
+  // - Step 5'teysek otomatik yeniden hesapla
+  useEffect(() => {
+    // giriş verisi değişti: eski sonuçlar geçersiz
+    setSonuclar([]);
+    setLastCalcAt(null);
+    setLastCalcSig(null);
+  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi.ad, sinavBilgisi.tip, sinavBilgisi.sinifSeviyesi, sinavBilgisi.yanlisKatsayisi]);
+
+  // Adım 5'teyken (her giriş değişiminde) sonuçları hesapla
   useEffect(() => {
     if (currentStep === 5) {
       calculateResults();
@@ -893,6 +909,22 @@ export default function SinavSihirbazi({
                     </div>
                     <div className="text-sm text-amber-700 font-medium">Ort. LGS Puanı</div>
                     <div className="text-xs text-amber-500 mt-1">100-500 MEB Skalası</div>
+                  </div>
+                </div>
+
+                {/* ✅ Debug: Son hesaplama bilgisi (cache olup olmadığını gösterir) */}
+                <div className="mb-6 flex items-center justify-between gap-3 flex-wrap text-xs">
+                  <div className="text-slate-500">
+                    Son Hesaplama:{' '}
+                    <span className="font-mono text-slate-700">
+                      {lastCalcAt ? new Date(lastCalcAt).toLocaleString('tr-TR') : '—'}
+                    </span>
+                  </div>
+                  <div className="text-slate-500">
+                    İmza:{' '}
+                    <span className="font-mono text-slate-700">
+                      {lastCalcSig || '—'}
+                    </span>
                   </div>
                 </div>
 
