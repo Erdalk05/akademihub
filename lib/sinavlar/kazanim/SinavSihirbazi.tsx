@@ -36,6 +36,12 @@ import {
   EsnekDegerlendirmeSonucu,
   EsnekSinavYapilandirmasi 
 } from './PuanlamaMotoru';
+import {
+  getCevapAnahtariSablonlari,
+  createCevapAnahtariSablon,
+  deleteCevapAnahtariSablon,
+  type CevapAnahtariSablonDB,
+} from '@/lib/sinavlar/services/cevapAnahtariSablonService';
 
 interface SinavSihirbaziProps {
   organizationId: string;
@@ -121,6 +127,11 @@ export default function SinavSihirbazi({
   const [sablonModu, setSablonModu] = useState<'kutuphane' | 'ozel'>('kutuphane');
   const [cevapGirisYontemi, setCevapGirisYontemi] = useState<'kazanim' | 'manuel'>('manuel');
   const [cevapAnahtari, setCevapAnahtari] = useState<CevapAnahtariSatir[]>([]);
+  // Cevap anahtarı şablon kütüphanesi
+  const [cevapSablonlari, setCevapSablonlari] = useState<CevapAnahtariSablonDB[]>([]);
+  const [cevapSablonLoading, setCevapSablonLoading] = useState(false);
+  const [cevapSablonAdi, setCevapSablonAdi] = useState('');
+  const [selectedCevapSablonId, setSelectedCevapSablonId] = useState<string>('');
   const [selectedSablon, setSelectedSablon] = useState<OptikSablon | null>(savedSablonlar[0] || null);
   const [customSablon, setCustomSablon] = useState<Omit<OptikSablon, 'id'> | null>(null);
   const [parsedOgrenciler, setParsedOgrenciler] = useState<ParsedOptikSatir[]>([]);
@@ -144,6 +155,22 @@ export default function SinavSihirbazi({
         return false;
     }
   }, [currentStep, sinavBilgisi, cevapAnahtari, selectedSablon, customSablon, parsedOgrenciler]);
+
+  // Cevap anahtarı şablonlarını yükle (Step 2'de kullanılacak)
+  const refreshCevapSablonlari = useCallback(async () => {
+    setCevapSablonLoading(true);
+    try {
+      const list = await getCevapAnahtariSablonlari(organizationId);
+      setCevapSablonlari(list);
+    } finally {
+      setCevapSablonLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    // Wizard açılınca hazır dursun
+    refreshCevapSablonlari();
+  }, [refreshCevapSablonlari]);
 
   const goNext = () => {
     if (canProceed() && currentStep < STEPS.length) {
@@ -563,6 +590,121 @@ export default function SinavSihirbazi({
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
+              {/* ✅ Cevap Anahtarı Kütüphanesi (Kaydet/Yükle) */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <BookOpen size={18} className="text-emerald-600" />
+                    <div className="font-semibold text-slate-800">Cevap Anahtarı Kütüphanesi</div>
+                    <div className="text-xs text-slate-500">Tekrar tekrar girmeyin</div>
+                  </div>
+                  <button
+                    onClick={refreshCevapSablonlari}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    disabled={cevapSablonLoading}
+                  >
+                    {cevapSablonLoading ? 'Yükleniyor...' : 'Yenile'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                  {/* Yükle */}
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-slate-600">Kayıtlı anahtardan yükle</label>
+                    <div className="flex gap-2 mt-1">
+                      <select
+                        value={selectedCevapSablonId}
+                        onChange={(e) => setSelectedCevapSablonId(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white"
+                      >
+                        <option value="">Seçiniz...</option>
+                        {cevapSablonlari.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.sablon_adi}{s.sinif_seviyesi ? ` • ${s.sinif_seviyesi}. Sınıf` : ''}{s.sinav_turu ? ` • ${s.sinav_turu}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => {
+                          const sablon = cevapSablonlari.find(s => s.id === selectedCevapSablonId);
+                          if (!sablon) return;
+                          setCevapAnahtari(sablon.cevap_anahtari || []);
+                          // Kullanıcı manuel ekranı görsün
+                          setCevapGirisYontemi('manuel');
+                        }}
+                        disabled={!selectedCevapSablonId}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedCevapSablonId ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Yükle
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const sablon = cevapSablonlari.find(s => s.id === selectedCevapSablonId);
+                          if (!sablon) return;
+                          if (!confirm(`"${sablon.sablon_adi}" şablonunu silmek istiyor musunuz?`)) return;
+                          await deleteCevapAnahtariSablon(sablon.id);
+                          setSelectedCevapSablonId('');
+                          refreshCevapSablonlari();
+                        }}
+                        disabled={!selectedCevapSablonId}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedCevapSablonId ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        Sil
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Kaydet */}
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Mevcut anahtarı kaydet</label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        value={cevapSablonAdi}
+                        onChange={(e) => setCevapSablonAdi(e.target.value)}
+                        placeholder="Örn: ÖZDEBİR LGS DENEME 1"
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!cevapSablonAdi.trim()) return alert('Şablon adı yazın.');
+                          if (!cevapAnahtari || cevapAnahtari.length === 0) return alert('Önce cevap anahtarı girin.');
+
+                          setCevapSablonLoading(true);
+                          try {
+                            const created = await createCevapAnahtariSablon({
+                              sablon_adi: cevapSablonAdi.trim(),
+                              sinav_turu: sinavBilgisi.tip,
+                              sinif_seviyesi: sinavBilgisi.sinifSeviyesi,
+                              cevap_anahtari: cevapAnahtari,
+                              organization_id: organizationId,
+                            });
+                            if (!created) {
+                              alert('Kaydedilemedi. Supabase bağlantısı/policy kontrol edin.');
+                              return;
+                            }
+                            setCevapSablonAdi('');
+                            await refreshCevapSablonlari();
+                            setSelectedCevapSablonId(created.id);
+                          } finally {
+                            setCevapSablonLoading(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                      >
+                        Kaydet
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-2">
+                      Kaydettikten sonra istediğiniz sınavda “Yükle” diyerek kullanabilirsiniz.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Giriş Yöntemi Seçimi */}
               <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
                 <button
