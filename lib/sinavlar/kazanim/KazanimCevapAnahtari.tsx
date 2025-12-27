@@ -152,21 +152,90 @@ const DERS_RENKLERI: Record<string, { bg: string; text: string; border: string }
   'BIO': { bg: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
 };
 
+// ✅ Türkçe karakterleri ASCII'ye dönüştür
+function normalizeTurkish(text: string): string {
+  return text
+    .replace(/İ/g, 'I').replace(/ı/g, 'i')
+    .replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
+    .replace(/Ü/g, 'U').replace(/ü/g, 'u')
+    .replace(/Ş/g, 'S').replace(/ş/g, 's')
+    .replace(/Ö/g, 'O').replace(/ö/g, 'o')
+    .replace(/Ç/g, 'C').replace(/ç/g, 'c');
+}
+
 function getDersKodu(text: string): string {
   if (!text) return 'TUR';
+  
   const upper = text.toUpperCase().trim();
+  const normalized = normalizeTurkish(upper);
+  const noSpaces = upper.replace(/\s+/g, '');
+  const normalizedNoSpaces = normalizeTurkish(noSpaces);
   
-  // Direkt eşleşme
-  if (DERS_ALIASES[upper]) return DERS_ALIASES[upper];
+  console.log(`🔍 getDersKodu: "${text}" → upper="${upper}" → noSpaces="${noSpaces}"`);
   
-  // Kısmi eşleşme
+  // ✅ 1. Direkt eşleşme (orijinal)
+  if (DERS_ALIASES[upper]) {
+    console.log(`✅ Direkt eşleşme: ${upper} → ${DERS_ALIASES[upper]}`);
+    return DERS_ALIASES[upper];
+  }
+  
+  // ✅ 2. Boşluksuz eşleşme
+  if (DERS_ALIASES[noSpaces]) {
+    console.log(`✅ Boşluksuz eşleşme: ${noSpaces} → ${DERS_ALIASES[noSpaces]}`);
+    return DERS_ALIASES[noSpaces];
+  }
+  
+  // ✅ 3. Anahtar kelime bazlı algılama (EN ÖNEMLİ!)
+  if (upper.includes('İNKILAP') || upper.includes('INKILAP') || upper.includes('ATATÜRK') || 
+      normalized.includes('INKILAP') || normalized.includes('ATATURK')) {
+    console.log(`✅ Anahtar kelime: İNKILAP → INK`);
+    return 'INK';
+  }
+  
+  if (upper.includes('DİN') || upper.includes('DIN') || upper.includes('DKAB') || 
+      upper.includes('AHLAK') || normalized.includes('DIN') || normalized.includes('AHLAK')) {
+    console.log(`✅ Anahtar kelime: DİN → DIN`);
+    return 'DIN';
+  }
+  
+  if (upper.includes('YABANCI') || upper.includes('İNGİLİZCE') || upper.includes('INGILIZCE') ||
+      normalized.includes('INGILIZCE') || normalized.includes('YABANCI')) {
+    console.log(`✅ Anahtar kelime: YABANCI/İNGİLİZCE → ING`);
+    return 'ING';
+  }
+  
+  if (upper.includes('FEN') || upper.includes('BİLİM') || normalized.includes('BILIM')) {
+    console.log(`✅ Anahtar kelime: FEN → FEN`);
+    return 'FEN';
+  }
+  
+  if (upper.includes('TÜRKÇE') || upper.includes('TURKCE') || normalized.includes('TURKCE')) {
+    console.log(`✅ Anahtar kelime: TÜRKÇE → TUR`);
+    return 'TUR';
+  }
+  
+  if (upper.includes('MATEMATİK') || upper.includes('MATEMATIK') || normalized.includes('MATEMATIK')) {
+    console.log(`✅ Anahtar kelime: MATEMATİK → MAT`);
+    return 'MAT';
+  }
+  
+  if (upper.includes('SOSYAL') || normalized.includes('SOSYAL')) {
+    console.log(`✅ Anahtar kelime: SOSYAL → SOS`);
+    return 'SOS';
+  }
+  
+  // ✅ 4. Kısmi eşleşme (fallback)
   for (const [key, value] of Object.entries(DERS_ALIASES)) {
-    if (upper.includes(key) || key.includes(upper)) {
+    const keyNorm = normalizeTurkish(key);
+    if (normalized.includes(keyNorm) || keyNorm.includes(normalized) ||
+        normalizedNoSpaces.includes(keyNorm) || keyNorm.includes(normalizedNoSpaces)) {
+      console.log(`✅ Kısmi eşleşme: ${key} → ${value}`);
       return value;
     }
   }
   
-  return upper.substring(0, 3);
+  console.log(`⚠️ Eşleşme bulunamadı: "${text}" → varsayılan TUR`);
+  return 'TUR';
 }
 
 function getDersTamAdi(kod: string): string {
