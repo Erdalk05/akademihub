@@ -97,20 +97,22 @@ export default function SablonKutuphanesi({
     }
   }, [hiddenSablonlar]);
   
-  // Yeni şablon formu - GENİŞLETİLMİŞ
+  // Yeni şablon formu - GENİŞLETİLMİŞ (Kurum Kodu ve Cinsiyet eklendi)
   const [newSablon, setNewSablon] = useState({
     ad: '',
     yayinevi: 'Özel',
     toplamSoru: 90,
-    satirUzunlugu: 150,
+    satirUzunlugu: 204,
     sinifSeviyeleri: ['8'] as SinifSeviyesi[],
     sinavTurleri: ['DENEME'] as SinavTuru[],
-    ogrenciNo: { baslangic: 1, bitis: 8 },
-    ogrenciAdi: { baslangic: 9, bitis: 28 },
-    tcKimlik: { baslangic: 0, bitis: 0 },
-    sinif: { baslangic: 0, bitis: 0 },
-    kitapcik: { baslangic: 0, bitis: 0 },
-    cevaplar: { baslangic: 50, bitis: 139 },
+    kurumKodu: { baslangic: 1, bitis: 10 },    // YENİ: Kurum Kodu
+    ogrenciNo: { baslangic: 11, bitis: 14 },
+    tcKimlik: { baslangic: 15, bitis: 25 },
+    sinif: { baslangic: 26, bitis: 27 },
+    kitapcik: { baslangic: 28, bitis: 28 },
+    cinsiyet: { baslangic: 29, bitis: 29 },    // YENİ: Cinsiyet
+    ogrenciAdi: { baslangic: 30, bitis: 54 },
+    cevaplar: { baslangic: 55, bitis: 204 },
     ozelAlanlar: [] as { ad: string; baslangic: number; bitis: number }[]
   });
   
@@ -151,20 +153,23 @@ export default function SablonKutuphanesi({
   const convertToOptikSablon = (formSablon: OptikFormSablonu): OptikSablon => {
     const alanTanimlari: OptikAlanTanimi[] = [];
     
+    // Kurum Kodu (Özdebir formatı için)
+    if (formSablon.alanlar.kurumKodu && formSablon.alanlar.kurumKodu.baslangic > 0) {
+      alanTanimlari.push({
+        alan: 'kurum_kodu',
+        baslangic: formSablon.alanlar.kurumKodu.baslangic,
+        bitis: formSablon.alanlar.kurumKodu.bitis,
+        label: 'Kurum Kodu',
+        color: '#6366F1' // indigo
+      });
+    }
+    
     alanTanimlari.push({
       alan: 'ogrenci_no',
       baslangic: formSablon.alanlar.ogrenciNo.baslangic,
       bitis: formSablon.alanlar.ogrenciNo.bitis,
       label: 'Öğrenci No',
       color: ALAN_RENKLERI.ogrenci_no
-    });
-    
-    alanTanimlari.push({
-      alan: 'ogrenci_adi',
-      baslangic: formSablon.alanlar.ogrenciAdi.baslangic,
-      bitis: formSablon.alanlar.ogrenciAdi.bitis,
-      label: 'Öğrenci Adı',
-      color: ALAN_RENKLERI.ogrenci_adi
     });
     
     if (formSablon.alanlar.tcKimlik && formSablon.alanlar.tcKimlik.baslangic > 0) {
@@ -196,6 +201,25 @@ export default function SablonKutuphanesi({
         color: ALAN_RENKLERI.kitapcik
       });
     }
+    
+    // Cinsiyet (Özdebir formatı için)
+    if (formSablon.alanlar.cinsiyet && formSablon.alanlar.cinsiyet.baslangic > 0) {
+      alanTanimlari.push({
+        alan: 'cinsiyet',
+        baslangic: formSablon.alanlar.cinsiyet.baslangic,
+        bitis: formSablon.alanlar.cinsiyet.bitis,
+        label: 'Cinsiyet',
+        color: '#EC4899' // pink
+      });
+    }
+    
+    alanTanimlari.push({
+      alan: 'ogrenci_adi',
+      baslangic: formSablon.alanlar.ogrenciAdi.baslangic,
+      bitis: formSablon.alanlar.ogrenciAdi.bitis,
+      label: 'Öğrenci Adı',
+      color: ALAN_RENKLERI.ogrenci_adi
+    });
     
     alanTanimlari.push({
       alan: 'cevaplar',
@@ -303,11 +327,13 @@ export default function SablonKutuphanesi({
       toplamSoru: newSablon.toplamSoru,
       satirUzunlugu: newSablon.satirUzunlugu,
       alanlar: {
+        kurumKodu: newSablon.kurumKodu.baslangic > 0 ? newSablon.kurumKodu : undefined, // YENİ
         ogrenciNo: newSablon.ogrenciNo,
-        ogrenciAdi: newSablon.ogrenciAdi,
         tcKimlik: newSablon.tcKimlik.baslangic > 0 ? newSablon.tcKimlik : undefined,
         sinif: newSablon.sinif.baslangic > 0 ? newSablon.sinif : undefined,
         kitapcik: newSablon.kitapcik.baslangic > 0 ? newSablon.kitapcik : undefined,
+        cinsiyet: newSablon.cinsiyet.baslangic > 0 ? newSablon.cinsiyet : undefined, // YENİ
+        ogrenciAdi: newSablon.ogrenciAdi,
         cevaplar: newSablon.cevaplar,
         // Özel alanları da ekle
         ...(newSablon.ozelAlanlar.length > 0 && {
@@ -502,7 +528,28 @@ export default function SablonKutuphanesi({
                 📍 Karakter Pozisyonları (Başlangıç - Bitiş)
               </h5>
               
-              <div className="grid grid-cols-7 gap-2 text-sm">
+              <div className="grid grid-cols-9 gap-2 text-sm">
+                {/* Kurum Kodu - YENİ */}
+                <div className="col-span-1 bg-indigo-50 p-2 rounded-lg border border-indigo-200">
+                  <label className="block text-[10px] text-indigo-700 mb-1 font-medium">🏛️ Kurum</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={newSablon.kurumKodu.baslangic || ''}
+                      onChange={(e) => setNewSablon({...newSablon, kurumKodu: {...newSablon.kurumKodu, baslangic: parseInt(e.target.value) || 0}})}
+                      placeholder="Baş"
+                      className="w-full px-1 py-1 border border-indigo-200 rounded text-center text-xs"
+                    />
+                    <input
+                      type="number"
+                      value={newSablon.kurumKodu.bitis || ''}
+                      onChange={(e) => setNewSablon({...newSablon, kurumKodu: {...newSablon.kurumKodu, bitis: parseInt(e.target.value) || 0}})}
+                      placeholder="Bit"
+                      className="w-full px-1 py-1 border border-indigo-200 rounded text-center text-xs"
+                    />
+                  </div>
+                </div>
+                
                 {/* Öğrenci No */}
                 <div className="col-span-1 bg-amber-50 p-2 rounded-lg border border-amber-200">
                   <label className="block text-[10px] text-amber-700 mb-1 font-medium">🔢 Öğr. No</label>
@@ -520,27 +567,6 @@ export default function SablonKutuphanesi({
                       onChange={(e) => setNewSablon({...newSablon, ogrenciNo: {...newSablon.ogrenciNo, bitis: parseInt(e.target.value) || 0}})}
                       placeholder="Bit"
                       className="w-full px-1 py-1 border border-amber-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Ad Soyad */}
-                <div className="col-span-1 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                  <label className="block text-[10px] text-emerald-700 mb-1 font-medium">👤 Ad Soyad</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciAdi.baslangic}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciAdi.bitis}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
                     />
                   </div>
                 </div>
@@ -604,6 +630,48 @@ export default function SablonKutuphanesi({
                       onChange={(e) => setNewSablon({...newSablon, kitapcik: {...newSablon.kitapcik, bitis: parseInt(e.target.value) || 0}})}
                       placeholder="Bit"
                       className="w-full px-1 py-1 border border-pink-200 rounded text-center text-xs"
+                    />
+                  </div>
+                </div>
+                
+                {/* Cinsiyet - YENİ */}
+                <div className="col-span-1 bg-rose-50 p-2 rounded-lg border border-rose-200">
+                  <label className="block text-[10px] text-rose-700 mb-1 font-medium">⚧ Cinsiyet</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={newSablon.cinsiyet.baslangic || ''}
+                      onChange={(e) => setNewSablon({...newSablon, cinsiyet: {...newSablon.cinsiyet, baslangic: parseInt(e.target.value) || 0}})}
+                      placeholder="Baş"
+                      className="w-full px-1 py-1 border border-rose-200 rounded text-center text-xs"
+                    />
+                    <input
+                      type="number"
+                      value={newSablon.cinsiyet.bitis || ''}
+                      onChange={(e) => setNewSablon({...newSablon, cinsiyet: {...newSablon.cinsiyet, bitis: parseInt(e.target.value) || 0}})}
+                      placeholder="Bit"
+                      className="w-full px-1 py-1 border border-rose-200 rounded text-center text-xs"
+                    />
+                  </div>
+                </div>
+                
+                {/* Ad Soyad */}
+                <div className="col-span-1 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                  <label className="block text-[10px] text-emerald-700 mb-1 font-medium">👤 Ad Soyad</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={newSablon.ogrenciAdi.baslangic}
+                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, baslangic: parseInt(e.target.value) || 0}})}
+                      placeholder="Baş"
+                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
+                    />
+                    <input
+                      type="number"
+                      value={newSablon.ogrenciAdi.bitis}
+                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, bitis: parseInt(e.target.value) || 0}})}
+                      placeholder="Bit"
+                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
                     />
                   </div>
                 </div>
