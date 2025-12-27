@@ -335,8 +335,25 @@ export default function OptikVeriParser({
     console.log('📋 Şablon:', sablon.sablonAdi);
     console.log('📊 Toplam Soru:', sablon.toplamSoru);
     console.log('📐 Alan Tanımları:');
-    sablon.alanTanimlari.forEach((alan, i) => {
-      console.log(`   ${i + 1}. ${alan.label} (${alan.alan}) → [${alan.baslangic}-${alan.bitis}] (${alan.bitis - alan.baslangic + 1} karakter)`);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GÜVENLİ ERİŞİM: alanTanimlari veya içindeki alanlar undefined olabilir
+    // ═══════════════════════════════════════════════════════════════════════════
+    const alanTanimlari = sablon.alanTanimlari || [];
+    
+    if (alanTanimlari.length === 0) {
+      console.error('❌ Şablonda alan tanımları yok!');
+      setError('Şablonda alan tanımları bulunamadı. Lütfen farklı bir şablon seçin.');
+      setIsParsing(false);
+      return;
+    }
+    
+    alanTanimlari.forEach((alan, i) => {
+      if (alan && typeof alan.baslangic === 'number' && typeof alan.bitis === 'number') {
+        console.log(`   ${i + 1}. ${alan.label || 'Alan'} (${alan.alan || '?'}) → [${alan.baslangic}-${alan.bitis}] (${alan.bitis - alan.baslangic + 1} karakter)`);
+      } else {
+        console.warn(`   ${i + 1}. ⚠️ Geçersiz alan tanımı:`, alan);
+      }
     });
     console.log('───────────────────────────────────────────────────');
 
@@ -364,14 +381,22 @@ export default function OptikVeriParser({
       }
 
       // Her alanı parse et
-      sablon.alanTanimlari.forEach((alan) => {
+      alanTanimlari.forEach((alan) => {
+        // ═══════════════════════════════════════════════════════════════════════
+        // GÜVENLİ ERİŞİM: alan veya özellikleri undefined olabilir
+        // ═══════════════════════════════════════════════════════════════════════
+        if (!alan || typeof alan.baslangic !== 'number' || typeof alan.bitis !== 'number') {
+          console.warn('⚠️ Geçersiz alan atlandı:', alan);
+          return;
+        }
+        
         // 0-indexed için -1 (kullanıcı 1'den başlıyor)
         const startIdx = alan.baslangic - 1;
         const endIdx = alan.bitis; // substring end exclusive
         
         // Satır yeterince uzun mu?
         if (startIdx >= line.length) {
-          hatalar.push(`${alan.label}: Satır çok kısa (${line.length} karakter)`);
+          hatalar.push(`${alan.label || 'Alan'}: Satır çok kısa (${line.length} karakter)`);
           return;
         }
         
@@ -383,7 +408,7 @@ export default function OptikVeriParser({
 
         // Debug: İlk 3 satır için alan değerlerini logla
         if (index < 3) {
-          console.log(`   ├─ ${alan.label} (${alan.alan}) [${alan.baslangic}-${alan.bitis}]: "${rawValue}" → "${fixedValue}"`);
+          console.log(`   ├─ ${alan.label || 'Alan'} (${alan.alan || '?'}) [${alan.baslangic}-${alan.bitis}]: "${rawValue}" → "${fixedValue}"`);
         }
 
         // Alan tipini normalize et (case-insensitive, underscore/space tolerant)
@@ -626,18 +651,20 @@ export default function OptikVeriParser({
           <span className="text-sm text-blue-600">{sablon.toplamSoru} soru</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {sablon.alanTanimlari.map((alan, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
-              style={{ backgroundColor: `${alan.color || '#64748B'}20`, color: alan.color || '#64748B' }}
-            >
-              <span className="font-medium">{alan.label}</span>
-              <span className="text-xs opacity-70">({alan.baslangic}-{alan.bitis})</span>
-            </div>
+          {(sablon.alanTanimlari || []).map((alan, i) => (
+            alan && typeof alan.baslangic === 'number' ? (
+              <div
+                key={i}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+                style={{ backgroundColor: `${alan.color || '#64748B'}20`, color: alan.color || '#64748B' }}
+              >
+                <span className="font-medium">{alan.label || 'Alan'}</span>
+                <span className="text-xs opacity-70">({alan.baslangic ?? '?'}-{alan.bitis ?? '?'})</span>
+              </div>
+            ) : null
           ))}
         </div>
-        {sablon.alanTanimlari.length === 0 && (
+        {(!sablon.alanTanimlari || sablon.alanTanimlari.length === 0) && (
           <p className="text-sm text-red-600 mt-2">⚠️ Şablonda alan tanımı yok!</p>
         )}
       </div>
