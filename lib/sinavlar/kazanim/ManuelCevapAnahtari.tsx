@@ -710,9 +710,9 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                                   handleDersCevapYapistir(ders.kod, deger);
                                 }
                               }}
-                              placeholder={`${ders.soruSayisi} karakter girin...`}
-                              maxLength={ders.soruSayisi + 10}
-                              className={`w-full px-3 py-1.5 pr-16 border rounded-lg text-sm font-mono uppercase focus:ring-2 transition-all ${
+                              placeholder={`${ders.soruSayisi} cevap girin (A-E)...`}
+                              maxLength={ders.soruSayisi * 3}
+                              className={`w-full px-3 py-1.5 pr-20 border rounded-lg text-sm font-mono uppercase focus:ring-2 transition-all ${
                                 isEksik 
                                   ? 'border-amber-400 bg-amber-50 focus:ring-amber-500' 
                                   : isFazla 
@@ -722,12 +722,12 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                                       : 'border-gray-200 focus:ring-indigo-500'
                               }`}
                             />
-                            {/* Karakter Sayacı */}
-                            <div className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-0.5 rounded ${
+                            {/* Karakter Sayacı - Daha belirgin */}
+                            <div className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-1 rounded-lg shadow-sm ${
                               girilenKarakter === 0
-                                ? 'bg-gray-200 text-gray-500'
+                                ? 'bg-gray-300 text-gray-600'
                                 : girilenKarakter === ders.soruSayisi
-                                  ? 'bg-green-500 text-white'
+                                  ? 'bg-green-500 text-white ring-2 ring-green-300'
                                   : isEksik
                                     ? 'bg-amber-500 text-white'
                                     : 'bg-red-500 text-white'
