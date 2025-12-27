@@ -281,25 +281,28 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
     id: 'ozdebir-lgs-90',
     ad: 'ÖZDEBİR - LGS 90 Soru (5-6-7-8. Sınıf)',
     yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir Yayınları LGS optik formu - Kurum Kodu, TC Kimlik, Cinsiyet, Kitapçık A/B destekli. SÖZEL: Türkçe(20), Sosyal(10), Din(10), İngilizce(10) | SAYISAL: Matematik(20), Fen(20)',
+    aciklama: 'Özdebir Yayınları LGS optik formu - GERÇEK VERİ İLE DOĞRULANDI. Kurum Kodu, TC Kimlik, Kitapçık A/B destekli. SÖZEL: Türkçe(20), Sosyal(10), Din(10), İngilizce(10) | SAYISAL: Matematik(20), Fen(20)',
     sinifSeviyeleri: ['5', '6', '7', '8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
-    satirUzunlugu: 204,
+    satirUzunlugu: 171,  // GERÇEK VERİDEN ÖLÇÜLDÜ
     alanlar: {
       // ┌─────────────────────────────────────────────────────────────────────┐
-      // │ KARAKTER HARİTASI (TXT dosyasındaki pozisyonlar)                   │
+      // │ GERÇEK VERİ İLE DOĞRULANMIŞ KARAKTER HARİTASI                      │
+      // │ Örnek: "9        156  399344223988DB FATMA GıZEM KARA      ABBCB..."│
       // └─────────────────────────────────────────────────────────────────────┘
-      kurumKodu: { baslangic: 1, bitis: 10 },      // MEB/Kurum Kodu (10 karakter)
-      ogrenciNo: { baslangic: 11, bitis: 14 },     // Öğrenci Numarası (4 karakter)
-      tcKimlik: { baslangic: 15, bitis: 25 },      // T.C. Kimlik No (11 karakter)
-      sinif: { baslangic: 26, bitis: 27 },         // Sınıf/Şube (2 karakter)
-      kitapcik: { baslangic: 28, bitis: 28 },      // Kitapçık Türü: A veya B (1 karakter)
-      cinsiyet: { baslangic: 29, bitis: 29 },      // Cinsiyet: K (Kız) veya E (Erkek) (1 karakter)
-      ogrenciAdi: { baslangic: 30, bitis: 54 },    // Ad Soyad (25 karakter)
-      cevaplar: { baslangic: 55, bitis: 204 },     // Tüm Cevaplar (150 karakter)
+      kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → "9        1"
+      ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → "56  "
+      tcKimlik: { baslangic: 15, bitis: 25 },      // substring(14, 25) → "39934422398" (11 kr) ✓
+      sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → "8D" ✓
+      kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → "B" ✓
+      cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → " " (opsiyonel)
+      ogrenciAdi: { baslangic: 30, bitis: 51 },    // substring(29, 51) → "FATMA GıZEM KARA" (22 kr) ✓
+      cevaplar: { baslangic: 52, bitis: 171 },     // substring(51, 171) → 120 karakter ✓
     },
     // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
+    // NOT: 90 soru toplam, 120 karakter alanda (offset boşluklar mevcut)
+    // Boşluk karakteri = öğrencinin boş bıraktığı soru
     dersDagilimi: [
       { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
       { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler / İnkılap Tarihi', baslangic: 20, bitis: 30, soruSayisi: 10 },
