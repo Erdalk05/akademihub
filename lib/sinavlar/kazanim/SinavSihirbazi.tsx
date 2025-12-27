@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 import KazanimCevapAnahtari from './KazanimCevapAnahtari';
+import ManuelCevapAnahtari from './ManuelCevapAnahtari';
 import OptikSablonEditor from './OptikSablonEditor';
 import OptikVeriParser from './OptikVeriParser';
 import SablonKutuphanesi from './SablonKutuphanesi';
@@ -105,6 +106,7 @@ export default function SinavSihirbazi({
     sinifSeviyesi: '8'
   });
   const [sablonModu, setSablonModu] = useState<'kutuphane' | 'ozel'>('kutuphane');
+  const [cevapGirisYontemi, setCevapGirisYontemi] = useState<'kazanim' | 'manuel'>('manuel');
   const [cevapAnahtari, setCevapAnahtari] = useState<CevapAnahtariSatir[]>([]);
   const [selectedSablon, setSelectedSablon] = useState<OptikSablon | null>(savedSablonlar[0] || null);
   const [customSablon, setCustomSablon] = useState<Omit<OptikSablon, 'id'> | null>(null);
@@ -546,14 +548,54 @@ export default function SinavSihirbazi({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
             >
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <KazanimCevapAnahtari
+              {/* Giriş Yöntemi Seçimi */}
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                <button
+                  onClick={() => setCevapGirisYontemi('manuel')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    cevapGirisYontemi === 'manuel'
+                      ? 'bg-white shadow-md text-emerald-600'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Target size={18} />
+                  Manuel Cevap Girişi
+                  <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">YENİ</span>
+                </button>
+                <button
+                  onClick={() => setCevapGirisYontemi('kazanim')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    cevapGirisYontemi === 'kazanim'
+                      ? 'bg-white shadow-md text-purple-600'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <ListChecks size={18} />
+                  Kazanım Bazlı Giriş
+                </button>
+              </div>
+
+              {/* Manuel Cevap Girişi */}
+              {cevapGirisYontemi === 'manuel' && (
+                <ManuelCevapAnahtari
                   examType={sinavBilgisi.tip}
                   onSave={(data) => setCevapAnahtari(data)}
                   initialData={cevapAnahtari}
                 />
-              </div>
+              )}
+
+              {/* Kazanım Bazlı Giriş */}
+              {cevapGirisYontemi === 'kazanim' && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                  <KazanimCevapAnahtari
+                    examType={sinavBilgisi.tip}
+                    onSave={(data) => setCevapAnahtari(data)}
+                    initialData={cevapAnahtari}
+                  />
+                </div>
+              )}
             </motion.div>
           )}
 

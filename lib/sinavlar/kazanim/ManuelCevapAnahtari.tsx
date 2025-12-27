@@ -51,9 +51,13 @@ interface KitapcikVerisi {
   sorular: SoruCevap[];
 }
 
+// CevapAnahtariSatir tipini import et
+import { CevapAnahtariSatir } from './types';
+
 interface ManuelCevapAnahtariProps {
-  onSave?: (data: KitapcikVerisi[]) => void;
-  initialData?: KitapcikVerisi[];
+  examType?: string; // LGS, TYT, AYT, DENEME, AYT_SAY, AYT_SOS vb.
+  onSave?: (data: CevapAnahtariSatir[]) => void;
+  initialData?: CevapAnahtariSatir[];
 }
 
 type GirisYontemi = 'yapistir' | 'surukle' | 'yukle';
@@ -574,16 +578,55 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              const data = KITAPCIK_TURLERI.map(kit => ({
-                kitapcik: kit,
-                sorular: kitapcikVerileri[kit]
-              }));
-              onSave?.(data);
+              // Kitapçık A'yı ana veri olarak al, diğer kitapçıkları eşle
+              const sorularA = kitapcikVerileri['A'];
+              const sorularB = kitapcikVerileri['B'];
+              const sorularC = kitapcikVerileri['C'];
+              const sorularD = kitapcikVerileri['D'];
+
+              // Geçerli cevap kontrolü
+              const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
+                if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
+                return undefined;
+              };
+
+              // CevapAnahtariSatir formatına dönüştür
+              const cevapAnahtari: CevapAnahtariSatir[] = sorularA
+                .filter(soru => soru.cevap) // Sadece cevabı olanları al
+                .map((soru, idx) => {
+                  const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
+                  const cevapA = validCevap(soru.cevap);
+                  const cevapB = validCevap(sorularB[idx]?.cevap || null);
+                  const cevapC = validCevap(sorularC[idx]?.cevap || null);
+                  const cevapD = validCevap(sorularD[idx]?.cevap || null);
+                  
+                  return {
+                    soruNo: soru.globalSoruNo,
+                    dogruCevap: cevapA || 'A', // Varsayılan A
+                    dersKodu: soru.dersKodu,
+                    dersAdi: ders?.ad || soru.dersKodu,
+                    kazanimKodu: soru.kazanimKodu || undefined,
+                    kazanimMetni: soru.kazanimMetni || undefined,
+                    kitapcikCevaplari: {
+                      A: cevapA,
+                      B: cevapB,
+                      C: cevapC,
+                      D: cevapD,
+                    },
+                  };
+                });
+              
+              onSave?.(cevapAnahtari);
             }}
-            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200"
+            disabled={stats.doluSoru === 0}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-colors shadow-lg ${
+              stats.doluSoru > 0
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
             <Check size={18} />
-            Kaydet ve Devam Et
+            Kaydet ve Devam Et ({stats.doluSoru}/90)
           </button>
         </div>
       </div>

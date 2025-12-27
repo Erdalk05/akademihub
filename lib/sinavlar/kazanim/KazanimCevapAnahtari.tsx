@@ -49,7 +49,7 @@ import {
 
 interface KazanimCevapAnahtariProps {
   examId?: string;
-  examType?: 'LGS' | 'TYT' | 'AYT' | 'DENEME';
+  examType?: string; // LGS, TYT, AYT, DENEME, AYT_SAY, AYT_SOS vb.
   onSave?: (data: CevapAnahtariSatir[]) => void;
   initialData?: CevapAnahtariSatir[];
 }
