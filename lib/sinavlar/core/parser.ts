@@ -64,46 +64,48 @@ import {
  */
 export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // ═══════════════════════════════════════════════════════════════════════
-  // MEB STANDART FORMAT (206 karakter) - FINAL ALIGNMENT FIX V2
+  // MEB STANDART FORMAT (204 karakter) - DOĞRULANMIŞ VERSİYON
   // ═══════════════════════════════════════════════════════════════════════
-  // NOT: Bu format Özdebir ile aynı yapıyı kullanır
-  // "Onur Gürsoy Ad" sorunu çözüldü - 3 karakterlik buffer eklendi
+  // Örnek satır ile doğrulandı:
+  // "908125   301  159010003328EAKELıF ARDU«LU          ABBAAADB..."
   // ═══════════════════════════════════════════════════════════════════════
   MEB_STANDARD: {
-    school: { start: 0, end: 9 },          // line.substring(0, 10).trim() → kurum_kodu (10 kr)
-    studentNo: { start: 10, end: 13 },     // line.substring(10, 14).trim() → ogrenci_no (4 kr)
-    tc: { start: 14, end: 24 },            // line.substring(14, 25).trim() → tc_kimlik (11 kr)
-    classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
-    booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
-    gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
-    name: { start: 29, end: 52 },          // line.substring(29, 53).trim() → ad_soyad (24 kr - KISALTILDI)
-    // BUFFER: index 53, 54, 55 = 3 karakterlik boşluk (sızıntı önler)
-    answers: { start: 56, end: 205 },      // line.substring(56, 206) → cevaplar (150 kr)
+    school: { start: 0, end: 9 },          // substring(0, 10) → kurum_kodu (10 kr)
+    studentNo: { start: 10, end: 13 },     // substring(10, 14) → ogrenci_no (4 kr)
+    tc: { start: 14, end: 24 },            // substring(14, 25) → tc_kimlik (11 kr)
+    classCode: { start: 25, end: 26 },     // substring(25, 27) → sinif_sube (2 kr)
+    booklet: { start: 27, end: 27 },       // substring(27, 28) → kitapcik_turu (1 kr)
+    gender: { start: 28, end: 28 },        // substring(28, 29) → cinsiyet (1 kr)
+    name: { start: 29, end: 53 },          // substring(29, 54) → ad_soyad (25 kr) ✓
+    answers: { start: 54, end: 203 },      // substring(54, 204) → cevaplar (150 kr) ✓
   },
   
   // ═══════════════════════════════════════════════════════════════════════
-  // ÖZDEBİR FORMATI (206 karakter) - FINAL ALIGNMENT FIX V2
+  // ÖZDEBİR FORMATI (204 karakter) - GERÇEK VERİ İLE DOĞRULANMIŞ
   // ═══════════════════════════════════════════════════════════════════════
-  // Özdebir yayıncılık LGS optik form formatı
-  // 150 cevap karakteri içerir (90 soru + boşluklar)
   // 
-  // STRICT KARAKTER HARİTASI (V2 - "Onur Gürsoy Ad" sorunu çözüldü):
+  // ÖRNEK SATIR (kullanıcıdan alınan gerçek veri):
+  // "908125   301  159010003328EAKELıF ARDU«LU          ABBAAADBADDACCCABACB..."
+  //  |------||--||-----------|||||----------------------||----------------->
+  //  kurum   no   TC         |||Ad Soyad (25 kr)        Cevaplar (150 kr)
+  //                          |||
+  //                          ||Cinsiyet (K=Kız)
+  //                          |Kitapçık (A)
+  //                          Sınıf-Şube (8E)
+  //
+  // DOĞRULANMIŞ KARAKTER HARİTASI:
   // ┌──────────────────────────────────────────────────────────────────────┐
   // │ ALAN           │ substring()       │ KARAKTER │ AÇIKLAMA              │
   // ├──────────────────────────────────────────────────────────────────────┤
-  // │ institution    │ (0, 10)           │ 10 kr    │ Kurum Kodu            │
-  // │ student_no     │ (10, 14)          │ 4 kr     │ Öğrenci No            │
-  // │ tc_no          │ (14, 25)          │ 11 kr    │ TC Kimlik             │
-  // │ class_name     │ (25, 27)          │ 2 kr     │ Sınıf/Şube            │
-  // │ booklet_type   │ (27, 28)          │ 1 kr     │ Kitapçık (A/B)        │
-  // │ gender         │ (28, 29)          │ 1 kr     │ Cinsiyet (E/K)        │
-  // │ full_name      │ (29, 53)          │ 24 kr    │ Ad Soyad (KISALTİLDİ) │
-  // │ --- BUFFER --- │ (53, 56)          │ 3 kr     │ Boşluk (sızıntı önler)│
-  // │ raw_answers    │ (56, 206)         │ 150 kr   │ Cevaplar              │
+  // │ kurum_kodu     │ (0, 10)           │ 10 kr    │ "908125   3"          │
+  // │ ogrenci_no     │ (10, 14)          │ 4 kr     │ "01  "                │
+  // │ tc_kimlik      │ (14, 25)          │ 11 kr    │ "15901000332"         │
+  // │ sinif_sube     │ (25, 27)          │ 2 kr     │ "8E"                  │
+  // │ kitapcik       │ (27, 28)          │ 1 kr     │ "A"                   │
+  // │ cinsiyet       │ (28, 29)          │ 1 kr     │ "K" (Kız)             │
+  // │ ad_soyad       │ (29, 54)          │ 25 kr    │ "ELıF ARDU«LU      "  │
+  // │ cevaplar       │ (54, 204)         │ 150 kr   │ "ABBAAADB..."         │
   // └──────────────────────────────────────────────────────────────────────┘
-  //
-  // ÖNEMLİ: Ad Soyad (29-52) ile Cevaplar (56-205) arasında 3 karakterlik
-  //         buffer (index 53, 54, 55) var. Bu "Ad" sızıntısını kesin önler!
   //
   // DERS SIRALAMASI (Özdebir LGS - cevaplar içinde):
   // - Türkçe: [0-20] 20 soru
@@ -114,15 +116,14 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
   // - Fen: [70-90] 20 soru
   // ═══════════════════════════════════════════════════════════════════════
   OZDEBIR: {
-    school: { start: 0, end: 9 },          // line.substring(0, 10).trim() → kurum_kodu (10 kr)
-    studentNo: { start: 10, end: 13 },     // line.substring(10, 14).trim() → ogrenci_no (4 kr)
-    tc: { start: 14, end: 24 },            // line.substring(14, 25).trim() → tc_kimlik (11 kr)
-    classCode: { start: 25, end: 26 },     // line.substring(25, 27).trim() → sinif_sube (2 kr)
-    booklet: { start: 27, end: 27 },       // line.substring(27, 28).trim() → kitapcik_turu (1 kr)
-    gender: { start: 28, end: 28 },        // line.substring(28, 29).trim() → cinsiyet (1 kr)
-    name: { start: 29, end: 52 },          // line.substring(29, 53).trim() → ad_soyad (24 kr - KISALTILDI)
-    // BUFFER: index 53, 54, 55 = 3 karakterlik boşluk (ad soyad sızıntısını önler)
-    answers: { start: 56, end: 205 },      // line.substring(56, 206) → cevaplar (150 kr)
+    school: { start: 0, end: 9 },          // substring(0, 10) → "908125   3"
+    studentNo: { start: 10, end: 13 },     // substring(10, 14) → "01  "
+    tc: { start: 14, end: 24 },            // substring(14, 25) → "15901000332"
+    classCode: { start: 25, end: 26 },     // substring(25, 27) → "8E"
+    booklet: { start: 27, end: 27 },       // substring(27, 28) → "A"
+    gender: { start: 28, end: 28 },        // substring(28, 29) → "K"
+    name: { start: 29, end: 53 },          // substring(29, 54) → "ELıF ARDU«LU          " (25 kr)
+    answers: { start: 54, end: 203 },      // substring(54, 204) → cevaplar (150 kr)
   },
   
   // Standart LGS optik formu (eski format)
@@ -167,8 +168,9 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
  * Minimum satır uzunluğu kontrolü
  * 204 karakterden kısa satırlar FAILED olarak işaretlenir
  */
-// Minimum satır uzunluğu: 206 karakter (56 meta/buffer + 150 cevap)
-export const MIN_LINE_LENGTH = 206;
+// Minimum satır uzunluğu: 204 karakter (54 meta + 150 cevap)
+// Doğrulanmış örnek: 908125   301  159010003328EAKELıF ARDU«LU          ABBAAADB...
+export const MIN_LINE_LENGTH = 204;
 
 // ============================================
 // 🔧 PARSER MOTOR

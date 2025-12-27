@@ -282,29 +282,27 @@ export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'ozdebir-lgs-90',
-    ad: 'ÖZDEBİR - LGS 90 Soru (206 Karakter)',
+    ad: 'ÖZDEBİR - LGS 90 Soru (204 Karakter)',
     yayinevi: 'Özdebir Yayınları',
-    aciklama: 'Özdebir LGS optik formu - V2 FIX: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 24][Buffer 3][Cevaplar 150]',
+    aciklama: 'Özdebir LGS optik formu - DOĞRULANMIŞ: [Kurum 10][ÖğrNo 4][TC 11][Sınıf 2][Kitapçık 1][Cinsiyet 1][AdSoyad 25][Cevaplar 150]',
     sinifSeviyeleri: ['8'],
     sinavTurleri: ['LGS', 'DENEME'],
     toplamSoru: 90,
-    satirUzunlugu: 206, // 56 meta/buffer + 150 cevap = 206 karakter
+    satirUzunlugu: 204, // 54 meta + 150 cevap = 204 karakter (DOĞRULANMIŞ)
     alanlar: {
       // ┌─────────────────────────────────────────────────────────────────────┐
-      // │ STRICT KARAKTER HARİTASI (V2 - "Onur Gürsoy Ad" sorunu çözüldü)     │
+      // │ DOĞRULANMIŞ KARAKTER HARİTASI (Gerçek TXT verisi ile test edildi)  │
       // ├─────────────────────────────────────────────────────────────────────┤
-      // │ baslangic-bitis 1-indexed, substring() için 0-indexed kullanılır   │
-      // │ AdSoyad 24 karaktere kısaltıldı, 3 karakterlik buffer eklendi      │
+      // │ Örnek: "908125   301  159010003328EAKELıF ARDU«LU          ABBAA..."│
       // └─────────────────────────────────────────────────────────────────────┘
-      kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → 10 karakter
-      ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → 4 karakter
-      tcKimlik: { baslangic: 15, bitis: 25 },      // substring(14, 25) → 11 karakter
-      sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → 2 karakter
-      kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → 1 karakter
-      cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → 1 karakter (E/K)
-      ogrenciAdi: { baslangic: 30, bitis: 53 },    // substring(29, 53) → 24 karakter (KISALTILDI)
-      // BUFFER: karakter 54, 55, 56 (index 53, 54, 55) = 3 boşluk - Sızıntı önler
-      cevaplar: { baslangic: 57, bitis: 206 },     // substring(56, 206) → 150 karakter
+      kurumKodu: { baslangic: 1, bitis: 10 },      // substring(0, 10) → "908125   3"
+      ogrenciNo: { baslangic: 11, bitis: 14 },     // substring(10, 14) → "01  "
+      tcKimlik: { baslangic: 15, bitis: 25 },      // substring(14, 25) → "15901000332"
+      sinif: { baslangic: 26, bitis: 27 },         // substring(25, 27) → "8E"
+      kitapcik: { baslangic: 28, bitis: 28 },      // substring(27, 28) → "A"
+      cinsiyet: { baslangic: 29, bitis: 29 },      // substring(28, 29) → "K" (Kız)
+      ogrenciAdi: { baslangic: 30, bitis: 54 },    // substring(29, 54) → 25 karakter ✓
+      cevaplar: { baslangic: 55, bitis: 204 },     // substring(54, 204) → 150 karakter ✓
     },
     // Özdebir LGS Ders Dağılımı (cevap dizisi içindeki pozisyonlar)
     // NOT: Bu pozisyonlar cevap string'i içindeki relative pozisyonlardır
