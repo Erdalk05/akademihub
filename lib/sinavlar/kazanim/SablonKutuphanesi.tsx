@@ -62,17 +62,40 @@ export default function SablonKutuphanesi({
     return [];
   });
   
-  // Özel şablonları localStorage'a kaydet
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && customSablonlar.length > 0) {
+  // Gizli (silinen hazır) şablonlar
+  const [hiddenSablonlar, setHiddenSablonlar] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
       try {
+        const saved = localStorage.getItem('akademihub_hidden_sablonlar');
+        if (saved) return JSON.parse(saved);
+      } catch (e) { console.warn('Gizli şablon yükleme hatası:', e); }
+    }
+    return [];
+  });
+  
+  // Özel şablonları localStorage'a kaydet - HER DEĞİŞİKLİKTE
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        // Her zaman kaydet (boş array dahil - silme işlemi için)
         localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(customSablonlar));
-        console.log('✅ Şablonlar kaydedildi:', customSablonlar.length);
+        console.log('✅ Özel şablonlar kaydedildi:', customSablonlar.length);
       } catch (e) {
         console.error('Şablon kaydetme hatası:', e);
       }
     }
   }, [customSablonlar]);
+  
+  // Gizli şablonları localStorage'a kaydet
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('akademihub_hidden_sablonlar', JSON.stringify(hiddenSablonlar));
+      } catch (e) {
+        console.error('Gizli şablon kaydetme hatası:', e);
+      }
+    }
+  }, [hiddenSablonlar]);
   
   // Yeni şablon formu - GENİŞLETİLMİŞ
   const [newSablon, setNewSablon] = useState({
@@ -98,10 +121,11 @@ export default function SablonKutuphanesi({
   // Silme onay
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Tüm şablonlar (hazır + özel)
+  // Tüm şablonlar (hazır + özel) - gizlenenler hariç
   const allSablonlar = useMemo(() => {
-    return [...OPTIK_FORM_SABLONLARI, ...customSablonlar];
-  }, [customSablonlar]);
+    const hazirlar = OPTIK_FORM_SABLONLARI.filter(s => !hiddenSablonlar.includes(s.id));
+    return [...hazirlar, ...customSablonlar];
+  }, [customSablonlar, hiddenSablonlar]);
 
   // Filtrelenmiş şablonlar
   const filteredSablonlar = useMemo(() => {
@@ -200,12 +224,29 @@ export default function SablonKutuphanesi({
     onSelect(optikSablon);
   };
 
-  // Şablon sil
+  // Şablon sil - HEM ÖZEL HEM HAZIR ŞABLONLAR İÇİN ÇALIŞIR
   const handleDeleteSablon = (sablonId: string) => {
+    console.log('🗑️ Şablon siliniyor:', sablonId);
+    
     if (sablonId.startsWith('custom-')) {
-      setCustomSablonlar(prev => prev.filter(s => s.id !== sablonId));
+      // Özel şablon - kalıcı olarak sil
+      setCustomSablonlar(prev => {
+        const yeni = prev.filter(s => s.id !== sablonId);
+        console.log('✅ Özel şablon silindi, kalan:', yeni.length);
+        return yeni;
+      });
+    } else {
+      // Hazır şablon - gizle (silinmiş gibi göster)
+      setHiddenSablonlar(prev => {
+        if (!prev.includes(sablonId)) {
+          const yeni = [...prev, sablonId];
+          console.log('✅ Hazır şablon gizlendi:', sablonId);
+          return yeni;
+        }
+        return prev;
+      });
     }
-    // Hazır şablonlar silinince sadece gizlenir (localStorage'a kaydet)
+    
     setDeleteConfirm(null);
     if (selectedSablon?.id === sablonId) {
       setSelectedSablon(null);
@@ -236,6 +277,8 @@ export default function SablonKutuphanesi({
 
   // Yeni şablon ekle
   const handleAddSablon = () => {
+    console.log('➕ Yeni şablon ekleniyor...', newSablon);
+    
     if (!newSablon.ad.trim()) {
       alert('Şablon adı gerekli!');
       return;
@@ -266,8 +309,15 @@ export default function SablonKutuphanesi({
       renk: '#6366F1'
     };
     
-    setCustomSablonlar(prev => [...prev, yeniSablon]);
+    setCustomSablonlar(prev => {
+      const yeniListe = [...prev, yeniSablon];
+      console.log('✅ Yeni şablon eklendi:', yeniSablon.ad, '| Toplam:', yeniListe.length);
+      return yeniListe;
+    });
     setShowAddForm(false);
+    
+    // Başarı bildirimi
+    alert(`✅ "${yeniSablon.ad}" şablonu başarıyla eklendi!`);
     setNewSablon({
       ad: '',
       yayinevi: 'Özel',
