@@ -122,12 +122,26 @@ export default function SablonKutuphanesi({
   
   // Silme onay
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  
+  // Gizli şablonları göster/gizle toggle
+  const [showHidden, setShowHidden] = useState(false);
+  
+  // Gizli şablonları temizle
+  const clearHiddenSablonlar = () => {
+    setHiddenSablonlar([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('akademihub_hidden_sablonlar');
+    }
+    alert('✅ Tüm gizli şablonlar gösterildi!');
+  };
 
-  // Tüm şablonlar (hazır + özel) - gizlenenler hariç
+  // Tüm şablonlar (hazır + özel) - gizlenenler hariç (veya showHidden ise hepsi)
   const allSablonlar = useMemo(() => {
-    const hazirlar = OPTIK_FORM_SABLONLARI.filter(s => !hiddenSablonlar.includes(s.id));
+    const hazirlar = showHidden 
+      ? OPTIK_FORM_SABLONLARI 
+      : OPTIK_FORM_SABLONLARI.filter(s => !hiddenSablonlar.includes(s.id));
     return [...hazirlar, ...customSablonlar];
-  }, [customSablonlar, hiddenSablonlar]);
+  }, [customSablonlar, hiddenSablonlar, showHidden]);
 
   // Filtrelenmiş şablonlar
   const filteredSablonlar = useMemo(() => {
@@ -405,6 +419,17 @@ export default function SablonKutuphanesi({
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Gizli şablonlar varsa göster butonu */}
+          {hiddenSablonlar.length > 0 && (
+            <button
+              onClick={clearHiddenSablonlar}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition-colors"
+              title={`${hiddenSablonlar.length} gizli şablon var`}
+            >
+              <Star size={16} />
+              Gizlileri Göster ({hiddenSablonlar.length})
+            </button>
+          )}
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition-colors"
