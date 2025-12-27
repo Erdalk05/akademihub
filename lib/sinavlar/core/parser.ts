@@ -75,6 +75,22 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateMap> = {
     answers: { start: 54, end: 203 },      // [55-204] 150 karakter (0-indexed: 54-203)
   },
   
+  // ═══════════════════════════════════════════════════════════════════════
+  // ÖZDEBİR FORMATI (204 karakter)
+  // ═══════════════════════════════════════════════════════════════════════
+  // Özdebir yayıncılık optik form formatı
+  // Cinsiyet alanı dahil (gender: 28-29)
+  // ═══════════════════════════════════════════════════════════════════════
+  OZDEBIR: {
+    studentNo: { start: 9, end: 12 },      // line.substring(9, 13) → 4 karakter
+    tc: { start: 14, end: 24 },            // line.substring(14, 25) → 11 karakter
+    classCode: { start: 25, end: 26 },     // line.substring(25, 27) → 2 karakter (sınıf)
+    booklet: { start: 27, end: 27 },       // line.substring(27, 28) → 1 karakter
+    gender: { start: 28, end: 28 },        // line.substring(28, 29) → 1 karakter (cinsiyet)
+    name: { start: 29, end: 53 },          // line.substring(29, 54) → 25 karakter
+    answers: { start: 54, end: 203 },      // line.substring(54, 204) → 150 karakter
+  },
+  
   // Standart LGS optik formu (eski format)
   LGS_STANDARD: {
     studentNo: { start: 0, end: 9 },      // 10 karakter
@@ -156,9 +172,12 @@ function parseLine(
   
   // ═══════════════════════════════════════════════════════════════════════
   // SATIR UZUNLUĞU KONTROLÜ (PROMPT V5.0)
-  // MEB_STANDARD şablonu için minimum 204 karakter gerekli
+  // MEB_STANDARD ve OZDEBIR şablonları için minimum 204 karakter gerekli
   // ═══════════════════════════════════════════════════════════════════════
-  if (template === DEFAULT_TEMPLATES.MEB_STANDARD && line.length < MIN_LINE_LENGTH) {
+  const requires204Chars = template === DEFAULT_TEMPLATES.MEB_STANDARD || 
+                           template === DEFAULT_TEMPLATES.OZDEBIR;
+  
+  if (requires204Chars && line.length < MIN_LINE_LENGTH) {
     return {
       lineNumber,
       rawLine,
@@ -182,6 +201,11 @@ function parseLine(
   // Opsiyonel alanlar
   let classCode = template.classCode 
     ? extractFixedWidth(line, template.classCode.start, template.classCode.end)
+    : undefined;
+    
+  // Cinsiyet alanı (Özdebir formatı için)
+  let gender = template.gender
+    ? extractFixedWidth(line, template.gender.start, template.gender.end)
     : undefined;
 
   // === REGEX FALLBACK (Tutarsız boşluklar için) ===
@@ -288,6 +312,7 @@ function parseLine(
     booklet,
     answers,
     classCode,
+    gender,  // Cinsiyet (E/K) - Özdebir formatı için
   };
 }
 

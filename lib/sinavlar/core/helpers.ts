@@ -70,8 +70,25 @@ const TURKISH_CHAR_MAP: Record<string, string> = {
   // ═══════════════════════════════════════════════════════════════════════
   // YENİ: RAKAM VE HARF KARIŞIKLIKLARI
   // ═══════════════════════════════════════════════════════════════════════
-  '0': 'O',   // İsim içinde 0 -> O olmalı (kontekste göre)
-  '1': 'I',   // İsim içinde 1 -> I olmalı (kontekste göre)
+  // İsim içindeki hatalı karakterler için (kontekste göre uygulanır)
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ÖZDEBİR NORMALİZASYON KURALLARI
+ * ═══════════════════════════════════════════════════════════════════════════
+ * - 'ı' → 'I' (Türkçe dotless i → büyük I)
+ * - '«' → 'C' (Chevron → C harfi)
+ * - '÷' → 'O' (Bölme işareti → O harfi)
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+const OZDEBIR_CHAR_MAP: Record<string, string> = {
+  'ı': 'I',   // Türkçe dotless i → I
+  '«': 'C',   // Chevron → C
+  '÷': 'O',   // Bölme işareti → O
+  '»': '',    // Kapanış çevronu kaldır
+  '×': '',    // Çarpma işareti kaldır
+  '?': '',    // Bilinmeyen karakter kaldır
 };
 
 /**
@@ -171,6 +188,53 @@ export function cleanOcrName(name: string): string {
   
   // Normalize et
   return normalizeName(result);
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ÖZDEBİR İSİM NORMALİZASYONU
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Özdebir optik form çıktılarındaki isim alanını normalize eder.
+ * - 'ı' → 'I' (Türkçe dotless i → büyük I)
+ * - '«' → 'C' (Chevron → C harfi)  
+ * - '÷' → 'O' (Bölme işareti → O harfi)
+ * 
+ * @param name Ham isim string'i
+ * @returns Normalize edilmiş isim
+ */
+export function normalizeOzdebirName(name: string): string {
+  if (!name) return '';
+  
+  let result = name;
+  
+  // Özdebir özel karakter dönüşümleri
+  for (const [wrong, correct] of Object.entries(OZDEBIR_CHAR_MAP)) {
+    result = result.split(wrong).join(correct);
+  }
+  
+  // Genel normalizasyon
+  result = normalizeText(result);
+  
+  // Büyük harf kontekstinde küçük ı düzeltme
+  result = result.replace(/([A-ZÇĞİÖŞÜ])ı/g, '$1I');
+  result = result.replace(/ı([A-ZÇĞİÖŞÜ])/g, 'I$1');
+  
+  // Her kelimenin ilk harfini büyük yap
+  result = result
+    .toLowerCase()
+    .split(' ')
+    .filter(word => word.length > 0)
+    .map(word => {
+      const firstChar = word.charAt(0);
+      let upperFirst = firstChar.toUpperCase();
+      if (firstChar === 'i') upperFirst = 'İ';
+      if (firstChar === 'ı') upperFirst = 'I';
+      return upperFirst + word.slice(1);
+    })
+    .join(' ');
+  
+  return result;
 }
 
 // ============================================

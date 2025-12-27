@@ -243,6 +243,50 @@ export interface OptikFormSablonu {
 }
 
 export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ÖZDEBİR ŞABLONU (204 karakter)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Özdebir yayıncılık optik form formatı - Cinsiyet alanı dahil
+  // 
+  // CHARACTER MAPPING:
+  // - student_no: line.substring(9, 13).trim()   → 4 karakter [10-13]
+  // - tc_no: line.substring(14, 25).trim()       → 11 karakter [15-25]
+  // - class_name: line.substring(25, 27).trim()  → 2 karakter [26-27]
+  // - booklet_type: line.substring(27, 28).trim()→ 1 karakter [28]
+  // - gender: line.substring(28, 29).trim()      → 1 karakter [29]
+  // - full_name: line.substring(29, 54).trim()   → 25 karakter [30-54]
+  // - all_answers: line.substring(54, 204)       → 150 karakter [55-204]
+  //
+  // DATA NORMALIZATION:
+  // - 'full_name' içindeki 'ı' → 'I', '«' → 'C', '÷' → 'O'
+  // - 'all_answers' içindeki boşluklar korunur (boş cevap = boşluk)
+  //
+  // INTEGRATION:
+  // - 'booklet_type' = 'B' ise, Excel'deki 'B Kitapçığı Dönüşümü' kullanılır
+  // - MEB 500 tam puan standardında hesaplanır
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'ozdebir-lgs-90',
+    ad: 'ÖZDEBİR - LGS 90 Soru (204 Karakter)',
+    yayinevi: 'Özdebir Yayınları',
+    aciklama: 'Özdebir standart LGS deneme optik formu - Format: [Öğr No 4kr][TC 11kr][Sınıf 2kr][Kitapçık 1kr][Cinsiyet 1kr][Ad Soyad 25kr][Cevaplar 150kr]',
+    sinifSeviyeleri: ['8'],
+    sinavTurleri: ['LGS', 'DENEME'],
+    toplamSoru: 90,
+    satirUzunlugu: 204,
+    alanlar: {
+      ogrenciNo: { baslangic: 10, bitis: 13 },     // line.substring(9, 13) → 4 karakter
+      tcKimlik: { baslangic: 15, bitis: 25 },      // line.substring(14, 25) → 11 karakter
+      sinif: { baslangic: 26, bitis: 27 },         // line.substring(25, 27) → 2 karakter
+      kitapcik: { baslangic: 28, bitis: 28 },      // line.substring(27, 28) → 1 karakter
+      // gender: { baslangic: 29, bitis: 29 },     // Cinsiyet (E/K) - ayrı işlenir
+      ogrenciAdi: { baslangic: 30, bitis: 54 },    // line.substring(29, 54) → 25 karakter
+      cevaplar: { baslangic: 55, bitis: 204 },     // line.substring(54, 204) → 150 karakter (ilk 90 kullanılır)
+    },
+    onerilenIcon: '📙',
+    renk: '#DC2626'
+  },
+  
   // ============= LGS ŞABLONLARI =============
   {
     id: 'nar-lgs-90',

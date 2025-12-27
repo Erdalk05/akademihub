@@ -54,6 +54,7 @@ export interface TemplateMap {
   // Opsiyonel alanlar
   classCode?: { start: number; end: number };
   school?: { start: number; end: number };
+  gender?: { start: number; end: number };  // Cinsiyet (E/K)
 }
 
 export interface ParsedStudent {
@@ -72,6 +73,7 @@ export interface ParsedStudent {
   // Opsiyonel
   classCode?: string;
   school?: string;
+  gender?: 'E' | 'K' | string;  // Cinsiyet (E = Erkek, K = Kız)
 }
 
 export interface ParseResult {
