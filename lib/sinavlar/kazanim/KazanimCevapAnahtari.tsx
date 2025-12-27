@@ -62,12 +62,30 @@ const DERS_ALIASES: Record<string, string> = {
   'MATEMATİK': 'MAT', 'MATEMATIK': 'MAT', 'MAT': 'MAT', 'MAT1': 'MAT', 'MAT2': 'MAT',
   // Fen
   'FEN BİLİMLERİ': 'FEN', 'FEN BILIMLERI': 'FEN', 'FEN': 'FEN', 'FEN BİLGİSİ': 'FEN', 'FEN1': 'FEN', 'FEN2': 'FEN',
-  // Sosyal
-  'SOSYAL BİLGİLER': 'SOS', 'SOSYAL BILGILER': 'SOS', 'SOSYAL': 'SOS', 'SOS': 'SOS', 'SOS1': 'SOS', 'T.C. İNKILAP TARİHİ': 'SOS', 'İNKILAP': 'SOS', 'İNK': 'SOS', 'INK': 'SOS',
-  // İngilizce
+  // Sosyal Bilgiler (5. sınıf vb.)
+  'SOSYAL BİLGİLER': 'SOS', 'SOSYAL BILGILER': 'SOS', 'SOSYAL': 'SOS', 'SOS': 'SOS', 'SOS1': 'SOS',
+  // ✅ İNKILAP TARİHİ - LGS için AYRI DERS!
+  'T.C. İNKILAP TARİHİ VE ATATÜRKÇÜLÜK': 'INK', 
+  'T.C. İNKILAP TARİHİ': 'INK', 
+  'T.C. INKILAP TARIHI VE ATATÜRKÇÜLÜK': 'INK',
+  'T.C. INKILAP TARIHI': 'INK',
+  'İNKILAP TARİHİ VE ATATÜRKÇÜLÜK': 'INK',
+  'İNKILAP TARİHİ': 'INK',
+  'INKILAP TARIHI VE ATATÜRKÇÜLÜK': 'INK',
+  'INKILAP TARIHI': 'INK',
+  'İNKILAP': 'INK', 'INKILAP': 'INK', 
+  'İNK': 'INK', 'INK': 'INK', 
+  'TC İNKILAP': 'INK', 'TC INKILAP': 'INK',
+  'ATATÜRKÇÜLÜK': 'INK',
+  // İngilizce / Yabancı Dil
   'İNGİLİZCE': 'ING', 'INGILIZCE': 'ING', 'İNG': 'ING', 'ING': 'ING', 'ENG': 'ING', 'ING1': 'ING',
-  // Din
-  'DİN KÜLTÜRÜ': 'DIN', 'DIN KULTURU': 'DIN', 'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DIN', 'DİN': 'DIN', 'DIN': 'DIN', 'DKAB': 'DIN', 'DIN1': 'DIN',
+  'YABANCI DİL': 'ING', 'YABANCI DIL': 'ING', 'YAB': 'ING', 'YAB DİL': 'ING',
+  // ✅ DİN KÜLTÜRÜ - LGS için AYRI DERS!
+  'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DIN', 
+  'DIN KULTURU VE AHLAK BILGISI': 'DIN',
+  'DİN KÜLTÜRÜ': 'DIN', 'DIN KULTURU': 'DIN', 
+  'DİN': 'DIN', 'DIN': 'DIN', 
+  'DKAB': 'DIN', 'DIN1': 'DIN',
   // Tarih
   'TARİH': 'TAR', 'TARIH': 'TAR', 'TAR': 'TAR', 'TAR1': 'TAR',
   // Coğrafya
@@ -86,8 +104,9 @@ const DERS_TAM_ADLARI: Record<string, string> = {
   'MAT': 'Matematik',
   'FEN': 'Fen Bilimleri',
   'SOS': 'Sosyal Bilgiler',
+  'INK': 'T.C. İnkılap Tarihi ve Atatürkçülük', // ✅ LGS için ayrı ders!
   'ING': 'İngilizce',
-  'DIN': 'Din Kültürü',
+  'DIN': 'Din Kültürü ve Ahlak Bilgisi', // ✅ LGS için ayrı ders!
   'TAR': 'Tarih',
   'COG': 'Coğrafya',
   'FIZ': 'Fizik',
@@ -98,6 +117,7 @@ const DERS_TAM_ADLARI: Record<string, string> = {
 // Ders renkleri
 const DERS_RENKLERI: Record<string, { bg: string; text: string; border: string }> = {
   'TUR': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  'INK': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }, // ✅ İnkılap Tarihi
   'MAT': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
   'FEN': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
   'SOS': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
@@ -718,8 +738,8 @@ export default function KazanimCevapAnahtari({
     return acc;
   }, {} as Record<string, CevapAnahtariSatir[]>);
 
-  // Ders sıralaması (LGS sırasına göre)
-  const dersSirasi = ['TUR', 'SOS', 'DIN', 'ING', 'MAT', 'FEN', 'TAR', 'COG', 'FIZ', 'KIM', 'BIO'];
+  // Ders sıralaması (LGS sırasına göre) - 6 ders: TUR, INK, DIN, ING, MAT, FEN
+  const dersSirasi = ['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN', 'SOS', 'TAR', 'COG', 'FIZ', 'KIM', 'BIO'];
   const siraliDersler = Object.keys(dersBazliGruplar).sort((a, b) => {
     const aIndex = dersSirasi.indexOf(a);
     const bIndex = dersSirasi.indexOf(b);
