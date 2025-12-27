@@ -629,6 +629,9 @@ export function esnekDegerlendir(
   const kitapcik = (ogrenci.kitapcik || 'A') as 'A' | 'B' | 'C' | 'D';
   const tumCevaplar = ogrenci.cevaplar || [];
   
+  // Debug: Kitapçık tipi ve ilk 10 cevap
+  console.log(`📝 Öğrenci: ${ogrenci.ogrenciNo} - Kitapçık: ${kitapcik} - İlk 10 cevap: ${tumCevaplar.slice(0, 10).join('')}`);
+  
   let toplamDogru = 0;
   let toplamYanlis = 0;
   let toplamBos = 0;
@@ -932,15 +935,42 @@ export function cevapAnahtarindanYapilandirmaOlustur(
       cevaplar: satirlar.map(s => s.dogruCevap)
     });
     
-    // Diğer kitapçıklar için dönüştür
+    // ═══════════════════════════════════════════════════════════════════════
+    // KİTAPÇIK BAZLI CEVAP ANAHTARI OLUŞTURMA
+    // ═══════════════════════════════════════════════════════════════════════
+    // Örnek: A kitapçığında soru 1 = B kitapçığında soru 4
+    // A kitapçığı: [1:A, 2:D, 3:B, 4:A] sıralaması
+    // B kitapçığı: [4:A, 3:D, 2:B, 1:A] → B sırasına göre: [1:A, 2:B, 3:D, 4:A]
+    // Öğrenci B kitapçığında 1. soruya A işaretlerse DOĞRU
+    // ═══════════════════════════════════════════════════════════════════════
+    
     (['B', 'C', 'D'] as const).forEach(kit => {
       if (kitapciklar.has(kit)) {
+        // Debug: kitapcikSoruNo kontrolü
+        const hasKitapcikData = satirlar.some(s => s.kitapcikSoruNo?.[kit]);
+        
+        if (!hasKitapcikData) {
+          console.warn(`⚠️ ${dersKodu}: ${kit} kitapçığı için soru numarası verisi bulunamadı! A sırası kullanılacak.`);
+        } else {
+          console.log(`✅ ${dersKodu}: ${kit} kitapçığı için soru numarası verisi mevcut`);
+          
+          // İlk 3 satır için debug
+          satirlar.slice(0, 3).forEach((s, i) => {
+            console.log(`   A soru ${s.soruNo} → ${kit} soru ${s.kitapcikSoruNo?.[kit]} → cevap ${s.dogruCevap}`);
+          });
+        }
+        
         // Kitapçık soru numaralarına göre sırala
         const kitSatirlar = [...satirlar].sort((a, b) => {
           const aNo = a.kitapcikSoruNo?.[kit] || a.soruNo;
           const bNo = b.kitapcikSoruNo?.[kit] || b.soruNo;
           return aNo - bNo;
         });
+        
+        // Debug: Sıralanmış ilk 3 cevap
+        if (hasKitapcikData) {
+          console.log(`   ${kit} kitapçığı cevap sırası (ilk 4):`, kitSatirlar.slice(0, 4).map(s => s.dogruCevap).join(', '));
+        }
         
         kitapcikCevaplari.push({
           kitapcik: kit,
