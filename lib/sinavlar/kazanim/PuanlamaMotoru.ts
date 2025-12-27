@@ -229,6 +229,27 @@ export function ogrenciDegerlendir(
   
   // Kitapçık türüne göre cevapları dönüştür
   const kitapcik = ogrenci.kitapcik || 'A';
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEBUG: B Kitapçığı Dönüşümü Kontrolü
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (kitapcik === 'B') {
+    console.log(`\n🔄 B KİTAPÇIĞI DÖNÜŞÜMÜ: ${ogrenci.ogrenciAdi}`);
+    console.log(`   Ham Cevaplar (ilk 10): ${ogrenci.cevaplar.slice(0, 10).join('')}`);
+    
+    // İlk 4 soru için dönüşüm kontrolü
+    for (let i = 0; i < 4; i++) {
+      const bSoruNo = i + 1;
+      const cevapSatiri = cevapAnahtari.find(c => c.kitapcikSoruNo?.B === bSoruNo);
+      if (cevapSatiri) {
+        console.log(`   B-${bSoruNo} → A-${cevapSatiri.soruNo} | Doğru: ${cevapSatiri.dogruCevap} | Öğrenci: ${ogrenci.cevaplar[i] || 'BOŞ'}`);
+      } else {
+        console.log(`   ⚠️ B-${bSoruNo} için A karşılığı BULUNAMADI! kitapcikSoruNo.B eksik olabilir.`);
+      }
+    }
+  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const donusturulmusCevaplar = cevaplariDonustur(
     ogrenci.cevaplar,
     kitapcik,
