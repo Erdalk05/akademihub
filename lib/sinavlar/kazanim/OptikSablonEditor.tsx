@@ -578,200 +578,178 @@ export default function OptikSablonEditor({
         </div>
       )}
       {inputMode === 'visual' && ornekSatir && (
-        <div className="space-y-4">
-          {/* SADE ALAN TANIMLAMA TABLOSU */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-              <h3 className="font-bold text-slate-800">📍 Alan Tanımları</h3>
-              <p className="text-xs text-slate-500 mt-1">Her alan için başlangıç ve bitiş karakter numaralarını girin</p>
+        <div className="space-y-3">
+          {/* 2 SÜTUNLU KOMPAKT ALAN TANIMLAMA */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📍</span>
+                <h3 className="font-bold text-slate-800">Alan Tanımları</h3>
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{ornekSatir.length} karakter</span>
+              </div>
+              <button
+                onClick={() => setShowOzelAlanModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-xs font-medium"
+              >
+                <Plus size={12} />
+                Özel Alan
+              </button>
             </div>
             
-            <div className="divide-y divide-slate-100">
-              {/* TÜM ALANLAR TEK LİSTE */}
-              {[...ZORUNLU_ALANLAR, ...OPSIYONEL_ALANLAR].map((tip, idx) => {
+            {/* 2 SÜTUNLU KOMPAKT GRİD */}
+            <div className="grid grid-cols-2 gap-2">
+              {[...ZORUNLU_ALANLAR, ...OPSIYONEL_ALANLAR].map((tip) => {
                 const existingField = alanlar.find(a => a.alan === tip.id);
                 const isZorunlu = ZORUNLU_ALANLAR.some(z => z.id === tip.id);
                 
                 return (
                   <div 
                     key={tip.id} 
-                    className={`flex items-center gap-4 px-4 py-3 hover:bg-slate-50 ${isZorunlu ? 'bg-rose-50/50' : ''}`}
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
+                      existingField 
+                        ? 'border-emerald-300 bg-emerald-50' 
+                        : isZorunlu 
+                          ? 'border-rose-200 bg-rose-50/50' 
+                          : 'border-slate-200 hover:border-slate-300'
+                    }`}
                   >
-                    {/* Alan Adı */}
-                    <div className="flex items-center gap-2 w-48">
-                      <span className="text-xl">{tip.icon}</span>
-                      <div>
-                        <span className="font-medium text-slate-800">{tip.label}</span>
-                        {isZorunlu && <span className="ml-1 text-[10px] text-red-500 font-bold">*</span>}
-                      </div>
+                    {/* İkon + İsim */}
+                    <div className="flex items-center gap-1.5 w-28">
+                      <span className="text-base">{tip.icon}</span>
+                      <span className={`text-xs font-medium truncate ${existingField ? 'text-emerald-700' : 'text-slate-700'}`}>
+                        {tip.label}
+                      </span>
+                      {isZorunlu && <span className="text-red-500 text-[10px]">*</span>}
                     </div>
                     
-                    {/* Başlangıç */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 w-12">Başlangıç:</span>
+                    {/* Başlangıç-Bitiş Inputları */}
+                    <div className="flex items-center gap-1 flex-1">
                       <input
                         id={`start-${tip.id}`}
                         type="number"
                         min="1"
                         max="999"
-                        placeholder="1"
+                        placeholder="Baş"
                         defaultValue={existingField?.baslangic || ''}
-                        className="w-20 px-3 py-2 text-center font-mono border border-slate-300 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-14 px-1.5 py-1.5 text-center text-xs font-mono border border-slate-300 rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         onChange={(e) => {
                           const start = parseInt(e.target.value) || 0;
                           const endInput = document.getElementById(`end-${tip.id}`) as HTMLInputElement;
                           const end = parseInt(endInput?.value) || start;
                           if (start > 0) {
-                            const yeniAlan: OptikAlanTanimi = {
-                              alan: tip.id as any,
-                              baslangic: start,
-                              bitis: end > 0 ? end : start,
-                              label: tip.label,
-                              color: tip.color
-                            };
                             setAlanlar(prev => {
                               const filtered = prev.filter(a => a.alan !== tip.id);
-                              return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                              return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color }].sort((a, b) => a.baslangic - b.baslangic);
                             });
                           }
                         }}
                       />
-                    </div>
-                    
-                    {/* Bitiş */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 w-8">Bitiş:</span>
+                      <span className="text-slate-400 text-xs">-</span>
                       <input
                         id={`end-${tip.id}`}
                         type="number"
                         min="1"
                         max="999"
-                        placeholder="10"
+                        placeholder="Bit"
                         defaultValue={existingField?.bitis || ''}
-                        className="w-20 px-3 py-2 text-center font-mono border border-slate-300 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-14 px-1.5 py-1.5 text-center text-xs font-mono border border-slate-300 rounded focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         onChange={(e) => {
                           const end = parseInt(e.target.value) || 0;
                           const startInput = document.getElementById(`start-${tip.id}`) as HTMLInputElement;
                           const start = parseInt(startInput?.value) || 0;
                           if (start > 0 && end >= start) {
-                            const yeniAlan: OptikAlanTanimi = {
-                              alan: tip.id as any,
-                              baslangic: start,
-                              bitis: end,
-                              label: tip.label,
-                              color: tip.color
-                            };
                             setAlanlar(prev => {
                               const filtered = prev.filter(a => a.alan !== tip.id);
-                              return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                              return [...filtered, { alan: tip.id as any, baslangic: start, bitis: end, label: tip.label, color: tip.color }].sort((a, b) => a.baslangic - b.baslangic);
                             });
                           }
                         }}
                       />
                     </div>
                     
-                    {/* Durum */}
-                    <div className="flex-1 flex items-center justify-end gap-2">
-                      {existingField ? (
+                    {/* Durum + Sil */}
+                    <div className="flex items-center gap-1">
+                      {existingField && (
                         <>
-                          <span className="text-xs font-mono px-2 py-1 rounded bg-emerald-100 text-emerald-700">
-                            ✓ {existingField.baslangic}-{existingField.bitis} ({existingField.bitis - existingField.baslangic + 1} kr)
+                          <span className="text-[10px] font-mono text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            ✓{existingField.bitis - existingField.baslangic + 1}
                           </span>
                           <button
                             onClick={() => setAlanlar(prev => prev.filter(a => a.alan !== tip.id))}
-                            className="p-1.5 text-red-500 hover:bg-red-100 rounded"
-                            title="Temizle"
+                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
                           >
-                            <X size={14} />
+                            <X size={12} />
                           </button>
                         </>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </div>
                   </div>
                 );
               })}
               
-              {/* ÖZEL ALAN EKLE */}
+              {/* ÖZEL ALANLAR - Aynı grid içinde */}
               {ozelAlanlar.map((tip) => {
                 const existingField = alanlar.find(a => a.customLabel === tip.label);
                 return (
                   <div 
                     key={tip.id} 
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-purple-50 bg-purple-50/30"
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
+                      existingField ? 'border-purple-300 bg-purple-50' : 'border-purple-200 bg-purple-50/30'
+                    }`}
                   >
-                    <div className="flex items-center gap-2 w-48">
-                      <span className="text-xl">{tip.icon}</span>
-                      <span className="font-medium text-purple-700">{tip.label}</span>
+                    <div className="flex items-center gap-1.5 w-28">
+                      <span className="text-base">{tip.icon}</span>
+                      <span className="text-xs font-medium text-purple-700 truncate">{tip.label}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 w-12">Başlangıç:</span>
+                    <div className="flex items-center gap-1 flex-1">
                       <input
+                        id={`start-ozel-${tip.id}`}
                         type="number"
                         min="1"
                         max="999"
-                        placeholder="1"
+                        placeholder="Baş"
                         defaultValue={existingField?.baslangic || ''}
-                        className="w-20 px-3 py-2 text-center font-mono border border-purple-300 rounded-lg focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-14 px-1.5 py-1.5 text-center text-xs font-mono border border-purple-300 rounded focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         onChange={(e) => {
                           const start = parseInt(e.target.value) || 0;
-                          const endInput = e.target.parentElement?.nextElementSibling?.querySelector('input') as HTMLInputElement;
+                          const endInput = document.getElementById(`end-ozel-${tip.id}`) as HTMLInputElement;
                           const end = parseInt(endInput?.value) || start;
                           if (start > 0) {
-                            const yeniAlan: OptikAlanTanimi = {
-                              alan: 'ozel' as any,
-                              baslangic: start,
-                              bitis: end > 0 ? end : start,
-                              label: tip.label,
-                              color: tip.color,
-                              customLabel: tip.label
-                            };
                             setAlanlar(prev => {
                               const filtered = prev.filter(a => a.customLabel !== tip.label);
-                              return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                              return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end > 0 ? end : start, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => a.baslangic - b.baslangic);
                             });
                           }
                         }}
                       />
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 w-8">Bitiş:</span>
+                      <span className="text-slate-400 text-xs">-</span>
                       <input
+                        id={`end-ozel-${tip.id}`}
                         type="number"
                         min="1"
                         max="999"
-                        placeholder="10"
+                        placeholder="Bit"
                         defaultValue={existingField?.bitis || ''}
-                        className="w-20 px-3 py-2 text-center font-mono border border-purple-300 rounded-lg focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-14 px-1.5 py-1.5 text-center text-xs font-mono border border-purple-300 rounded focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         onChange={(e) => {
                           const end = parseInt(e.target.value) || 0;
-                          const startInput = e.target.parentElement?.previousElementSibling?.querySelector('input') as HTMLInputElement;
+                          const startInput = document.getElementById(`start-ozel-${tip.id}`) as HTMLInputElement;
                           const start = parseInt(startInput?.value) || 0;
                           if (start > 0 && end >= start) {
-                            const yeniAlan: OptikAlanTanimi = {
-                              alan: 'ozel' as any,
-                              baslangic: start,
-                              bitis: end,
-                              label: tip.label,
-                              color: tip.color,
-                              customLabel: tip.label
-                            };
                             setAlanlar(prev => {
                               const filtered = prev.filter(a => a.customLabel !== tip.label);
-                              return [...filtered, yeniAlan].sort((a, b) => a.baslangic - b.baslangic);
+                              return [...filtered, { alan: 'ozel' as any, baslangic: start, bitis: end, label: tip.label, color: tip.color, customLabel: tip.label }].sort((a, b) => a.baslangic - b.baslangic);
                             });
                           }
                         }}
                       />
                     </div>
                     
-                    <div className="flex-1 flex items-center justify-end gap-2">
+                    <div className="flex items-center gap-1">
                       {existingField && (
-                        <span className="text-xs font-mono px-2 py-1 rounded bg-purple-100 text-purple-700">
-                          ✓ {existingField.baslangic}-{existingField.bitis}
+                        <span className="text-[10px] font-mono text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
+                          ✓{existingField.bitis - existingField.baslangic + 1}
                         </span>
                       )}
                       <button
@@ -779,10 +757,9 @@ export default function OptikSablonEditor({
                           setOzelAlanlar(prev => prev.filter(a => a.id !== tip.id));
                           setAlanlar(prev => prev.filter(a => a.customLabel !== tip.label));
                         }}
-                        className="p-1.5 text-red-500 hover:bg-red-100 rounded"
-                        title="Özel alanı sil"
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
                       >
-                        <Trash2 size={14} />
+                        <X size={12} />
                       </button>
                     </div>
                   </div>
@@ -790,15 +767,18 @@ export default function OptikSablonEditor({
               })}
             </div>
             
-            {/* ÖZEL ALAN EKLE BUTONU */}
-            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200">
-              <button
-                onClick={() => setShowOzelAlanModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                <Plus size={16} />
-                Özel Alan Ekle
-              </button>
+            {/* ÖZET BAR */}
+            <div className="mt-3 flex items-center justify-between text-xs bg-slate-50 rounded-lg p-2">
+              <div className="flex items-center gap-3">
+                <span className="text-slate-500"><strong className="text-emerald-600">{alanlar.length}</strong> alan tanımlı</span>
+                <span className="text-slate-300">|</span>
+                <span className="text-slate-500"><strong className="text-red-500">*</strong> zorunlu</span>
+              </div>
+              {alanlar.find(a => a.alan === 'cevaplar') ? (
+                <span className="text-emerald-600 font-medium">✓ Kaydetmeye hazır</span>
+              ) : (
+                <span className="text-amber-600">⚠ Cevaplar alanını tanımlayın</span>
+              )}
             </div>
           </div>
           
