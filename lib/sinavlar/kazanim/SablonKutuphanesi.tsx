@@ -230,21 +230,30 @@ export default function SablonKutuphanesi({
     
     if (sablonId.startsWith('custom-')) {
       // Özel şablon - kalıcı olarak sil
-      setCustomSablonlar(prev => {
-        const yeni = prev.filter(s => s.id !== sablonId);
-        console.log('✅ Özel şablon silindi, kalan:', yeni.length);
-        return yeni;
-      });
+      const yeniListe = customSablonlar.filter(s => s.id !== sablonId);
+      setCustomSablonlar(yeniListe);
+      
+      // localStorage'a direkt kaydet
+      try {
+        localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
+        console.log('✅ Özel şablon silindi ve kaydedildi, kalan:', yeniListe.length);
+        alert(`✅ Şablon silindi! Kalan: ${yeniListe.length} özel şablon`);
+      } catch (e) {
+        console.error('❌ Silme kaydetme hatası:', e);
+      }
     } else {
       // Hazır şablon - gizle (silinmiş gibi göster)
-      setHiddenSablonlar(prev => {
-        if (!prev.includes(sablonId)) {
-          const yeni = [...prev, sablonId];
-          console.log('✅ Hazır şablon gizlendi:', sablonId);
-          return yeni;
-        }
-        return prev;
-      });
+      const yeniHiddenListe = [...hiddenSablonlar, sablonId];
+      setHiddenSablonlar(yeniHiddenListe);
+      
+      // localStorage'a direkt kaydet
+      try {
+        localStorage.setItem('akademihub_hidden_sablonlar', JSON.stringify(yeniHiddenListe));
+        console.log('✅ Hazır şablon gizlendi ve kaydedildi:', sablonId);
+        alert(`✅ Şablon gizlendi! (Hazır şablonlar kalıcı olarak silinemez, sadece gizlenir)`);
+      } catch (e) {
+        console.error('❌ Gizleme kaydetme hatası:', e);
+      }
     }
     
     setDeleteConfirm(null);
@@ -309,15 +318,25 @@ export default function SablonKutuphanesi({
       renk: '#6366F1'
     };
     
-    setCustomSablonlar(prev => {
-      const yeniListe = [...prev, yeniSablon];
-      console.log('✅ Yeni şablon eklendi:', yeniSablon.ad, '| Toplam:', yeniListe.length);
-      return yeniListe;
-    });
+    // Önce localStorage'dan mevcut şablonları al
+    const mevcutSablonlar = [...customSablonlar];
+    const yeniListe = [...mevcutSablonlar, yeniSablon];
+    
+    // State'i güncelle
+    setCustomSablonlar(yeniListe);
+    
+    // localStorage'a direkt kaydet (useEffect'i beklemeden)
+    try {
+      localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
+      console.log('✅ Yeni şablon eklendi ve kaydedildi:', yeniSablon.ad, '| Toplam:', yeniListe.length);
+    } catch (e) {
+      console.error('❌ Şablon kaydetme hatası:', e);
+    }
+    
     setShowAddForm(false);
     
     // Başarı bildirimi
-    alert(`✅ "${yeniSablon.ad}" şablonu başarıyla eklendi!`);
+    alert(`✅ "${yeniSablon.ad}" şablonu başarıyla eklendi!\n\nToplam ${yeniListe.length} özel şablon var.`);
     setNewSablon({
       ad: '',
       yayinevi: 'Özel',
@@ -804,8 +823,8 @@ export default function SablonKutuphanesi({
                 )}
               </div>
               
-              {/* Aksiyon Butonları */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Aksiyon Butonları - HER ZAMAN GÖRÜNÜR */}
+              <div className="flex items-center gap-1">
                 {/* Düzenle */}
                 <button
                   onClick={(e) => {
@@ -828,7 +847,7 @@ export default function SablonKutuphanesi({
                     });
                     setShowAddForm(true);
                   }}
-                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Düzenle"
                 >
                   <Edit3 size={14} />
@@ -838,36 +857,38 @@ export default function SablonKutuphanesi({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    console.log('🗑️ Silme onayı isteniyor:', sablon.id);
                     setDeleteConfirm(sablon.id);
                   }}
-                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
                   title="Sil"
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
               
-              {/* Silme Onay */}
+              {/* Silme Onay - DAHA BELİRGİN */}
               {deleteConfirm === sablon.id && (
-                <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg">
-                  <span className="text-xs text-red-600">Sil?</span>
+                <div className="flex items-center gap-2 bg-red-100 border border-red-300 px-3 py-1.5 rounded-lg animate-pulse">
+                  <span className="text-sm font-bold text-red-700">Silmek istediğinize emin misiniz?</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      console.log('✅ Silme onaylandı:', sablon.id);
                       handleDeleteSablon(sablon.id);
                     }}
-                    className="p-1 text-red-600 hover:bg-red-100 rounded"
+                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-medium text-sm"
                   >
-                    <Check size={12} />
+                    Evet, Sil
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteConfirm(null);
                     }}
-                    className="p-1 text-slate-500 hover:bg-slate-100 rounded"
+                    className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium text-sm"
                   >
-                    <X size={12} />
+                    İptal
                   </button>
                 </div>
               )}
