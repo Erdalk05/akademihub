@@ -3,7 +3,6 @@
  * Supabase'den cevap anahtarı şablonlarını (kütüphane) yönetir.
  */
 
-import { createClient } from '@/lib/supabase/client';
 import type { CevapAnahtariSatir } from '@/lib/sinavlar/kazanim/types';
 
 export interface CevapAnahtariSablonDB {
@@ -20,28 +19,14 @@ export interface CevapAnahtariSablonDB {
 }
 
 export async function getCevapAnahtariSablonlari(organizationId?: string): Promise<CevapAnahtariSablonDB[]> {
-  const supabase = createClient();
-
-  let query = supabase
-    .from('cevap_anahtari_sablonlari')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
-
-  // Organizasyona özel veya genel şablonları getir
-  if (organizationId) {
-    query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
-  } else {
-    query = query.is('organization_id', null);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error('Cevap anahtarı şablonları yükleme hatası:', error);
+  const qs = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : '';
+  const res = await fetch(`/api/cevap-anahtari-sablonlari${qs}`, { method: 'GET' });
+  const json = await res.json();
+  if (!res.ok || !json?.success) {
+    console.error('Cevap anahtarı şablonları yükleme hatası:', json?.error || res.statusText);
     return [];
   }
-
-  return (data || []) as CevapAnahtariSablonDB[];
+  return (json.data || []) as CevapAnahtariSablonDB[];
 }
 
 export async function createCevapAnahtariSablon(input: {
@@ -52,44 +37,26 @@ export async function createCevapAnahtariSablon(input: {
   cevap_anahtari: CevapAnahtariSatir[];
   organization_id?: string | null;
 }): Promise<CevapAnahtariSablonDB | null> {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from('cevap_anahtari_sablonlari')
-    .insert({
-      sablon_adi: input.sablon_adi,
-      aciklama: input.aciklama ?? null,
-      sinav_turu: input.sinav_turu ?? null,
-      sinif_seviyesi: input.sinif_seviyesi ?? null,
-      cevap_anahtari: input.cevap_anahtari,
-      organization_id: input.organization_id ?? null,
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error('Cevap anahtarı şablonu oluşturma hatası:', error);
+  const res = await fetch('/api/cevap-anahtari-sablonlari', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!res.ok || !json?.success) {
+    console.error('Cevap anahtarı şablonu oluşturma hatası:', json?.error || res.statusText);
     return null;
   }
-
-  return data as CevapAnahtariSablonDB;
+  return json.data as CevapAnahtariSablonDB;
 }
 
 export async function deleteCevapAnahtariSablon(id: string): Promise<boolean> {
-  const supabase = createClient();
-
-  const { error } = await supabase
-    .from('cevap_anahtari_sablonlari')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq('id', id);
-
-  if (error) {
-    console.error('Cevap anahtarı şablonu silme hatası:', error);
+  const res = await fetch(`/api/cevap-anahtari-sablonlari/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const json = await res.json();
+  if (!res.ok || !json?.success) {
+    console.error('Cevap anahtarı şablonu silme hatası:', json?.error || res.statusText);
     return false;
   }
-
   return true;
 }
 

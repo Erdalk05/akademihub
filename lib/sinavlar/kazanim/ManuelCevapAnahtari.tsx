@@ -73,6 +73,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
   const [yapistirMetni, setYapistirMetni] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uiPersistKey = 'akademihub_manuel_cevap_anahtari_ui_v1';
   
   // 🔀 DERS SIRALAMASI - Sürükle-Bırak için
   const [dersSirasi, setDersSirasi] = useState<string[]>(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
@@ -254,6 +255,27 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
         kazanimMetni: ''
       }))
     }));
+
+    // ✅ Kullanıcı “Temizle” demedikçe kilit/cevap kaybolmasın; temizle dediğinde hepsini sıfırla
+    setKilitliDersler(prev => ({ ...prev, [aktifKitapcik]: new Set() }));
+    setDersCevaplari(prev => ({ ...prev, [aktifKitapcik]: { ...emptyDersDraft } }));
+    setHizli90Metin(prev => ({ ...prev, [aktifKitapcik]: '' }));
+
+    try {
+      const raw = sessionStorage.getItem(uiPersistKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.kilitliDersler) {
+          parsed.kilitliDersler[aktifKitapcik] = [];
+          sessionStorage.setItem(uiPersistKey, JSON.stringify(parsed));
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Wizard state'e de yaz (geri gelince boş kalmasın)
+    queueMicrotask(() => saveToWizard());
   }, [aktifKitapcik]);
 
   // Dosya yükleme
@@ -292,10 +314,17 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     kazanimli: kitapcikVerileri[aktifKitapcik].filter(s => s.kazanimKodu).length
   };
 
-  // Ders bazlı cevap state'leri
-  const [dersCevaplari, setDersCevaplari] = useState<Record<string, string>>({
-    TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: ''
-  });
+  // Ders bazlı cevap taslağı (kitapçık bazlı)
+  const emptyDersDraft = { TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: '' };
+  const [dersCevaplari, setDersCevaplari] = useState<Record<KitapcikTuru, Record<string, string>>>(() => ({
+    A: { ...emptyDersDraft },
+    B: { ...emptyDersDraft },
+    C: { ...emptyDersDraft },
+    D: { ...emptyDersDraft },
+  }));
+
+  // 90 soru hızlı yapıştır (kitapçık bazlı)
+  const [hizli90Metin, setHizli90Metin] = useState<Record<KitapcikTuru, string>>({ A: '', B: '', C: '', D: '' });
   
   // 🔒 KİLİT SİSTEMİ (KİTAPÇIK BAZLI)
   // Kritik: Kilit tek Set olursa A'da kilitlenen dersler B'de de kilitli görünür
@@ -308,11 +337,12 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
   }));
 
   // ✅ Tek yerden cevap anahtarı üret (wizard'a kaydetmek için)
-  const buildCevapAnahtari = useCallback((): CevapAnahtariSatir[] => {
-    const sorularA = kitapcikVerileri['A'];
-    const sorularB = kitapcikVerileri['B'];
-    const sorularC = kitapcikVerileri['C'];
-    const sorularD = kitapcikVerileri['D'];
+  const buildCevapAnahtari = useCallback((state?: Record<KitapcikTuru, SoruCevap[]>): CevapAnahtariSatir[] => {
+    const src = state || kitapcikVerileri;
+    const sorularA = src['A'];
+    const sorularB = src['B'];
+    const sorularC = src['C'];
+    const sorularD = src['D'];
 
     const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
       if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
@@ -355,6 +385,125 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     toast.success(`Kaydedildi (${data.length} soru)`);
   }, [buildCevapAnahtari, onSave]);
 
+  const saveToWizardWithState = useCallback(
+    (nextState: Record<KitapcikTuru, SoruCevap[]>, toastMsg?: string) => {
+      const data = buildCevapAnahtari(nextState);
+      if (!onSave) {
+        console.warn('⚠️ onSave prop tanımlı değil!');
+        toast.error('Kaydetme başarısız: onSave tanımlı değil');
+        return;
+      }
+      onSave(data);
+      toast.success(toastMsg || `Kaydedildi (${data.length} soru)`);
+    },
+    [buildCevapAnahtari, onSave],
+  );
+
+  const dersBaslangicIndex = useCallback((dersKodu: string) => {
+    let baslangicIndex = 0;
+    for (const d of LGS_DERSLER) {
+      if (d.kod === dersKodu) break;
+      baslangicIndex += d.soruSayisi;
+    }
+    return baslangicIndex;
+  }, []);
+
+  const getDersCevapString = useCallback(
+    (kit: KitapcikTuru, dersKodu: string) => {
+      const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+      if (!ders) return '';
+      const start = dersBaslangicIndex(dersKodu);
+      return (kitapcikVerileri[kit] || [])
+        .slice(start, start + ders.soruSayisi)
+        .map(s => (s.cevap ? String(s.cevap) : ''))
+        .join('');
+    },
+    [dersBaslangicIndex, kitapcikVerileri],
+  );
+
+  const syncDraftFromStateForKitapcik = useCallback(
+    (kit: KitapcikTuru) => {
+      setDersCevaplari(prev => ({
+        ...prev,
+        [kit]: {
+          TUR: getDersCevapString(kit, 'TUR'),
+          INK: getDersCevapString(kit, 'INK'),
+          DIN: getDersCevapString(kit, 'DIN'),
+          ING: getDersCevapString(kit, 'ING'),
+          MAT: getDersCevapString(kit, 'MAT'),
+          FEN: getDersCevapString(kit, 'FEN'),
+        },
+      }));
+    },
+    [getDersCevapString],
+  );
+
+  // UI state (kilit + ders sırası) ileri-geri adımda kaybolmasın
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(uiPersistKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.dersSirasi)) {
+        setDersSirasi(parsed.dersSirasi);
+      }
+      if (parsed?.kilitliDersler) {
+        setKilitliDersler({
+          A: new Set(parsed.kilitliDersler.A || []),
+          B: new Set(parsed.kilitliDersler.B || []),
+          C: new Set(parsed.kilitliDersler.C || []),
+          D: new Set(parsed.kilitliDersler.D || []),
+        });
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        uiPersistKey,
+        JSON.stringify({
+          dersSirasi,
+          kilitliDersler: {
+            A: Array.from(kilitliDersler.A),
+            B: Array.from(kilitliDersler.B),
+            C: Array.from(kilitliDersler.C),
+            D: Array.from(kilitliDersler.D),
+          },
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  }, [dersSirasi, kilitliDersler]);
+
+  // Kitapçık değişince ders satırı inputlarını mevcut cevaplardan doldur (boş görünmesin)
+  useEffect(() => {
+    syncDraftFromStateForKitapcik(aktifKitapcik);
+  }, [aktifKitapcik, syncDraftFromStateForKitapcik]);
+
+  // ✅ Otomatik kaydet (debounce): kullanıcı ileri/geri adım yapınca "Temizle demeden" veri kaybolmasın
+  // Not: Çok sık save spam olmasın diye 500ms bekliyoruz.
+  useEffect(() => {
+    if (!onSave) return;
+    const answered = kitapcikVerileri[aktifKitapcik]?.filter(s => s.cevap).length || 0;
+    if (answered === 0) return;
+
+    const t = window.setTimeout(() => {
+      try {
+        const data = buildCevapAnahtari(kitapcikVerileri);
+        onSave(data);
+      } catch {
+        // ignore
+      }
+    }, 500);
+
+    return () => window.clearTimeout(t);
+  }, [aktifKitapcik, kitapcikVerileri, onSave, buildCevapAnahtari]);
+
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
     const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
@@ -363,12 +512,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     // Cevapları temizle ve büyük harfe çevir
     const temizCevaplar = cevaplar.toUpperCase().replace(/[^ABCDE]/g, '');
     
-    // Dersin başlangıç index'ini bul
-    let baslangicIndex = 0;
-    for (const d of LGS_DERSLER) {
-      if (d.kod === dersKodu) break;
-      baslangicIndex += d.soruSayisi;
-    }
+    const baslangicIndex = dersBaslangicIndex(dersKodu);
 
     // Cevapları uygula
     setKitapcikVerileri(prev => {
@@ -384,11 +528,19 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
           }
         }
       });
-      return { ...prev, [aktifKitapcik]: yeniSorular };
+      const nextState = { ...prev, [aktifKitapcik]: yeniSorular };
+
+      // ✅ Kullanıcı derste kilitlediği an, wizard state'e de yaz (ileri-geri adımda kaybolmasın)
+      // Not: buildCevapAnahtari sıralama/kitapçık eşleşmesini korur.
+      queueMicrotask(() => {
+        saveToWizardWithState(nextState, `Kaydedildi: ${ders.ad.split(' ')[0]} (${aktifKitapcik})`);
+      });
+
+      return nextState;
     });
 
     // State'i temizle ve kilitle
-    setDersCevaplari(prev => ({ ...prev, [dersKodu]: '' }));
+    setDersCevaplari(prev => ({ ...prev, [aktifKitapcik]: { ...prev[aktifKitapcik], [dersKodu]: temizCevaplar.slice(0, ders.soruSayisi) } }));
     
     // Tam cevap girildiyse (aktif kitapçık için) kilitle
     if (temizCevaplar.length >= ders.soruSayisi) {
@@ -399,7 +551,50 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     }
     
     console.log(`✅ ${ders.ad} için ${temizCevaplar.length} cevap uygulandı ve kilitlendi`);
-  }, [aktifKitapcik]);
+  }, [aktifKitapcik, dersBaslangicIndex, saveToWizardWithState]);
+
+  const applyFull90 = useCallback(
+    (rawText: string) => {
+      const letters = rawText.toUpperCase().replace(/[^ABCDE]/g, '');
+      if (!letters) return;
+      const sliced = letters.slice(0, 90);
+      if (sliced.length < 1) return;
+
+      setKitapcikVerileri(prev => {
+        const yeniSorular = prev[aktifKitapcik].map((s, idx) => ({
+          ...s,
+          cevap: (sliced[idx] as CevapSecenegi) || s.cevap,
+        }));
+        const nextState = { ...prev, [aktifKitapcik]: yeniSorular };
+
+        // ✅ 90 cevap yapıştırılınca ders satırlarına da dağıt + kilitle
+        const offsets = { TUR: 0, INK: 20, DIN: 30, ING: 40, MAT: 50, FEN: 70 };
+        const lens = { TUR: 20, INK: 10, DIN: 10, ING: 10, MAT: 20, FEN: 20 };
+        setDersCevaplari(prevDraft => ({
+          ...prevDraft,
+          [aktifKitapcik]: {
+            TUR: sliced.slice(offsets.TUR, offsets.TUR + lens.TUR),
+            INK: sliced.slice(offsets.INK, offsets.INK + lens.INK),
+            DIN: sliced.slice(offsets.DIN, offsets.DIN + lens.DIN),
+            ING: sliced.slice(offsets.ING, offsets.ING + lens.ING),
+            MAT: sliced.slice(offsets.MAT, offsets.MAT + lens.MAT),
+            FEN: sliced.slice(offsets.FEN, offsets.FEN + lens.FEN),
+          },
+        }));
+        setKilitliDersler(prevLocks => ({
+          ...prevLocks,
+          [aktifKitapcik]: new Set(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']),
+        }));
+
+        queueMicrotask(() => {
+          saveToWizardWithState(nextState, `Kaydedildi: 90 cevap (Kitapçık ${aktifKitapcik})`);
+        });
+
+        return nextState;
+      });
+    },
+    [aktifKitapcik, saveToWizardWithState],
+  );
 
   // Ders için girilen cevap sayısı
   const getDersCevapSayisi = useCallback((dersKodu: string) => {
@@ -647,16 +842,36 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                 <input
                   type="text"
                   placeholder="Hızlı giriş: ABCDABCDABCD... (90 karakter)"
-                  maxLength={90}
+                  value={hizli90Metin[aktifKitapcik] || ''}
+                  // Excel boşluklu yapıştırabiliyor: maxLength 90 olursa şıklar kırpılır.
+                  // Bu yüzden geniş tutuyoruz, biz A-E sayısına göre değerlendiriyoruz.
+                  maxLength={320}
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono uppercase"
                   onChange={(e) => {
-                    if (e.target.value.length === 90) {
-                      handleHizliYapistir(e.target.value);
-                      e.target.value = '';
+                    const val = e.target.value.toUpperCase();
+                    setHizli90Metin(prev => ({ ...prev, [aktifKitapcik]: val }));
+
+                    const harfSayisi = val.replace(/[^ABCDE]/g, '').length;
+                    if (harfSayisi >= 90) {
+                      applyFull90(val);
+                      setHizli90Metin(prev => ({ ...prev, [aktifKitapcik]: '' }));
+                    }
+                  }}
+                  onPaste={(e) => {
+                    // Bazı browser'larda paste anında maxLength kırpabilir; bu yüzden doğrudan clipboard'tan uygula
+                    const pasted = e.clipboardData?.getData('text') || '';
+                    if (!pasted) return;
+                    const harfSayisi = pasted.toUpperCase().replace(/[^ABCDE]/g, '').length;
+                    if (harfSayisi >= 90) {
+                      e.preventDefault();
+                      applyFull90(pasted);
+                      setHizli90Metin(prev => ({ ...prev, [aktifKitapcik]: '' }));
                     }
                   }}
                 />
-                <span className="text-xs text-gray-400">90 karakter girildiğinde otomatik uygular</span>
+                <span className="text-xs text-gray-400">
+                  A-E sayısı {((hizli90Metin[aktifKitapcik] || '').replace(/[^ABCDE]/g, '').length)}/90 olunca otomatik uygular
+                </span>
               </div>
             </motion.div>
           )}
@@ -799,9 +1014,11 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                 const isTam = doluluk === ders.soruSayisi;
                 
                 // Girilen karakter sayısı (sadece A-E)
-                const girilenKarakter = (dersCevaplari[ders.kod] || '').replace(/[^ABCDE]/g, '').length;
+                const mevcutMetin = (dersCevaplari[aktifKitapcik]?.[ders.kod] || '').toUpperCase();
+                const girilenKarakter = mevcutMetin.replace(/[^ABCDE]/g, '').length;
                 const isEksik = girilenKarakter > 0 && girilenKarakter < ders.soruSayisi;
                 const isFazla = girilenKarakter > ders.soruSayisi;
+                const kilitliCevapString = getDersCevapString(aktifKitapcik, ders.kod);
                 
                 return (
                   <tr 
@@ -838,12 +1055,18 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                               yeniSet.delete(ders.kod);
                               return { ...prev, [aktifKitapcik]: yeniSet };
                             });
+                            // Kilit açılınca satır inputu mevcut cevaptan dolu gelsin
+                            syncDraftFromStateForKitapcik(aktifKitapcik);
                           }}
                           title="Çift tıkla ile kilidi aç"
                         >
                           <Check size={16} className="text-green-600" />
                           <span className="text-sm font-medium text-green-700">
                             ✓ {ders.soruSayisi} cevap kaydedildi
+                          </span>
+                          {/* ✅ İstenen: Kilitliyken de şıklar görünsün */}
+                          <span className="text-xs font-mono text-green-800 bg-white/60 px-2 py-1 rounded border border-green-200 max-w-[240px] truncate">
+                            {kilitliCevapString}
                           </span>
                           <span className="text-xs text-green-600 ml-auto">Çift tıkla → Düzenle</span>
                         </div>
@@ -853,10 +1076,13 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                           <div className="flex-1 relative">
                             <input
                               type="text"
-                              value={dersCevaplari[ders.kod] || ''}
+                              value={dersCevaplari[aktifKitapcik]?.[ders.kod] || ''}
                               onChange={(e) => {
                                 const deger = e.target.value.toUpperCase();
-                                setDersCevaplari(prev => ({ ...prev, [ders.kod]: deger }));
+                                setDersCevaplari(prev => ({
+                                  ...prev,
+                                  [aktifKitapcik]: { ...prev[aktifKitapcik], [ders.kod]: deger },
+                                }));
                                 
                                 // Tam sayıya ulaştığında otomatik uygula
                                 const temizDeger = deger.replace(/[^ABCDE]/g, '');
@@ -865,7 +1091,8 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                                 }
                               }}
                               placeholder={`${ders.soruSayisi} cevap girin (A-E)...`}
-                              maxLength={ders.soruSayisi * 3}
+                              // Excel boşluk/ayraç koyabiliyor, kırpılmasın
+                              maxLength={ders.soruSayisi * 6}
                               className={`w-full px-3 py-1.5 pr-20 border rounded-lg text-sm font-mono uppercase focus:ring-2 transition-all ${
                                 isEksik 
                                   ? 'border-amber-400 bg-amber-50 focus:ring-amber-500' 
@@ -890,7 +1117,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                             </div>
                           </div>
                           <button
-                            onClick={() => handleDersCevapYapistir(ders.kod, dersCevaplari[ders.kod] || '')}
+                            onClick={() => handleDersCevapYapistir(ders.kod, dersCevaplari[aktifKitapcik]?.[ders.kod] || '')}
                             disabled={girilenKarakter !== ders.soruSayisi}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                               girilenKarakter === ders.soruSayisi
@@ -1061,7 +1288,8 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                         <input
                           type="text"
                           placeholder={`ABCD... (${ders.soruSayisi} adet)`}
-                          maxLength={ders.soruSayisi + 5}
+                          // Excel boşluk/ayraç koyabiliyor, kırpılmasın
+                          maxLength={ders.soruSayisi * 6}
                           className="w-full px-3 py-2 border rounded-lg text-sm font-mono uppercase focus:ring-2"
                           style={{ borderColor: ders.renk + '40' }}
                           onKeyDown={(e) => {
@@ -1071,9 +1299,10 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                             }
                           }}
                           onChange={(e) => {
-                            const deger = e.target.value.toUpperCase().replace(/[^ABCDE]/g, '');
-                            if (deger.length >= ders.soruSayisi) {
-                              handleDersCevapYapistir(ders.kod, deger);
+                            const raw = e.target.value.toUpperCase();
+                            const harfSayisi = raw.replace(/[^ABCDE]/g, '').length;
+                            if (harfSayisi >= ders.soruSayisi) {
+                              handleDersCevapYapistir(ders.kod, raw);
                               e.target.value = '';
                             }
                           }}
