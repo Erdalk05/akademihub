@@ -810,7 +810,22 @@ export default function SinavSihirbazi({
               {cevapGirisYontemi === 'manuel' && (
                 <ManuelCevapAnahtari
                   examType={sinavBilgisi.tip}
-                  onSave={(data) => setCevapAnahtari(data)}
+                  onSave={(data) => {
+                    // ✅ 0-soru kaydı kazara state'i silmesin
+                    setCevapAnahtari(prev => {
+                      if (data.length === 0 && prev.length > 0) {
+                        console.warn('⚠️ cevapAnahtari güncellemesi reddedildi: 0 soru geldi (kazara wipe önlendi)');
+                        return prev;
+                      }
+                      return data;
+                    });
+
+                    // Debug özet (A/B gerçekten geliyor mu?)
+                    const bCount = data.filter(r => r.kitapcikCevaplari?.B !== undefined).length;
+                    const aCount = data.filter(r => r.kitapcikCevaplari?.A !== undefined).length;
+                    console.log(`📌 Cevap Anahtarı Kaydedildi: toplam=${data.length} | A=${aCount} | B=${bCount}`);
+                  }}
+                  onClear={() => setCevapAnahtari([])}
                   initialData={cevapAnahtari}
                 />
               )}

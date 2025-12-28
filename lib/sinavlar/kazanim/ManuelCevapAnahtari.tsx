@@ -58,12 +58,14 @@ import { CevapAnahtariSatir } from './types';
 interface ManuelCevapAnahtariProps {
   examType?: string; // LGS, TYT, AYT, DENEME, AYT_SAY, AYT_SOS vb.
   onSave?: (data: CevapAnahtariSatir[]) => void;
+  // ✅ 0-soru kaydı sadece kullanıcı "Temizle" dediğinde olmalı
+  onClear?: () => void;
   initialData?: CevapAnahtariSatir[];
 }
 
 type GirisYontemi = 'yapistir' | 'surukle' | 'yukle';
 
-export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevapAnahtariProps) {
+export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: ManuelCevapAnahtariProps) {
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE YÖNETİMİ
   // ═══════════════════════════════════════════════════════════════════════════
@@ -74,6 +76,7 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uiPersistKey = 'akademihub_manuel_cevap_anahtari_ui_v1';
+  const lastSentSigRef = useRef<string>('');
   
   // 🔀 DERS SIRALAMASI - Sürükle-Bırak için
   const [dersSirasi, setDersSirasi] = useState<string[]>(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
@@ -274,9 +277,15 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
       // ignore
     }
 
-    // Wizard state'e de yaz (geri gelince boş kalmasın)
-    queueMicrotask(() => saveToWizard());
-  }, [aktifKitapcik]);
+    // ✅ Wizard state'i sadece kullanıcı "Temizle" dediğinde temizle
+    lastSentSigRef.current = '';
+    if (onClear) {
+      onClear();
+    } else {
+      // Geriye dönük uyumluluk: onClear yoksa yine de wizard'ı sıfırla
+      onSave?.([]);
+    }
+  }, [aktifKitapcik, onClear, onSave]);
 
   // Dosya yükleme
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,30 +391,70 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     return cevapAnahtari;
   }, [kitapcikVerileri]);
 
-  const saveToWizard = useCallback(() => {
-    const data = buildCevapAnahtari();
-    if (!onSave) {
-      console.warn('⚠️ onSave prop tanımlı değil!');
-      toast.error('Kaydetme başarısız: onSave tanımlı değil');
-      return;
-    }
-    onSave(data);
-    console.log('✅ onSave çağrıldı:', data.length, 'soru');
-    toast.success(`Kaydedildi (${data.length} soru)`);
-  }, [buildCevapAnahtari, onSave]);
+  const computeSig = useCallback((data: CevapAnahtariSatir[]) => {
+    // Hafif/Deterministik imza (aynı veri tekrar tekrar wizard'a gitmesin)
+    let hash = 2166136261; // FNV-1a başlangıç
+    const pushStr = (s: string) => {
+      for (let i = 0; i < s.length; i++) {
+        hash ^= s.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+    };
 
-  const saveToWizardWithState = useCallback(
-    (nextState: Record<KitapcikTuru, SoruCevap[]>, toastMsg?: string) => {
-      const data = buildCevapAnahtari(nextState);
+    pushStr(String(data.length));
+    // Performans için ilk 30 satırla imza üret (LGS 90 için yeterli)
+    for (let i = 0; i < Math.min(30, data.length); i++) {
+      const r = data[i];
+      pushStr(String(r.soruNo));
+      pushStr(String(r.dogruCevap || ''));
+      pushStr(String(r.kitapcikCevaplari?.A || ''));
+      pushStr(String(r.kitapcikCevaplari?.B || ''));
+      pushStr(String(r.kitapcikCevaplari?.C || ''));
+      pushStr(String(r.kitapcikCevaplari?.D || ''));
+    }
+    return `k:${data.length}-h:${hash >>> 0}`;
+  }, []);
+
+  const sendToWizard = useCallback(
+    (data: CevapAnahtariSatir[], reason: string) => {
       if (!onSave) {
         console.warn('⚠️ onSave prop tanımlı değil!');
         toast.error('Kaydetme başarısız: onSave tanımlı değil');
         return;
       }
+
+      // ✅ 0-soru kaydı sadece Temizle ile olmalı
+      if (data.length === 0) {
+        console.warn(`⚠️ Manuel Cevap Anahtarı: 0 soru üretildi (reason=${reason}). onSave çağrılmadı.`);
+        return;
+      }
+
+      const sig = computeSig(data);
+      if (lastSentSigRef.current === sig) {
+        // Aynı veri tekrar gönderilmesin
+        return;
+      }
+      lastSentSigRef.current = sig;
+
       onSave(data);
+      console.log(`✅ onSave çağrıldı: ${data.length} soru | reason=${reason} | sig=${sig}`);
+    },
+    [computeSig, onSave],
+  );
+
+  const saveToWizard = useCallback(() => {
+    const data = buildCevapAnahtari();
+    sendToWizard(data, `manual_button_${aktifKitapcik}`);
+    toast.success(`Kaydedildi (${data.length} soru)`);
+  }, [aktifKitapcik, buildCevapAnahtari, sendToWizard]);
+
+  const saveToWizardWithState = useCallback(
+    (nextState: Record<KitapcikTuru, SoruCevap[]>, toastMsg?: string) => {
+      const data = buildCevapAnahtari(nextState);
+      sendToWizard(data, `auto_subject_lock_${aktifKitapcik}`);
       toast.success(toastMsg || `Kaydedildi (${data.length} soru)`);
     },
-    [buildCevapAnahtari, onSave],
+    [aktifKitapcik, buildCevapAnahtari, sendToWizard],
   );
 
   const dersBaslangicIndex = useCallback((dersKodu: string) => {
@@ -504,14 +553,14 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     const t = window.setTimeout(() => {
       try {
         const data = buildCevapAnahtari(kitapcikVerileri);
-        onSave(data);
+        sendToWizard(data, `debounce_autosave_${aktifKitapcik}`);
       } catch {
         // ignore
       }
     }, 500);
 
     return () => window.clearTimeout(t);
-  }, [aktifKitapcik, kitapcikVerileri, onSave, buildCevapAnahtari]);
+  }, [aktifKitapcik, kitapcikVerileri, onSave, buildCevapAnahtari, sendToWizard]);
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
