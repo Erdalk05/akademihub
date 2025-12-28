@@ -24,6 +24,13 @@ import {
   Download
 } from 'lucide-react';
 import { OptikSablon, OptikAlanTanimi, ParsedOptikSatir, ALAN_RENKLERI, DERS_RENKLERI } from './types';
+import {
+  parseOpticalFile,
+  toBatchOptikSatir,
+  LGS_EXAM_STRUCTURE,
+  type ParseTemplate,
+  type BatchParseResult,
+} from '../core/parseEngine';
 
 interface OptikVeriParserProps {
   sablon: OptikSablon | null;
@@ -311,7 +318,13 @@ export default function OptikVeriParser({
     }
   }, [ogrenciListesi, onMatchStudents]);
 
-  // Veriyi parse et
+  // ═══════════════════════════════════════════════════════════════════════════
+  // YENİ DETERMINISTIK PARSE ENGINE V1.0
+  // - Entropy tabanlı slot tespiti
+  // - Ders bazlı blok doğrulaması
+  // - NEEDS_REVIEW flag'leri
+  // - SESSİZ PADDING YOK
+  // ═══════════════════════════════════════════════════════════════════════════
   const parseData = useCallback(() => {
     if (!sablon || !rawContent.trim()) return;
     
@@ -321,304 +334,54 @@ export default function OptikVeriParser({
       return;
     }
 
-    console.log('═══════════════════════════════════════════════════');
-    console.log('📊 PARSE BAŞLATILIYOR');
-    console.log('═══════════════════════════════════════════════════');
-    console.log('📋 Şablon:', sablon.sablonAdi);
-    console.log('📊 Toplam Soru:', sablon.toplamSoru);
-    console.log('📐 Alan Tanımları:');
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // GÜVENLİ ERİŞİM: alanTanimlari veya içindeki alanlar undefined olabilir
-    // ═══════════════════════════════════════════════════════════════════════════
-    const alanTanimlari = sablon.alanTanimlari || [];
-    
-    if (alanTanimlari.length === 0) {
-      console.error('❌ Şablonda alan tanımları yok! Lütfen farklı bir şablon seçin.');
-      setIsParsing(false);
-      return;
-    }
-    
-    alanTanimlari.forEach((alan, i) => {
-      if (alan && typeof alan.baslangic === 'number' && typeof alan.bitis === 'number') {
-        console.log(`   ${i + 1}. ${alan.label || 'Alan'} (${alan.alan || '?'}) → [${alan.baslangic}-${alan.bitis}] (${alan.bitis - alan.baslangic + 1} karakter)`);
-      } else {
-        console.warn(`   ${i + 1}. ⚠️ Geçersiz alan tanımı:`, alan);
-      }
-    });
-    console.log('───────────────────────────────────────────────────');
-
     setIsParsing(true);
-    // ⚠️ ÖNEMLİ: rawContent.trim() SON SATIRDAKİ sabit genişlik boşluklarını kırpabilir.
-    // Özdebir gibi sabit genişlik formatlarda bu kaymaya sebep olur.
-    const lines = rawContent.replace(/\r\n/g, '\n').split('\n');
-    const results: ParsedOptikSatir[] = [];
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ÖZDEBİR GİBİ ŞABLONLARDA CEVAP POZİSYONLARINI OTOMATİK TESPİT ET
-    // - Bazı formlarda "cevaplar" alanı 90 sorudan daha uzun olabilir (örn: 120 karakter)
-    // - Bu alan içinde format/ayraç boşlukları bulunur. "1 karakter = 1 soru" yaklaşımı kaymaya yol açar.
-    // - Çözüm: Tüm satırlarda A/B/C/D/E görülme sıklığına göre 90 gerçek soru pozisyonunu seç.
-    // ═══════════════════════════════════════════════════════════════════════════
-    const normalizeAlanTipi = (t: string) => (t || '').toLowerCase().replace(/[\s_-]+/g, '_').trim();
-    const cevapAlan = alanTanimlari.find(a => {
-      if (!a) return false;
-      const alanTipi = normalizeAlanTipi(a.alan || '');
-      const labelLower = (a.label || '').toLowerCase();
-      return ['cevaplar', 'cevap', 'answers', 'yanitlar'].includes(alanTipi) || labelLower.includes('cevap');
-    });
-
-    let cevapPozisyonlari: number[] | null = null;
-    if (cevapAlan && typeof cevapAlan.baslangic === 'number' && typeof cevapAlan.bitis === 'number') {
-      const cevapLen = cevapAlan.bitis - cevapAlan.baslangic + 1;
-
-      if (cevapLen > sablon.toplamSoru) {
-        const frekans = Array.from({ length: cevapLen }, () => 0);
-        const cStart = cevapAlan.baslangic - 1;
-        const cEnd = cevapAlan.bitis; // substring end exclusive
-
-        lines.forEach((line) => {
-          if (!line || !line.trim()) return;
-          const cevapStr = line.substring(cStart, Math.min(cEnd, line.length));
-          const maxJ = Math.min(cevapStr.length, cevapLen);
-          for (let j = 0; j < maxJ; j++) {
-            const ch = (cevapStr[j] || '').toUpperCase();
-            if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
-              frekans[j]++;
-            }
-          }
-        });
-
-        // En çok işaret görülen 90 pozisyonu seç
-        const sorted = frekans
-          .map((count, idx) => ({ idx, count }))
-          .sort((a, b) => (b.count - a.count) || (a.idx - b.idx));
-
-        const best = sorted.slice(0, sablon.toplamSoru).map(x => x.idx).sort((a, b) => a - b);
-
-        // Güvenlik: Eğer çok az pozisyonda harf bulunuyorsa (ör. veri az), yine de fallback'e bırak
-        const pozitifSayisi = sorted.filter(x => x.count > 0).length;
-        if (pozitifSayisi >= Math.min(sablon.toplamSoru, 30)) {
-          cevapPozisyonlari = best;
-          console.log(
-            `✅ Cevap pozisyonları tespit edildi: cevapLen=${cevapLen}, toplamSoru=${sablon.toplamSoru}, pozitifPozisyon=${pozitifSayisi}`
-          );
-          console.log('   İlk 15 pozisyon:', cevapPozisyonlari.slice(0, 15).join(', '));
-        } else {
-          console.warn(
-            `⚠️ Cevap pozisyon tespiti için yeterli veri yok gibi görünüyor (pozitifPozisyon=${pozitifSayisi}). Fallback parse kullanılacak.`
-          );
-        }
-      }
+    
+    // Şablonu yeni formata dönüştür
+    const template: ParseTemplate = {
+      sablonAdi: sablon.sablonAdi,
+      toplamSoru: sablon.toplamSoru,
+      alanTanimlari: sablon.alanTanimlari.map(alan => ({
+        alan: alan.alan,
+        baslangic: alan.baslangic,
+        bitis: alan.bitis,
+        label: alan.label,
+      })),
+    };
+    
+    // Yeni deterministik parse engine kullan
+    const batchResult = parseOpticalFile(rawContent, template, LGS_EXAM_STRUCTURE);
+    
+    // Eski formata dönüştür (geriye uyumluluk)
+    const results = toBatchOptikSatir(batchResult);
+    
+    // İstatistikleri logla
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('📊 PARSE SONUÇLARI (Yeni Engine V1.0)');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log(`   ✅ Başarılı: ${batchResult.stats.successCount}`);
+    console.log(`   ⚠️ İnceleme Gerekli: ${batchResult.stats.needsReviewCount}`);
+    console.log(`   ❌ Reddedildi: ${batchResult.stats.rejectedCount}`);
+    console.log(`   📈 Ortalama Güven: ${(batchResult.stats.averageConfidence * 100).toFixed(1)}%`);
+    
+    if (batchResult.warnings.length > 0) {
+      console.log('   ⚠️ Uyarılar:');
+      batchResult.warnings.forEach(w => console.log(`      - ${w}`));
     }
-
-    lines.forEach((line, index) => {
-      if (!line.trim()) return;
-
-      const hatalar: string[] = [];
-      const parsed: ParsedOptikSatir = {
-        satırNo: index + 1,
-        hamVeri: line,
-        cevaplar: [],
-        hatalar: [],
-        isValid: true
-      };
-
-      // Debug: İlk satır için detaylı log
-      if (index === 0) {
-        console.log('📝 İLK SATIR ANALİZİ:');
-        console.log('   Ham Veri:', JSON.stringify(line));
-        console.log('   Uzunluk:', line.length, 'karakter');
-      }
-
-      // Her alanı parse et
-      alanTanimlari.forEach((alan) => {
-        // ═══════════════════════════════════════════════════════════════════════
-        // GÜVENLİ ERİŞİM: alan veya özellikleri undefined olabilir
-        // ═══════════════════════════════════════════════════════════════════════
-        if (!alan || typeof alan.baslangic !== 'number' || typeof alan.bitis !== 'number') {
-          console.warn('⚠️ Geçersiz alan atlandı:', alan);
-          return;
-        }
-        
-        // 0-indexed için -1 (kullanıcı 1'den başlıyor)
-        const startIdx = alan.baslangic - 1;
-        const endIdx = alan.bitis; // substring end exclusive
-        
-        // Satır yeterince uzun mu?
-        if (startIdx >= line.length) {
-          hatalar.push(`${alan.label || 'Alan'}: Satır çok kısa (${line.length} karakter)`);
-          return;
-        }
-        
-        // HAM değeri al - TRIM YAPMA (boşluklar önemli olabilir)
-        const rawValue = line.substring(startIdx, Math.min(endIdx, line.length));
-        // Sadece görüntüleme için trim
-        const value = rawValue.trim();
-        const fixedValue = fixTurkishChars(value);
-
-        // Debug: İlk 3 satır için alan değerlerini logla
-        if (index < 3) {
-          console.log(`   ├─ ${alan.label || 'Alan'} (${alan.alan || '?'}) [${alan.baslangic}-${alan.bitis}]: "${rawValue}" → "${fixedValue}"`);
-        }
-
-        // Alan tipini normalize et (case-insensitive, underscore/space tolerant)
-        const alanTipi = (alan.alan || '').toLowerCase().replace(/[\s_-]+/g, '_').trim();
-        
-        // Alan tipini belirle - tüm varyasyonları destekle
-        let alanKategorisi = 'bilinmeyen';
-        
-        if (['sinif_no', 'sinif', 'sinif_numarasi', 'class'].includes(alanTipi)) {
-          alanKategorisi = 'sinif';
-        } else if (['ogrenci_no', 'ogrencino', 'numara', 'no', 'student_no', 'ogrenci_numarasi'].includes(alanTipi)) {
-          alanKategorisi = 'ogrenci_no';
-        } else if (['ogrenci_adi', 'ad_soyad', 'adsoyad', 'isim', 'ad', 'name', 'ogrenci_ismi', 'öğrenci_adı'].includes(alanTipi)) {
-          alanKategorisi = 'ogrenci_adi';
-        } else if (['tc', 'tc_kimlik', 'tckimlik', 'tc_no', 'tcno', 'kimlik'].includes(alanTipi)) {
-          alanKategorisi = 'tc';
-        } else if (['kitapcik', 'kitapcik_turu', 'kitapcikturu', 'booklet', 'kitap'].includes(alanTipi)) {
-          alanKategorisi = 'kitapcik';
-        } else if (['cevaplar', 'cevap', 'answers', 'yanitlar'].includes(alanTipi)) {
-          alanKategorisi = 'cevaplar';
-        } else if (['bos', 'atla', 'skip', 'empty'].includes(alanTipi)) {
-          alanKategorisi = 'bos';
-        }
-        
-        // Eğer alan.label'dan da tahmin yapabiliriz
-        const labelLower = (alan.label || '').toLowerCase();
-        if (alanKategorisi === 'bilinmeyen') {
-          if (labelLower.includes('sınıf') || labelLower.includes('sinif')) alanKategorisi = 'sinif';
-          else if (labelLower.includes('öğrenci no') || labelLower.includes('ogrenci no') || labelLower.includes('numara')) alanKategorisi = 'ogrenci_no';
-          else if (labelLower.includes('ad') && (labelLower.includes('soyad') || labelLower.includes('isim'))) alanKategorisi = 'ogrenci_adi';
-          else if (labelLower.includes('tc') || labelLower.includes('kimlik')) alanKategorisi = 'tc';
-          else if (labelLower.includes('kitapçık') || labelLower.includes('kitapcik')) alanKategorisi = 'kitapcik';
-          else if (labelLower.includes('cevap')) alanKategorisi = 'cevaplar';
-        }
-
-        switch (alanKategorisi) {
-          case 'sinif':
-            // Sınıf: "8A", "8-A", "8/A" gibi formatları destekle
-            parsed.sinifNo = fixedValue;
-            if (index < 3) console.log(`      → SINIF: "${fixedValue}"`);
-            break;
-            
-          case 'ogrenci_no':
-            // Öğrenci numarası: Tam değeri al (rakam + harf olabilir)
-            // Ama sınıf gibi değerleri ayıkla
-            let ogrenciNo = fixedValue;
-            // Eğer sadece "8A", "8B" gibi tek haneli ise bu sınıf olabilir
-            if (/^[4-9][A-Z]?$/i.test(ogrenciNo) || /^1[0-2][A-Z]?$/i.test(ogrenciNo)) {
-              // Bu muhtemelen sınıf, öğrenci no olarak alma
-              console.warn(`   ⚠️ "${ogrenciNo}" öğrenci no için çok kısa, sınıf olabilir`);
-            }
-            parsed.ogrenciNo = ogrenciNo;
-            if (index < 3) console.log(`      → ÖĞRENCİ NO: "${ogrenciNo}"`);
-            break;
-            
-          case 'ogrenci_adi':
-            // Öğrenci adını temizle - BOŞ KARAKTERLER DAHİL TÜM METNİ AL
-            // Önce ham değeri kullan, sonra temizle
-            const hamAd = line.substring(startIdx, Math.min(endIdx, line.length));
-            const temizAd = cleanStudentName(hamAd);
-            parsed.ogrenciAdi = temizAd;
-            if (index < 3) console.log(`      → AD SOYAD: "${hamAd}" → "${temizAd}"`);
-            if (!parsed.ogrenciAdi || parsed.ogrenciAdi.length < 2) {
-              hatalar.push('Öğrenci adı eksik veya çok kısa');
-            }
-            break;
-            
-          case 'tc':
-            parsed.tc = fixedValue.replace(/\D/g, ''); // Sadece rakamlar
-            if (index < 3) console.log(`      → TC: "${parsed.tc}"`);
-            if (parsed.tc && parsed.tc.length !== 11) {
-              hatalar.push(`TC kimlik hatalı: ${parsed.tc.length} karakter`);
-            }
-            break;
-            
-          case 'kitapcik':
-            // Kitapçık: SADECE belirtilen aralıktan A veya B al
-            const kitapcikHam = line.substring(startIdx, Math.min(endIdx, line.length)).trim().toUpperCase();
-            // Sadece A ve B olabileceğini varsay (kullanıcı A-B olduğunu söyledi)
-            if (kitapcikHam === 'A' || kitapcikHam === 'B') {
-              parsed.kitapcik = kitapcikHam as 'A' | 'B';
-            } else {
-              // Değerin içinde A veya B var mı?
-              const abMatch = kitapcikHam.match(/[AB]/);
-              if (abMatch) {
-                parsed.kitapcik = abMatch[0] as 'A' | 'B';
-              } else {
-                // Hiç bulunamadı
-                console.warn(`   ⚠️ Kitapçık bulunamadı: "${kitapcikHam}" (beklenen: A veya B)`);
-              }
-            }
-            if (index < 3) console.log(`      → KİTAPÇIK: "${kitapcikHam}" → "${parsed.kitapcik || 'YOK'}"`);
-            break;
-            
-          case 'cevaplar':
-            // Cevapları ayrıştır - TAM ARALIKTAN al
-            const cevapStr = line.substring(startIdx, Math.min(endIdx, line.length));
-            if (index < 3) console.log(`      → CEVAPLAR: "${cevapStr.substring(0, 20)}..." (${cevapStr.length} karakter)`);
-            // ✅ Özdebir gibi (cevap alanı > toplam soru) şablonlarda pozisyonlu okuma
-            if (cevapPozisyonlari && cevapPozisyonlari.length === sablon.toplamSoru) {
-              for (let i = 0; i < sablon.toplamSoru; i++) {
-                const pos = cevapPozisyonlari[i];
-                const ch = (cevapStr[pos] || '').toUpperCase();
-                if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
-                  parsed.cevaplar.push(ch);
-                } else {
-                  parsed.cevaplar.push(null);
-                }
-              }
-            } else {
-              // Fallback: Eski davranış (cevaplar alanı zaten 90 karakterse uygundur)
-              for (let i = 0; i < sablon.toplamSoru; i++) {
-                if (i >= cevapStr.length) {
-                  parsed.cevaplar.push(null);
-                  continue;
-                }
-                const cevap = (cevapStr[i] || '').toUpperCase();
-                if (cevap === 'A' || cevap === 'B' || cevap === 'C' || cevap === 'D' || cevap === 'E') {
-                  parsed.cevaplar.push(cevap);
-                } else {
-                  parsed.cevaplar.push(null); // Boş veya geçersiz
-                }
-              }
-            }
-            break;
-            
-          case 'bos':
-            // Boş alan - atla
-            break;
-            
-          default:
-            // Bilinmeyen alan tipleri için özel alanlar objesine ekle
-            if (!parsed.ozelAlanlar) {
-              parsed.ozelAlanlar = {};
-            }
-            parsed.ozelAlanlar[alan.label] = fixedValue;
-            if (index < 3) console.log(`      → ÖZEL ALAN (${alan.label}): "${fixedValue}"`);
-            break;
-        }
-      });
-
-      // Eksik cevapları doldur
-      while (parsed.cevaplar.length < sablon.toplamSoru) {
-        parsed.cevaplar.push(null);
-      }
-
-      parsed.hatalar = hatalar;
-      parsed.isValid = hatalar.length === 0 && !!parsed.ogrenciNo && !!parsed.ogrenciAdi;
-      results.push(parsed);
-    });
-
-    console.log('✅ Parse tamamlandı:', results.length, 'satır');
+    console.log('═══════════════════════════════════════════════════════════════');
+    
+    // Reddedilen öğrenciler için uyarı göster
+    if (batchResult.stats.rejectedCount > 0) {
+      console.warn(`⚠️ ${batchResult.stats.rejectedCount} öğrenci cevap hizalama hatası nedeniyle "REJECTED" işaretlendi!`);
+      console.warn('   Bu öğrenciler puanlamaya dahil EDİLMEYECEK. Manuel inceleme gerekli.');
+    }
+    
     setParsedData(results);
     setIsParsing(false);
     onParsed?.(results);
 
     // Öğrenci eşleştirme
     matchStudentsInternal(results);
-  }, [sablon, rawContent, fixTurkishChars, cleanStudentName, onParsed, matchStudentsInternal]);
+  }, [sablon, rawContent, onParsed, matchStudentsInternal]);
 
 
   // Dosya yükle

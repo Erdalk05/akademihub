@@ -785,13 +785,42 @@ export function esnekDegerlendir(
  * 
  * Tüm öğrencileri esnek yapılandırma ile değerlendirir.
  * Genel ve sınıf sıralaması hesaplar.
+ * 
+ * ⚠️ ÖNEMLİ: isValid = false olan öğrenciler puanlamaya DAHİL EDİLMEZ!
+ * Bu öğrenciler "REJECTED" veya "NEEDS_REVIEW" olarak işaretlenmiş olabilir.
+ * Sessiz padding/düzeltme YAPMAZ - hatalı veri garbage sonuç üretmek yerine atlanır.
  */
 export function topluEsnekDegerlendir(
   ogrenciler: ParsedOptikSatir[],
   yapilandirma: EsnekSinavYapilandirmasi
 ): EsnekDegerlendirmeSonucu[] {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CEVAP HİZALAMA KONTROLÜ
+  // isValid = false olan öğrenciler puanlamaya dahil edilmez!
+  // ═══════════════════════════════════════════════════════════════════════════
+  const gecerliOgrenciler = ogrenciler.filter(ogr => {
+    if (!ogr.isValid) {
+      console.warn(`⚠️ ${ogr.ogrenciNo || 'Bilinmeyen'} (${ogr.ogrenciAdi || 'İsimsiz'}) puanlamaya dahil edilmiyor: isValid=false`);
+      return false;
+    }
+    
+    // Cevap sayısı kontrolü - eksik cevap sayısı varsa uyar ama yine de dahil et
+    const cevapSayisi = (ogr.cevaplar || []).filter(c => c !== null).length;
+    if (cevapSayisi === 0) {
+      console.warn(`⚠️ ${ogr.ogrenciNo} hiç cevap yok - puanlamaya dahil edilmiyor`);
+      return false;
+    }
+    
+    return true;
+  });
+  
+  if (gecerliOgrenciler.length < ogrenciler.length) {
+    const atlanan = ogrenciler.length - gecerliOgrenciler.length;
+    console.log(`📊 Toplam ${ogrenciler.length} öğrenciden ${atlanan} tanesi puanlamaya dahil edilmedi (hizalama hatası veya geçersiz veri)`);
+  }
+  
   // Her öğrenciyi değerlendir
-  const sonuclar = ogrenciler.map(ogr => esnekDegerlendir(ogr, yapilandirma));
+  const sonuclar = gecerliOgrenciler.map(ogr => esnekDegerlendir(ogr, yapilandirma));
   
   // Genel sıralama (katsayılı puana göre)
   const genelSirali = [...sonuclar].sort((a, b) => b.toplamKatsayiliPuan - a.toplamKatsayiliPuan);
