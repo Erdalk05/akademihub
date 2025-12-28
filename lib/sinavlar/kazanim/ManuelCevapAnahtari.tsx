@@ -350,18 +350,27 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     };
 
     const cevapAnahtari: CevapAnahtariSatir[] = [];
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // KRİTİK FIX: HERHANGİ BİR KİTAPÇIKTA CEVAP VARSA KAYDET
+    // Eski hata: A boşsa B de atlanıyordu!
+    // Yeni: A, B, C, D'den herhangi birinde cevap varsa kaydet
+    // ═══════════════════════════════════════════════════════════════════════════
     sorularA.forEach((soru, originalIdx) => {
-      if (!soru.cevap) return;
-      const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
-
       const cevapA = validCevap(soru.cevap);
       const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
       const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
       const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
+      
+      // Herhangi bir kitapçıkta cevap varsa kaydet
+      const hasCevap = cevapA || cevapB || cevapC || cevapD;
+      if (!hasCevap) return;
+      
+      const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
 
       cevapAnahtari.push({
         soruNo: soru.globalSoruNo,
-        dogruCevap: cevapA || 'A',
+        dogruCevap: cevapA || cevapB || cevapC || cevapD || 'A', // İlk bulunan cevabı varsayılan yap
         dersKodu: soru.dersKodu,
         dersAdi: ders?.ad || soru.dersKodu,
         kazanimKodu: soru.kazanimKodu || undefined,
