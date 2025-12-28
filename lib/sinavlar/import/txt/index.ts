@@ -1,24 +1,11 @@
 /**
- * ============================================
- * AkademiHub - TXT Parser Module
- * ============================================
+ * TXT Import Modülü
  * 
- * Optik okuyucu TXT dosyaları için:
- * - OCR hata düzeltme
- * - Türkçe karakter desteği
- * - Fuzzy matching
+ * İki farklı TXT formatını destekler:
+ * - OPTIC_RAW: Optik okuyucudan gelen ham veri
+ * - REPORT_EXPORT: Hazır sonuç/rapor dosyası
  */
 
-export {
-  correctOCRErrors,
-  calculateTurkishSimilarity,
-  normalizeTurkish,
-  levenshteinDistance,
-  correctOCRBatch,
-  getOCRCorrectionStats,
-  OCR_ERROR_MAP,
-  COMMON_NAME_FIXES
-} from './ocrCorrection';
-
-export { default as OCRCorrection } from './ocrCorrection';
-
+export * from './types';
+export { detectTxtKind } from './detectTxtKind';
+export { parseReportExportTxt } from './reportExportParser';

@@ -31,6 +31,12 @@ import {
   type ParseTemplate,
   type BatchParseResult,
 } from '../core/parseEngine';
+import {
+  detectTxtKind,
+  parseReportExportTxt,
+  type ReportStudentResult,
+  type TxtImportKind,
+} from '../import/txt';
 
 interface OptikVeriParserProps {
   sablon: OptikSablon | null;
@@ -38,6 +44,13 @@ interface OptikVeriParserProps {
   onParsed?: (data: ParsedOptikSatir[]) => void;
   onMatchStudents?: (matches: { satir: ParsedOptikSatir; ogrenciId?: string; status: 'matched' | 'unmatched' | 'conflict' }[]) => void;
   onContinue?: () => void;  // Devam butonuna basıldığında çağrılır
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REPORT_EXPORT CALLBACK
+  // REPORT_EXPORT formatı tespit edilirse, bu callback çağrılır.
+  // Cevaplar yeniden inşa EDİLMEZ, direkt sonuçlar döner.
+  // ═══════════════════════════════════════════════════════════════════════════
+  onReportParsed?: (results: ReportStudentResult[], meta: { kind: TxtImportKind; reason: string }) => void;
 }
 
 // Türkçe karakter düzeltme haritası - GENİŞLETİLMİŞ
@@ -130,7 +143,8 @@ export default function OptikVeriParser({
   ogrenciListesi = [],
   onParsed,
   onMatchStudents,
-  onContinue
+  onContinue,
+  onReportParsed
 }: OptikVeriParserProps) {
   const [rawContent, setRawContent] = useState('');
   const [parsedData, setParsedData] = useState<ParsedOptikSatir[]>([]);
@@ -319,22 +333,78 @@ export default function OptikVeriParser({
   }, [ogrenciListesi, onMatchStudents]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // YENİ DETERMINISTIK PARSE ENGINE V1.0
-  // - Entropy tabanlı slot tespiti
-  // - Ders bazlı blok doğrulaması
-  // - NEEDS_REVIEW flag'leri
-  // - SESSİZ PADDING YOK
+  // DUAL PARSER: OPTIC_RAW + REPORT_EXPORT
+  // 
+  // 1) OPTIC_RAW: Ham optik veri → cevaplar çıkar → puanlama motoru değerlendirir
+  // 2) REPORT_EXPORT: Hazır sonuç → direkt doğru/yanlış/net al → puanlama BYPASS
+  //
+  // OTOMATİK TESPİT: detectTxtKind() ile format belirlenir
   // ═══════════════════════════════════════════════════════════════════════════
   const parseData = useCallback(() => {
-    if (!sablon || !rawContent.trim()) return;
+    if (!rawContent.trim()) return;
+    
+    setIsParsing(true);
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADIM 1: FORMAT TESPİTİ
+    // ═══════════════════════════════════════════════════════════════════════
+    const detectResult = detectTxtKind(rawContent);
+    
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🔍 TXT FORMAT TESPİTİ');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log(`   Format: ${detectResult.kind}`);
+    console.log(`   Sebep: ${detectResult.reason}`);
+    console.log(`   Güven: ${(detectResult.confidence * 100).toFixed(0)}%`);
+    console.log('═══════════════════════════════════════════════════════════════');
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADIM 2: REPORT_EXPORT FORMATIYSA → DİREKT SONUÇLARI AL
+    // Cevapları yeniden inşa ETME, puanlama motoru ÇALIŞMASIN
+    // ═══════════════════════════════════════════════════════════════════════
+    if (detectResult.kind === 'REPORT_EXPORT') {
+      console.log('📊 REPORT_EXPORT modu aktif - Hazır sonuçlar parse ediliyor...');
+      
+      const reportResult = parseReportExportTxt(rawContent);
+      
+      // Callback ile sonuçları gönder
+      if (onReportParsed) {
+        onReportParsed(reportResult.students, { 
+          kind: detectResult.kind, 
+          reason: detectResult.reason 
+        });
+      }
+      
+      // Optik raw listesi boş (çünkü REPORT_EXPORT)
+      setParsedData([]);
+      setIsParsing(false);
+      
+      // Uyarıları göster
+      if (reportResult.warnings.length > 0) {
+        console.warn('⚠️ Report parse uyarıları:', reportResult.warnings);
+      }
+      
+      return;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADIM 3: OPTIC_RAW FORMATIYSA → MEVCUT ENGINE İLE PARSE
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('📋 OPTIC_RAW modu aktif - Optik veriler parse ediliyor...');
+    
+    // Şablon kontrolü (sadece OPTIC_RAW için gerekli)
+    if (!sablon) {
+      alert('Optik raw veri için şablon seçilmeli! Lütfen bir şablon seçin.');
+      setIsParsing(false);
+      return;
+    }
     
     // Alan tanımı kontrolü
     if (!sablon.alanTanimlari || sablon.alanTanimlari.length === 0) {
       alert('Şablonda alan tanımı yok! Lütfen geri dönüp şablonu tamamlayın.');
+      setIsParsing(false);
       return;
     }
-
-    setIsParsing(true);
     
     // Şablonu yeni formata dönüştür
     const template: ParseTemplate = {
@@ -381,7 +451,7 @@ export default function OptikVeriParser({
 
     // Öğrenci eşleştirme
     matchStudentsInternal(results);
-  }, [sablon, rawContent, onParsed, matchStudentsInternal]);
+  }, [sablon, rawContent, onParsed, onReportParsed, matchStudentsInternal]);
 
 
   // Dosya yükle

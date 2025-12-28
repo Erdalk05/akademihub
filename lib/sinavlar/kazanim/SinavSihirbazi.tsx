@@ -42,6 +42,7 @@ import {
   deleteCevapAnahtariSablon,
   type CevapAnahtariSablonDB,
 } from '@/lib/sinavlar/services/cevapAnahtariSablonService';
+import type { ReportStudentResult, TxtImportKind } from '@/lib/sinavlar/import/txt';
 
 interface SinavSihirbaziProps {
   organizationId: string;
@@ -139,24 +140,34 @@ export default function SinavSihirbazi({
   const [sonuclar, setSonuclar] = useState<any[]>([]);
   const [lastCalcAt, setLastCalcAt] = useState<string | null>(null);
   const [lastCalcSig, setLastCalcSig] = useState<string | null>(null);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REPORT_EXPORT: Hazır sonuç dosyası gelirse puanlama BYPASS edilir
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [reportSonuclari, setReportSonuclari] = useState<ReportStudentResult[] | null>(null);
+  const [importKind, setImportKind] = useState<TxtImportKind | null>(null);
 
   // Adım geçişi
+  // REPORT_EXPORT gelirse: Step 2 ve 3 gerekli değil (sonuçlar hazır)
   const canProceed = useCallback(() => {
     switch (currentStep) {
       case 1:
         return sinavBilgisi.ad.trim().length > 0 && sinavBilgisi.tarih;
       case 2:
-        return cevapAnahtari.length > 0;
+        // REPORT_EXPORT: cevap anahtarı gerekmez
+        return reportSonuclari?.length ? true : (cevapAnahtari.length > 0);
       case 3:
-        return selectedSablon !== null || customSablon !== null;
+        // REPORT_EXPORT: optik şablon gerekmez
+        return reportSonuclari?.length ? true : (selectedSablon !== null || customSablon !== null);
       case 4:
-        return parsedOgrenciler.length > 0;
+        // Ya optik raw parse edilmiş ya da report results var
+        return parsedOgrenciler.length > 0 || (reportSonuclari?.length ?? 0) > 0;
       case 5:
         return true;
       default:
         return false;
     }
-  }, [currentStep, sinavBilgisi, cevapAnahtari, selectedSablon, customSablon, parsedOgrenciler]);
+  }, [currentStep, sinavBilgisi, cevapAnahtari, selectedSablon, customSablon, parsedOgrenciler, reportSonuclari]);
 
   // Cevap anahtarı şablonlarını yükle (Step 2'de kullanılacak)
   const refreshCevapSablonlari = useCallback(async () => {
@@ -186,8 +197,55 @@ export default function SinavSihirbazi({
     }
   };
 
-  // Sonuçları hesapla - YENİ ESNEK MOTOR
+  // Sonuçları hesapla - YENİ ESNEK MOTOR + REPORT_EXPORT BYPASS
   const calculateResults = useCallback(() => {
+    // ═══════════════════════════════════════════════════════════════════════
+    // REPORT_EXPORT BYPASS
+    // Hazır sonuç dosyası gelirse puanlama motoru çalışmaz,
+    // direkt sonuçları kullanır.
+    // ═══════════════════════════════════════════════════════════════════════
+    if (reportSonuclari && reportSonuclari.length > 0) {
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('📊 REPORT_EXPORT BYPASS - Hazır sonuçlar kullanılıyor');
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log(`   Öğrenci sayısı: ${reportSonuclari.length}`);
+      
+      // ReportStudentResult → wizard sonuç formatı
+      const results = reportSonuclari.map((r, idx) => ({
+        ogrenciNo: r.ogrenciNo,
+        ogrenciAdi: r.ogrenciAdi,
+        sinifNo: r.sinif,
+        kitapcik: r.kitapcik,
+        toplamDogru: r.toplamDogru,
+        toplamYanlis: r.toplamYanlis,
+        toplamBos: r.toplamBos,
+        toplamNet: r.toplamNet,
+        toplamPuan: r.toplamPuan ?? r.lgsPuani ?? 0,
+        siralama: r.genelSira ?? idx + 1,
+        sinifSira: r.sinifSira ?? 0,
+        // Ders bazlı (varsa)
+        dersBazli: r.dersler?.map(d => ({
+          dersKodu: d.dersKodu,
+          dersAdi: d.dersAdi,
+          dogru: d.dogru,
+          yanlis: d.yanlis,
+          bos: d.bos,
+          net: d.net,
+          basariOrani: d.basariOrani ?? 0,
+          katsayi: 1,
+          katsayiliPuan: d.net
+        })) || []
+      }));
+      
+      setSonuclar(results);
+      setLastCalcAt(new Date().toISOString());
+      setLastCalcSig(`REPORT_EXPORT-${reportSonuclari.length} öğrenci`);
+      return;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // OPTIC_RAW: Standart puanlama akışı
+    // ═══════════════════════════════════════════════════════════════════════
     if (cevapAnahtari.length === 0 || parsedOgrenciler.length === 0) return;
 
     // Yanlış katsayısını belirle
@@ -250,7 +308,7 @@ export default function SinavSihirbazi({
     // küçük bir imza (UI debug): cevapAnahtari + ogrenci sayısı
     const first = cevapAnahtari.slice(0, 5).map(r => `${r.soruNo}:${r.dogruCevap}:${r.kitapcikCevaplari?.B || '-'}`).join('|');
     setLastCalcSig(`${sinavBilgisi.tip}-${sinavBilgisi.sinifSeviyesi}-K:${cevapAnahtari.length}-O:${parsedOgrenciler.length}-F:${first}`);
-  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi]);
+  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi, reportSonuclari]);
 
   // ✅ Sonuçların "cache" kalmasını engelle:
   // - Cevap anahtarı veya öğrenci verisi değişince eski sonuçları sil
@@ -260,7 +318,7 @@ export default function SinavSihirbazi({
     setSonuclar([]);
     setLastCalcAt(null);
     setLastCalcSig(null);
-  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi.ad, sinavBilgisi.tip, sinavBilgisi.sinifSeviyesi, sinavBilgisi.yanlisKatsayisi]);
+  }, [cevapAnahtari, parsedOgrenciler, sinavBilgisi.ad, sinavBilgisi.tip, sinavBilgisi.sinifSeviyesi, sinavBilgisi.yanlisKatsayisi, reportSonuclari]);
 
   // Adım 5'teyken (her giriş değişiminde) sonuçları hesapla
   useEffect(() => {
@@ -851,10 +909,37 @@ export default function SinavSihirbazi({
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                {/* REPORT_EXPORT tespit edilmişse bilgi göster */}
+                {importKind === 'REPORT_EXPORT' && reportSonuclari && reportSonuclari.length > 0 && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="flex items-center gap-2 text-blue-800">
+                      <FileText className="w-5 h-5" />
+                      <span className="font-semibold">REPORT_EXPORT formatı tespit edildi</span>
+                    </div>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Hazır sonuç dosyası yüklendi. {reportSonuclari.length} öğrenci sonucu bulundu.
+                      <br />
+                      <span className="text-blue-600">Cevap anahtarı ve puanlama işlemi BYPASS edildi.</span>
+                    </p>
+                  </div>
+                )}
+                
                 <OptikVeriParser
                   sablon={selectedSablon || (customSablon ? { ...customSablon, id: 'temp' } as OptikSablon : null)}
                   ogrenciListesi={ogrenciListesi}
-                  onParsed={(data) => setParsedOgrenciler(data)}
+                  onParsed={(data) => {
+                    // OPTIC_RAW: normal akış
+                    setParsedOgrenciler(data);
+                    setReportSonuclari(null);
+                    setImportKind('OPTIC_RAW');
+                  }}
+                  onReportParsed={(results, meta) => {
+                    // REPORT_EXPORT: hazır sonuçları al, puanlama BYPASS
+                    console.log('📊 REPORT_EXPORT sonuçları alındı:', results.length);
+                    setReportSonuclari(results);
+                    setParsedOgrenciler([]);
+                    setImportKind(meta.kind);
+                  }}
                   onMatchStudents={(matches) => setMatchedData(matches)}
                   onContinue={() => {
                     console.log('✅ Adım 5\'e geçiliyor...');
