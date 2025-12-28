@@ -665,13 +665,31 @@ export function esnekDegerlendir(
   
   // Her testi ayrı ayrı değerlendir
   yapilandirma.testler.forEach(test => {
-    // Bu kitapçık için cevap anahtarını bul
-    const kitapcikCevap = test.kitapcikCevaplari.find(kc => kc.kitapcik === kitapcik);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // KRİTİK FIX: KİTAPÇIK BAZLI CEVAP ANAHTARI SEÇİMİ
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 1) Öğrencinin kitapçığını al (ogrenci.kitapcik || 'A')
+    // 2) Bu kitapçık için cevap anahtarını bul
+    // 3) Bulunamazsa A kitapçığına fallback (uyarı ile)
+    // ═══════════════════════════════════════════════════════════════════════════
     
+    // Önce öğrencinin kitapçığına ait cevap anahtarını ara
+    let kitapcikCevap = test.kitapcikCevaplari.find(kc => kc.kitapcik === kitapcik);
+    
+    // Bulunamazsa A kitapçığına fallback
     if (!kitapcikCevap) {
-      console.warn(`Kitapçık ${kitapcik} için cevap bulunamadı: ${test.testAdi}`);
+      console.warn(`⚠️ Kitapçık ${kitapcik} için cevap bulunamadı: ${test.testAdi}. A kitapçığı kullanılacak.`);
+      kitapcikCevap = test.kitapcikCevaplari.find(kc => kc.kitapcik === 'A');
+    }
+    
+    // Hala bulunamazsa (A bile yoksa) bu testi atla
+    if (!kitapcikCevap) {
+      console.error(`❌ ${test.testAdi} için hiçbir cevap anahtarı bulunamadı!`);
       return;
     }
+    
+    // Debug: Hangi kitapçık kullanılıyor?
+    console.log(`📊 ${test.testAdi}: Öğrenci kitapçık=${kitapcik}, Kullanılan cevap anahtarı=${kitapcikCevap.kitapcik}`);
     
     const dogruCevaplar = kitapcikCevap.cevaplar;
     
@@ -1012,18 +1030,33 @@ export function cevapAnahtarindanYapilandirmaOlustur(
         const hasKitapcikSoruNo = satirlar.some(s => s.kitapcikSoruNo?.[kit]);
         
         if (hasKitapcikCevaplari) {
-          // ✅ Manuel Cevap Anahtarı kullanılmış - Her kitapçık için ayrı cevap var!
+          // ═══════════════════════════════════════════════════════════════════════
+          // KRİTİK FIX: KİTAPÇIK CEVAPLARINI DOĞRU OKUMA
+          // ═══════════════════════════════════════════════════════════════════════
+          // s.kitapcikCevaplari?.[kit] undefined olabilir - bu durumda A'ya fallback
+          // AMA: Eğer kullanıcı B kitapçığı için ayrı cevap girmişse, B kullanılmalı
+          // ═══════════════════════════════════════════════════════════════════════
           console.log(`✅ ${dersKodu}: ${kit} kitapçığı için DOĞRUDAN CEVAP verisi mevcut (Manuel Giriş)`);
           
-          // A sıralamasını koru, ama kitapçık cevabını kullan
+          // Her soru için kitapçık cevabını al
+          const kitCevaplar = satirlar.map(s => {
+            const kitCevap = s.kitapcikCevaplari?.[kit];
+            if (kitCevap) {
+              return kitCevap;
+            }
+            // Fallback: A kitapçığı cevabı (ama uyarı ver)
+            console.warn(`   ⚠️ Soru ${s.soruNo}: ${kit} cevabı yok, A cevabı (${s.dogruCevap}) kullanılıyor`);
+            return s.dogruCevap;
+          });
+          
           kitapcikCevaplari.push({
             kitapcik: kit,
-            cevaplar: satirlar.map(s => s.kitapcikCevaplari?.[kit] || s.dogruCevap)
+            cevaplar: kitCevaplar
           });
           
           // Debug: İlk 5 cevap karşılaştırması
-          console.log(`   ${kit} kitapçığı ilk 5 cevap:`, satirlar.slice(0, 5).map(s => 
-            `A:${s.dogruCevap}→${kit}:${s.kitapcikCevaplari?.[kit] || '?'}`
+          console.log(`   ${kit} kitapçığı ilk 5 cevap:`, satirlar.slice(0, 5).map((s, i) => 
+            `A:${s.dogruCevap}→${kit}:${kitCevaplar[i]}`
           ).join(', '));
           
         } else if (hasKitapcikSoruNo) {
