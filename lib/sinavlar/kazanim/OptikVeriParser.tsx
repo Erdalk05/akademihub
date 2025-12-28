@@ -445,6 +445,87 @@ export default function OptikVeriParser({
       console.warn('   Bu öğrenciler puanlamaya dahil EDİLMEYECEK. Manuel inceleme gerekli.');
     }
     
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔬 DEBUG: OPTIC_RAW CEVAP BAŞLANGIÇ ANALİZİ
+    // Mevcut sisteme DOKUNMAZ - sadece teşhis amaçlı
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🔬 DEBUG: OPTIC_RAW CEVAP BAŞLANGIÇ ANALİZİ');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('   Bu analiz SADECE teşhis amaçlıdır. Puanlama/parse etkilenmez.');
+    console.log('───────────────────────────────────────────────────────────────');
+    
+    const lines = rawContent.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim());
+    const debugRows: { ad: string; startIdx: number; first20: string; rawLen: number }[] = [];
+    
+    lines.slice(0, Math.min(20, lines.length)).forEach((line, idx) => {
+      // Ham satırda A-E dizisi arama
+      const upperLine = line.toUpperCase();
+      
+      // İlk anlamlı A-E başlangıcını bul
+      // "Anlamlı" = en az 3 ardışık A-E karakteri (boşluk hariç)
+      let answerStartIdx = -1;
+      let consecutiveCount = 0;
+      let firstConsecutiveStart = -1;
+      
+      for (let i = 0; i < upperLine.length; i++) {
+        const ch = upperLine[i];
+        if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+          if (consecutiveCount === 0) {
+            firstConsecutiveStart = i;
+          }
+          consecutiveCount++;
+          if (consecutiveCount >= 3 && answerStartIdx === -1) {
+            answerStartIdx = firstConsecutiveStart;
+          }
+        } else if (ch !== ' ') {
+          // Boşluk değilse sıfırla
+          consecutiveCount = 0;
+          firstConsecutiveStart = -1;
+        }
+        // Boşluksa devam et (boşluk sırayı bozmaz)
+      }
+      
+      // İlk 20 cevabı çıkar (sadece A-E karakterleri)
+      let first20 = '';
+      if (answerStartIdx >= 0) {
+        for (let i = answerStartIdx; i < upperLine.length && first20.length < 20; i++) {
+          const ch = upperLine[i];
+          if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+            first20 += ch;
+          } else if (ch === ' ') {
+            first20 += '_'; // Boşluğu görünür yap
+          }
+        }
+      }
+      
+      // Öğrenci adını çıkar (şablondan)
+      const ogrenciAdi = results[idx]?.ogrenciAdi || `Satır ${idx + 1}`;
+      
+      debugRows.push({
+        ad: ogrenciAdi.substring(0, 20).padEnd(20),
+        startIdx: answerStartIdx,
+        first20: first20.padEnd(20),
+        rawLen: line.length
+      });
+    });
+    
+    // Tablo formatında logla
+    console.log('');
+    console.log('   ÖĞRENCİ ADI          | START | İLK 20 CEVAP         | SATIR UZ.');
+    console.log('   ─────────────────────┼───────┼──────────────────────┼──────────');
+    
+    debugRows.forEach(row => {
+      console.log(`   ${row.ad} | ${String(row.startIdx).padStart(5)} | ${row.first20} | ${row.rawLen}`);
+    });
+    
+    console.log('───────────────────────────────────────────────────────────────');
+    console.log('   NOT: "_" = boşluk karakteri');
+    console.log('   START = İlk anlamlı A-E dizisinin başladığı karakter indeksi');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('');
+    
     setParsedData(results);
     setIsParsing(false);
     onParsed?.(results);
