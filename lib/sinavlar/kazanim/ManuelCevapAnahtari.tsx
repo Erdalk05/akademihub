@@ -499,6 +499,31 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
   // UI state (kilit + ders sırası) ileri-geri adımda kaybolmasın
   useEffect(() => {
     try {
+      // ✅ İSTENEN DAVRANIŞ:
+      // - Adım ileri/geri yapınca kilitler KALSIN (sessionStorage)
+      // - Sayfa yenilenince (F5/Ctrl+R) kilitler SIFIRLANSIN
+      //
+      // sessionStorage normalde reload'da da korunur; bu yüzden reload tespit edip temizliyoruz.
+      let isReload = false;
+      try {
+        const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
+        if (nav?.type === 'reload') isReload = true;
+      } catch {
+        // ignore
+      }
+      // Eski API fallback (deprecated ama bazı ortamlarda)
+      if (!isReload && typeof performance !== 'undefined' && (performance as any).navigation?.type === 1) {
+        isReload = true;
+      }
+
+      if (isReload) {
+        sessionStorage.removeItem(uiPersistKey);
+        // Varsayılanlara dön (component mount'ta zaten default, ama güvenli)
+        setDersSirasi(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
+        setKilitliDersler({ A: new Set(), B: new Set(), C: new Set(), D: new Set() });
+        return;
+      }
+
       const raw = sessionStorage.getItem(uiPersistKey);
       if (!raw) return;
       const parsed = JSON.parse(raw);
