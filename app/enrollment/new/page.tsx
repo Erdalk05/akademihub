@@ -253,7 +253,7 @@ function EnrollmentContent() {
       }
       
       if (result.success && result.data) {
-        const studentNo = result.data.studentNumber || result.data.student?.student_no;
+        const studentNo = result.data.studentNumber || null;
         setIsSaved(true);
         setSavedStudentNo(studentNo);
         toast.success(`Kayit basarili! ${store.student.firstName} ${store.student.lastName}`);

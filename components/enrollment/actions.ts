@@ -342,13 +342,15 @@ export async function createEnrollment(data: EnrollmentData, organizationId?: st
       console.warn('Finance log insert skipped:', e);
     }
 
-    return { 
-      success: true, 
-      data: { 
-        enrollmentId, 
-        student: studentRecord,
-        studentNumber: studentRecord.student_no 
-      } 
+    // ⚠️ ÖNEMLİ: Server Action dönüşü sadece serialize edilebilir (primitive) alanlar içermeli.
+    // Supabase'den gelen studentRecord bazı ortamlarda (özellikle prod) serialize hatasına yol açabiliyor.
+    return {
+      success: true,
+      data: {
+        enrollmentId,
+        studentId: studentRecord?.id,
+        studentNumber: studentRecord?.student_no
+      }
     };
   } catch (error: any) {
     console.error('Enrollment creation error:', error);
