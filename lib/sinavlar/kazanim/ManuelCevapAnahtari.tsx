@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   FileSpreadsheet,
   Upload,
@@ -346,10 +347,12 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
     const data = buildCevapAnahtari();
     if (!onSave) {
       console.warn('⚠️ onSave prop tanımlı değil!');
+      toast.error('Kaydetme başarısız: onSave tanımlı değil');
       return;
     }
     onSave(data);
     console.log('✅ onSave çağrıldı:', data.length, 'soru');
+    toast.success(`Kaydedildi (${data.length} soru)`);
   }, [buildCevapAnahtari, onSave]);
 
   // Ders bazlı cevap yapıştır
@@ -1249,6 +1252,8 @@ export default function ManuelCevapAnahtari({ onSave, initialData }: ManuelCevap
                 {mevcutKitapcikTam && sonrakiKitapcik && (
                   <button
                     onClick={() => {
+                      // ✅ Önce kaydet, sonra diğer kitapçığa geç
+                      handleKaydet();
                       setAktifKitapcik(sonrakiKitapcik);
                     }}
                     className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-lg shadow-blue-200"
