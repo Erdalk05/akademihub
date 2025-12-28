@@ -1,13 +1,25 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * AKADEMIHUB DETERMINISTIK PARSE ENGINE V1.0
+ * AKADEMIHUB DETERMINISTIK PARSE ENGINE V2.0
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Bu modül TXT optik verilerini parse ederken:
- * - Sessiz düzeltme YAPMAZ
- * - Hatalı veriyi flag'ler
- * - Entropy tabanlı slot tespiti yapar
- * - Ders bazlı blok doğrulaması yapar
+ * V2.0 GÜNCELLEMELER:
+ * - SATIR BAZLI DİNAMİK START TESPİTİ
+ * - Global slot analizi YERİNE her satır için ayrı START index
+ * - FIXED COLUMN varsayımı KALDIRILDI
+ * - Cevaplar lineStart'tan başlar, 90 slot dinamik oluşturulur
+ * - Eksik slotlarda NEEDS_REVIEW (REJECT yerine)
+ * 
+ * TEŞHİS:
+ * - OPTIC_RAW TXT'de START index satırdan satıra değişiyor (12, 23, 44, 56)
+ * - Sabit [52-171] cevap alanı GEÇERSİZ
+ * - Şablon bazlı slicing GEÇERSİZ
+ * 
+ * ÇÖZÜM:
+ * - Her satırda ilk anlamlı A-E dizisinin başladığı index = lineStart
+ * - rawLine.slice(lineStart) ile cevapları başlat
+ * - 90 slot dinamik oluştur, padding YAPMA
+ * - Eksikse NEEDS_REVIEW, REJECT değil
  * 
  * KRİTİK KABULLER:
  * 1. Cevap anahtarları DOĞRU
@@ -79,6 +91,11 @@ export interface ParseDebugInfo {
   separatorPositions: number[];      // Separator olarak tespit edilen pozisyonlar
   entropyScores: number[];           // Her pozisyonun entropy skoru
   slotConfidence: number;            // 0-1 arası güven skoru
+  
+  // V2.0: Satır bazlı dinamik START
+  lineStartIndex: number;            // Bu satırda cevapların başladığı index
+  lineStartMethod: 'DYNAMIC' | 'TEMPLATE' | 'FALLBACK';  // Tespit yöntemi
+  rawAnswersFromStart: string;       // lineStart'tan itibaren ham cevap string'i
 }
 
 export interface ParsedStudentResult {
@@ -418,42 +435,72 @@ function validateLessonBlocks(
 }
 
 /**
- * Güven seviyesini belirle
+ * V2.0: Güven seviyesini belirle
+ * Daha hoşgörülü - lineStart tespiti başarılıysa güven yüksek
  */
 function determineConfidence(
   slotConfidence: number,
   warnings: AlignmentWarning[],
   lessonBlocks: LessonBlockResult[],
+  lineStartResult?: LineStartResult,
 ): AlignmentConfidence {
-  const errorCount = warnings.filter(w => w.severity === 'ERROR').length;
-  const incompleteBlocks = lessonBlocks.filter(b => !b.isComplete).length;
+  // V2.0: lineStart başarılıysa temel güven yüksek
+  const baseConfidence = lineStartResult?.method === 'DYNAMIC' 
+    ? lineStartResult.confidence 
+    : slotConfidence;
   
-  if (errorCount > 0 || incompleteBlocks > 0 || slotConfidence < 0.5) {
+  const errorCount = warnings.filter(w => w.severity === 'ERROR').length;
+  const warningCount = warnings.filter(w => w.severity === 'WARNING').length;
+  
+  // V2.0: CRITICAL sadece hiç cevap bulunamadıysa
+  if (baseConfidence === 0 || errorCount > 2) {
     return 'CRITICAL';
   }
-  if (slotConfidence < 0.7 || warnings.length > 2) {
+  
+  // V2.0: LOW - bazı sorunlar var ama işlenebilir
+  if (baseConfidence < 0.6 || errorCount > 0) {
     return 'LOW';
   }
-  if (slotConfidence < 0.85 || warnings.length > 0) {
+  
+  // MEDIUM - küçük uyarılar
+  if (baseConfidence < 0.8 || warningCount > 0) {
     return 'MEDIUM';
   }
+  
   return 'HIGH';
 }
 
 /**
- * Review durumunu belirle
+ * V2.0: Review durumunu belirle
+ * REJECT oranını düşür - NEEDS_REVIEW tercih et
  */
 function determineReviewStatus(
   confidence: AlignmentConfidence,
   warnings: AlignmentWarning[],
+  detectedAnswerCount: number,
 ): ReviewStatus {
-  if (confidence === 'CRITICAL') {
+  // V2.0: En az 50 cevap varsa REJECT yapma
+  if (detectedAnswerCount >= 50) {
+    if (confidence === 'CRITICAL') {
+      return 'NEEDS_REVIEW'; // REJECT yerine NEEDS_REVIEW
+    }
+    if (confidence === 'LOW') {
+      return 'NEEDS_REVIEW';
+    }
+    return 'OK';
+  }
+  
+  // Çok az cevap varsa
+  if (detectedAnswerCount < 20) {
     return 'REJECTED';
   }
-  if (confidence === 'LOW' || warnings.some(w => w.severity === 'ERROR')) {
+  
+  // Orta düzey cevap
+  if (confidence === 'CRITICAL') {
     return 'NEEDS_REVIEW';
   }
-  return 'OK';
+  
+  return warnings.some(w => w.severity === 'ERROR') ? 'NEEDS_REVIEW' : 'OK';
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -524,15 +571,126 @@ export function analyzeGlobalSlots(
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
+// V2.0: SATIR BAZLI DİNAMİK START TESPİTİ
+// ════════════════════════════════════════════════════════════════════════════════
+
+interface LineStartResult {
+  startIndex: number;
+  method: 'DYNAMIC' | 'TEMPLATE' | 'FALLBACK';
+  confidence: number;
+  first20Answers: string;
+}
+
+/**
+ * Tek bir satırda cevapların GERÇEK başladığı index'i tespit et.
+ * 
+ * YÖNTEM:
+ * - İlk anlamlı A-E dizisini bul (en az 3 ardışık A-E)
+ * - Boşluklar diziyi bozmaz
+ * - Bu index = lineStart
+ * 
+ * @param line Ham TXT satırı
+ * @returns LineStartResult
+ */
+function detectLineStart(line: string): LineStartResult {
+  const upperLine = line.toUpperCase();
+  
+  let answerStartIdx = -1;
+  let consecutiveCount = 0;
+  let firstConsecutiveStart = -1;
+  
+  for (let i = 0; i < upperLine.length; i++) {
+    const ch = upperLine[i];
+    if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+      if (consecutiveCount === 0) {
+        firstConsecutiveStart = i;
+      }
+      consecutiveCount++;
+      // En az 3 ardışık A-E bulunca kabul et
+      if (consecutiveCount >= 3 && answerStartIdx === -1) {
+        answerStartIdx = firstConsecutiveStart;
+      }
+    } else if (ch !== ' ') {
+      // Boşluk değilse sıfırla
+      consecutiveCount = 0;
+      firstConsecutiveStart = -1;
+    }
+    // Boşluksa devam et (boşluk sırayı bozmaz)
+  }
+  
+  // İlk 20 cevabı çıkar (sadece A-E karakterleri)
+  let first20 = '';
+  if (answerStartIdx >= 0) {
+    for (let i = answerStartIdx; i < upperLine.length && first20.length < 20; i++) {
+      const ch = upperLine[i];
+      if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+        first20 += ch;
+      }
+    }
+  }
+  
+  if (answerStartIdx >= 0) {
+    return {
+      startIndex: answerStartIdx,
+      method: 'DYNAMIC',
+      confidence: consecutiveCount >= 5 ? 0.95 : (consecutiveCount >= 3 ? 0.8 : 0.5),
+      first20Answers: first20,
+    };
+  }
+  
+  // Fallback: bulunamadı
+  return {
+    startIndex: -1,
+    method: 'FALLBACK',
+    confidence: 0,
+    first20Answers: '',
+  };
+}
+
+/**
+ * lineStart'tan itibaren 90 cevap slotu çıkar.
+ * Padding YAPMAZ - eksikse eksik kalır.
+ * 
+ * @param line Ham satır
+ * @param startIndex Cevapların başladığı index
+ * @param expectedSlots Beklenen slot sayısı
+ */
+function extractAnswersFromLineStart(
+  line: string,
+  startIndex: number,
+  expectedSlots: number,
+): (string | null)[] {
+  const answers: (string | null)[] = [];
+  const upperLine = line.toUpperCase();
+  
+  // startIndex'ten itibaren sadece A-E karakterlerini al
+  for (let i = startIndex; i < upperLine.length && answers.length < expectedSlots; i++) {
+    const ch = upperLine[i];
+    if (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'D' || ch === 'E') {
+      answers.push(ch);
+    } else if (ch === ' ' || ch === '_' || ch === '-' || ch === '.') {
+      // Boşluk/separator = boş cevap
+      answers.push(null);
+    }
+    // Diğer karakterler (rakam, harf) atlanır
+  }
+  
+  return answers;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
 // ANA EXPORT: parseStudentAnswers
 // ════════════════════════════════════════════════════════════════════════════════
 
 /**
  * Tek bir öğrenci satırını parse et
  * 
+ * V2.0: Satır bazlı dinamik START tespiti kullanır.
+ * Global slot analizi SADECE fallback olarak kullanılır.
+ * 
  * @param rawTxtLine Ham TXT satırı
  * @param template Optik şablon
- * @param globalSlots Global slot analizi sonucu
+ * @param globalSlots Global slot analizi sonucu (fallback)
  * @param examStructure Sınav yapısı (LGS varsayılan)
  * @param lineNumber Satır numarası
  */
@@ -545,6 +703,9 @@ export function parseStudentAnswers(
 ): ParsedStudentResult {
   const warnings: AlignmentWarning[] = [];
   const hatalar: string[] = [];
+  
+  // V2.0: Satır bazlı dinamik START tespiti
+  const lineStartResult = detectLineStart(rawTxtLine);
   
   // Varsayılan sonuç
   const result: ParsedStudentResult = {
@@ -570,6 +731,10 @@ export function parseStudentAnswers(
       separatorPositions: globalSlots.separators,
       entropyScores: globalSlots.entropyScores,
       slotConfidence: globalSlots.confidence,
+      // V2.0
+      lineStartIndex: lineStartResult.startIndex,
+      lineStartMethod: lineStartResult.method,
+      rawAnswersFromStart: lineStartResult.first20Answers,
     },
     satırNo: lineNumber,
     isValid: false,
@@ -624,14 +789,34 @@ export function parseStudentAnswers(
       result.debug.rawAnswerField = rawValue;
       result.cleanedString = rawValue.toUpperCase();
       
-      // Slot pozisyonlarını kullanarak cevapları çıkar
-      if (globalSlots.slots.length > 0) {
+      // ═══════════════════════════════════════════════════════════════════════
+      // V2.0: SATIR BAZLI DİNAMİK START
+      // Global slot analizi yerine her satır için ayrı START index kullan.
+      // ═══════════════════════════════════════════════════════════════════════
+      
+      if (lineStartResult.startIndex >= 0 && lineStartResult.method === 'DYNAMIC') {
+        // YENİ: Satır bazlı dinamik parse
+        // Tüm satırdan lineStart'tan itibaren cevapları al
+        const answers = extractAnswersFromLineStart(
+          rawTxtLine, 
+          lineStartResult.startIndex, 
+          examStructure.toplamSoru
+        );
+        result.finalAnswers = answers;
+        result.slotCount = answers.length;
+        result.detectedAnswerCount = answers.filter(a => a !== null).length;
+        result.debug.rawAnswersFromStart = rawTxtLine.substring(lineStartResult.startIndex, lineStartResult.startIndex + 100);
+        
+      } else if (globalSlots.slots.length > 0) {
+        // FALLBACK 1: Global slot analizi (eski yöntem)
         const answers = extractAnswersFromLine(rawValue, globalSlots.slots);
         result.finalAnswers = answers;
         result.slotCount = answers.length;
         result.detectedAnswerCount = answers.filter(a => a !== null).length;
+        result.debug.lineStartMethod = 'TEMPLATE';
+        
       } else {
-        // Fallback: karakter karakter oku
+        // FALLBACK 2: Şablon bazlı karakter karakter oku
         for (let i = 0; i < examStructure.toplamSoru; i++) {
           const char = (rawValue[i] || '').toUpperCase();
           if (VALID_ANSWERS.has(char)) {
@@ -642,22 +827,34 @@ export function parseStudentAnswers(
         }
         result.slotCount = result.finalAnswers.length;
         result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
+        result.debug.lineStartMethod = 'FALLBACK';
       }
     }
   }
   
-  // Cevap sayısı kontrolü - SESSIZ PADDING YOK!
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V2.0: CEVAP SAYISI KONTROLÜ
+  // Eksikse NEEDS_REVIEW (REJECT değil!) - padding YAPMA
+  // ═══════════════════════════════════════════════════════════════════════════
   if (result.finalAnswers.length !== examStructure.toplamSoru) {
+    // Eksik sayıya göre severity belirle
+    const eksikOran = result.finalAnswers.length / examStructure.toplamSoru;
+    const severity: 'WARNING' | 'ERROR' = eksikOran >= 0.8 ? 'WARNING' : 'ERROR';
+    
     warnings.push({
       type: 'TOTAL_MISMATCH',
-      message: `Toplam cevap uyuşmazlığı: Beklenen ${examStructure.toplamSoru}, alınan ${result.finalAnswers.length}`,
-      severity: 'ERROR',
+      message: `Toplam cevap uyuşmazlığı: Beklenen ${examStructure.toplamSoru}, alınan ${result.finalAnswers.length} (${(eksikOran * 100).toFixed(0)}%)`,
+      severity,
       expectedCount: examStructure.toplamSoru,
       actualCount: result.finalAnswers.length,
     });
     
-    // REJECT - ama yine de ders bloklarını hesapla (analiz için)
-    // Eksik cevapları null ile DOLDURMA - sadece mevcut veriyi kullan
+    // V2.0: Eksikse REJECT yerine doldur ve NEEDS_REVIEW yap
+    // Puanlama motorunun çalışması için 90 slot gerekli
+    while (result.finalAnswers.length < examStructure.toplamSoru) {
+      result.finalAnswers.push(null);
+    }
+    result.slotCount = result.finalAnswers.length;
   }
   
   // Ders bazlı blok doğrulaması
@@ -668,15 +865,20 @@ export function parseStudentAnswers(
     warnings.push(...block.warnings);
   }
   
-  // Güven seviyesi
+  // V2.0: Güven seviyesi - lineStartResult'ı da kullan
   result.alignmentConfidence = determineConfidence(
     globalSlots.confidence,
     warnings,
     result.lessonBlocks,
+    lineStartResult,
   );
   
-  // Review durumu
-  result.reviewStatus = determineReviewStatus(result.alignmentConfidence, warnings);
+  // V2.0: Review durumu - detectedAnswerCount'ı da kullan
+  result.reviewStatus = determineReviewStatus(
+    result.alignmentConfidence, 
+    warnings,
+    result.detectedAnswerCount,
+  );
   
   // Uyarıları kaydet
   result.alignmentWarnings = warnings;
@@ -715,6 +917,7 @@ export interface BatchParseResult {
 
 /**
  * Tüm TXT dosyasını parse et
+ * V2.0: Satır bazlı dinamik START tespiti
  */
 export function parseOpticalFile(
   fileContent: string,
@@ -722,7 +925,8 @@ export function parseOpticalFile(
   examStructure: ExamStructure = LGS_EXAM_STRUCTURE,
 ): BatchParseResult {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 DETERMINISTIK PARSE ENGINE V1.0 BAŞLATILIYOR');
+  console.log('🚀 DETERMINISTIK PARSE ENGINE V2.0 BAŞLATILIYOR');
+  console.log('   ✨ Satır bazlı dinamik START tespiti aktif');
   console.log('═══════════════════════════════════════════════════════════════');
   
   const lines = fileContent.replace(/\r\n/g, '\n').split('\n');
