@@ -649,11 +649,17 @@ export function esnekDegerlendir(
   ogrenci: ParsedOptikSatir,
   yapilandirma: EsnekSinavYapilandirmasi
 ): EsnekDegerlendirmeSonucu {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KRİTİK: ÖĞRENCİNİN KİTAPÇIĞINI AL
+  // ═══════════════════════════════════════════════════════════════════════════
   const kitapcik = (ogrenci.kitapcik || 'A') as 'A' | 'B' | 'C' | 'D';
   const tumCevaplar = ogrenci.cevaplar || [];
   
   // Debug: Kitapçık tipi ve ilk 10 cevap
-  console.log(`📝 Öğrenci: ${ogrenci.ogrenciNo} - Kitapçık: ${kitapcik} - İlk 10 cevap: ${tumCevaplar.slice(0, 10).join('')}`);
+  console.log('───────────────────────────────────────────────────────────────');
+  console.log(`📝 ÖĞRENCİ: ${ogrenci.ogrenciNo} (${ogrenci.ogrenciAdi})`);
+  console.log(`   Ham kitapçık değeri: "${ogrenci.kitapcik}" → Kullanılan: "${kitapcik}"`);
+  console.log(`   İlk 10 cevap: ${tumCevaplar.slice(0, 10).map(c => c || '_').join('')}`);
   
   let toplamDogru = 0;
   let toplamYanlis = 0;
@@ -974,22 +980,45 @@ export function cevapAnahtarindanYapilandirmaOlustur(
     dersGruplari[satir.dersKodu].push(satir);
   });
   
-  // Kitapçık türlerini tespit et
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KRİTİK FIX: KİTAPÇIK TESPİTİ
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sorun: satir.kitapcikCevaplari?.B kontrolü, undefined döndürürse falsy oluyor
+  // Çözüm: Explicit undefined kontrolü ve sayaç ile tespit
+  // ═══════════════════════════════════════════════════════════════════════════
   const kitapciklar = new Set<'A' | 'B' | 'C' | 'D'>();
   kitapciklar.add('A'); // A her zaman var
   
+  // Kitapçık cevap sayaçları (debug için)
+  const kitapcikSayac = { A: 0, B: 0, C: 0, D: 0 };
+  
   cevapAnahtari.forEach(satir => {
     // ✨ Manuel Cevap Anahtarı desteği - kitapcikCevaplari kontrolü
-    if (satir.kitapcikCevaplari?.B) kitapciklar.add('B');
-    if (satir.kitapcikCevaplari?.C) kitapciklar.add('C');
-    if (satir.kitapcikCevaplari?.D) kitapciklar.add('D');
+    // !== undefined kullan, çünkü boş string veya null da geçerli değil
+    if (satir.kitapcikCevaplari) {
+      if (satir.kitapcikCevaplari.A !== undefined) kitapcikSayac.A++;
+      if (satir.kitapcikCevaplari.B !== undefined) { kitapciklar.add('B'); kitapcikSayac.B++; }
+      if (satir.kitapcikCevaplari.C !== undefined) { kitapciklar.add('C'); kitapcikSayac.C++; }
+      if (satir.kitapcikCevaplari.D !== undefined) { kitapciklar.add('D'); kitapcikSayac.D++; }
+    }
     // Eski yöntem - kitapcikSoruNo kontrolü
     if (satir.kitapcikSoruNo?.B) kitapciklar.add('B');
     if (satir.kitapcikSoruNo?.C) kitapciklar.add('C');
     if (satir.kitapcikSoruNo?.D) kitapciklar.add('D');
   });
   
-  console.log('📚 Tespit edilen kitapçıklar:', Array.from(kitapciklar).join(', '));
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('📚 KİTAPÇIK TESPİT RAPORU');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log(`   Tespit edilen kitapçıklar: ${Array.from(kitapciklar).join(', ')}`);
+  console.log(`   Cevap sayıları: A=${kitapcikSayac.A}, B=${kitapcikSayac.B}, C=${kitapcikSayac.C}, D=${kitapcikSayac.D}`);
+  
+  // İlk 3 satırın kitapcikCevaplari'nı göster
+  console.log('   İlk 3 satır örneği:');
+  cevapAnahtari.slice(0, 3).forEach((s, i) => {
+    console.log(`   [${i+1}] soruNo=${s.soruNo}, dogruCevap=${s.dogruCevap}, kitapcikCevaplari=`, s.kitapcikCevaplari);
+  });
+  console.log('═══════════════════════════════════════════════════════════════');
   
   // Testleri oluştur
   let simdikiSoru = 1;
