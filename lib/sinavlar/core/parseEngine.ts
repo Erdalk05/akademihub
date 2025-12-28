@@ -320,6 +320,36 @@ export function detectQuestionSlots(
 }
 
 /**
+ * V3.1: START kayması olan dosyalar için RELATIVE slot tespiti.
+ * Her satırda lineStart tespit edilir, sonra line.slice(lineStart) üzerinden
+ * pozisyon analizi yapılır (0-indexed, normalize).
+ */
+export function detectQuestionSlotsRelativeToLineStart(
+  rawLines: string[],
+  expectedSlots: number = 90,
+): {
+  slotAnalysis: SlotAnalysisResult;
+  lineStarts: number[];
+  slicedLines: string[];
+} {
+  const validLines = rawLines.filter(l => l && l.trim().length > 0);
+  const lineStarts: number[] = [];
+  const slicedLines: string[] = [];
+
+  for (const line of validLines) {
+    const start = detectLineStart(line).startIndex;
+    // lineStart bulunamazsa 0 al (fallback), yine de slice et
+    const safeStart = start >= 0 ? start : 0;
+    lineStarts.push(safeStart);
+    slicedLines.push(line.slice(safeStart));
+  }
+
+  // Sliced diziler zaten start'tan başladığı için minStart=0
+  const slotAnalysis = detectQuestionSlots(slicedLines, 0, expectedSlots);
+  return { slotAnalysis, lineStarts, slicedLines };
+}
+
+/**
  * V3.0: Bir satırdan QUESTION_SLOT pozisyonlarına göre cevapları çıkar.
  * 
  * @param line Ham satır
@@ -937,6 +967,10 @@ export function parseStudentAnswers(
       lineStartIndex: lineStartResult.startIndex,
       lineStartMethod: lineStartResult.method,
       rawAnswersFromStart: lineStartResult.first20Answers,
+      // V3.0 (parseStudentAnswers - fallback fonksiyon)
+      questionSlotPositions: [],
+      separatorSlotPositions: [],
+      slotDetectionMethod: 'FALLBACK',
     },
     satırNo: lineNumber,
     isValid: false,
@@ -1202,8 +1236,12 @@ function parseStudentAnswersV3(
   // V3.0: QUESTION_SLOT POZİSYONLARINDAN CEVAPLARI ÇEK
   // ═══════════════════════════════════════════════════════════════════════════
   if (useV3 && slotAnalysis.questionSlots.length > 0) {
-    // V3.0: Slot tabanlı okuma
-    result.finalAnswers = extractAnswersBySlots(rawTxtLine, slotAnalysis.questionSlots);
+    // V3.1: START kayması varsa slotlar lineStart'tan SONRA göreli olmalı
+    // slotAnalysis.questionSlots artık slice(lineStart) üzerinde tespit edildiği için,
+    // cevapları da slice üzerinden okuyacağız.
+    const start = lineStartResult.startIndex >= 0 ? lineStartResult.startIndex : 0;
+    const sliced = rawTxtLine.slice(start);
+    result.finalAnswers = extractAnswersBySlots(sliced, slotAnalysis.questionSlots);
     result.slotCount = result.finalAnswers.length;
     result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
     result.debug.slotDetectionMethod = 'V3_FREQUENCY';
@@ -1337,18 +1375,9 @@ export function parseOpticalFile(
   console.log(`📊 Toplam Satır: ${validLines.length}`);
   console.log(`🎯 Beklenen Soru: ${examStructure.toplamSoru}`);
   
-  // 1. V3.0: QUESTION_SLOT pozisyonlarını tespit et
-  // Şablondan minimum start pozisyonunu bul (öğrenci bilgilerinden sonra)
-  const minStart = Math.min(
-    ...template.alanTanimlari
-      .filter(a => {
-        const alanLower = (a.alan || '').toLowerCase();
-        return alanLower.includes('cevap') || alanLower === 'answers';
-      })
-      .map(a => a.baslangic - 1)
-  ) || 30;
-  
-  const slotAnalysis = detectQuestionSlots(lines, minStart, examStructure.toplamSoru);
+  // 1. V3.1: START kayması olan dosyalarda slotları RELATIVE (lineStart sonrası) tespit et
+  const relative = detectQuestionSlotsRelativeToLineStart(lines, examStructure.toplamSoru);
+  const slotAnalysis = relative.slotAnalysis;
   
   // 2. Global slot analizi (geriye uyumluluk için)
   const globalSlots = analyzeGlobalSlots(lines, template, examStructure);
