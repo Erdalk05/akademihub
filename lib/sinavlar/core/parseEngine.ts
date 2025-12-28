@@ -1,25 +1,32 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * AKADEMIHUB DETERMINISTIK PARSE ENGINE V2.0
+ * AKADEMIHUB DETERMINISTIK PARSE ENGINE V3.0
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * V2.0 GÜNCELLEMELER:
- * - SATIR BAZLI DİNAMİK START TESPİTİ
- * - Global slot analizi YERİNE her satır için ayrı START index
- * - FIXED COLUMN varsayımı KALDIRILDI
- * - Cevaplar lineStart'tan başlar, 90 slot dinamik oluşturulur
- * - Eksik slotlarda NEEDS_REVIEW (REJECT yerine)
+ * V3.0 GÜNCELLEMELER:
+ * - SLOT TESPİTİ: Boşluk karakterlerinin 3 farklı anlamını ayırt et
+ *   1) SEPARATOR: Sabit format boşluğu (satırlar arası tutarlı)
+ *   2) PADDING: Sabit genişlik dolgusu
+ *   3) BLANK_ANSWER: Gerçek boş cevap (öğrenci boş bırakmış)
  * 
- * TEŞHİS:
- * - OPTIC_RAW TXT'de START index satırdan satıra değişiyor (12, 23, 44, 56)
- * - Sabit [52-171] cevap alanı GEÇERSİZ
- * - Şablon bazlı slicing GEÇERSİZ
+ * - Tüm satırları analiz ederek QUESTION_SLOT pozisyonlarını bul
+ * - A-E varyansı olan pozisyonlar = QUESTION_SLOT
+ * - Sürekli boş kalan pozisyonlar = SEPARATOR
+ * - Sadece QUESTION_SLOT'lardan cevap oku
  * 
- * ÇÖZÜM:
- * - Her satırda ilk anlamlı A-E dizisinin başladığı index = lineStart
- * - rawLine.slice(lineStart) ile cevapları başlat
- * - 90 slot dinamik oluştur, padding YAPMA
+ * V2.0'DAN DEVAM:
+ * - Satır bazlı dinamik START tespiti
+ * - FIXED COLUMN varsayımı yok
  * - Eksikse NEEDS_REVIEW, REJECT değil
+ * 
+ * SORUN (V2.0'da çözülmemiş):
+ * - Tüm boşluklar "boş cevap" sayılıyordu
+ * - Bu yüzden boş sayısı çok yüksek, netler düşük
+ * 
+ * ÇÖZÜM (V3.0):
+ * - Pozisyon bazlı frekans analizi
+ * - QUESTION_SLOT vs SEPARATOR ayrımı
+ * - LGS için tam 90 slot yakalanmalı
  * 
  * KRİTİK KABULLER:
  * 1. Cevap anahtarları DOĞRU
@@ -96,6 +103,36 @@ export interface ParseDebugInfo {
   lineStartIndex: number;            // Bu satırda cevapların başladığı index
   lineStartMethod: 'DYNAMIC' | 'TEMPLATE' | 'FALLBACK';  // Tespit yöntemi
   rawAnswersFromStart: string;       // lineStart'tan itibaren ham cevap string'i
+  
+  // V3.0: Slot tespiti
+  questionSlotPositions: number[];   // QUESTION_SLOT olarak tespit edilen pozisyonlar
+  separatorSlotPositions: number[];  // SEPARATOR olarak tespit edilen pozisyonlar
+  slotDetectionMethod: 'V3_FREQUENCY' | 'V2_DYNAMIC' | 'FALLBACK';
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// V3.0: SLOT TİPLERİ
+// ════════════════════════════════════════════════════════════════════════════════
+
+export type SlotType = 'QUESTION_SLOT' | 'SEPARATOR' | 'PADDING' | 'UNKNOWN';
+
+export interface SlotAnalysisResult {
+  // Pozisyon bazlı slot haritası
+  slotMap: Map<number, SlotType>;
+  
+  // QUESTION_SLOT pozisyonları (sıralı)
+  questionSlots: number[];
+  
+  // SEPARATOR pozisyonları
+  separatorSlots: number[];
+  
+  // İstatistikler
+  stats: {
+    totalPositionsAnalyzed: number;
+    questionSlotCount: number;
+    separatorCount: number;
+    confidence: number;
+  };
 }
 
 export interface ParsedStudentResult {
@@ -147,6 +184,171 @@ export const LGS_EXAM_STRUCTURE: ExamStructure = {
     { kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, baslangic: 70, bitis: 90 },
   ],
 };
+
+// ════════════════════════════════════════════════════════════════════════════════
+// V3.0: SLOT TESPİTİ - Boşluk/Separator/Cevap Ayrımı
+// ════════════════════════════════════════════════════════════════════════════════
+
+const VALID_ANSWERS_SET = new Set(['A', 'B', 'C', 'D', 'E']);
+
+/**
+ * V3.0: Tüm satırları analiz ederek QUESTION_SLOT pozisyonlarını tespit et.
+ * 
+ * MANTIK:
+ * - Her pozisyon için A-E frekansı hesapla
+ * - A-E karakteri görülen pozisyonlar = muhtemel QUESTION_SLOT
+ * - Hiç A-E görülmeyen veya çok nadir görülen pozisyonlar = SEPARATOR
+ * - En yüksek frekanslı N pozisyonu seç (N = beklenen soru sayısı)
+ * 
+ * @param lines Tüm TXT satırları
+ * @param minStart Cevapların başlayabileceği minimum index (öğrenci bilgilerinden sonra)
+ * @param expectedSlots Beklenen soru slot sayısı (LGS için 90)
+ */
+export function detectQuestionSlots(
+  lines: string[],
+  minStart: number = 30,
+  expectedSlots: number = 90,
+): SlotAnalysisResult {
+  const validLines = lines.filter(l => l && l.trim().length > 0);
+  
+  if (validLines.length === 0) {
+    return {
+      slotMap: new Map(),
+      questionSlots: [],
+      separatorSlots: [],
+      stats: { totalPositionsAnalyzed: 0, questionSlotCount: 0, separatorCount: 0, confidence: 0 },
+    };
+  }
+  
+  // Maksimum satır uzunluğu
+  const maxLen = Math.max(...validLines.map(l => l.length));
+  
+  // Her pozisyon için frekans sayacı
+  const positionStats: { 
+    pos: number; 
+    aeCount: number; 
+    spaceCount: number; 
+    totalLines: number;
+    aeRatio: number;
+  }[] = [];
+  
+  // minStart'tan itibaren her pozisyonu analiz et
+  for (let pos = minStart; pos < maxLen; pos++) {
+    let aeCount = 0;
+    let spaceCount = 0;
+    let totalLines = 0;
+    
+    for (const line of validLines) {
+      if (pos < line.length) {
+        totalLines++;
+        const ch = line[pos].toUpperCase();
+        if (VALID_ANSWERS_SET.has(ch)) {
+          aeCount++;
+        } else if (ch === ' ' || ch === '' || ch === '_' || ch === '-') {
+          spaceCount++;
+        }
+      }
+    }
+    
+    const aeRatio = totalLines > 0 ? aeCount / totalLines : 0;
+    
+    positionStats.push({
+      pos,
+      aeCount,
+      spaceCount,
+      totalLines,
+      aeRatio,
+    });
+  }
+  
+  // A-E oranına göre sırala (yüksekten düşüğe)
+  const sortedByAE = [...positionStats]
+    .filter(p => p.aeRatio > 0) // En az 1 A-E görülmüş olmalı
+    .sort((a, b) => b.aeRatio - a.aeRatio);
+  
+  // En iyi N pozisyonu QUESTION_SLOT olarak seç
+  const questionSlots = sortedByAE
+    .slice(0, expectedSlots)
+    .map(p => p.pos)
+    .sort((a, b) => a - b); // Pozisyona göre sırala
+  
+  // SEPARATOR: A-E oranı çok düşük olan pozisyonlar
+  const separatorSlots = positionStats
+    .filter(p => p.aeRatio < 0.05) // %5'ten az A-E görülen
+    .map(p => p.pos);
+  
+  // Slot haritası oluştur
+  const slotMap = new Map<number, SlotType>();
+  for (const pos of questionSlots) {
+    slotMap.set(pos, 'QUESTION_SLOT');
+  }
+  for (const pos of separatorSlots) {
+    if (!slotMap.has(pos)) {
+      slotMap.set(pos, 'SEPARATOR');
+    }
+  }
+  
+  // Güven skoru
+  const avgAERatio = questionSlots.length > 0
+    ? sortedByAE.slice(0, expectedSlots).reduce((sum, p) => sum + p.aeRatio, 0) / expectedSlots
+    : 0;
+  
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('🔬 V3.0 SLOT TESPİTİ');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log(`   Analiz edilen pozisyon: ${positionStats.length}`);
+  console.log(`   QUESTION_SLOT sayısı: ${questionSlots.length}`);
+  console.log(`   SEPARATOR sayısı: ${separatorSlots.length}`);
+  console.log(`   Ortalama A-E oranı: ${(avgAERatio * 100).toFixed(1)}%`);
+  if (questionSlots.length > 0) {
+    console.log(`   İlk 10 slot: [${questionSlots.slice(0, 10).join(', ')}]`);
+    console.log(`   Son 10 slot: [${questionSlots.slice(-10).join(', ')}]`);
+  }
+  console.log('═══════════════════════════════════════════════════════════════');
+  
+  return {
+    slotMap,
+    questionSlots,
+    separatorSlots,
+    stats: {
+      totalPositionsAnalyzed: positionStats.length,
+      questionSlotCount: questionSlots.length,
+      separatorCount: separatorSlots.length,
+      confidence: avgAERatio,
+    },
+  };
+}
+
+/**
+ * V3.0: Bir satırdan QUESTION_SLOT pozisyonlarına göre cevapları çıkar.
+ * 
+ * @param line Ham satır
+ * @param questionSlots QUESTION_SLOT pozisyonları (sıralı)
+ */
+function extractAnswersBySlots(
+  line: string,
+  questionSlots: number[],
+): (string | null)[] {
+  const answers: (string | null)[] = [];
+  const upperLine = line.toUpperCase();
+  
+  for (const pos of questionSlots) {
+    if (pos < upperLine.length) {
+      const ch = upperLine[pos];
+      if (VALID_ANSWERS_SET.has(ch)) {
+        answers.push(ch);
+      } else {
+        // Bu pozisyon QUESTION_SLOT ama karakter A-E değil = BOŞ CEVAP
+        answers.push(null);
+      }
+    } else {
+      // Satır yeterince uzun değil = BOŞ CEVAP
+      answers.push(null);
+    }
+  }
+  
+  return answers;
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // YARDIMCI FONKSİYONLAR
@@ -899,25 +1101,224 @@ export function parseStudentAnswers(
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
+// V3.0: SLOT TABANLI PARSE
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * V3.0: Slot tabanlı öğrenci parse
+ * 
+ * QUESTION_SLOT pozisyonlarından cevapları çıkarır.
+ * Separator pozisyonlarını atlar.
+ * Gerçek boş cevapları sadece QUESTION_SLOT içinde sayar.
+ */
+function parseStudentAnswersV3(
+  rawTxtLine: string,
+  template: ParseTemplate,
+  globalSlots: GlobalSlotAnalysis,
+  slotAnalysis: SlotAnalysisResult,
+  useV3: boolean,
+  examStructure: ExamStructure = LGS_EXAM_STRUCTURE,
+  lineNumber: number = 0,
+): ParsedStudentResult {
+  const warnings: AlignmentWarning[] = [];
+  const hatalar: string[] = [];
+  
+  // V2.0: Satır bazlı dinamik START tespiti (hala gerekli - öğrenci bilgileri için)
+  const lineStartResult = detectLineStart(rawTxtLine);
+  
+  // Varsayılan sonuç
+  const result: ParsedStudentResult = {
+    ogrenciNo: '',
+    ogrenciAdi: '',
+    tc: undefined,
+    sinifNo: undefined,
+    kitapcik: null,
+    rawString: rawTxtLine,
+    cleanedString: '',
+    detectedAnswerCount: 0,
+    slotCount: 0,
+    finalAnswers: [],
+    lessonBlocks: [],
+    alignmentConfidence: 'CRITICAL',
+    reviewStatus: 'REJECTED',
+    alignmentWarnings: [],
+    debug: {
+      rawString: rawTxtLine,
+      cleanedString: '',
+      rawAnswerField: '',
+      detectedSlots: globalSlots.slots,
+      separatorPositions: globalSlots.separators,
+      entropyScores: globalSlots.entropyScores,
+      slotConfidence: globalSlots.confidence,
+      lineStartIndex: lineStartResult.startIndex,
+      lineStartMethod: lineStartResult.method,
+      rawAnswersFromStart: lineStartResult.first20Answers,
+      questionSlotPositions: slotAnalysis.questionSlots,
+      separatorSlotPositions: slotAnalysis.separatorSlots,
+      slotDetectionMethod: useV3 ? 'V3_FREQUENCY' : 'V2_DYNAMIC',
+    },
+    satırNo: lineNumber,
+    isValid: false,
+    hatalar: [],
+  };
+  
+  // Boş satır kontrolü
+  if (!rawTxtLine || rawTxtLine.trim().length === 0) {
+    hatalar.push('Boş satır');
+    result.hatalar = hatalar;
+    return result;
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ÖĞRENCİ BİLGİLERİNİ PARSE ET (şablondan)
+  // ═══════════════════════════════════════════════════════════════════════════
+  for (const alan of template.alanTanimlari) {
+    const startIdx = alan.baslangic - 1;
+    const endIdx = alan.bitis;
+    
+    if (startIdx >= rawTxtLine.length) continue;
+    
+    const rawValue = rawTxtLine.substring(startIdx, Math.min(endIdx, rawTxtLine.length));
+    const trimmedValue = rawValue.trim();
+    const fixedValue = fixTurkishChars(trimmedValue);
+    
+    const alanLower = (alan.alan || '').toLowerCase();
+    const labelLower = (alan.label || '').toLowerCase();
+    
+    if (alanLower.includes('ogrenci_no') || alanLower === 'numara' || labelLower.includes('öğrenci no')) {
+      result.ogrenciNo = fixedValue.replace(/\D/g, '') || fixedValue;
+    } else if (alanLower.includes('ogrenci_adi') || alanLower.includes('ad_soyad') || labelLower.includes('ad')) {
+      result.ogrenciAdi = cleanStudentName(rawValue);
+    } else if (alanLower === 'tc' || alanLower.includes('kimlik')) {
+      result.tc = fixedValue.replace(/\D/g, '');
+    } else if (alanLower.includes('sinif') || labelLower.includes('sınıf')) {
+      result.sinifNo = fixedValue;
+    } else if (alanLower.includes('kitapcik') || labelLower.includes('kitapçık')) {
+      result.kitapcik = parseBooklet(rawValue);
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V3.0: QUESTION_SLOT POZİSYONLARINDAN CEVAPLARI ÇEK
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (useV3 && slotAnalysis.questionSlots.length > 0) {
+    // V3.0: Slot tabanlı okuma
+    result.finalAnswers = extractAnswersBySlots(rawTxtLine, slotAnalysis.questionSlots);
+    result.slotCount = result.finalAnswers.length;
+    result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
+    result.debug.slotDetectionMethod = 'V3_FREQUENCY';
+    result.cleanedString = result.finalAnswers.map(a => a || '_').join('');
+    
+  } else if (lineStartResult.startIndex >= 0) {
+    // V2.0 Fallback: Dinamik START
+    result.finalAnswers = extractAnswersFromLineStart(
+      rawTxtLine, 
+      lineStartResult.startIndex, 
+      examStructure.toplamSoru
+    );
+    result.slotCount = result.finalAnswers.length;
+    result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
+    result.debug.slotDetectionMethod = 'V2_DYNAMIC';
+    result.cleanedString = result.finalAnswers.map(a => a || '_').join('');
+    
+  } else {
+    // Son fallback
+    result.debug.slotDetectionMethod = 'FALLBACK';
+    warnings.push({
+      type: 'ENTROPY_ANOMALY',
+      message: 'Slot tespiti başarısız, fallback kullanıldı',
+      severity: 'WARNING',
+    });
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CEVAP SAYISI KONTROLÜ
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (result.finalAnswers.length !== examStructure.toplamSoru) {
+    const eksikOran = result.finalAnswers.length / examStructure.toplamSoru;
+    const severity: 'WARNING' | 'ERROR' = eksikOran >= 0.8 ? 'WARNING' : 'ERROR';
+    
+    warnings.push({
+      type: 'TOTAL_MISMATCH',
+      message: `Slot uyuşmazlığı: Beklenen ${examStructure.toplamSoru}, bulunan ${result.finalAnswers.length}`,
+      severity,
+      expectedCount: examStructure.toplamSoru,
+      actualCount: result.finalAnswers.length,
+    });
+    
+    // 90'a tamamla (puanlama için)
+    while (result.finalAnswers.length < examStructure.toplamSoru) {
+      result.finalAnswers.push(null);
+    }
+    result.slotCount = result.finalAnswers.length;
+  }
+  
+  // Ders bazlı blok doğrulaması
+  result.lessonBlocks = validateLessonBlocks(result.finalAnswers, examStructure);
+  
+  for (const block of result.lessonBlocks) {
+    warnings.push(...block.warnings);
+  }
+  
+  // Güven seviyesi
+  result.alignmentConfidence = determineConfidence(
+    slotAnalysis.stats.confidence,
+    warnings,
+    result.lessonBlocks,
+    lineStartResult,
+  );
+  
+  // Review durumu
+  result.reviewStatus = determineReviewStatus(
+    result.alignmentConfidence, 
+    warnings,
+    result.detectedAnswerCount,
+  );
+  
+  result.alignmentWarnings = warnings;
+  
+  // Validasyon
+  result.isValid = 
+    result.ogrenciNo.length > 0 &&
+    result.ogrenciAdi.length > 0 &&
+    result.reviewStatus !== 'REJECTED';
+  
+  if (!result.ogrenciNo) hatalar.push('Öğrenci numarası eksik');
+  if (!result.ogrenciAdi) hatalar.push('Öğrenci adı eksik');
+  if (result.reviewStatus === 'REJECTED') hatalar.push('Cevap hizalama hatası');
+  
+  result.hatalar = hatalar;
+  
+  return result;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
 // TOPLU PARSE
 // ════════════════════════════════════════════════════════════════════════════════
 
 export interface BatchParseResult {
   students: ParsedStudentResult[];
   globalSlots: GlobalSlotAnalysis;
+  
+  // V3.0: Slot analizi
+  slotAnalysis: SlotAnalysisResult;
+  
   stats: {
     totalLines: number;
     successCount: number;
     needsReviewCount: number;
     rejectedCount: number;
     averageConfidence: number;
+    // V3.0
+    v3SlotCount: number;
+    v3Confidence: number;
   };
   warnings: string[];
 }
 
 /**
  * Tüm TXT dosyasını parse et
- * V2.0: Satır bazlı dinamik START tespiti
+ * V3.0: Slot tespiti ile boşluk/separator ayrımı
  */
 export function parseOpticalFile(
   fileContent: string,
@@ -925,8 +1326,8 @@ export function parseOpticalFile(
   examStructure: ExamStructure = LGS_EXAM_STRUCTURE,
 ): BatchParseResult {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 DETERMINISTIK PARSE ENGINE V2.0 BAŞLATILIYOR');
-  console.log('   ✨ Satır bazlı dinamik START tespiti aktif');
+  console.log('🚀 DETERMINISTIK PARSE ENGINE V3.0 BAŞLATILIYOR');
+  console.log('   ✨ V3.0: Slot tespiti ile boşluk/separator ayrımı');
   console.log('═══════════════════════════════════════════════════════════════');
   
   const lines = fileContent.replace(/\r\n/g, '\n').split('\n');
@@ -936,19 +1337,45 @@ export function parseOpticalFile(
   console.log(`📊 Toplam Satır: ${validLines.length}`);
   console.log(`🎯 Beklenen Soru: ${examStructure.toplamSoru}`);
   
-  // 1. Global slot analizi
+  // 1. V3.0: QUESTION_SLOT pozisyonlarını tespit et
+  // Şablondan minimum start pozisyonunu bul (öğrenci bilgilerinden sonra)
+  const minStart = Math.min(
+    ...template.alanTanimlari
+      .filter(a => {
+        const alanLower = (a.alan || '').toLowerCase();
+        return alanLower.includes('cevap') || alanLower === 'answers';
+      })
+      .map(a => a.baslangic - 1)
+  ) || 30;
+  
+  const slotAnalysis = detectQuestionSlots(lines, minStart, examStructure.toplamSoru);
+  
+  // 2. Global slot analizi (geriye uyumluluk için)
   const globalSlots = analyzeGlobalSlots(lines, template, examStructure);
   
-  if (globalSlots.slots.length === 0) {
-    console.error('❌ Slot tespiti başarısız! Fallback mode kullanılacak.');
+  // V3.0 başarılı mı kontrol et
+  const useV3 = slotAnalysis.questionSlots.length >= examStructure.toplamSoru * 0.9; // En az %90
+  
+  if (useV3) {
+    console.log(`✅ V3.0 slot tespiti başarılı: ${slotAnalysis.questionSlots.length} slot bulundu`);
+  } else {
+    console.warn(`⚠️ V3.0 yetersiz (${slotAnalysis.questionSlots.length} slot), V2.0 fallback kullanılacak`);
   }
   
-  // 2. Her satırı parse et
+  // 3. Her satırı parse et
   const students: ParsedStudentResult[] = [];
   
   for (let i = 0; i < validLines.length; i++) {
     const line = validLines[i];
-    const result = parseStudentAnswers(line, template, globalSlots, examStructure, i + 1);
+    const result = parseStudentAnswersV3(
+      line, 
+      template, 
+      globalSlots, 
+      slotAnalysis,
+      useV3,
+      examStructure, 
+      i + 1
+    );
     students.push(result);
   }
   
@@ -970,27 +1397,31 @@ export function parseOpticalFile(
   console.log(`⚠️ İnceleme Gerekli: ${needsReviewCount}`);
   console.log(`❌ Reddedildi: ${rejectedCount}`);
   console.log(`📈 Ortalama Güven: ${(avgConfidence * 100).toFixed(1)}%`);
+  console.log(`🔬 V3.0 Slot: ${slotAnalysis.questionSlots.length} / ${examStructure.toplamSoru}`);
   console.log('═══════════════════════════════════════════════════════════════');
   
-  const warnings: string[] = [];
+  const batchWarnings: string[] = [];
   if (rejectedCount > 0) {
-    warnings.push(`${rejectedCount} öğrenci cevap hizalama hatası nedeniyle reddedildi`);
+    batchWarnings.push(`${rejectedCount} öğrenci cevap hizalama hatası nedeniyle reddedildi`);
   }
-  if (globalSlots.confidence < 0.7) {
-    warnings.push(`Slot tespit güveni düşük: ${(globalSlots.confidence * 100).toFixed(1)}%`);
+  if (slotAnalysis.questionSlots.length < examStructure.toplamSoru) {
+    batchWarnings.push(`V3.0: Beklenen ${examStructure.toplamSoru} slot, bulunan ${slotAnalysis.questionSlots.length}`);
   }
   
   return {
     students,
     globalSlots,
+    slotAnalysis,
     stats: {
       totalLines: validLines.length,
       successCount,
       needsReviewCount,
       rejectedCount,
       averageConfidence: avgConfidence,
+      v3SlotCount: slotAnalysis.questionSlots.length,
+      v3Confidence: slotAnalysis.stats.confidence,
     },
-    warnings,
+    warnings: batchWarnings,
   };
 }
 
