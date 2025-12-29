@@ -132,11 +132,20 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
   });
 
   // ✅ INITIAL DERS SIRASI → kaydedilmiş sıra varsa onu kullan
+  // ⚠️ KRİTİK: Deep comparison yapılmalı, aksi halde sonsuz döngü oluşur!
+  const initialDersSirasiRef = useRef<string[]>([]);
   useEffect(() => {
-    if (initialDersSirasi && initialDersSirasi.length > 0) {
-      console.log('📋 Ders sırası yükleniyor:', initialDersSirasi);
-      setDersSirasi(initialDersSirasi);
-    }
+    if (!initialDersSirasi || initialDersSirasi.length === 0) return;
+    
+    // Deep comparison - aynı sıra ise güncelleme yapma
+    const isSame = initialDersSirasi.length === initialDersSirasiRef.current.length &&
+      initialDersSirasi.every((v, i) => v === initialDersSirasiRef.current[i]);
+    
+    if (isSame) return;
+    
+    console.log('📋 Ders sırası yükleniyor:', initialDersSirasi);
+    initialDersSirasiRef.current = [...initialDersSirasi];
+    setDersSirasi(initialDersSirasi);
   }, [initialDersSirasi]);
 
   // ✅ INITIAL DATA (wizard state) → manuel ekranı geri doldur
