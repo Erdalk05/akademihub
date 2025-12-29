@@ -630,24 +630,35 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     syncDraftFromStateForKitapcik(aktifKitapcik);
   }, [aktifKitapcik, syncDraftFromStateForKitapcik]);
 
-  // ✅ Otomatik kaydet (debounce): kullanıcı ileri/geri adım yapınca "Temizle demeden" veri kaybolmasın
-  // Not: Çok sık save spam olmasın diye 500ms bekliyoruz.
-  useEffect(() => {
-    if (!onSave) return;
-    const answered = kitapcikVerileri[aktifKitapcik]?.filter(s => s.cevap).length || 0;
-    if (answered === 0) return;
-
-    const t = window.setTimeout(() => {
-      try {
-        const data = buildCevapAnahtari(kitapcikVerileri);
-        sendToWizard(data, `debounce_autosave_${aktifKitapcik}`);
-      } catch {
-        // ignore
-      }
-    }, 500);
-
-    return () => window.clearTimeout(t);
-  }, [aktifKitapcik, kitapcikVerileri, onSave, buildCevapAnahtari, sendToWizard]);
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ⚠️ DEVRE DIŞI: Otomatik kaydet (debounce)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Bu useEffect sonsuz döngü yaratıyordu:
+  // kitapcikVerileri değişir → sendToWizard → dersSirasi güncellenir → 
+  // initialDersSirasi değişir → dersSirasi state güncellenir → 
+  // buildCevapAnahtari yeniden hesaplanır → kitapcikVerileri tekrar değişir → ...
+  //
+  // Şimdi kayıt SADECE butonlarla yapılır:
+  // - "Kitapçık A Kaydet" butonu
+  // - "Devam Et" butonu
+  // - Ders kilitleme işlemi
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // useEffect(() => {
+  //   if (!onSave) return;
+  //   const answered = kitapcikVerileri[aktifKitapcik]?.filter(s => s.cevap).length || 0;
+  //   if (answered === 0) return;
+  //
+  //   const t = window.setTimeout(() => {
+  //     try {
+  //       const data = buildCevapAnahtari(kitapcikVerileri);
+  //       sendToWizard(data, `debounce_autosave_${aktifKitapcik}`);
+  //     } catch {
+  //       // ignore
+  //     }
+  //   }, 500);
+  //
+  //   return () => window.clearTimeout(t);
+  // }, [aktifKitapcik, kitapcikVerileri, onSave, buildCevapAnahtari, sendToWizard]);
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
