@@ -32,113 +32,262 @@ export async function GET(req: NextRequest) {
     }
 
     // ============================================================
-    // ✅ GERÇEK SONUÇ KAYNAĞI: exam_student_results
+    // ✅ SONUÇ KAYNAĞI SEÇİMİ (FALLBACK'Lİ)
     // ============================================================
-    // Not: Eski student_exam_results tablosu legacy. Ders bazlı analiz için
-    // gerçek kaynak subject_results alanıdır.
-    const { data: results, error: resultsError } = await supabase
+    // 1) exam_student_results (yeni)
+    // 2) exam_student_analytics (varsa snapshot)
+    // 3) student_exam_results (legacy)
+    const toplamSoru = Number(exam.total_questions || 90);
+    const wrongDiv = String(exam.exam_type || 'LGS').toUpperCase() === 'LGS' ? 3 : 4;
+
+    // 1) NEW: exam_student_results
+    const { data: newResults, error: newErr } = await supabase
       .from('exam_student_results')
-      .select(
-        `
-        *,
-        student:students(*)
-      `,
-      )
+      .select(`*, student:students(*)`)
       .eq('exam_id', examId)
       .order('rank_in_exam', { ascending: true });
 
-    if (resultsError) {
-      console.error('[Exam Results API] exam_student_results hatası:', resultsError);
-      return NextResponse.json({ error: resultsError.message }, { status: 500 });
+    if (newErr) {
+      console.warn('[Exam Results API] exam_student_results okunamadı:', newErr);
     }
 
-    // Velileri getir (guardians tablosu)
-    const studentIds = Array.from(
-      new Set((results || []).map((r: any) => r.student_id).filter(Boolean).map((x: any) => String(x))),
-    );
-    const guardiansByStudent = new Map<string, any[]>();
-    if (studentIds.length > 0) {
+    // Yardımcı: guardians map (student_id -> guardians[])
+    const buildGuardiansMap = async (studentIds: string[]) => {
+      const map = new Map<string, any[]>();
+      if (studentIds.length === 0) return map;
       const { data: guardians, error: gErr } = await supabase
         .from('guardians')
         .select('student_id, first_name, last_name, relation, phone, phone2, email, guardian_type')
         .in('student_id', studentIds);
       if (gErr) {
         console.warn('[Exam Results API] guardians okunamadı:', gErr);
-      } else {
-        (guardians || []).forEach((g: any) => {
-          const sid = String(g.student_id);
-          if (!guardiansByStudent.has(sid)) guardiansByStudent.set(sid, []);
-          guardiansByStudent.get(sid)!.push(g);
+        return map;
+      }
+      (guardians || []).forEach((g: any) => {
+        const sid = String(g.student_id);
+        if (!map.has(sid)) map.set(sid, []);
+        map.get(sid)!.push(g);
+      });
+      return map;
+    };
+
+    // Yardımcı: öğrenciNo -> students.id map (legacy sonuçlar için)
+    const mapStudentNoToId = async (studentNos: string[]) => {
+      const m = new Map<string, any>();
+      if (studentNos.length === 0) return m;
+      const { data: students, error: sErr } = await supabase
+        .from('students')
+        .select('*')
+        .in('student_no', studentNos);
+      if (sErr) {
+        console.warn('[Exam Results API] students map okunamadı:', sErr);
+        return m;
+      }
+      (students || []).forEach((s: any) => {
+        m.set(String(s.student_no), s);
+      });
+      return m;
+    };
+
+    let ogrenciler: any[] = [];
+
+    if ((newResults || []).length > 0) {
+      const studentIds = Array.from(new Set((newResults || []).map((r: any) => String(r.student_id || '')).filter(Boolean)));
+      const guardiansByStudent = await buildGuardiansMap(studentIds);
+
+      ogrenciler = (newResults || []).map((r: any, index: number) => {
+        const subj = (r.subject_results || {}) as Record<string, any>;
+        const dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
+          dersKodu,
+          dersAdi: getDersAdi(dersKodu),
+          dogru: Number((v as any)?.correct ?? 0),
+          yanlis: Number((v as any)?.wrong ?? 0),
+          bos: Number((v as any)?.empty ?? 0),
+          net: Number((v as any)?.net ?? 0),
+        }));
+
+        const puanRaw = (r.scaled_score ?? r.raw_score ?? null) as number | null;
+        const puan = puanRaw !== null ? Math.round(Number(puanRaw) * 100) / 100 : null;
+
+        const student = (r.student || {}) as any;
+        const fullName =
+          String(student.full_name || '').trim() ||
+          `${String(student.first_name || '').trim()} ${String(student.last_name || '').trim()}`.trim() ||
+          String(r.student_name || '').trim() ||
+          'Bilinmeyen';
+
+        const sid = String(r.student_id || '');
+        const guardians = guardiansByStudent.get(sid) || [];
+        const primaryGuardian =
+          guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
+          guardians[0] ||
+          null;
+
+        return {
+          id: r.id,
+          ogrenciNo: String(student.student_no || r.student_no || ''),
+          ogrenciAdi: fullName,
+          sinifNo: student.class_name || student.enrolled_class || student.class || r.class_name || null,
+          kitapcik: 'A',
+          toplamDogru: Number(r.total_correct || 0),
+          toplamYanlis: Number(r.total_wrong || 0),
+          toplamBos: Number(r.total_empty || 0),
+          toplamNet: Number(r.total_net || 0),
+          toplamPuan: puan,
+          siralama: Number(r.rank_in_exam || index + 1),
+          sinifSira: r.rank_in_class || null,
+          dersBazli,
+          percentile: r.percentile ?? null,
+          veli: primaryGuardian
+            ? {
+                adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
+                yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
+                telefon: primaryGuardian.phone || null,
+                telefon2: primaryGuardian.phone2 || null,
+                email: primaryGuardian.email || null,
+              }
+            : null,
+          veliler: guardians.map(g => ({
+            adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
+            yakinlik: g.relation || g.guardian_type || null,
+            telefon: g.phone || null,
+            telefon2: g.phone2 || null,
+            email: g.email || null,
+            tip: g.guardian_type || null,
+          })),
+        };
+      });
+    } else {
+      // 2) SNAPSHOT: exam_student_analytics
+      const { data: analytics, error: aErr } = await supabase
+        .from('exam_student_analytics')
+        .select('*')
+        .eq('exam_id', examId)
+        .order('rank_in_exam', { ascending: true });
+
+      if (!aErr && (analytics || []).length > 0) {
+        const studentNos = Array.from(new Set((analytics || []).map((r: any) => String(r.student_no || '')).filter(Boolean)));
+        const studentByNo = await mapStudentNoToId(studentNos);
+        const studentIds = Array.from(new Set(Array.from(studentByNo.values()).map((s: any) => String(s.id))));
+        const guardiansByStudent = await buildGuardiansMap(studentIds);
+
+        ogrenciler = (analytics || []).map((r: any, index: number) => {
+          const subj = (r.subject_performance || r.subject_results || {}) as Record<string, any>;
+          const dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
+            dersKodu,
+            dersAdi: getDersAdi(dersKodu),
+            dogru: Number((v as any)?.correct ?? 0),
+            yanlis: Number((v as any)?.wrong ?? 0),
+            bos: Number((v as any)?.empty ?? 0),
+            net: Number((v as any)?.net ?? 0),
+          }));
+
+          const studentNo = String(r.student_no || '');
+          const student = studentByNo.get(studentNo) || null;
+          const sid = student?.id ? String(student.id) : '';
+          const guardians = sid ? guardiansByStudent.get(sid) || [] : [];
+          const primaryGuardian =
+            guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
+            guardians[0] ||
+            null;
+
+          return {
+            id: r.id,
+            ogrenciNo: studentNo,
+            ogrenciAdi: String(r.student_name || student?.full_name || '').trim() || 'Bilinmeyen',
+            sinifNo: String(r.class_name || student?.class_name || student?.enrolled_class || ''),
+            kitapcik: 'A',
+            toplamDogru: Number(r.total_correct || 0),
+            toplamYanlis: Number(r.total_wrong || 0),
+            toplamBos: Number(r.total_empty || 0),
+            toplamNet: Number(r.total_net || 0),
+            toplamPuan: null,
+            siralama: Number(r.rank_in_exam || index + 1),
+            sinifSira: r.rank_in_class || null,
+            dersBazli,
+            percentile: r.percentile ?? null,
+            veli: primaryGuardian
+              ? {
+                  adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
+                  yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
+                  telefon: primaryGuardian.phone || null,
+                  telefon2: primaryGuardian.phone2 || null,
+                  email: primaryGuardian.email || null,
+                }
+              : null,
+            veliler: guardians.map(g => ({
+              adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
+              yakinlik: g.relation || g.guardian_type || null,
+              telefon: g.phone || null,
+              telefon2: g.phone2 || null,
+              email: g.email || null,
+              tip: g.guardian_type || null,
+            })),
+          };
         });
+      } else {
+        // 3) LEGACY: student_exam_results (tablo varsa)
+        const { data: legacy, error: lErr } = await supabase
+          .from('student_exam_results')
+          .select('*')
+          .eq('exam_id', examId)
+          .order('general_rank', { ascending: true });
+
+        if (lErr) {
+          console.warn('[Exam Results API] student_exam_results okunamadı:', lErr);
+        } else {
+          const studentNos = Array.from(new Set((legacy || []).map((r: any) => String(r.student_no || '')).filter(Boolean)));
+          const studentByNo = await mapStudentNoToId(studentNos);
+          const studentIds = Array.from(new Set(Array.from(studentByNo.values()).map((s: any) => String(s.id))));
+          const guardiansByStudent = await buildGuardiansMap(studentIds);
+
+          ogrenciler = (legacy || []).map((r: any, index: number) => {
+            const studentNo = String(r.student_no || '');
+            const student = studentByNo.get(studentNo) || null;
+            const sid = student?.id ? String(student.id) : '';
+            const guardians = sid ? guardiansByStudent.get(sid) || [] : [];
+            const primaryGuardian =
+              guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
+              guardians[0] ||
+              null;
+
+            return {
+              id: r.id,
+              ogrenciNo: studentNo,
+              ogrenciAdi: String(r.student_name || student?.full_name || '').trim() || 'Bilinmeyen',
+              sinifNo: String(r.class_name || student?.class_name || student?.enrolled_class || ''),
+              kitapcik: String(r.booklet || 'A'),
+              toplamDogru: Number(r.total_correct || 0),
+              toplamYanlis: Number(r.total_wrong || 0),
+              toplamBos: Number(r.total_empty || 0),
+              toplamNet: Number(r.total_net || 0),
+              toplamPuan: typeof r.total_score === 'number' ? r.total_score : (r.total_score ? Number(r.total_score) : null),
+              siralama: Number(r.general_rank || index + 1),
+              sinifSira: r.class_rank || null,
+              dersBazli: [], // legacy'de ders kırılımı yoksa boş gelir
+              percentile: null,
+              veli: primaryGuardian
+                ? {
+                    adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
+                    yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
+                    telefon: primaryGuardian.phone || null,
+                    telefon2: primaryGuardian.phone2 || null,
+                    email: primaryGuardian.email || null,
+                  }
+                : null,
+              veliler: guardians.map(g => ({
+                adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
+                yakinlik: g.relation || g.guardian_type || null,
+                telefon: g.phone || null,
+                telefon2: g.phone2 || null,
+                email: g.email || null,
+                tip: g.guardian_type || null,
+              })),
+            };
+          });
+        }
       }
     }
-
-    const toplamSoru = Number(exam.total_questions || 90);
-    const wrongDiv = String(exam.exam_type || 'LGS').toUpperCase() === 'LGS' ? 3 : 4;
-
-    const ogrenciler = (results || []).map((r: any, index: number) => {
-      const subj = (r.subject_results || {}) as Record<string, any>;
-      const dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
-        dersKodu,
-        dersAdi: getDersAdi(dersKodu),
-        dogru: Number((v as any)?.correct ?? 0),
-        yanlis: Number((v as any)?.wrong ?? 0),
-        bos: Number((v as any)?.empty ?? 0),
-        net: Number((v as any)?.net ?? 0),
-      }));
-
-      // Puan: scaled_score varsa onu, yoksa raw_score, yoksa null
-      const puanRaw = (r.scaled_score ?? r.raw_score ?? null) as number | null;
-      const puan = puanRaw !== null ? Math.round(Number(puanRaw) * 100) / 100 : null;
-
-      // Öğrenci adı: DB’de zaten Türkçe büyük harf (biz böyle kaydediyoruz) ama yine de birleştir
-      const student = (r.student || {}) as any;
-      const fullName =
-        String(student.full_name || '').trim() ||
-        `${String(student.first_name || '').trim()} ${String(student.last_name || '').trim()}`.trim() ||
-        'Bilinmeyen';
-
-      const sid = String(r.student_id || '');
-      const guardians = guardiansByStudent.get(sid) || [];
-      const primaryGuardian =
-        guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
-        guardians[0] ||
-        null;
-
-      return {
-        id: r.id,
-        ogrenciNo: String(student.student_no || ''),
-        ogrenciAdi: fullName,
-        sinifNo: student.class_name || student.enrolled_class || student.class || null,
-        kitapcik: 'A', // exam_student_answers’da kitapçık tutulmadığı için burada güvenli varsayım
-        toplamDogru: Number(r.total_correct || 0),
-        toplamYanlis: Number(r.total_wrong || 0),
-        toplamBos: Number(r.total_empty || 0),
-        toplamNet: Number(r.total_net || 0),
-        toplamPuan: puan,
-        siralama: Number(r.rank_in_exam || index + 1),
-        sinifSira: r.rank_in_class || null,
-        dersBazli,
-        percentile: r.percentile ?? null,
-        veli: primaryGuardian
-          ? {
-              adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
-              yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
-              telefon: primaryGuardian.phone || null,
-              telefon2: primaryGuardian.phone2 || null,
-              email: primaryGuardian.email || null,
-            }
-          : null,
-        veliler: guardians.map(g => ({
-          adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
-          yakinlik: g.relation || g.guardian_type || null,
-          telefon: g.phone || null,
-          telefon2: g.phone2 || null,
-          email: g.email || null,
-          tip: g.guardian_type || null,
-        })),
-      };
-    });
 
     // Ders ortalamaları (3. foto mantığı)
     const dersToplam: Record<string, { dogru: number; yanlis: number; bos: number; net: number; sayi: number }> = {};
