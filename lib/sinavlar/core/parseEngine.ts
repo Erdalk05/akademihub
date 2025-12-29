@@ -87,8 +87,22 @@ export interface ParsedStudentResult {
   /** Tespit edilen geçerli cevap sayısı */
   detectedAnswerCount: number;
   
-  /** Final cevap dizisi (90 eleman) */
+  /** Final cevap dizisi (90 eleman) - backward compatibility */
   finalAnswers: (string | null)[];
+  
+  /** 
+   * ═══════════════════════════════════════════════════════════════════════════
+   * KRİTİK: DERS BAZLI CEVAPLAR (FORM-AGNOSTIC)
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Her ders için ayrı cevap dizisi.
+   * Key = Ders kodu (TUR, MAT, FEN, INK, DIN, ING, vb.)
+   * Value = O dersin cevapları (string | null)[]
+   * 
+   * Scoring motoru bu map'i kullanarak kendi sırasına göre cevapları alır.
+   * Böylece optik form tanımındaki ders sırası ile scoring sırası bağımsız olur.
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  lessonAnswers: Record<string, (string | null)[]>;
   
   /** Ders bazlı sonuçlar */
   lessonBlocks: LessonBlockResult[];
@@ -258,6 +272,50 @@ function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * DERS KODU TESPİTİ (FORM-AGNOSTIC)
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * Optik form tanımındaki label'dan ders kodunu çıkar.
+ * Böylece "Türkçe", "TÜRKÇE", "turkce" hepsi → "TUR" olur.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+function extractLessonCodeFromLabel(label: string): string | null {
+  const normalized = (label || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, ''); // sadece ASCII harfler
+
+  // Ders eşleştirme tablosu
+  const mappings: [string[], string][] = [
+    [['turkce', 'turk'], 'TUR'],
+    [['matematik', 'mat'], 'MAT'],
+    [['fen', 'fenbilimleri', 'fenbilgisi'], 'FEN'],
+    [['inkilap', 'ataturk', 'tcinkılap', 'tcinkilap'], 'INK'],
+    [['din', 'dinkulturu', 'dinkulturuvea'], 'DIN'],
+    [['ingilizce', 'yabancidil', 'ing'], 'ING'],
+    [['sosyal', 'sosyalbilgiler'], 'SOS'],
+    [['tarih'], 'TAR'],
+    [['cografya', 'cograf'], 'COG'],
+    [['fizik'], 'FIZ'],
+    [['kimya'], 'KIM'],
+    [['biyoloji', 'biyo'], 'BIY'],
+    [['edebiyat'], 'EDE'],
+    [['felsefe'], 'FEL'],
+  ];
+
+  for (const [keywords, code] of mappings) {
+    for (const kw of keywords) {
+      if (normalized.includes(kw)) {
+        return code;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Türkçe karakter düzeltme
  */
 function fixTurkishChars(text: string): string {
@@ -344,6 +402,7 @@ function parseStudentLine(
     cleanedString: '',
     detectedAnswerCount: 0,
     finalAnswers: [],
+    lessonAnswers: {},
     lessonBlocks: [],
     alignmentConfidence: 'CRITICAL',
     reviewStatus: 'REJECTED',
@@ -388,31 +447,22 @@ function parseStudentLine(
   }
   
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CEVAPLARI ÇIKAR (ENDÜSTRİ STANDARDI)
+  // CEVAPLARI ÇIKAR (FORM-AGNOSTIC ENDÜSTRİ STANDARDI)
   // ═══════════════════════════════════════════════════════════════════════════════
-  // KRİTİK GÜVENLİK:
-  // - Cevapları RAW satırın tamamından okumak YANLIŞ sonuç üretir
-  //   (isim/kitapçık alanında geçen A-E harfleri cevap sanılabilir).
-  // - Bu yüzden cevapları SADECE şablonda tanımlı cevap alan(lar)ından okuruz.
-  //
-  // ENDÜSTRİ STANDARDI:
-  // - Sadece A B C D E _ geçerli
-  // - Diğer her şey atlanır
-  // - İlk N geçerli karakter = cevaplar (N = expectedTotalQuestions)
+  // KRİTİK PRENSIP:
+  // - Her optik formun ders sırası FARKLI olabilir
+  // - SABİT slicing YASAK
+  // - Her ders için AYRI slice yapılır ve lessonAnswers map'ine atılır
+  // - Scoring motoru bu map'i kullanarak kendi sırasına göre cevapları alır
   // ═══════════════════════════════════════════════════════════════════════════════
   
-  // Cevap segmentlerini birleştir (birden fazla ders alanı tanımlanmış olabilir)
-  // ⚠️ ÖNEMLİ: Segmentleri başlangıca göre SIRALAMAYIZ.
-  // Kullanıcı wizard'da ders sırasını sürükle-bırak ile belirler.
-  // Şablonda alanların sırası = cevapların sınav içi sırası kabul edilir.
-  // Böylece "Türkçe 52-72, Matematik 112-132" gibi dağınık pozisyonlar olsa bile,
-  // kullanıcı hangi dersi önce istiyorsa o sırayla cevap dizisi oluşur.
   const answerSegments = template.alanTanimlari.filter(isAnswerSegmentField);
 
   if (answerSegments.length === 0) {
     hatalar.push('Şablonda cevap alanı tanımlı değil (CEVAP/CEVAPLAR veya ders alanları yok)');
     result.alignmentWarnings = ['Şablonda cevap alanı bulunamadı; güvenli puanlama için işlem durduruldu'];
     result.finalAnswers = Array.from({ length: expectedTotalQuestions }, () => null);
+    result.lessonAnswers = {};
     result.detectedAnswerCount = 0;
     result.cleanedString = ''.padEnd(expectedTotalQuestions, '_');
     result.lessonBlocks = buildLessonBlocks(result.finalAnswers, LGS_EXAM_STRUCTURE);
@@ -423,15 +473,82 @@ function parseStudentLine(
     return result;
   }
 
-  const extracted = extractAnswersFromFixedSegments(
-    rawLine,
-    answerSegments.map(s => ({ baslangic: s.baslangic, bitis: s.bitis, label: s.label })),
-    expectedTotalQuestions,
-  );
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // DERS BAZLI SLICE (KRİTİK)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const lessonAnswers: Record<string, (string | null)[]> = {};
+  const allAnswers: (string | null)[] = [];
+  const segmentWarnings: string[] = [];
+  
+  // [OPTIK-FORM] LOG BAŞLANGIÇ
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('[OPTIK-FORM] DERS BAZLI SLICE');
+  console.log('═══════════════════════════════════════════════════════════════');
 
-  result.finalAnswers = extracted.answers;
-  result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
-  result.cleanedString = result.finalAnswers.map(a => a || '_').join('');
+  for (const seg of answerSegments) {
+    const startIdx = (seg.baslangic ?? 1) - 1;
+    const endIdx = seg.bitis ?? seg.baslangic ?? 1;
+    const segLen = Math.max(0, endIdx - (seg.baslangic ?? 1) + 1);
+    
+    if (segLen <= 0) continue;
+    
+    // Ders kodunu label'dan çıkar
+    const lessonCode = extractLessonCodeFromLabel(seg.label);
+    
+    // Segment cevaplarını çıkar
+    const segAnswers: (string | null)[] = [];
+    
+    if (startIdx >= 0 && startIdx < rawLine.length) {
+      const slice = rawLine.substring(startIdx, Math.min(endIdx, rawLine.length)).toUpperCase();
+      const padded = slice.padEnd(segLen, ' ');
+      
+      for (let i = 0; i < segLen; i++) {
+        const ch = padded[i] ?? ' ';
+        if (VALID_ANSWER_CHARS.has(ch)) {
+          segAnswers.push(ch);
+        } else if (ch === BLANK_CHAR) {
+          segAnswers.push(null);
+        } else {
+          segAnswers.push(null); // SPACE veya diğer → boş
+        }
+      }
+    } else {
+      // Segment satır dışında
+      for (let i = 0; i < segLen; i++) segAnswers.push(null);
+      segmentWarnings.push(`Segment satır dışında: "${seg.label}" (${seg.baslangic}-${seg.bitis})`);
+    }
+    
+    // Ders koduna göre kaydet
+    if (lessonCode) {
+      lessonAnswers[lessonCode] = segAnswers;
+      console.log(`   ${lessonCode}=${segLen} (${seg.label}: ${seg.baslangic}-${seg.bitis})`);
+    } else {
+      // Ders kodu bulunamadı - genel cevaplar alanı olabilir
+      console.log(`   ???=${segLen} (${seg.label}: ${seg.baslangic}-${seg.bitis}) - Ders kodu tespit edilemedi`);
+    }
+    
+    // Genel diziye ekle (backward compatibility için)
+    allAnswers.push(...segAnswers);
+  }
+  
+  // Toplam soru sayısı kontrolü
+  const totalSlots = Object.values(lessonAnswers).reduce((sum, arr) => sum + arr.length, 0);
+  console.log(`   TOTAL=${totalSlots}`);
+  
+  if (totalSlots !== expectedTotalQuestions) {
+    segmentWarnings.push(`Cevap slot sayısı uyuşmuyor: bulunan=${totalSlots}, beklenen=${expectedTotalQuestions}`);
+    console.warn(`[OPTIK-FORM] ⚠️ SLOT MISMATCH: ${totalSlots} ≠ ${expectedTotalQuestions}`);
+  }
+  console.log('═══════════════════════════════════════════════════════════════');
+
+  // finalAnswers için pad/trim
+  let finalAnswers = allAnswers.slice(0, expectedTotalQuestions);
+  while (finalAnswers.length < expectedTotalQuestions) finalAnswers.push(null);
+
+  result.finalAnswers = finalAnswers;
+  result.lessonAnswers = lessonAnswers;
+  result.detectedAnswerCount = finalAnswers.filter(a => a !== null).length;
+  result.cleanedString = finalAnswers.map(a => a || '_').join('');
   
   // Ders bloklarını oluştur
   result.lessonBlocks = buildLessonBlocks(result.finalAnswers, LGS_EXAM_STRUCTURE);
@@ -442,8 +559,8 @@ function parseStudentLine(
   if (result.detectedAnswerCount < 50) {
     warnings.push(`Çok az cevap tespit edildi: ${result.detectedAnswerCount}/90`);
   }
-  if (extracted.warnings.length > 0) {
-    extracted.warnings.forEach(w => warnings.push(w));
+  if (segmentWarnings.length > 0) {
+    segmentWarnings.forEach(w => warnings.push(w));
   }
   if (!result.kitapcik) {
     warnings.push('Kitapçık bilgisi eksik');
@@ -481,14 +598,17 @@ function parseStudentLine(
   console.log('───────────────────────────────────────────────────────────────');
   console.log(`📝 Öğrenci ${lineNumber}: ${result.ogrenciNo} (${result.ogrenciAdi})`);
   console.log(`   📊 Tespit: ${result.detectedAnswerCount}/90 | Kitapçık: ${result.kitapcik || '❌'}`);
-  if (extracted.slotCount !== expectedTotalQuestions) {
-    console.warn(`   ⚠️ SLOT UYARI: slotCount=${extracted.slotCount} expected=${expectedTotalQuestions}`);
+  if (totalSlots !== expectedTotalQuestions) {
+    console.warn(`   ⚠️ SLOT UYARI: slotCount=${totalSlots} expected=${expectedTotalQuestions}`);
   }
-  if (extracted.warnings.length > 0) {
-    console.warn(`   ⚠️ CEVAP ALANI UYARILARI: ${extracted.warnings.join(' | ')}`);
+  if (segmentWarnings.length > 0) {
+    console.warn(`   ⚠️ CEVAP ALANI UYARILARI: ${segmentWarnings.join(' | ')}`);
   }
-  console.log(`   📋 Türkçe: ${result.finalAnswers.slice(0, 20).map(a => a || '_').join('')}`);
-  console.log(`   📋 Matematik: ${result.finalAnswers.slice(50, 70).map(a => a || '_').join('')}`);
+  // Ders bazlı cevapları göster (lessonAnswers kullan)
+  const turAnswers = result.lessonAnswers['TUR'] || result.finalAnswers.slice(0, 20);
+  const matAnswers = result.lessonAnswers['MAT'] || result.finalAnswers.slice(50, 70);
+  console.log(`   📋 Türkçe: ${turAnswers.map(a => a || '_').join('')}`);
+  console.log(`   📋 Matematik: ${matAnswers.map(a => a || '_').join('')}`);
   console.log(`   ✅ Status: ${result.reviewStatus} (${result.alignmentConfidence})`);
   
   return result;
@@ -587,6 +707,10 @@ export function toOptikSatir(result: ParsedStudentResult): ParsedOptikSatir {
     tc: result.tc,
     kitapcik: result.kitapcik || undefined,
     cevaplar: result.finalAnswers,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FORM-AGNOSTIC: DERS BAZLI CEVAPLAR
+    // ═══════════════════════════════════════════════════════════════════════════
+    lessonAnswers: Object.keys(result.lessonAnswers).length > 0 ? result.lessonAnswers : undefined,
     hatalar: result.hatalar,
     isValid: result.isValid,
   };

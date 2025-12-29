@@ -94,6 +94,18 @@ export interface ParsedOptikSatir {
   tc?: string;
   kitapcik?: 'A' | 'B' | 'C' | 'D';
   cevaplar: (string | null)[];
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * FORM-AGNOSTIC: DERS BAZLI CEVAPLAR
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Key = Ders kodu (TUR, MAT, FEN, INK, DIN, ING, vb.)
+   * Value = O dersin cevapları
+   * 
+   * Bu alan varsa, scoring motoru SABİT INDEX yerine ders koduna göre eşleştirme yapar.
+   * Böylece optik form tanımındaki ders sırası ile cevap anahtarı sırası bağımsız olur.
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  lessonAnswers?: Record<string, (string | null)[]>;
   hatalar: string[];
   isValid: boolean;
   ozelAlanlar?: Record<string, string>;  // Telefon, Veli Adı, vb. özel alanlar

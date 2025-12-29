@@ -673,11 +673,24 @@ export function esnekDegerlendir(
   
   const tumCevaplar = ogrenci.cevaplar || [];
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FORM-AGNOSTIC: DERS BAZLI CEVAPLAR
+  // ═══════════════════════════════════════════════════════════════════════════
+  // lessonAnswers varsa, ders koduna göre eşleştirme yapılır.
+  // Bu sayede optik form tanımındaki ders sırası ile cevap anahtarı sırası bağımsız olur.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const lessonAnswers = ogrenci.lessonAnswers;
+  const useLessonAnswers = lessonAnswers && Object.keys(lessonAnswers).length > 0;
+  
   // Debug: Kitapçık tipi ve ilk 10 cevap
   console.log('───────────────────────────────────────────────────────────────');
   console.log(`📝 ÖĞRENCİ: ${ogrenci.ogrenciNo} (${ogrenci.ogrenciAdi})`);
   console.log(`   Ham kitapçık değeri: "${hamKitapcik}" → Kullanılan: "${kitapcik}"${!kitapcikBelirli ? ' ⚠️ FALLBACK' : ''}`);
   console.log(`   İlk 10 cevap: ${tumCevaplar.slice(0, 10).map(c => c || '_').join('')}`);
+  if (useLessonAnswers) {
+    console.log(`   ✅ FORM-AGNOSTIC MOD: Ders bazlı cevaplar kullanılacak`);
+    console.log(`   📋 Mevcut dersler: ${Object.keys(lessonAnswers!).join(', ')}`);
+  }
   
   let toplamDogru = 0;
   let toplamYanlis = 0;
@@ -717,9 +730,40 @@ export function esnekDegerlendir(
     
     const dogruCevaplar = kitapcikCevap.cevaplar;
     
-    // Öğrencinin bu testteki cevaplarını al
-    const baslangicIdx = test.baslangicSoru - 1; // 0-indexed
-    const ogrenciCevaplari = tumCevaplar.slice(baslangicIdx, baslangicIdx + test.soruSayisi);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FORM-AGNOSTIC: ÖĞRENCİ CEVAPLARINI AL
+    // ═══════════════════════════════════════════════════════════════════════════
+    // lessonAnswers varsa → test.dersKodu'na göre cevapları al
+    // lessonAnswers yoksa → eski yöntem: tumCevaplar.slice(baslangicIdx, ...)
+    // ═══════════════════════════════════════════════════════════════════════════
+    let ogrenciCevaplari: (string | null)[];
+    
+    if (useLessonAnswers && lessonAnswers![test.dersKodu]) {
+      // FORM-AGNOSTIC: Ders koduna göre al
+      ogrenciCevaplari = lessonAnswers![test.dersKodu];
+      console.log(`   ✅ ${test.dersKodu}: lessonAnswers'dan ${ogrenciCevaplari.length} cevap alındı`);
+      
+      // Uzunluk kontrolü
+      if (ogrenciCevaplari.length !== test.soruSayisi) {
+        console.warn(`   ⚠️ SLICE MISMATCH: ${test.dersKodu} beklenen=${test.soruSayisi}, bulunan=${ogrenciCevaplari.length}`);
+        // Eksikse pad, fazlaysa trim
+        if (ogrenciCevaplari.length < test.soruSayisi) {
+          const padded = [...ogrenciCevaplari];
+          while (padded.length < test.soruSayisi) padded.push(null);
+          ogrenciCevaplari = padded;
+        } else {
+          ogrenciCevaplari = ogrenciCevaplari.slice(0, test.soruSayisi);
+        }
+      }
+    } else {
+      // Eski yöntem: Sabit index ile slice
+      const baslangicIdx = test.baslangicSoru - 1; // 0-indexed
+      ogrenciCevaplari = tumCevaplar.slice(baslangicIdx, baslangicIdx + test.soruSayisi);
+      
+      if (useLessonAnswers) {
+        console.warn(`   ⚠️ ${test.dersKodu}: lessonAnswers'da bulunamadı, INDEX-BASED slice kullanılıyor (${test.baslangicSoru}-${test.baslangicSoru + test.soruSayisi - 1})`);
+      }
+    }
     
     let dogru = 0;
     let yanlis = 0;
