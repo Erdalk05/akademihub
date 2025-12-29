@@ -141,34 +141,73 @@ export interface ParseTemplate {
 // ════════════════════════════════════════════════════════════════════════════════
 
 /**
- * Tek bir satırdan sadece geçerli cevap karakterlerini çıkar.
- * 
- * ENDÜSTRİ STANDARDI:
- * - Sadece A B C D E _ geçerli
- * - Diğer her şey atlanır
- * - İlk 90 geçerli karakter = cevaplar
+ * Cevapları sabit genişlikli (fixed-width) slot mantığı ile çıkar.
+ *
+ * KRİTİK GERÇEK:
+ * - Optik TXT'lerde cevap alanı çoğu zaman "90 karakterlik bir blok"tur.
+ * - Bu blok içinde "boş cevap" genellikle '_' değil, SPACE ile temsil edilir.
+ *
+ * KURAL (GÜVENLİ):
+ * - Segment içindeki HER karakter = 1 soru slotu
+ * - A/B/C/D/E → cevap
+ * - '_' → boş (null)
+ * - SPACE veya diğer her şey → boş (null)
+ *
+ * Böylece 90 slot her zaman doğru sayılır; "60 cevaplandı" gibi durumlar gerçek boşları temsil eder.
  */
-function extractValidAnswers(rawText: string, totalQuestions: number): (string | null)[] {
-  const answers: (string | null)[] = [];
-  const upperText = rawText.toUpperCase();
-  
-  for (const ch of upperText) {
-    if (answers.length >= totalQuestions) break;
-    
-    if (VALID_ANSWER_CHARS.has(ch)) {
-      answers.push(ch);
-    } else if (ch === BLANK_CHAR) {
-      answers.push(null); // _ = boş cevap
+function extractAnswersFromFixedSegments(
+  rawLine: string,
+  segments: Array<{ baslangic: number; bitis: number; label: string }>,
+  expectedTotalQuestions: number,
+): { answers: (string | null)[]; warnings: string[]; slotCount: number } {
+  const warnings: string[] = [];
+  const out: (string | null)[] = [];
+  let invalidCharCount = 0;
+
+  for (const seg of segments) {
+    const startIdx = (seg.baslangic ?? 1) - 1;
+    const endIdx = seg.bitis ?? seg.baslangic ?? 1;
+    const segLen = Math.max(0, endIdx - (seg.baslangic ?? 1) + 1);
+    if (segLen <= 0) continue;
+    if (startIdx < 0 || startIdx >= rawLine.length) {
+      // Segment satır dışında kalıyorsa, tüm slotları boş say
+      for (let i = 0; i < segLen; i++) out.push(null);
+      warnings.push(`Segment satır dışında: "${seg.label}" (${seg.baslangic}-${seg.bitis})`);
+      continue;
     }
-    // Diğer karakterler (space, tab, rakam, vs.) → ATLA
+
+    const slice = rawLine.substring(startIdx, Math.min(endIdx, rawLine.length)).toUpperCase();
+    // Eksikse sağdan boşlukla tamamla (slotları koru)
+    const padded = slice.padEnd(segLen, ' ');
+
+    for (let i = 0; i < segLen; i++) {
+      const ch = padded[i] ?? ' ';
+      if (VALID_ANSWER_CHARS.has(ch)) {
+        out.push(ch);
+      } else if (ch === BLANK_CHAR) {
+        out.push(null);
+      } else {
+        // SPACE / diğer → boş
+        if (ch !== ' ' && ch !== '\t') invalidCharCount++;
+        out.push(null);
+      }
+    }
   }
-  
-  // Eksik cevapları null ile doldur
-  while (answers.length < totalQuestions) {
-    answers.push(null);
+
+  const slotCount = out.length;
+  if (slotCount !== expectedTotalQuestions) {
+    warnings.push(`Cevap slot sayısı uyuşmuyor: bulunan=${slotCount}, beklenen=${expectedTotalQuestions}`);
   }
-  
-  return answers;
+  if (invalidCharCount > 0) {
+    warnings.push(`Cevap alanında ${invalidCharCount} adet beklenmeyen karakter boş sayıldı`);
+  }
+
+  // Slot sayısı azsa null ile tamamla (ama uyarı zaten var)
+  while (out.length < expectedTotalQuestions) out.push(null);
+  // Fazlaysa kes (ama uyarı var)
+  if (out.length > expectedTotalQuestions) out.length = expectedTotalQuestions;
+
+  return { answers: out, warnings, slotCount };
 }
 
 /**
@@ -370,16 +409,13 @@ function parseStudentLine(
     return result;
   }
 
-  let mergedAnswerText = '';
-  for (const seg of answerSegments) {
-    const startIdx = (seg.baslangic ?? 1) - 1;
-    const endIdx = seg.bitis ?? seg.baslangic ?? 1;
-    if (startIdx < 0 || startIdx >= rawLine.length) continue;
-    mergedAnswerText += rawLine.substring(startIdx, Math.min(endIdx, rawLine.length));
-    mergedAnswerText += ' '; // segment ayırıcı (ignored)
-  }
+  const extracted = extractAnswersFromFixedSegments(
+    rawLine,
+    answerSegments.map(s => ({ baslangic: s.baslangic, bitis: s.bitis, label: s.label })),
+    expectedTotalQuestions,
+  );
 
-  result.finalAnswers = extractValidAnswers(mergedAnswerText, expectedTotalQuestions);
+  result.finalAnswers = extracted.answers;
   result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
   result.cleanedString = result.finalAnswers.map(a => a || '_').join('');
   
@@ -391,6 +427,9 @@ function parseStudentLine(
   
   if (result.detectedAnswerCount < 50) {
     warnings.push(`Çok az cevap tespit edildi: ${result.detectedAnswerCount}/90`);
+  }
+  if (extracted.warnings.length > 0) {
+    extracted.warnings.forEach(w => warnings.push(w));
   }
   if (!result.kitapcik) {
     warnings.push('Kitapçık bilgisi eksik');
@@ -428,6 +467,12 @@ function parseStudentLine(
   console.log('───────────────────────────────────────────────────────────────');
   console.log(`📝 Öğrenci ${lineNumber}: ${result.ogrenciNo} (${result.ogrenciAdi})`);
   console.log(`   📊 Tespit: ${result.detectedAnswerCount}/90 | Kitapçık: ${result.kitapcik || '❌'}`);
+  if (extracted.slotCount !== expectedTotalQuestions) {
+    console.warn(`   ⚠️ SLOT UYARI: slotCount=${extracted.slotCount} expected=${expectedTotalQuestions}`);
+  }
+  if (extracted.warnings.length > 0) {
+    console.warn(`   ⚠️ CEVAP ALANI UYARILARI: ${extracted.warnings.join(' | ')}`);
+  }
   console.log(`   📋 Türkçe: ${result.finalAnswers.slice(0, 20).map(a => a || '_').join('')}`);
   console.log(`   📋 Matematik: ${result.finalAnswers.slice(50, 70).map(a => a || '_').join('')}`);
   console.log(`   ✅ Status: ${result.reviewStatus} (${result.alignmentConfidence})`);
