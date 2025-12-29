@@ -38,8 +38,8 @@ const BLANK_CHAR = '_';
 /** Tüm geçerli karakterler (cevap + boş) */
 const ALL_VALID_CHARS = new Set(['A', 'B', 'C', 'D', 'E', '_']);
 
-/** LGS toplam soru sayısı */
-const TOTAL_QUESTIONS = 90;
+/** Varsayılan toplam soru sayısı (LGS) */
+const DEFAULT_TOTAL_QUESTIONS = 90;
 
 // ════════════════════════════════════════════════════════════════════════════════
 // DERS YAPILANDIRMASI (LGS)
@@ -148,12 +148,12 @@ export interface ParseTemplate {
  * - Diğer her şey atlanır
  * - İlk 90 geçerli karakter = cevaplar
  */
-function extractValidAnswers(rawText: string): (string | null)[] {
+function extractValidAnswers(rawText: string, totalQuestions: number): (string | null)[] {
   const answers: (string | null)[] = [];
   const upperText = rawText.toUpperCase();
   
   for (const ch of upperText) {
-    if (answers.length >= TOTAL_QUESTIONS) break;
+    if (answers.length >= totalQuestions) break;
     
     if (VALID_ANSWER_CHARS.has(ch)) {
       answers.push(ch);
@@ -164,11 +164,44 @@ function extractValidAnswers(rawText: string): (string | null)[] {
   }
   
   // Eksik cevapları null ile doldur
-  while (answers.length < TOTAL_QUESTIONS) {
+  while (answers.length < totalQuestions) {
     answers.push(null);
   }
   
   return answers;
+}
+
+/**
+ * Şablondaki alanlardan "cevap segmenti" olanları bul.
+ * - alan='cevaplar' ise kesin cevap segmentidir
+ * - veya label ders/cevap alanı içeriyorsa (TÜRKÇE, MATEMATİK, FEN, SOSYAL, vb.)
+ *
+ * Amaç: İsim/kitapçık gibi alanlarda geçen A-E harflerini KESİNLİKLE cevap sanmamak.
+ */
+function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
+  const a = (alan.alan || '').toLowerCase();
+  const l = (alan.label || '').toLowerCase();
+
+  if (a === 'cevaplar' || a.includes('cevap')) return true;
+
+  // Ders alanları (kullanıcı ders ders tanımlayabiliyor)
+  const dersKeywords = [
+    'türkçe', 'turkce',
+    'matematik',
+    'fen',
+    'inkılap', 'inkilap', 'atatürk', 'ataturk',
+    'din',
+    'ingilizce', 'yabancı', 'yabanci', 'dil',
+    'sosyal',
+    'tarih',
+    'coğrafya', 'cografya',
+    'fizik',
+    'kimya',
+    'biyoloji',
+    'edebiyat',
+    'felsefe',
+  ];
+  return dersKeywords.some(k => l.includes(k));
 }
 
 /**
@@ -238,6 +271,7 @@ function parseStudentLine(
   rawLine: string,
   template: ParseTemplate,
   lineNumber: number,
+  expectedTotalQuestions: number,
 ): ParsedStudentResult {
   const hatalar: string[] = [];
   
@@ -298,12 +332,46 @@ function parseStudentLine(
   // ═══════════════════════════════════════════════════════════════════════════════
   // CEVAPLARI ÇIKAR (ENDÜSTRİ STANDARDI)
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Sadece A B C D E _ karakterlerini al
-  // Diğer her şeyi atla
-  // İlk 90 geçerli karakter = cevaplar
+  // KRİTİK GÜVENLİK:
+  // - Cevapları RAW satırın tamamından okumak YANLIŞ sonuç üretir
+  //   (isim/kitapçık alanında geçen A-E harfleri cevap sanılabilir).
+  // - Bu yüzden cevapları SADECE şablonda tanımlı cevap alan(lar)ından okuruz.
+  //
+  // ENDÜSTRİ STANDARDI:
+  // - Sadece A B C D E _ geçerli
+  // - Diğer her şey atlanır
+  // - İlk N geçerli karakter = cevaplar (N = expectedTotalQuestions)
   // ═══════════════════════════════════════════════════════════════════════════════
   
-  result.finalAnswers = extractValidAnswers(rawLine);
+  // Cevap segmentlerini birleştir (birden fazla ders alanı tanımlanmış olabilir)
+  const answerSegments = [...template.alanTanimlari]
+    .filter(isAnswerSegmentField)
+    .sort((x, y) => (x.baslangic ?? 0) - (y.baslangic ?? 0));
+
+  if (answerSegments.length === 0) {
+    hatalar.push('Şablonda cevap alanı tanımlı değil (CEVAP/CEVAPLAR veya ders alanları yok)');
+    result.alignmentWarnings = ['Şablonda cevap alanı bulunamadı; güvenli puanlama için işlem durduruldu'];
+    result.finalAnswers = Array.from({ length: expectedTotalQuestions }, () => null);
+    result.detectedAnswerCount = 0;
+    result.cleanedString = ''.padEnd(expectedTotalQuestions, '_');
+    result.lessonBlocks = buildLessonBlocks(result.finalAnswers, LGS_EXAM_STRUCTURE);
+    result.alignmentConfidence = 'CRITICAL';
+    result.reviewStatus = 'REJECTED';
+    result.isValid = false;
+    result.hatalar = hatalar;
+    return result;
+  }
+
+  let mergedAnswerText = '';
+  for (const seg of answerSegments) {
+    const startIdx = (seg.baslangic ?? 1) - 1;
+    const endIdx = seg.bitis ?? seg.baslangic ?? 1;
+    if (startIdx < 0 || startIdx >= rawLine.length) continue;
+    mergedAnswerText += rawLine.substring(startIdx, Math.min(endIdx, rawLine.length));
+    mergedAnswerText += ' '; // segment ayırıcı (ignored)
+  }
+
+  result.finalAnswers = extractValidAnswers(mergedAnswerText, expectedTotalQuestions);
   result.detectedAnswerCount = result.finalAnswers.filter(a => a !== null).length;
   result.cleanedString = result.finalAnswers.map(a => a || '_').join('');
   
@@ -387,14 +455,15 @@ export function parseOpticalFile(
   
   console.log(`📋 Şablon: ${template.sablonAdi}`);
   console.log(`📊 Toplam Satır: ${validLines.length}`);
-  console.log(`🎯 Beklenen Soru: ${examStructure.toplamSoru}`);
+  const expectedTotal = Number(examStructure?.toplamSoru || template.toplamSoru || DEFAULT_TOTAL_QUESTIONS);
+  console.log(`🎯 Beklenen Soru: ${expectedTotal}`);
   
   // Her satırı parse et
   const students: ParsedStudentResult[] = [];
   
   for (let i = 0; i < validLines.length; i++) {
     const line = validLines[i];
-    const result = parseStudentLine(line, template, i + 1);
+    const result = parseStudentLine(line, template, i + 1, expectedTotal);
     students.push(result);
   }
   
