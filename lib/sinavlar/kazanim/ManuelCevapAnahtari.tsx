@@ -1105,15 +1105,29 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
                 
                 return (
                   <tr 
-                    key={ders.kod} 
+                    key={ders.kod}
+                    onDragOver={(e) => handleDersDragOver(e, ders.kod)}
+                    onDrop={() => handleDersDrop(ders.kod)}
                     className={`border-t transition-all ${
-                      isKilitli 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'border-gray-100 hover:bg-gray-50'
+                      dragOverDers === ders.kod
+                        ? 'bg-indigo-50 ring-2 ring-indigo-200'
+                        : isKilitli 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'border-gray-100 hover:bg-gray-50'
                     }`}
                   >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
+                        {/* Sürükle-bırak tutamacı (bu bölüm de taşınabilir olsun) */}
+                        <span
+                          draggable
+                          onDragStart={() => handleDersDragStart(ders.kod)}
+                          onDragEnd={handleDersDragEnd}
+                          className="text-gray-400 hover:text-indigo-600 cursor-grab active:cursor-grabbing"
+                          title="Sürükle-bırak ile ders sırasını değiştir"
+                        >
+                          <GripVertical size={16} />
+                        </span>
                         <span className="text-lg">{ders.icon}</span>
                         <span className="font-medium text-sm" style={{ color: ders.renk }}>
                           {ders.ad.split(' ')[0]}
