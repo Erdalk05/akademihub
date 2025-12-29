@@ -218,8 +218,17 @@ function extractAnswersFromFixedSegments(
  * Amaç: İsim/kitapçık gibi alanlarda geçen A-E harflerini KESİNLİKLE cevap sanmamak.
  */
 function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
-  const a = (alan.alan || '').toLowerCase();
-  const l = (alan.label || '').toLowerCase();
+  // ⚠️ Türkçe 'İ' harfi toLowerCase() sonrası "i̇" (i + combining dot) üretebilir.
+  // Bu da "ingilizce/inkilap/din" gibi contains kontrollerini BOZAR.
+  // Çözüm: normalize + diacritic temizle + lowercase ile karşılaştır.
+  const normalizeForMatch = (s: string) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''); // combining marks (örn: i̇ → i)
+
+  const a = normalizeForMatch(alan.alan || '');
+  const l = normalizeForMatch(alan.label || '');
 
   // Kimlik/TC alanı asla cevap segmenti değildir
   if (a === 'tc' || l.includes('kimlik')) return false;
@@ -228,15 +237,15 @@ function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
 
   // Ders alanları (kullanıcı ders ders tanımlayabiliyor)
   const dersKeywords = [
-    'türkçe', 'turkce',
+    'turkce',
     'matematik',
     'fen',
-    'inkılap', 'inkilap', 'atatürk', 'ataturk',
+    'inkilap', 'ataturk',
     'din',
-    'ingilizce', 'yabancı', 'yabanci', 'dil',
+    'ingilizce', 'yabanci', 'dil',
     'sosyal',
     'tarih',
-    'coğrafya', 'cografya',
+    'cografya',
     'fizik',
     'kimya',
     'biyoloji',
