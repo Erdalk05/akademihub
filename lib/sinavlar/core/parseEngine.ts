@@ -460,16 +460,19 @@ export interface GapInfo {
 }
 
 /**
- * V5.0: SEQUENTIAL A-E EXTRACTION
+ * V5.1: SLOT-BASED ANSWER EXTRACTION
  * 
- * En basit ve güvenilir yaklaşım:
- * - lineStart'tan itibaren karakterleri tara
- * - A-E karakterlerini SIRALI topla
- * - Diğer her şeyi (boşluk, rakam) ATLA
- * - expectedCount'a ulaşınca DUR
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * KRİTİK MANTIK:
+ * - answers[0] = 1. soru (HER ZAMAN)
+ * - answers[1] = 2. soru (HER ZAMAN)
+ * - ...
+ * - answers[89] = 90. soru (HER ZAMAN)
  * 
- * NOT: Bu yaklaşım "boş bırakılan soruları" tespit ETMEZ.
- * Sadece işaretlenmiş cevapları toplar.
+ * BOŞLUK KURALLARI:
+ * - 1-2 karakter boşluk = BOŞ CEVAP (null ekle)
+ * - 3+ karakter boşluk = SEPARATOR (atla, null ekleme)
+ * ═══════════════════════════════════════════════════════════════════════════════
  */
 export function parseLineSequentialAE(
   line: string,
@@ -479,29 +482,73 @@ export function parseLineSequentialAE(
   const lineStartResult = detectLineStart(line);
   const lineStart = lineStartResult.startIndex >= 0 ? lineStartResult.startIndex : 0;
   
-  // 2) lineStart'tan itibaren A-E karakterlerini topla
+  // 2) lineStart'tan itibaren karakterleri analiz et
   const answers: (string | null)[] = [];
+  const gapAnalysis: GapInfo[] = [];
   const upperLine = line.toUpperCase();
   
-  for (let i = lineStart; i < upperLine.length && answers.length < expectedCount; i++) {
+  let i = lineStart;
+  let hasGaps = false;
+  
+  while (i < upperLine.length && answers.length < expectedCount) {
     const ch = upperLine[i];
+    
     if (VALID_ANSWERS_SET.has(ch)) {
+      // A-E bulundu → cevap ekle
       answers.push(ch);
+      i++;
+    } else {
+      // Boşluk veya diğer karakter - ardışık sayısını bul
+      const gapStart = i;
+      let gapLength = 0;
+      
+      while (i < upperLine.length && !VALID_ANSWERS_SET.has(upperLine[i])) {
+        gapLength++;
+        i++;
+      }
+      
+      // GAP ANALİZİ:
+      // - 1-2 karakter = boş cevap(lar) olabilir
+      // - 3+ karakter = separator (ders blokları arası)
+      
+      if (gapLength >= 3) {
+        // SEPARATOR - atla, null ekleme
+        gapAnalysis.push({
+          position: gapStart,
+          length: gapLength,
+          isSeparator: true,
+        });
+      } else if (gapLength === 1 || gapLength === 2) {
+        // POTANSİYEL BOŞ CEVAP(LAR)
+        // Her boşluk karakteri için 1 null ekle
+        for (let g = 0; g < gapLength && answers.length < expectedCount; g++) {
+          answers.push(null);
+          hasGaps = true;
+        }
+        gapAnalysis.push({
+          position: gapStart,
+          length: gapLength,
+          isSeparator: false,
+        });
+      }
+      // gapLength === 0 durumu olmaz (while döngüsü en az 1 iterasyon yapar)
     }
-    // Diğer karakterleri ATLA (separator, boşluk, rakam)
   }
   
-  // 3) Eksik cevapları null ile doldur
+  // 3) Eksik cevapları null ile doldur (sona)
   while (answers.length < expectedCount) {
     answers.push(null);
   }
   
+  // 4) Fazla cevapları kes (90'dan fazlaysa)
+  const finalAnswers = answers.slice(0, expectedCount);
+  
   return {
-    answers,
+    answers: finalAnswers,
     lineStart,
-    detectedCount: answers.filter(a => a !== null).length,
-    hasGaps: false, // Bu method gap tespit etmez
-    gapAnalysis: [],
+    detectedCount: finalAnswers.filter(a => a !== null).length,
+    hasGaps,
+    gapAnalysis,
     parseMethod: 'SEQUENTIAL_AE',
   };
 }
@@ -2010,13 +2057,23 @@ function parseStudentLineV5(
   result.hatalar = hatalar;
   
   // 10) Detaylı console log
+  console.log('───────────────────────────────────────────────────────────────');
   console.log(`📝 Öğrenci ${lineNumber}: ${result.ogrenciNo} (${result.ogrenciAdi})`);
-  console.log(`   - Raw length: ${rawTxtLine.length}`);
-  console.log(`   - START: ${perLineResult.lineStart}`);
-  console.log(`   - Detected: ${result.detectedAnswerCount}/${examStructure.toplamSoru}`);
-  console.log(`   - Booklet: ${result.kitapcik || 'YOK ⚠️'}`);
-  console.log(`   - First 20: ${result.finalAnswers.slice(0, 20).map(a => a || '_').join('')}`);
-  console.log(`   - Status: ${result.reviewStatus} (${result.alignmentConfidence})`);
+  console.log(`   📏 Raw length: ${rawTxtLine.length} | START: ${perLineResult.lineStart}`);
+  console.log(`   📊 Detected: ${result.detectedAnswerCount}/${examStructure.toplamSoru} | Gaps: ${perLineResult.hasGaps ? 'VAR' : 'YOK'}`);
+  console.log(`   📚 Booklet: ${result.kitapcik || '❌ YOK'}`);
+  console.log(`   🧩 normalizedAnswers length: ${result.finalAnswers.length}`);
+  console.log(`   🧠 Öğrenci cevap dizisi (ilk 10): ${result.finalAnswers.slice(0, 10).map(a => a || '_').join(' ')}`);
+  console.log(`   📋 Türkçe (1-20): ${result.finalAnswers.slice(0, 20).map(a => a || '_').join('')}`);
+  console.log(`   📋 İnkılap (21-30): ${result.finalAnswers.slice(20, 30).map(a => a || '_').join('')}`);
+  console.log(`   📋 Din (31-40): ${result.finalAnswers.slice(30, 40).map(a => a || '_').join('')}`);
+  console.log(`   📋 İngilizce (41-50): ${result.finalAnswers.slice(40, 50).map(a => a || '_').join('')}`);
+  console.log(`   📋 Matematik (51-70): ${result.finalAnswers.slice(50, 70).map(a => a || '_').join('')}`);
+  console.log(`   📋 Fen (71-90): ${result.finalAnswers.slice(70, 90).map(a => a || '_').join('')}`);
+  console.log(`   ✅ Status: ${result.reviewStatus} (${result.alignmentConfidence})`);
+  if (perLineResult.gapAnalysis.length > 0) {
+    console.log(`   🔍 Gap analizi: ${perLineResult.gapAnalysis.map(g => `pos${g.position}:${g.length}ch${g.isSeparator ? '(SEP)' : '(BOŞ)'}`).join(', ')}`);
+  }
   
   return result;
 }
