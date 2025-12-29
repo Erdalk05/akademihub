@@ -235,8 +235,13 @@ function parseBooklet(char: string): 'A' | 'B' | 'C' | 'D' | null {
   if (['A', 'B', 'C', 'D'].includes(upper)) {
     return upper as 'A' | 'B' | 'C' | 'D';
   }
-  const match = upper.match(/[ABCD]/);
-  return match ? (match[0] as 'A' | 'B' | 'C' | 'D') : null;
+  // Bazı optik formatlarda kitapçık alanı 2 karakterdir (örn: "AB", "DB", "AA").
+  // Burada KRİTİK kural: "son görülen" A/B/C/D harfini kitapçık kabul et.
+  // Çünkü "DB" gibi durumlarda ilk harfi almak kitapçığı D diye yanlış okutur,
+  // gerçek kitapçık ise B olabilir (son karakter).
+  const matches = upper.match(/[ABCD]/g);
+  if (!matches || matches.length === 0) return null;
+  return matches[matches.length - 1] as 'A' | 'B' | 'C' | 'D';
 }
 
 /**
