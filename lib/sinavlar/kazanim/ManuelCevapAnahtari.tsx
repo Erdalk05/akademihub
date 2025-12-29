@@ -161,10 +161,36 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
         D: prev.D.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
       };
 
-      initialData.forEach(row => {
-        const idx = (row.soruNo || 0) - 1; // soruNo global (1-90)
-        if (idx < 0 || idx >= 90) return;
+      // ═══════════════════════════════════════════════════════════════════════
+      // KRİTİK: initialData’yı dersKodu bazlı yerleştir
+      // ───────────────────────────────────────────────────────────────────────
+      // Geçmişte soruNo “renumber” edildiği için (ders sırası değişince),
+      // idx = soruNo-1 ile yazmak cevapları kaydırıp “dans ettiriyor”.
+      //
+      // Bu yüzden:
+      // - Öncelik: dersKodu + ders içi sıra (row’ları soruNo’ya göre sıralayıp)
+      // - Fallback: dersKodu yoksa veya eşleşmezse eski idx = soruNo-1
+      // ═══════════════════════════════════════════════════════════════════════
+      const ensureArray = <T,>(v: T[] | undefined) => (Array.isArray(v) ? v : []);
 
+      const internalIndicesByDers: Record<string, number[]> = {};
+      next.A.forEach((s, idx) => {
+        const k = String(s.dersKodu || '').toUpperCase();
+        if (!k) return;
+        if (!internalIndicesByDers[k]) internalIndicesByDers[k] = [];
+        internalIndicesByDers[k].push(idx);
+      });
+
+      const rowsByDers: Record<string, CevapAnahtariSatir[]> = {};
+      initialData.forEach(row => {
+        const k = String(row.dersKodu || '').toUpperCase();
+        if (!k) return;
+        if (!rowsByDers[k]) rowsByDers[k] = [];
+        rowsByDers[k].push(row);
+      });
+
+      const writeRowToIdx = (row: CevapAnahtariSatir, idx: number) => {
+        if (idx < 0 || idx >= 90) return;
         // Kazanım bilgisi A'ya yazılıyor (ortak bilgi)
         next.A[idx] = {
           ...next.A[idx],
@@ -172,10 +198,30 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
           kazanimKodu: row.kazanimKodu || next.A[idx].kazanimKodu,
           kazanimMetni: row.kazanimMetni || next.A[idx].kazanimMetni,
         };
-
         next.B[idx] = { ...next.B[idx], cevap: row.kitapcikCevaplari?.B || next.B[idx].cevap };
         next.C[idx] = { ...next.C[idx], cevap: row.kitapcikCevaplari?.C || next.C[idx].cevap };
         next.D[idx] = { ...next.D[idx], cevap: row.kitapcikCevaplari?.D || next.D[idx].cevap };
+      };
+
+      // 1) Ders bazlı yaz
+      Object.entries(rowsByDers).forEach(([dersKodu, rows]) => {
+        const targetIdxs = ensureArray(internalIndicesByDers[dersKodu]);
+        if (targetIdxs.length === 0) return;
+
+        const sorted = [...rows].sort((a, b) => (a.soruNo ?? 0) - (b.soruNo ?? 0));
+        for (let i = 0; i < Math.min(sorted.length, targetIdxs.length); i++) {
+          writeRowToIdx(sorted[i], targetIdxs[i]);
+        }
+      });
+
+      // 2) Fallback: dersKodu olmayan / eşleşmeyen satırlar için eski idx = soruNo-1
+      initialData.forEach(row => {
+        const k = String(row.dersKodu || '').toUpperCase();
+        const hasTarget = k && Array.isArray(internalIndicesByDers[k]) && internalIndicesByDers[k].length > 0;
+        if (hasTarget) return; // zaten ders bazlı yazıldı
+
+        const idx = (row.soruNo || 0) - 1;
+        writeRowToIdx(row, idx);
       });
 
       return next;
@@ -416,7 +462,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
       const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
 
       cevapAnahtari.push({
-        // Not: soruNo'yu aşağıda ders sırasına göre yeniden numaralandıracağız
+        // KRİTİK: soruNo sabit/global olmalı. Dersleri sürükle-bırak yapmak soru numarasını ASLA değiştirmemeli.
         soruNo: soru.globalSoruNo,
         dogruCevap: cevapA || cevapB || cevapC || cevapD || 'A', // İlk bulunan cevabı varsayılan yap
         dersKodu: soru.dersKodu,
@@ -427,25 +473,13 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
       });
     });
 
-    // ✅ KRİTİK: Kullanıcının ders sırasına göre cevap anahtarını sırala ve 1..N yeniden numaralandır
-    // Aksi halde optik şablon (ders sırası) ile cevap anahtarı (sabit LGS sırası) uyuşmaz ve netler düşer.
-    const orderIndex: Record<string, number> = {};
-    dersSirasi.forEach((kod, idx) => { orderIndex[kod] = idx; });
-    cevapAnahtari.sort((a, b) => {
-      const ai = orderIndex[a.dersKodu] ?? 999;
-      const bi = orderIndex[b.dersKodu] ?? 999;
-      if (ai !== bi) return ai - bi;
-      // ders içi: soruNo'yu kullan (global olsa da stabil)
-      return (a.soruNo ?? 0) - (b.soruNo ?? 0);
-    });
+    // Soru numarası stabil kalsın diye global soruNo’ya göre sırala (1..90).
+    // Böylece Step ileri/geri yapınca initialData yüklemesi cevapları "dans ettirmez".
+    cevapAnahtari.sort((a, b) => (a.soruNo ?? 0) - (b.soruNo ?? 0));
+    return cevapAnahtari;
+  }, [kitapcikVerileri]);
 
-    // Yeniden numaralandır
-    let seq = 1;
-    const renumbered = cevapAnahtari.map(r => ({ ...r, soruNo: seq++ }));
-    return renumbered;
-  }, [kitapcikVerileri, dersSirasi]);
-
-  const computeSig = useCallback((data: CevapAnahtariSatir[]) => {
+  const computeSig = useCallback((data: CevapAnahtariSatir[], order: string[]) => {
     // Hafif/Deterministik imza (aynı veri tekrar tekrar wizard'a gitmesin)
     let hash = 2166136261; // FNV-1a başlangıç
     const pushStr = (s: string) => {
@@ -456,6 +490,9 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     };
 
     pushStr(String(data.length));
+    // ✅ KRİTİK: Ders sırası değişince de wizard'a kaydetmeliyiz.
+    // Aksi halde kullanıcı sürükle-bırak yapıp ileri/geri gidince sıra eski haline döner.
+    pushStr(`order:${(order || []).join(',')}`);
     // Performans için ilk 30 satırla imza üret (LGS 90 için yeterli)
     for (let i = 0; i < Math.min(30, data.length); i++) {
       const r = data[i];
@@ -483,7 +520,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
         return;
       }
 
-      const sig = computeSig(data);
+      const sig = computeSig(data, dersSirasi);
       if (lastSentSigRef.current === sig) {
         // Aynı veri tekrar gönderilmesin
         return;
@@ -503,6 +540,16 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     },
     [computeSig, onSave, dersSirasi],
   );
+
+  // ✅ Ders sırası değişince wizard state'e de yaz (butona basmadan adım değişince kaybolmasın)
+  useEffect(() => {
+    if (!onSave) return;
+    const data = buildCevapAnahtari();
+    if (!data || data.length === 0) return;
+    // Toastsuz kayıt: sadece state senkronu
+    sendToWizard(data, `order_change_${aktifKitapcik}`);
+    // Not: sendToWizard kendi dedupe imzası ile spam'i engeller
+  }, [dersSirasi]); // intentionally only order changes
 
   const saveToWizard = useCallback(() => {
     const data = buildCevapAnahtari();
