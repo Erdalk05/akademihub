@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Library,
   Search,
@@ -15,7 +15,9 @@ import {
   FileText,
   Grid3X3,
   Info,
-  Star
+  Star,
+  GripVertical,
+  Sparkles
 } from 'lucide-react';
 
 import {
@@ -27,6 +29,309 @@ import {
   SinifSeviyesi,
 } from './sinavKonfigurasyonlari';
 import { OptikSablon, OptikAlanTanimi, ALAN_RENKLERI } from './types';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BASİT ŞABLON OLUŞTURMA FORMU - MODERN VE KOLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface DersItem {
+  id: string;
+  ad: string;
+  kod: string;
+  soruSayisi: number;
+  renk: string;
+}
+
+// Hazır ders şablonları
+const LGS_DERSLER: DersItem[] = [
+  { id: 'tur', ad: 'Türkçe', kod: 'TUR', soruSayisi: 20, renk: '#3B82F6' },
+  { id: 'ink', ad: 'T.C. İnkılap Tarihi', kod: 'INK', soruSayisi: 10, renk: '#EF4444' },
+  { id: 'din', ad: 'Din Kültürü', kod: 'DIN', soruSayisi: 10, renk: '#8B5CF6' },
+  { id: 'ing', ad: 'İngilizce', kod: 'ING', soruSayisi: 10, renk: '#10B981' },
+  { id: 'mat', ad: 'Matematik', kod: 'MAT', soruSayisi: 20, renk: '#F59E0B' },
+  { id: 'fen', ad: 'Fen Bilimleri', kod: 'FEN', soruSayisi: 20, renk: '#06B6D4' },
+];
+
+const TYT_DERSLER: DersItem[] = [
+  { id: 'tur', ad: 'Türkçe', kod: 'TUR', soruSayisi: 40, renk: '#3B82F6' },
+  { id: 'sos', ad: 'Sosyal Bilimler', kod: 'SOS', soruSayisi: 20, renk: '#EF4444' },
+  { id: 'mat', ad: 'Temel Matematik', kod: 'MAT', soruSayisi: 40, renk: '#F59E0B' },
+  { id: 'fen', ad: 'Fen Bilimleri', kod: 'FEN', soruSayisi: 20, renk: '#06B6D4' },
+];
+
+const BOSLUK_DERSLER: DersItem[] = [];
+
+interface SimpleSablonFormProps {
+  onSave: (sablon: OptikFormSablonu) => void;
+  onCancel: () => void;
+}
+
+function SimpleSablonForm({ onSave, onCancel }: SimpleSablonFormProps) {
+  const [sablonAdi, setSablonAdi] = useState('');
+  const [sinavTipi, setSinavTipi] = useState<'LGS' | 'TYT' | 'OZEL'>('LGS');
+  const [dersler, setDersler] = useState<DersItem[]>(LGS_DERSLER);
+  
+  // Sınav tipi değiştiğinde dersleri güncelle
+  const handleSinavTipiChange = (tip: 'LGS' | 'TYT' | 'OZEL') => {
+    setSinavTipi(tip);
+    if (tip === 'LGS') {
+      setDersler([...LGS_DERSLER]);
+    } else if (tip === 'TYT') {
+      setDersler([...TYT_DERSLER]);
+    } else {
+      setDersler([...BOSLUK_DERSLER]);
+    }
+  };
+  
+  // Yeni ders ekle
+  const handleAddDers = () => {
+    const yeniDers: DersItem = {
+      id: `ders-${Date.now()}`,
+      ad: 'Yeni Ders',
+      kod: 'YNI',
+      soruSayisi: 10,
+      renk: '#6B7280'
+    };
+    setDersler([...dersler, yeniDers]);
+  };
+  
+  // Ders sil
+  const handleRemoveDers = (id: string) => {
+    setDersler(dersler.filter(d => d.id !== id));
+  };
+  
+  // Ders güncelle
+  const handleUpdateDers = (id: string, field: 'ad' | 'soruSayisi', value: string | number) => {
+    setDersler(dersler.map(d => 
+      d.id === id ? { ...d, [field]: value } : d
+    ));
+  };
+  
+  // Toplam soru sayısı
+  const toplamSoru = dersler.reduce((sum, d) => sum + d.soruSayisi, 0);
+  
+  // Kaydet
+  const handleSave = () => {
+    if (!sablonAdi.trim()) {
+      alert('Lütfen şablon adı girin!');
+      return;
+    }
+    if (dersler.length === 0) {
+      alert('En az bir ders eklemelisiniz!');
+      return;
+    }
+    
+    const yeniSablon: OptikFormSablonu = {
+      id: `custom-${Date.now()}`,
+      ad: sablonAdi,
+      yayinevi: 'Özel',
+      aciklama: `${toplamSoru} soru, ${dersler.length} ders`,
+      sinifSeviyeleri: sinavTipi === 'LGS' ? ['8'] : sinavTipi === 'TYT' ? ['12'] : ['8'],
+      sinavTurleri: ['DENEME'],
+      toplamSoru: toplamSoru,
+      satirUzunlugu: 200,
+      alanlar: {
+        ogrenciNo: { baslangic: 1, bitis: 10 },
+        ogrenciAdi: { baslangic: 11, bitis: 40 },
+        kitapcik: { baslangic: 41, bitis: 41 },
+        cevaplar: { baslangic: 42, bitis: 42 + toplamSoru - 1 },
+      },
+      onerilenIcon: '📋',
+      renk: '#6366F1',
+      // Ders yapısını da sakla
+      dersYapisi: dersler.map(d => ({
+        kod: d.kod,
+        ad: d.ad,
+        soruSayisi: d.soruSayisi
+      }))
+    };
+    
+    onSave(yeniSablon);
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-200 shadow-lg"
+    >
+      {/* Başlık */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">Yeni Optik Form Şablonu</h3>
+            <p className="text-xs text-slate-500">Kolay ve hızlı şablon oluşturun</p>
+          </div>
+        </div>
+        <button 
+          onClick={onCancel}
+          className="p-2 hover:bg-white/60 rounded-lg transition-colors"
+        >
+          <X size={20} className="text-slate-400" />
+        </button>
+      </div>
+      
+      {/* ADIM 1: Şablon Adı */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          📝 Şablon Adı
+        </label>
+        <input
+          type="text"
+          value={sablonAdi}
+          onChange={(e) => setSablonAdi(e.target.value)}
+          placeholder="Örn: Okulumuz LGS Deneme 1"
+          className="w-full px-4 py-3 text-lg border-2 border-indigo-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white"
+        />
+      </div>
+      
+      {/* ADIM 2: Sınav Tipi Seçimi */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          📚 Sınav Tipi
+        </label>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { value: 'LGS', label: 'LGS', desc: '90 Soru', icon: '🎓', color: 'blue' },
+            { value: 'TYT', label: 'TYT', desc: '120 Soru', icon: '📖', color: 'amber' },
+            { value: 'OZEL', label: 'Özel', desc: 'Kendin Oluştur', icon: '✨', color: 'purple' },
+          ].map((tip) => (
+            <button
+              key={tip.value}
+              onClick={() => handleSinavTipiChange(tip.value as 'LGS' | 'TYT' | 'OZEL')}
+              className={`p-4 rounded-xl border-2 transition-all text-center ${
+                sinavTipi === tip.value
+                  ? 'border-indigo-500 bg-indigo-50 shadow-md'
+                  : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50'
+              }`}
+            >
+              <span className="text-2xl block mb-1">{tip.icon}</span>
+              <span className="font-bold text-slate-800 block">{tip.label}</span>
+              <span className="text-xs text-slate-500">{tip.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* ADIM 3: Dersler */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            📐 Dersler ve Soru Sayıları
+            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold">
+              Toplam: {toplamSoru} soru
+            </span>
+          </label>
+          <button
+            onClick={handleAddDers}
+            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus size={14} />
+            Ders Ekle
+          </button>
+        </div>
+        
+        {dersler.length === 0 ? (
+          <div className="text-center py-8 bg-white rounded-xl border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 text-sm mb-3">Henüz ders eklenmedi</p>
+            <button
+              onClick={handleAddDers}
+              className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-sm font-medium transition-colors"
+            >
+              + İlk Dersi Ekle
+            </button>
+          </div>
+        ) : (
+          <Reorder.Group
+            axis="y"
+            values={dersler}
+            onReorder={setDersler}
+            className="space-y-2"
+          >
+            {dersler.map((ders, index) => (
+              <Reorder.Item
+                key={ders.id}
+                value={ders}
+                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm group hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+              >
+                {/* Sıra numarası ve sürükleme */}
+                <div className="flex items-center gap-2 text-slate-400">
+                  <GripVertical size={16} className="opacity-50 group-hover:opacity-100" />
+                  <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">
+                    {index + 1}
+                  </span>
+                </div>
+                
+                {/* Ders rengi */}
+                <div 
+                  className="w-3 h-10 rounded-full"
+                  style={{ backgroundColor: ders.renk }}
+                />
+                
+                {/* Ders adı */}
+                <input
+                  type="text"
+                  value={ders.ad}
+                  onChange={(e) => handleUpdateDers(ders.id, 'ad', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none text-sm font-medium"
+                  placeholder="Ders adı"
+                />
+                
+                {/* Soru sayısı */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={ders.soruSayisi}
+                    onChange={(e) => handleUpdateDers(ders.id, 'soruSayisi', parseInt(e.target.value) || 0)}
+                    className="w-16 px-2 py-2 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none text-center text-sm font-bold"
+                    min={1}
+                    max={100}
+                  />
+                  <span className="text-xs text-slate-400">soru</span>
+                </div>
+                
+                {/* Sil butonu */}
+                <button
+                  onClick={() => handleRemoveDers(ders.id)}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        )}
+        
+        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+          <GripVertical size={12} />
+          Dersleri sürükleyerek sıralayabilirsiniz
+        </p>
+      </div>
+      
+      {/* KAYDET / İPTAL */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-indigo-100">
+        <button
+          onClick={onCancel}
+          className="px-5 py-2.5 text-slate-600 hover:bg-white rounded-xl text-sm font-medium transition-colors"
+        >
+          İptal
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!sablonAdi.trim() || dersler.length === 0}
+          className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-200"
+        >
+          <Save size={16} />
+          Şablonu Kaydet
+        </button>
+      </div>
+    </motion.div>
+  );
+}
 
 interface SablonKutuphanesiProps {
   sinifSeviyesi?: SinifSeviyesi;
@@ -398,11 +703,13 @@ export default function SablonKutuphanesi({
       satirUzunlugu: 150,
       sinifSeviyeleri: ['8'],
       sinavTurleri: ['DENEME'],
+      kurumKodu: { baslangic: 0, bitis: 0 },
       ogrenciNo: { baslangic: 1, bitis: 8 },
       ogrenciAdi: { baslangic: 9, bitis: 28 },
       tcKimlik: { baslangic: 0, bitis: 0 },
       sinif: { baslangic: 0, bitis: 0 },
       kitapcik: { baslangic: 0, bitis: 0 },
+      cinsiyet: { baslangic: 0, bitis: 0 },
       cevaplar: { baslangic: 50, bitis: 139 },
       ozelAlanlar: []
     });
@@ -488,383 +795,26 @@ export default function SablonKutuphanesi({
         </select>
       </div>
 
-      {/* Yeni Şablon Ekleme Formu */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* YENİ ŞABLON EKLEME FORMU - BASİT VE MODERN */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {showAddForm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-purple-50 rounded-xl p-4 border border-purple-200"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-purple-800 flex items-center gap-2">
-                <Plus size={18} />
-                Yeni Şablon Ekle
-              </h4>
-              <button onClick={() => setShowAddForm(false)} className="text-purple-500 hover:text-purple-700">
-                <X size={18} />
-              </button>
-            </div>
-            
-            {/* TEMEL BİLGİLER */}
-            <div className="grid grid-cols-6 gap-3 text-sm">
-              <div className="col-span-2">
-                <label className="block text-xs text-purple-600 mb-1 font-medium">📝 Şablon Adı *</label>
-                <input
-                  type="text"
-                  value={newSablon.ad}
-                  onChange={(e) => setNewSablon({...newSablon, ad: e.target.value})}
-                  placeholder="Örn: Özel LGS 90 Soru"
-                  className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:border-purple-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-purple-600 mb-1 font-medium">🏢 Yayınevi</label>
-                <input
-                  type="text"
-                  value={newSablon.yayinevi}
-                  onChange={(e) => setNewSablon({...newSablon, yayinevi: e.target.value})}
-                  placeholder="Yayınevi adı"
-                  className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:border-purple-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-purple-600 mb-1 font-medium">📊 Soru Sayısı</label>
-                <input
-                  type="number"
-                  value={newSablon.toplamSoru}
-                  onChange={(e) => setNewSablon({...newSablon, toplamSoru: parseInt(e.target.value) || 90})}
-                  className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:border-purple-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-purple-600 mb-1 font-medium">📏 Satır Uzunluğu</label>
-                <input
-                  type="number"
-                  value={newSablon.satirUzunlugu}
-                  onChange={(e) => setNewSablon({...newSablon, satirUzunlugu: parseInt(e.target.value) || 150})}
-                  className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:border-purple-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-purple-600 mb-1 font-medium">🎓 Sınıf</label>
-                <select
-                  value={newSablon.sinifSeviyeleri[0]}
-                  onChange={(e) => setNewSablon({...newSablon, sinifSeviyeleri: [e.target.value as SinifSeviyesi]})}
-                  className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:border-purple-500 outline-none bg-white"
-                >
-                  {Object.entries(SINIF_BILGILERI).map(([key, info]) => (
-                    <option key={key} value={key}>{info.ad}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            {/* ALAN TANIMLARI */}
-            <div className="mt-4 p-3 bg-white rounded-lg border border-purple-100">
-              <h5 className="text-xs font-bold text-purple-700 mb-3 flex items-center gap-2">
-                📍 Karakter Pozisyonları (Başlangıç - Bitiş)
-              </h5>
-              
-              <div className="grid grid-cols-9 gap-2 text-sm">
-                {/* Kurum Kodu - YENİ */}
-                <div className="col-span-1 bg-indigo-50 p-2 rounded-lg border border-indigo-200">
-                  <label className="block text-[10px] text-indigo-700 mb-1 font-medium">🏛️ Kurum</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.kurumKodu.baslangic || ''}
-                      onChange={(e) => setNewSablon({...newSablon, kurumKodu: {...newSablon.kurumKodu, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-indigo-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.kurumKodu.bitis || ''}
-                      onChange={(e) => setNewSablon({...newSablon, kurumKodu: {...newSablon.kurumKodu, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-indigo-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Öğrenci No */}
-                <div className="col-span-1 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                  <label className="block text-[10px] text-amber-700 mb-1 font-medium">🔢 Öğr. No</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciNo.baslangic}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciNo: {...newSablon.ogrenciNo, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-amber-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciNo.bitis}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciNo: {...newSablon.ogrenciNo, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-amber-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* TC */}
-                <div className="col-span-1 bg-blue-50 p-2 rounded-lg border border-blue-200">
-                  <label className="block text-[10px] text-blue-700 mb-1 font-medium">🆔 TC Kimlik</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.tcKimlik.baslangic || ''}
-                      onChange={(e) => setNewSablon({...newSablon, tcKimlik: {...newSablon.tcKimlik, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-blue-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.tcKimlik.bitis || ''}
-                      onChange={(e) => setNewSablon({...newSablon, tcKimlik: {...newSablon.tcKimlik, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-blue-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Sınıf */}
-                <div className="col-span-1 bg-purple-50 p-2 rounded-lg border border-purple-200">
-                  <label className="block text-[10px] text-purple-700 mb-1 font-medium">🏫 Sınıf</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.sinif.baslangic || ''}
-                      onChange={(e) => setNewSablon({...newSablon, sinif: {...newSablon.sinif, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-purple-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.sinif.bitis || ''}
-                      onChange={(e) => setNewSablon({...newSablon, sinif: {...newSablon.sinif, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-purple-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Kitapçık */}
-                <div className="col-span-1 bg-pink-50 p-2 rounded-lg border border-pink-200">
-                  <label className="block text-[10px] text-pink-700 mb-1 font-medium">📖 Kitapçık</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.kitapcik.baslangic || ''}
-                      onChange={(e) => setNewSablon({...newSablon, kitapcik: {...newSablon.kitapcik, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-pink-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.kitapcik.bitis || ''}
-                      onChange={(e) => setNewSablon({...newSablon, kitapcik: {...newSablon.kitapcik, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-pink-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Cinsiyet - YENİ */}
-                <div className="col-span-1 bg-rose-50 p-2 rounded-lg border border-rose-200">
-                  <label className="block text-[10px] text-rose-700 mb-1 font-medium">⚧ Cinsiyet</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.cinsiyet.baslangic || ''}
-                      onChange={(e) => setNewSablon({...newSablon, cinsiyet: {...newSablon.cinsiyet, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-rose-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.cinsiyet.bitis || ''}
-                      onChange={(e) => setNewSablon({...newSablon, cinsiyet: {...newSablon.cinsiyet, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-rose-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Ad Soyad */}
-                <div className="col-span-1 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                  <label className="block text-[10px] text-emerald-700 mb-1 font-medium">👤 Ad Soyad</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciAdi.baslangic}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.ogrenciAdi.bitis}
-                      onChange={(e) => setNewSablon({...newSablon, ogrenciAdi: {...newSablon.ogrenciAdi, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-emerald-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Cevaplar */}
-                <div className="col-span-1 bg-green-50 p-2 rounded-lg border border-green-200">
-                  <label className="block text-[10px] text-green-700 mb-1 font-medium">✅ Cevaplar *</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      value={newSablon.cevaplar.baslangic}
-                      onChange={(e) => setNewSablon({...newSablon, cevaplar: {...newSablon.cevaplar, baslangic: parseInt(e.target.value) || 0}})}
-                      placeholder="Baş"
-                      className="w-full px-1 py-1 border border-green-200 rounded text-center text-xs"
-                    />
-                    <input
-                      type="number"
-                      value={newSablon.cevaplar.bitis}
-                      onChange={(e) => setNewSablon({...newSablon, cevaplar: {...newSablon.cevaplar, bitis: parseInt(e.target.value) || 0}})}
-                      placeholder="Bit"
-                      className="w-full px-1 py-1 border border-green-200 rounded text-center text-xs"
-                    />
-                  </div>
-                </div>
-                
-                {/* Özel Alan Ekle */}
-                <div className="col-span-1">
-                  <button
-                    onClick={() => setShowOzelAlanModal(true)}
-                    className="w-full h-full flex flex-col items-center justify-center gap-1 p-2 bg-indigo-50 hover:bg-indigo-100 border-2 border-dashed border-indigo-300 rounded-lg transition-colors"
-                  >
-                    <Plus size={16} className="text-indigo-600" />
-                    <span className="text-[10px] text-indigo-600 font-medium">Özel Alan</span>
-                  </button>
-                </div>
-              </div>
-              
-              {/* Eklenen Özel Alanlar */}
-              {newSablon.ozelAlanlar.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {newSablon.ozelAlanlar.map((alan, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100 rounded-full text-sm">
-                      <span className="text-indigo-700 font-medium">{alan.ad}</span>
-                      <span className="text-indigo-500 text-xs">({alan.baslangic}-{alan.bitis})</span>
-                      <button
-                        onClick={() => handleRemoveOzelAlan(i)}
-                        className="text-indigo-400 hover:text-red-500"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Özel Alan Ekleme Modal */}
-            <AnimatePresence>
-              {showOzelAlanModal && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                  onClick={() => setShowOzelAlanModal(false)}
-                >
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-white rounded-xl p-5 w-[350px] shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                      <Plus size={18} className="text-indigo-600" />
-                      Özel Alan Ekle
-                    </h4>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs text-slate-600 mb-1">Alan Adı *</label>
-                        <input
-                          type="text"
-                          value={yeniOzelAlan.ad}
-                          onChange={(e) => setYeniOzelAlan({...yeniOzelAlan, ad: e.target.value})}
-                          placeholder="Örn: Veli Telefonu, Şube..."
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-slate-600 mb-1">Başlangıç *</label>
-                          <input
-                            type="number"
-                            value={yeniOzelAlan.baslangic || ''}
-                            onChange={(e) => setYeniOzelAlan({...yeniOzelAlan, baslangic: parseInt(e.target.value) || 0})}
-                            placeholder="Karakter no"
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-slate-600 mb-1">Bitiş *</label>
-                          <input
-                            type="number"
-                            value={yeniOzelAlan.bitis || ''}
-                            onChange={(e) => setYeniOzelAlan({...yeniOzelAlan, bitis: parseInt(e.target.value) || 0})}
-                            placeholder="Karakter no"
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
-                          />
-                        </div>
-                      </div>
-                      
-                      <p className="text-xs text-slate-400">
-                        💡 Örnek: Veli Telefonu (140-150), Şube (5-6)
-                      </p>
-                    </div>
-                    
-                    <div className="mt-4 flex justify-end gap-2">
-                      <button
-                        onClick={() => setShowOzelAlanModal(false)}
-                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
-                      >
-                        İptal
-                      </button>
-                      <button
-                        onClick={handleAddOzelAlan}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm flex items-center gap-2"
-                      >
-                        <Plus size={14} />
-                        Ekle
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleAddSablon}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm flex items-center gap-2"
-              >
-                <Save size={16} />
-                Kaydet
-              </button>
-            </div>
-          </motion.div>
+          <SimpleSablonForm
+            onSave={(sablon) => {
+              const yeniListe = [...customSablonlar, sablon];
+              setCustomSablonlar(yeniListe);
+              try {
+                localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
+                console.log('✅ Yeni şablon eklendi:', sablon.ad);
+              } catch (e) {
+                console.error('❌ Şablon kaydetme hatası:', e);
+              }
+              setShowAddForm(false);
+              alert(`✅ "${sablon.ad}" şablonu başarıyla eklendi!`);
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
         )}
       </AnimatePresence>
 
@@ -944,11 +894,13 @@ export default function SablonKutuphanesi({
                       satirUzunlugu: sablon.satirUzunlugu,
                       sinifSeviyeleri: sablon.sinifSeviyeleri,
                       sinavTurleri: sablon.sinavTurleri,
+                      kurumKodu: sablon.alanlar.kurumKodu || { baslangic: 0, bitis: 0 },
                       ogrenciNo: sablon.alanlar.ogrenciNo,
                       ogrenciAdi: sablon.alanlar.ogrenciAdi,
                       tcKimlik: sablon.alanlar.tcKimlik || { baslangic: 0, bitis: 0 },
                       sinif: sablon.alanlar.sinif || { baslangic: 0, bitis: 0 },
                       kitapcik: sablon.alanlar.kitapcik || { baslangic: 0, bitis: 0 },
+                      cinsiyet: sablon.alanlar.cinsiyet || { baslangic: 0, bitis: 0 },
                       cevaplar: sablon.alanlar.cevaplar,
                       ozelAlanlar: (sablon.alanlar as any).ozelAlanlar || []
                     });

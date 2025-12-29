@@ -50,7 +50,7 @@ export interface CevapAnahtariSatir {
 
 // Optik Şablon Alan Tanımı
 export interface OptikAlanTanimi {
-  alan: 'sinif_no' | 'ogrenci_no' | 'ogrenci_adi' | 'tc' | 'kitapcik' | 'cevaplar' | 'bos' | 'ozel';
+  alan: 'sinif_no' | 'ogrenci_no' | 'ogrenci_adi' | 'tc' | 'kitapcik' | 'cevaplar' | 'bos' | 'ozel' | 'kurum_kodu' | 'cinsiyet';
   baslangic: number;       // Karakter başlangıç (1-indexed)
   bitis: number;           // Karakter bitiş
   label: string;           // Görüntülenecek isim

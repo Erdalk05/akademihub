@@ -250,6 +250,12 @@ export interface OptikFormSablonu {
   };
   onerilenIcon: string;
   renk: string;
+  // Basit şablon oluşturma için ders yapısı
+  dersYapisi?: {
+    kod: string;
+    ad: string;
+    soruSayisi: number;
+  }[];
 }
 
 export const OPTIK_FORM_SABLONLARI: OptikFormSablonu[] = [
