@@ -344,9 +344,12 @@ function parseStudentLine(
   // ═══════════════════════════════════════════════════════════════════════════════
   
   // Cevap segmentlerini birleştir (birden fazla ders alanı tanımlanmış olabilir)
-  const answerSegments = [...template.alanTanimlari]
-    .filter(isAnswerSegmentField)
-    .sort((x, y) => (x.baslangic ?? 0) - (y.baslangic ?? 0));
+  // ⚠️ ÖNEMLİ: Segmentleri başlangıca göre SIRALAMAYIZ.
+  // Kullanıcı wizard'da ders sırasını sürükle-bırak ile belirler.
+  // Şablonda alanların sırası = cevapların sınav içi sırası kabul edilir.
+  // Böylece "Türkçe 52-72, Matematik 112-132" gibi dağınık pozisyonlar olsa bile,
+  // kullanıcı hangi dersi önce istiyorsa o sırayla cevap dizisi oluşur.
+  const answerSegments = template.alanTanimlari.filter(isAnswerSegmentField);
 
   if (answerSegments.length === 0) {
     hatalar.push('Şablonda cevap alanı tanımlı değil (CEVAP/CEVAPLAR veya ders alanları yok)');
