@@ -416,102 +416,192 @@ export function detectQuestionSlots(
 }
 
 /**
- * V4.0: MODE-BASED START NORMALİZASYONU
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * V5.0: PER-LINE BAĞIMSIZ PARSE
+ * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Problem: Her satırda lineStart farklı olabilir (26, 44, 51 gibi).
- * Farklı offset'lerden slice yapınca slot tespiti bozuluyor.
+ * OPTİK OKUYUCU GERÇEKLİĞİ:
+ * - Her öğrenci kağıdı fiziksel olarak farklı yerleştirilir
+ * - Her satırda cevaplar FARKLI kolondan başlar
+ * - Bu NORMAL ve BEKLENİR
  * 
- * Çözüm:
- * 1. Her satır için lineStart tespit et
- * 2. En sık görülen (MODE) start'ı bul
- * 3. Tüm satırları MODE start'a göre normalize et
- * 4. Farklı start'a sahip satırları FLAG'le (outlier)
- * 5. Slot tespitini normalize edilmiş dizilerde yap
+ * YASAK YAKLAŞIMLAR:
+ * - ❌ Cross-line normalization
+ * - ❌ Mode/Average START
+ * - ❌ "Tüm satırları aynı kolona hizala"
+ * 
+ * DOĞRU YAKLAŞIM:
+ * - ✅ Her satır BAĞIMSIZ parse edilir
+ * - ✅ Her satır için AYRI lineStart tespit edilir
+ * - ✅ O satırın cevapları O satırın lineStart'ından çıkarılır
+ * ═══════════════════════════════════════════════════════════════════════════════
  */
-export interface NormalizedLineData {
-  slotAnalysis: SlotAnalysisResult;
-  modeStart: number;                    // En sık görülen start
-  lineStarts: number[];                 // Her satırın kendi start'ı
-  outlierIndices: number[];             // modeStart'tan farklı olan satırlar
-  slicedLines: string[];                // MODE start'a göre slice edilmiş
-  startTolerance: number;               // ±tolerans (varsayılan 5)
+
+/**
+ * V5.0: Tek bir satırdan cevapları BAĞIMSIZ olarak çıkar.
+ * Cross-line bağımlılık YOK.
+ * 
+ * @param line Ham TXT satırı
+ * @param expectedCount Beklenen cevap sayısı (LGS için 90)
+ */
+export interface PerLineParseResult {
+  answers: (string | null)[];
+  lineStart: number;
+  detectedCount: number;
+  hasGaps: boolean;
+  gapAnalysis: GapInfo[];
+  parseMethod: 'SEQUENTIAL_AE' | 'GAP_AWARE';
 }
 
-export function detectQuestionSlotsWithModeStart(
-  rawLines: string[],
-  expectedSlots: number = 90,
-  startTolerance: number = 5,
-): NormalizedLineData {
-  const validLines = rawLines.filter(l => l && l.trim().length > 0);
-  const lineStarts: number[] = [];
+export interface GapInfo {
+  position: number;
+  length: number;
+  isSeparator: boolean;  // true = separator, false = potansiyel boş cevap
+}
+
+/**
+ * V5.0: SEQUENTIAL A-E EXTRACTION
+ * 
+ * En basit ve güvenilir yaklaşım:
+ * - lineStart'tan itibaren karakterleri tara
+ * - A-E karakterlerini SIRALI topla
+ * - Diğer her şeyi (boşluk, rakam) ATLA
+ * - expectedCount'a ulaşınca DUR
+ * 
+ * NOT: Bu yaklaşım "boş bırakılan soruları" tespit ETMEZ.
+ * Sadece işaretlenmiş cevapları toplar.
+ */
+export function parseLineSequentialAE(
+  line: string,
+  expectedCount: number,
+): PerLineParseResult {
+  // 1) Bu satır için lineStart tespit et
+  const lineStartResult = detectLineStart(line);
+  const lineStart = lineStartResult.startIndex >= 0 ? lineStartResult.startIndex : 0;
   
-  // 1) Her satır için lineStart tespit et
-  for (const line of validLines) {
-    const start = detectLineStart(line).startIndex;
-    lineStarts.push(start >= 0 ? start : 0);
-  }
+  // 2) lineStart'tan itibaren A-E karakterlerini topla
+  const answers: (string | null)[] = [];
+  const upperLine = line.toUpperCase();
   
-  // 2) MODE (en sık görülen) start'ı bul
-  const startCounts = new Map<number, number>();
-  for (const start of lineStarts) {
-    // Tolerans dahilinde gruplama (±5 karakter)
-    const bucket = Math.round(start / startTolerance) * startTolerance;
-    startCounts.set(bucket, (startCounts.get(bucket) || 0) + 1);
-  }
-  
-  let modeStart = 0;
-  let maxCount = 0;
-  for (const [bucket, count] of startCounts) {
-    if (count > maxCount) {
-      maxCount = count;
-      modeStart = bucket;
+  for (let i = lineStart; i < upperLine.length && answers.length < expectedCount; i++) {
+    const ch = upperLine[i];
+    if (VALID_ANSWERS_SET.has(ch)) {
+      answers.push(ch);
     }
+    // Diğer karakterleri ATLA (separator, boşluk, rakam)
   }
   
-  // 3) Outlier'ları tespit et (modeStart'tan farklı olanlar)
-  const outlierIndices: number[] = [];
-  for (let i = 0; i < lineStarts.length; i++) {
-    const diff = Math.abs(lineStarts[i] - modeStart);
-    if (diff > startTolerance) {
-      outlierIndices.push(i);
-    }
+  // 3) Eksik cevapları null ile doldur
+  while (answers.length < expectedCount) {
+    answers.push(null);
   }
-  
-  // 4) Tüm satırları MODE start'a göre slice et
-  const slicedLines: string[] = [];
-  for (const line of validLines) {
-    if (modeStart < line.length) {
-      slicedLines.push(line.slice(modeStart));
-    } else {
-      slicedLines.push(''); // Satır çok kısa
-    }
-  }
-  
-  // 5) Slot tespiti (normalize edilmiş dizilerde, minStart=0)
-  const slotAnalysis = detectQuestionSlots(slicedLines, 0, expectedSlots);
-  
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🎯 V4.0 MODE-BASED START NORMALİZASYONU');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log(`   Toplam satır: ${validLines.length}`);
-  console.log(`   Mode START: ${modeStart} (${maxCount}/${validLines.length} satır)`);
-  console.log(`   Outlier sayısı: ${outlierIndices.length} (±${startTolerance} tolerans)`);
-  if (outlierIndices.length > 0 && outlierIndices.length <= 10) {
-    console.log(`   Outlier satırlar: [${outlierIndices.map(i => i + 1).join(', ')}]`);
-  }
-  console.log('═══════════════════════════════════════════════════════════════');
   
   return {
-    slotAnalysis,
-    modeStart,
-    lineStarts,
-    outlierIndices,
-    slicedLines,
-    startTolerance,
+    answers,
+    lineStart,
+    detectedCount: answers.filter(a => a !== null).length,
+    hasGaps: false, // Bu method gap tespit etmez
+    gapAnalysis: [],
+    parseMethod: 'SEQUENTIAL_AE',
   };
 }
 
-// Geriye uyumluluk için eski fonksiyon imzası
+/**
+ * V5.0: GAP-AWARE EXTRACTION
+ * 
+ * Gelişmiş yaklaşım:
+ * - lineStart'tan itibaren karakterleri tara
+ * - Boşluk analizini yap
+ * - 2+ ardışık boşluk = SEPARATOR (atla)
+ * - 1 boşluk + sonra hemen A-E = SEPARATOR (atla)
+ * - 1 boşluk + sonra yine boşluk = hala SEPARATOR
+ * - 1 boşluk + uzun mesafe + A-E = potansiyel boş cevap (null ekle)
+ */
+export function parseLineGapAware(
+  line: string,
+  expectedCount: number,
+): PerLineParseResult {
+  // 1) Bu satır için lineStart tespit et
+  const lineStartResult = detectLineStart(line);
+  const lineStart = lineStartResult.startIndex >= 0 ? lineStartResult.startIndex : 0;
+  
+  const answers: (string | null)[] = [];
+  const gapAnalysis: GapInfo[] = [];
+  const upperLine = line.toUpperCase();
+  
+  let i = lineStart;
+  let hasGaps = false;
+  
+  while (i < upperLine.length && answers.length < expectedCount) {
+    const ch = upperLine[i];
+    
+    if (VALID_ANSWERS_SET.has(ch)) {
+      // A-E bulundu
+      answers.push(ch);
+      i++;
+    } else if (ch === ' ' || ch === '_' || ch === '-' || ch === '.') {
+      // Potansiyel boşluk/separator
+      // Ardışık boşlukları say
+      let gapStart = i;
+      let gapLength = 0;
+      while (i < upperLine.length && !VALID_ANSWERS_SET.has(upperLine[i])) {
+        gapLength++;
+        i++;
+      }
+      
+      // Separator mı yoksa boş cevap mı?
+      // Heuristik: 3+ karakter boşluk = separator
+      const isSeparator = gapLength >= 3;
+      
+      gapAnalysis.push({
+        position: gapStart,
+        length: gapLength,
+        isSeparator,
+      });
+      
+      if (!isSeparator && answers.length < expectedCount) {
+        // Potansiyel boş cevap - ama dikkatli ol
+        // Çok fazla null ekleme, sadece belirgin gap'lerde
+        // Bu kısmı şimdilik devre dışı bırakıyoruz
+        hasGaps = true;
+      }
+      // Separator ise bir şey ekleme, devam et
+    } else {
+      // Diğer karakterler (rakam, özel karakter)
+      i++;
+    }
+  }
+  
+  // Eksik cevapları null ile doldur
+  while (answers.length < expectedCount) {
+    answers.push(null);
+  }
+  
+  return {
+    answers,
+    lineStart,
+    detectedCount: answers.filter(a => a !== null).length,
+    hasGaps,
+    gapAnalysis,
+    parseMethod: 'GAP_AWARE',
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GERİYE UYUMLULUK - ESKİ FONKSİYON İMZALARI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Bu fonksiyonlar artık KULLANILMAMALI ama mevcut kodu bozmamak için kalıyor
+export interface NormalizedLineData {
+  slotAnalysis: SlotAnalysisResult;
+  modeStart: number;
+  lineStarts: number[];
+  outlierIndices: number[];
+  slicedLines: string[];
+  startTolerance: number;
+}
+
+// DEPRECATED - Per-line parse kullanın
 export function detectQuestionSlotsRelativeToLineStart(
   rawLines: string[],
   expectedSlots: number = 90,
@@ -520,11 +610,30 @@ export function detectQuestionSlotsRelativeToLineStart(
   lineStarts: number[];
   slicedLines: string[];
 } {
-  const result = detectQuestionSlotsWithModeStart(rawLines, expectedSlots, 5);
+  console.warn('⚠️ DEPRECATED: detectQuestionSlotsRelativeToLineStart kullanılıyor. Per-line parse kullanın!');
+  
+  const validLines = rawLines.filter(l => l && l.trim().length > 0);
+  const lineStarts: number[] = [];
+  const slicedLines: string[] = [];
+  
+  // Her satır için AYRI lineStart tespit et (cross-line normalization YOK)
+  for (const line of validLines) {
+    const start = detectLineStart(line).startIndex;
+    const safeStart = start >= 0 ? start : 0;
+    lineStarts.push(safeStart);
+    slicedLines.push(line.slice(safeStart));
+  }
+  
+  // Slot analizi artık her satır için ayrı yapılmalı, ama geriye uyumluluk için boş döndür
   return {
-    slotAnalysis: result.slotAnalysis,
-    lineStarts: result.lineStarts,
-    slicedLines: result.slicedLines,
+    slotAnalysis: {
+      slotMap: new Map(),
+      questionSlots: [],
+      separatorSlots: [],
+      stats: { totalPositionsAnalyzed: 0, questionSlotCount: 0, separatorCount: 0, confidence: 0 },
+    },
+    lineStarts,
+    slicedLines,
   };
 }
 
@@ -1650,8 +1759,14 @@ export interface BatchParseResult {
 }
 
 /**
- * Tüm TXT dosyasını parse et
- * V3.0: Slot tespiti ile boşluk/separator ayrımı
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * V5.0: PER-LINE BAĞIMSIZ PARSE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * Her satır BAĞIMSIZ parse edilir.
+ * Cross-line normalization YOK.
+ * Mode/Average START YOK.
+ * Her satır için AYRI lineStart tespit edilir.
  */
 export function parseOpticalFile(
   fileContent: string,
@@ -1659,8 +1774,10 @@ export function parseOpticalFile(
   examStructure: ExamStructure = LGS_EXAM_STRUCTURE,
 ): BatchParseResult {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 DETERMINISTIK PARSE ENGINE V3.0 BAŞLATILIYOR');
-  console.log('   ✨ V3.0: Slot tespiti ile boşluk/separator ayrımı');
+  console.log('🚀 PARSE ENGINE V5.0 - PER-LINE BAĞIMSIZ PARSE');
+  console.log('   ✨ Her satır BAĞIMSIZ parse edilir');
+  console.log('   ✨ Cross-line normalization YOK');
+  console.log('   ✨ Her satır için AYRI lineStart');
   console.log('═══════════════════════════════════════════════════════════════');
   
   const lines = fileContent.replace(/\r\n/g, '\n').split('\n');
@@ -1670,40 +1787,16 @@ export function parseOpticalFile(
   console.log(`📊 Toplam Satır: ${validLines.length}`);
   console.log(`🎯 Beklenen Soru: ${examStructure.toplamSoru}`);
   
-  // 1. V3.1: START kayması olan dosyalarda slotları RELATIVE (lineStart sonrası) tespit et
-  const relative = detectQuestionSlotsRelativeToLineStart(lines, examStructure.toplamSoru);
-  const slotAnalysis = relative.slotAnalysis;
-  
-  // 2. Global slot analizi (geriye uyumluluk için)
-  const globalSlots = analyzeGlobalSlots(lines, template, examStructure);
-  
-  // V3.0 başarılı mı kontrol et
-  const useV3 = slotAnalysis.questionSlots.length >= examStructure.toplamSoru * 0.9; // En az %90
-  
-  if (useV3) {
-    console.log(`✅ V3.0 slot tespiti başarılı: ${slotAnalysis.questionSlots.length} slot bulundu`);
-  } else {
-    console.warn(`⚠️ V3.0 yetersiz (${slotAnalysis.questionSlots.length} slot), V2.0 fallback kullanılacak`);
-  }
-  
-  // 3. Her satırı parse et
+  // V5.0: Her satırı BAĞIMSIZ olarak parse et
   const students: ParsedStudentResult[] = [];
   
   for (let i = 0; i < validLines.length; i++) {
     const line = validLines[i];
-    const result = parseStudentAnswersV3(
-      line, 
-      template, 
-      globalSlots, 
-      slotAnalysis,
-      useV3,
-      examStructure, 
-      i + 1
-    );
+    const result = parseStudentLineV5(line, template, examStructure, i + 1);
     students.push(result);
   }
   
-  // 3. İstatistikler
+  // İstatistikler
   const successCount = students.filter(s => s.reviewStatus === 'OK').length;
   const needsReviewCount = students.filter(s => s.reviewStatus === 'NEEDS_REVIEW').length;
   const rejectedCount = students.filter(s => s.reviewStatus === 'REJECTED').length;
@@ -1717,36 +1810,231 @@ export function parseOpticalFile(
     : 0;
   
   console.log('───────────────────────────────────────────────────────────────');
-  console.log(`✅ Başarılı: ${successCount}`);
-  console.log(`⚠️ İnceleme Gerekli: ${needsReviewCount}`);
-  console.log(`❌ Reddedildi: ${rejectedCount}`);
+  console.log('📊 V5.0 PARSE SONUÇLARI');
+  console.log('───────────────────────────────────────────────────────────────');
+  console.log(`✅ Başarılı (AUTO): ${successCount}`);
+  console.log(`🟡 İnceleme Gerekli (REVIEW): ${needsReviewCount}`);
+  console.log(`❌ Reddedildi (REJECT): ${rejectedCount}`);
   console.log(`📈 Ortalama Güven: ${(avgConfidence * 100).toFixed(1)}%`);
-  console.log(`🔬 V3.0 Slot: ${slotAnalysis.questionSlots.length} / ${examStructure.toplamSoru}`);
   console.log('═══════════════════════════════════════════════════════════════');
   
   const batchWarnings: string[] = [];
   if (rejectedCount > 0) {
-    batchWarnings.push(`${rejectedCount} öğrenci cevap hizalama hatası nedeniyle reddedildi`);
+    batchWarnings.push(`${rejectedCount} öğrenci puanlamaya dahil edilmeyecek (REJECTED)`);
   }
-  if (slotAnalysis.questionSlots.length < examStructure.toplamSoru) {
-    batchWarnings.push(`V3.0: Beklenen ${examStructure.toplamSoru} slot, bulunan ${slotAnalysis.questionSlots.length}`);
+  if (needsReviewCount > 0) {
+    batchWarnings.push(`${needsReviewCount} öğrenci manuel inceleme bekliyor (NEEDS_REVIEW)`);
   }
+  
+  // Geriye uyumluluk için boş slotAnalysis döndür
+  const emptySlotAnalysis: SlotAnalysisResult = {
+    slotMap: new Map(),
+    questionSlots: [],
+    separatorSlots: [],
+    stats: { totalPositionsAnalyzed: 0, questionSlotCount: 0, separatorCount: 0, confidence: 0 },
+  };
   
   return {
     students,
-    globalSlots,
-    slotAnalysis,
+    globalSlots: { slots: [], separators: [], entropyScores: [], confidence: 0 },
+    slotAnalysis: emptySlotAnalysis,
     stats: {
       totalLines: validLines.length,
       successCount,
       needsReviewCount,
       rejectedCount,
       averageConfidence: avgConfidence,
-      v3SlotCount: slotAnalysis.questionSlots.length,
-      v3Confidence: slotAnalysis.stats.confidence,
+      v3SlotCount: 0, // V5.0'da cross-line slot analizi yok
+      v3Confidence: 0,
     },
     warnings: batchWarnings,
   };
+}
+
+/**
+ * V5.0: Tek bir satırı BAĞIMSIZ olarak parse et.
+ * Cross-line bağımlılık YOK.
+ */
+function parseStudentLineV5(
+  rawTxtLine: string,
+  template: ParseTemplate,
+  examStructure: ExamStructure,
+  lineNumber: number,
+): ParsedStudentResult {
+  const warnings: AlignmentWarning[] = [];
+  const hatalar: string[] = [];
+  
+  // 1) Bu satır için AYRI lineStart tespit et
+  const lineStartResult = detectLineStart(rawTxtLine);
+  const lineStart = lineStartResult.startIndex >= 0 ? lineStartResult.startIndex : 0;
+  
+  // 2) Varsayılan sonuç
+  const result: ParsedStudentResult = {
+    ogrenciNo: '',
+    ogrenciAdi: '',
+    tc: undefined,
+    sinifNo: undefined,
+    kitapcik: null,
+    rawString: rawTxtLine,
+    cleanedString: '',
+    detectedAnswerCount: 0,
+    slotCount: 0,
+    finalAnswers: [],
+    lessonBlocks: [],
+    alignmentConfidence: 'CRITICAL',
+    reviewStatus: 'REJECTED',
+    alignmentWarnings: [],
+    debug: {
+      rawString: rawTxtLine,
+      cleanedString: '',
+      rawAnswerField: '',
+      detectedSlots: [],
+      separatorPositions: [],
+      entropyScores: [],
+      slotConfidence: 0,
+      lineStartIndex: lineStart,
+      lineStartMethod: lineStartResult.method,
+      rawAnswersFromStart: lineStartResult.first20Answers,
+      questionSlotPositions: [],
+      separatorSlotPositions: [],
+      slotDetectionMethod: 'V5_PERLINE',
+    },
+    satırNo: lineNumber,
+    isValid: false,
+    hatalar: [],
+  };
+  
+  // 3) Boş satır kontrolü
+  if (!rawTxtLine || rawTxtLine.trim().length === 0) {
+    hatalar.push('Boş satır');
+    result.hatalar = hatalar;
+    return result;
+  }
+  
+  // 4) Öğrenci bilgilerini parse et (şablondan)
+  for (const alan of template.alanTanimlari) {
+    const startIdx = alan.baslangic - 1;
+    const endIdx = alan.bitis;
+    
+    if (startIdx >= rawTxtLine.length) continue;
+    
+    const rawValue = rawTxtLine.substring(startIdx, Math.min(endIdx, rawTxtLine.length));
+    const trimmedValue = rawValue.trim();
+    const fixedValue = fixTurkishChars(trimmedValue);
+    
+    const alanLower = (alan.alan || '').toLowerCase();
+    const labelLower = (alan.label || '').toLowerCase();
+    
+    if (alanLower.includes('ogrenci_no') || alanLower === 'numara' || labelLower.includes('öğrenci no')) {
+      result.ogrenciNo = fixedValue.replace(/\D/g, '') || fixedValue;
+    } else if (alanLower.includes('ogrenci_adi') || alanLower.includes('ad_soyad') || labelLower.includes('ad')) {
+      result.ogrenciAdi = cleanStudentName(rawValue);
+    } else if (alanLower === 'tc' || alanLower.includes('kimlik')) {
+      result.tc = fixedValue.replace(/\D/g, '');
+    } else if (alanLower.includes('sinif') || labelLower.includes('sınıf')) {
+      result.sinifNo = fixedValue;
+    } else if (alanLower.includes('kitapcik') || labelLower.includes('kitapçık')) {
+      result.kitapcik = parseBooklet(rawValue);
+    }
+  }
+  
+  // 5) V5.0: Bu satırdan cevapları BAĞIMSIZ olarak çıkar
+  const perLineResult = parseLineSequentialAE(rawTxtLine, examStructure.toplamSoru);
+  result.finalAnswers = perLineResult.answers;
+  result.slotCount = perLineResult.answers.length;
+  result.detectedAnswerCount = perLineResult.detectedCount;
+  result.debug.lineStartIndex = perLineResult.lineStart;
+  result.cleanedString = perLineResult.answers.map(a => a || '_').join('');
+  
+  // 6) Ders bazlı blok doğrulaması
+  result.lessonBlocks = validateLessonBlocks(result.finalAnswers, examStructure);
+  const lessonBlocksValid = result.lessonBlocks.every(b => b.isComplete);
+  
+  for (const block of result.lessonBlocks) {
+    warnings.push(...block.warnings);
+  }
+  
+  // 7) V5.0: REVIEW kriterleri
+  const hasBooklet = result.kitapcik !== null;
+  const hasEnoughAnswers = result.detectedAnswerCount >= 80;
+  const has5ConsecutiveBlank = hasConsecutiveBlanks(result.finalAnswers, 5);
+  
+  // REVIEW sebepleri
+  if (!hasBooklet) {
+    warnings.push({
+      type: 'ENTROPY_ANOMALY',
+      message: 'Kitapçık bilgisi eksik',
+      severity: 'WARNING',
+    });
+  }
+  if (!hasEnoughAnswers) {
+    warnings.push({
+      type: 'TOTAL_MISMATCH',
+      message: `Tespit edilen cevap sayısı az: ${result.detectedAnswerCount}/${examStructure.toplamSoru}`,
+      severity: result.detectedAnswerCount < 50 ? 'ERROR' : 'WARNING',
+      expectedCount: examStructure.toplamSoru,
+      actualCount: result.detectedAnswerCount,
+    });
+  }
+  if (has5ConsecutiveBlank) {
+    warnings.push({
+      type: 'SEPARATOR_CONFUSION',
+      message: '5+ ardışık boş cevap tespit edildi',
+      severity: 'WARNING',
+    });
+  }
+  
+  // 8) Confidence ve Review Status hesapla
+  const confidenceResult = calculateParseConfidence(
+    result.detectedAnswerCount,
+    examStructure.toplamSoru,
+    result.kitapcik,
+    lessonBlocksValid,
+    false, // outlier kavramı artık yok
+  );
+  
+  result.alignmentConfidence = confidenceResult.confidence;
+  result.reviewStatus = confidenceResult.status;
+  result.alignmentWarnings = warnings;
+  
+  // 9) Validasyon
+  result.isValid = 
+    result.ogrenciNo.length > 0 &&
+    result.ogrenciAdi.length > 0 &&
+    result.reviewStatus !== 'REJECTED';
+  
+  if (!result.ogrenciNo) hatalar.push('Öğrenci numarası eksik');
+  if (!result.ogrenciAdi) hatalar.push('Öğrenci adı eksik');
+  if (result.reviewStatus === 'REJECTED') hatalar.push('Cevap sayısı yetersiz');
+  
+  result.hatalar = hatalar;
+  
+  // 10) Detaylı console log
+  console.log(`📝 Öğrenci ${lineNumber}: ${result.ogrenciNo} (${result.ogrenciAdi})`);
+  console.log(`   - Raw length: ${rawTxtLine.length}`);
+  console.log(`   - START: ${perLineResult.lineStart}`);
+  console.log(`   - Detected: ${result.detectedAnswerCount}/${examStructure.toplamSoru}`);
+  console.log(`   - Booklet: ${result.kitapcik || 'YOK ⚠️'}`);
+  console.log(`   - First 20: ${result.finalAnswers.slice(0, 20).map(a => a || '_').join('')}`);
+  console.log(`   - Status: ${result.reviewStatus} (${result.alignmentConfidence})`);
+  
+  return result;
+}
+
+/**
+ * Ardışık boş cevap kontrolü
+ */
+function hasConsecutiveBlanks(answers: (string | null)[], threshold: number): boolean {
+  let consecutive = 0;
+  for (const answer of answers) {
+    if (answer === null) {
+      consecutive++;
+      if (consecutive >= threshold) return true;
+    } else {
+      consecutive = 0;
+    }
+  }
+  return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
