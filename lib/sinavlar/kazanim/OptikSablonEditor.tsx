@@ -768,38 +768,50 @@ export default function OptikSablonEditor({
           </div>
         </div>
         
-        {/* Cevap Anahtarından Algılanan (varsa) */}
-        {cevapAnahtariInfo && (
+        {/* ŞU ANKİ DERS SIRALAMASI - Kullanıcının düzenlediği sırayı göster */}
+        {dersler.length > 0 && (
           <div className="mt-4 pt-4 border-t border-slate-200">
             <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-medium text-amber-700">Cevap Anahtarından Algılandı</span>
-              <button
-                onClick={() => {
-                  // Cevap anahtarından dersleri yükle
-                  const yeniDersler: DersTanimi[] = cevapAnahtariInfo.dersBazliSayilar.map((d, i) => ({
-                    id: `ca-${i}`,
-                    kod: d.dersKodu,
-                    ad: d.dersAdi,
-                    soruSayisi: d.soruSayisi,
-                    renk: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.renk || '#6B7280',
-                    ikon: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.ikon || '📝'
-                  }));
-                  setDersler(yeniDersler);
-                  setSeciliSablon('ozel');
-                  setToplamSoru(cevapAnahtariInfo.toplamSoru);
-                }}
-                className="ml-auto text-xs text-amber-600 hover:text-amber-800 underline"
-              >
-                Bu yapıyı kullan
-              </button>
+              <Zap className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs font-medium text-emerald-700">Şu Anki Ders Sıralamanız</span>
+              {cevapAnahtariInfo && (
+                <button
+                  onClick={() => {
+                    // Cevap anahtarından dersleri yükle (orijinal sıra)
+                    const yeniDersler: DersTanimi[] = cevapAnahtariInfo.dersBazliSayilar.map((d, i) => ({
+                      id: `ca-${i}`,
+                      kod: d.dersKodu,
+                      ad: d.dersAdi,
+                      soruSayisi: d.soruSayisi,
+                      renk: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.renk || '#6B7280',
+                      ikon: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.ikon || '📝'
+                    }));
+                    setDersler(yeniDersler);
+                    setSeciliSablon('ozel');
+                    setToplamSoru(cevapAnahtariInfo.toplamSoru);
+                  }}
+                  className="ml-auto text-xs text-amber-600 hover:text-amber-800 underline"
+                >
+                  Orijinal sırayı geri yükle
+                </button>
+              )}
             </div>
             <div className="flex flex-wrap gap-1">
-              {cevapAnahtariInfo.dersBazliSayilar.map((d, idx) => (
-                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
-                  {idx + 1}. {d.dersAdi}: {d.soruSayisi}
-                </span>
-              ))}
+              {/* KULLANICININ DÜZENLEDİĞİ SIRALAMA - dersler state'i */}
+              {dersler.map((d, idx) => {
+                // Soru aralığını hesapla
+                let baslangic = 1;
+                for (let i = 0; i < idx; i++) {
+                  baslangic += dersler[i].soruSayisi;
+                }
+                const bitis = baslangic + d.soruSayisi - 1;
+                
+                return (
+                  <span key={d.id} className="text-xs px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full">
+                    {idx + 1}. {d.ad}: {d.soruSayisi} ({baslangic}-{bitis})
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1368,38 +1380,47 @@ export default function OptikSablonEditor({
             ))}
           </div>
           
-          {/* Cevap Anahtarından Ders Dağılımı Bilgisi */}
-          {cevapAnahtariInfo && alanlar.find(a => a.alan === 'cevaplar') && (
+          {/* ŞU ANKİ DERS SIRALAMASI - Kullanıcının düzenlediği */}
+          {dersler.length > 0 && alanlar.find(a => a.alan === 'cevaplar') && (
             <div className="mx-3 mb-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">📚</span>
                 <h4 className="font-semibold text-emerald-800">Ders Bazlı Soru Dağılımı</h4>
                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                  Cevap anahtarından alındı
+                  Sizin düzenlemeniz
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {cevapAnahtariInfo.dersBazliSayilar.map((ders, idx: number) => {
+                {dersler.map((ders, idx: number) => {
+                  // Soru aralığını hesapla
+                  let baslangic = 1;
+                  for (let i = 0; i < idx; i++) {
+                    baslangic += dersler[i].soruSayisi;
+                  }
+                  const bitis = baslangic + ders.soruSayisi - 1;
+                  
                   const dersRenkleri: Record<string, string> = {
                     'TUR': '#EF4444', 'MAT': '#3B82F6', 'FEN': '#10B981',
                     'SOS': '#F59E0B', 'DIN': '#8B5CF6', 'ING': '#EC4899',
-                    'TAR': '#F97316', 'COG': '#06B6D4', 'FEL': '#6366F1'
+                    'TAR': '#F97316', 'COG': '#06B6D4', 'FEL': '#6366F1',
+                    'INK': '#F59E0B'
                   };
-                  const renk = dersRenkleri[ders.dersKodu] || '#6B7280';
+                  const renk = dersRenkleri[ders.kod] || ders.renk || '#6B7280';
                   return (
                     <div 
-                      key={idx}
+                      key={ders.id}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
                       style={{ backgroundColor: `${renk}15`, color: renk }}
                     >
-                      <span>{ders.dersKodu}</span>
+                      <span>{idx + 1}. {ders.ad}</span>
                       <span className="bg-white px-1.5 py-0.5 rounded text-xs">{ders.soruSayisi} soru</span>
+                      <span className="text-xs opacity-70">({baslangic}-{bitis})</span>
                     </div>
                   );
                 })}
               </div>
               <p className="text-xs text-emerald-600 mt-2">
-                ✅ Bu dağılım karnede otomatik kullanılacak. Ayrı alan tanımlamanıza gerek yok!
+                ✅ Bu sıralama karnede kullanılacak. Sürükleyerek değiştirebilirsiniz!
               </p>
             </div>
           )}
