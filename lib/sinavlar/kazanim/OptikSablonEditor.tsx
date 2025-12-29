@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Settings,
   Save,
@@ -26,9 +26,62 @@ import {
   Type,
   Hash,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  GripVertical,
+  BookOpen,
+  Zap
 } from 'lucide-react';
 import { OptikAlanTanimi, OptikSablon, CevapAnahtariSatir, DERS_ISIMLERI, OZEL_ALAN_ONERILERI } from './types';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HAZIR SINAV ŞABLONLARI
+// ═══════════════════════════════════════════════════════════════════════════
+interface DersTanimi {
+  id: string;
+  kod: string;
+  ad: string;
+  soruSayisi: number;
+  renk: string;
+  ikon: string;
+}
+
+const LGS_DERSLER: DersTanimi[] = [
+  { id: '1', kod: 'TUR', ad: 'Türkçe', soruSayisi: 20, renk: '#EF4444', ikon: '📖' },
+  { id: '2', kod: 'INK', ad: 'T.C. İnkılap Tarihi', soruSayisi: 10, renk: '#F59E0B', ikon: '🏛️' },
+  { id: '3', kod: 'DIN', ad: 'Din Kültürü', soruSayisi: 10, renk: '#8B5CF6', ikon: '🕌' },
+  { id: '4', kod: 'ING', ad: 'İngilizce', soruSayisi: 10, renk: '#3B82F6', ikon: '🇬🇧' },
+  { id: '5', kod: 'MAT', ad: 'Matematik', soruSayisi: 20, renk: '#10B981', ikon: '📐' },
+  { id: '6', kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, renk: '#06B6D4', ikon: '🔬' },
+];
+
+const TYT_DERSLER: DersTanimi[] = [
+  { id: '1', kod: 'TUR', ad: 'Türkçe', soruSayisi: 40, renk: '#EF4444', ikon: '📖' },
+  { id: '2', kod: 'SOS', ad: 'Sosyal Bilimler', soruSayisi: 20, renk: '#F59E0B', ikon: '🌍' },
+  { id: '3', kod: 'MAT', ad: 'Temel Matematik', soruSayisi: 40, renk: '#10B981', ikon: '📐' },
+  { id: '4', kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, renk: '#06B6D4', ikon: '🔬' },
+];
+
+const HAZIR_SABLONLAR = [
+  { id: 'lgs', ad: 'LGS (90 Soru)', dersler: LGS_DERSLER, toplam: 90 },
+  { id: 'tyt', ad: 'TYT (120 Soru)', dersler: TYT_DERSLER, toplam: 120 },
+  { id: 'ozel', ad: '+ Özel Oluştur', dersler: [], toplam: 0 },
+];
+
+const TUM_DERSLER: Omit<DersTanimi, 'id'>[] = [
+  { kod: 'TUR', ad: 'Türkçe', soruSayisi: 20, renk: '#EF4444', ikon: '📖' },
+  { kod: 'MAT', ad: 'Matematik', soruSayisi: 20, renk: '#10B981', ikon: '📐' },
+  { kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, renk: '#06B6D4', ikon: '🔬' },
+  { kod: 'INK', ad: 'T.C. İnkılap Tarihi', soruSayisi: 10, renk: '#F59E0B', ikon: '🏛️' },
+  { kod: 'DIN', ad: 'Din Kültürü', soruSayisi: 10, renk: '#8B5CF6', ikon: '🕌' },
+  { kod: 'ING', ad: 'İngilizce', soruSayisi: 10, renk: '#3B82F6', ikon: '🇬🇧' },
+  { kod: 'SOS', ad: 'Sosyal Bilgiler', soruSayisi: 20, renk: '#F59E0B', ikon: '🌍' },
+  { kod: 'EDEB', ad: 'Türk Dili ve Edebiyatı', soruSayisi: 24, renk: '#EC4899', ikon: '📚' },
+  { kod: 'TARIH', ad: 'Tarih', soruSayisi: 10, renk: '#A855F7', ikon: '📜' },
+  { kod: 'COGRAFYA', ad: 'Coğrafya', soruSayisi: 6, renk: '#14B8A6', ikon: '🗺️' },
+  { kod: 'FIZIK', ad: 'Fizik', soruSayisi: 14, renk: '#6366F1', ikon: '⚛️' },
+  { kod: 'KIMYA', ad: 'Kimya', soruSayisi: 13, renk: '#22C55E', ikon: '🧪' },
+  { kod: 'BIYOLOJI', ad: 'Biyoloji', soruSayisi: 13, renk: '#84CC16', ikon: '🧬' },
+];
 
 interface OptikSablonEditorProps {
   onSave?: (sablon: Omit<OptikSablon, 'id'>) => void;
@@ -75,6 +128,13 @@ export default function OptikSablonEditor({
   const [alanlar, setAlanlar] = useState<OptikAlanTanimi[]>(initialSablon?.alanTanimlari || []);
   const [toplamSoru, setToplamSoru] = useState(initialSablon?.toplamSoru || cevapAnahtari.length || 90);
   const [ornekSatir, setOrnekSatir] = useState(sampleData || '');
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DERS YAPISI STATE'LERİ
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [dersler, setDersler] = useState<DersTanimi[]>(LGS_DERSLER);
+  const [seciliSablon, setSeciliSablon] = useState<string>('lgs');
+  const [showDersEkle, setShowDersEkle] = useState(false);
   
   // Seçim states
   const [isSelecting, setIsSelecting] = useState(false);
@@ -137,12 +197,20 @@ export default function OptikSablonEditor({
     };
   }, [cevapAnahtari]);
 
-  // Toplam soru sayısını cevap anahtarından güncelle
+  // Toplam soru sayısını cevap anahtarından veya derslerden güncelle
   useEffect(() => {
     if (cevapAnahtariInfo) {
       setToplamSoru(cevapAnahtariInfo.toplamSoru);
     }
   }, [cevapAnahtariInfo]);
+  
+  // Dersler değişince toplam soru sayısını güncelle
+  useEffect(() => {
+    const yeniToplam = dersler.reduce((sum, d) => sum + d.soruSayisi, 0);
+    if (yeniToplam > 0) {
+      setToplamSoru(yeniToplam);
+    }
+  }, [dersler]);
 
   // Seçim aralığı
   const selectedRange = useMemo(() => {
@@ -505,31 +573,237 @@ export default function OptikSablonEditor({
         </div>
       </div>
 
-      {/* Cevap Anahtarı Bilgisi */}
-      {cevapAnahtariInfo && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Check className="w-5 h-5 text-emerald-600" />
-              <div>
-                <p className="font-medium text-emerald-800">Cevap Anahtarı Algılandı</p>
-                <p className="text-sm text-emerald-600">
-                  {cevapAnahtariInfo.toplamSoru} soru, {cevapAnahtariInfo.dersSayisi} ders
-                </p>
-              </div>
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* SINAV YAPISI - DERSLER (SÜRÜKLE-BIRAK) */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-5">
+        {/* Başlık ve Hazır Şablonlar */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {cevapAnahtariInfo.dersBazliSayilar.map((d, idx) => (
-                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
-                  <span className="font-bold">{idx + 1}.</span>
-                  {d.dersAdi}: {d.soruSayisi}
-                  <span className="text-emerald-500">({d.baslangicSoruNo}-{d.bitisSoruNo})</span>
-                </span>
+            <div>
+              <h3 className="font-bold text-slate-800">Sınav Yapısı</h3>
+              <p className="text-xs text-slate-500">Dersleri sürükleyerek sıralayın</p>
+            </div>
+          </div>
+          
+          {/* Hazır Şablon Seçici */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Hazır Şablon:</span>
+            <div className="flex gap-1 bg-white rounded-lg p-1 shadow-sm">
+              {HAZIR_SABLONLAR.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setSeciliSablon(s.id);
+                    if (s.id !== 'ozel') {
+                      setDersler(s.dersler);
+                      setToplamSoru(s.toplam);
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    seciliSablon === s.id
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {s.ad}
+                </button>
               ))}
             </div>
           </div>
         </div>
-      )}
+        
+        {/* Ders Kartları - Sürüklenebilir */}
+        <Reorder.Group 
+          axis="y" 
+          values={dersler} 
+          onReorder={setDersler}
+          className="space-y-2"
+        >
+          {(() => {
+            let simdikiSoru = 1;
+            return dersler.map((ders, idx) => {
+              const baslangic = simdikiSoru;
+              const bitis = simdikiSoru + ders.soruSayisi - 1;
+              simdikiSoru = bitis + 1;
+              
+              return (
+                <Reorder.Item
+                  key={ders.id}
+                  value={ders}
+                  className="cursor-grab active:cursor-grabbing"
+                >
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 shadow-sm hover:shadow-md transition-all group"
+                    style={{ borderColor: ders.renk + '40' }}
+                  >
+                    {/* Sıra ve Sürükle */}
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
+                      <span 
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-white text-sm font-bold"
+                        style={{ backgroundColor: ders.renk }}
+                      >
+                        {idx + 1}
+                      </span>
+                    </div>
+                    
+                    {/* İkon ve Ad */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-xl">{ders.ikon}</span>
+                      <span className="font-medium text-slate-700 truncate">{ders.ad}</span>
+                    </div>
+                    
+                    {/* Soru Sayısı */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={ders.soruSayisi}
+                        onChange={(e) => {
+                          const yeniSayi = parseInt(e.target.value) || 1;
+                          setDersler(prev => prev.map(d => 
+                            d.id === ders.id ? { ...d, soruSayisi: yeniSayi } : d
+                          ));
+                          setSeciliSablon('ozel');
+                        }}
+                        className="w-14 px-2 py-1 text-center text-sm font-mono border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                        min={1}
+                        max={100}
+                      />
+                      <span className="text-xs text-slate-400">soru</span>
+                    </div>
+                    
+                    {/* Soru Aralığı */}
+                    <div 
+                      className="px-3 py-1 rounded-full text-xs font-mono"
+                      style={{ backgroundColor: ders.renk + '20', color: ders.renk }}
+                    >
+                      {baslangic}-{bitis}
+                    </div>
+                    
+                    {/* Sil */}
+                    <button
+                      onClick={() => {
+                        setDersler(prev => prev.filter(d => d.id !== ders.id));
+                        setSeciliSablon('ozel');
+                      }}
+                      className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </motion.div>
+                </Reorder.Item>
+              );
+            });
+          })()}
+        </Reorder.Group>
+        
+        {/* Ders Ekle ve Toplam */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+          {/* Ders Ekle */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDersEkle(!showDersEkle)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-indigo-300 text-indigo-600 rounded-xl hover:bg-indigo-50 hover:border-indigo-400 transition-all"
+            >
+              <Plus size={18} />
+              <span className="text-sm font-medium">Ders Ekle</span>
+            </button>
+            
+            {/* Ders Seçici Dropdown */}
+            <AnimatePresence>
+              {showDersEkle && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 max-h-64 overflow-y-auto"
+                >
+                  {TUM_DERSLER.filter(d => !dersler.some(existing => existing.kod === d.kod)).map((ders) => (
+                    <button
+                      key={ders.kod}
+                      onClick={() => {
+                        const yeniDers: DersTanimi = {
+                          ...ders,
+                          id: `${Date.now()}-${ders.kod}`
+                        };
+                        setDersler(prev => [...prev, yeniDers]);
+                        setSeciliSablon('ozel');
+                        setShowDersEkle(false);
+                      }}
+                      className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-lg">{ders.ikon}</span>
+                      <span className="text-sm text-slate-700">{ders.ad}</span>
+                      <span className="text-xs text-slate-400 ml-auto">{ders.soruSayisi} soru</span>
+                    </button>
+                  ))}
+                  {TUM_DERSLER.filter(d => !dersler.some(existing => existing.kod === d.kod)).length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-4">Tüm dersler ekli</p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          {/* Toplam Bilgi */}
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Toplam</p>
+              <p className="text-lg font-bold text-slate-800">
+                {dersler.reduce((sum, d) => sum + d.soruSayisi, 0)} Soru
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Ders Sayısı</p>
+              <p className="text-lg font-bold text-indigo-600">{dersler.length}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Cevap Anahtarından Algılanan (varsa) */}
+        {cevapAnahtariInfo && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-medium text-amber-700">Cevap Anahtarından Algılandı</span>
+              <button
+                onClick={() => {
+                  // Cevap anahtarından dersleri yükle
+                  const yeniDersler: DersTanimi[] = cevapAnahtariInfo.dersBazliSayilar.map((d, i) => ({
+                    id: `ca-${i}`,
+                    kod: d.dersKodu,
+                    ad: d.dersAdi,
+                    soruSayisi: d.soruSayisi,
+                    renk: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.renk || '#6B7280',
+                    ikon: TUM_DERSLER.find(td => td.kod === d.dersKodu)?.ikon || '📝'
+                  }));
+                  setDersler(yeniDersler);
+                  setSeciliSablon('ozel');
+                  setToplamSoru(cevapAnahtariInfo.toplamSoru);
+                }}
+                className="ml-auto text-xs text-amber-600 hover:text-amber-800 underline"
+              >
+                Bu yapıyı kullan
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {cevapAnahtariInfo.dersBazliSayilar.map((d, idx) => (
+                <span key={d.dersKodu} className="text-xs px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
+                  {idx + 1}. {d.dersAdi}: {d.soruSayisi}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Şablon Adı ve Soru Sayısı */}
       <div className="grid grid-cols-2 gap-4">
@@ -1105,7 +1379,7 @@ export default function OptikSablonEditor({
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {cevapAnahtariInfo.dersBazliSayilar.map((ders: {dersKodu: string, sayi: number}, idx: number) => {
+                {cevapAnahtariInfo.dersBazliSayilar.map((ders, idx: number) => {
                   const dersRenkleri: Record<string, string> = {
                     'TUR': '#EF4444', 'MAT': '#3B82F6', 'FEN': '#10B981',
                     'SOS': '#F59E0B', 'DIN': '#8B5CF6', 'ING': '#EC4899',
@@ -1119,7 +1393,7 @@ export default function OptikSablonEditor({
                       style={{ backgroundColor: `${renk}15`, color: renk }}
                     >
                       <span>{ders.dersKodu}</span>
-                      <span className="bg-white px-1.5 py-0.5 rounded text-xs">{ders.sayi} soru</span>
+                      <span className="bg-white px-1.5 py-0.5 rounded text-xs">{ders.soruSayisi} soru</span>
                     </div>
                   );
                 })}
