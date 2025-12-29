@@ -221,6 +221,9 @@ function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
   const a = (alan.alan || '').toLowerCase();
   const l = (alan.label || '').toLowerCase();
 
+  // Kimlik/TC alanı asla cevap segmenti değildir
+  if (a === 'tc' || l.includes('kimlik')) return false;
+
   if (a === 'cevaplar' || a.includes('cevap')) return true;
 
   // Ders alanları (kullanıcı ders ders tanımlayabiliyor)
@@ -239,6 +242,8 @@ function isAnswerSegmentField(alan: { alan: string; label: string }): boolean {
     'biyoloji',
     'edebiyat',
     'felsefe',
+    // Bazı kurumlar ders adını "T.C." diye kısaltabiliyor
+    't.c', 't.c.', 'tc.',
   ];
   return dersKeywords.some(k => l.includes(k));
 }

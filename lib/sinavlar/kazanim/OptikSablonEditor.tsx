@@ -114,7 +114,9 @@ function inferAlanTypeFromLabel(label: string): OptikAlanTanimi['alan'] {
 
   if (t.includes('ÖĞRENCİ NO') || t === 'NUMARA' || t.includes('ÖĞRENCİ NUMARA')) return 'ogrenci_no';
   if (t.includes('AD SOYAD') || t.includes('ADI SOYADI') || t === 'İSİM' || t === 'ISIM' || t.includes('ÖĞRENCİ ADI')) return 'ogrenci_adi';
-  if (t.includes('TC') || t.includes('KİMLİK') || t.includes('KIMLIK')) return 'tc';
+  // ⚠️ ÖNEMLİ: "T.C." ders adı ile "T.C. Kimlik" alanı karışmamalı.
+  // TC kimlik alanını SADECE "KİMLİK" ifadesi varsa tc olarak işaretle.
+  if (t.includes('KİMLİK') || t.includes('KIMLIK')) return 'tc';
   if (t.includes('SINIF')) return 'sinif_no';
   if (t.includes('KURUM KODU') || t.includes('OKUL KODU')) return 'kurum_kodu';
   if (t.includes('CİNSİYET') || t.includes('CINSIYET')) return 'cinsiyet';

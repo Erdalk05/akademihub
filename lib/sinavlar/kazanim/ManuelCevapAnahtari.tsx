@@ -378,6 +378,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
       const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
 
       cevapAnahtari.push({
+        // Not: soruNo'yu aşağıda ders sırasına göre yeniden numaralandıracağız
         soruNo: soru.globalSoruNo,
         dogruCevap: cevapA || cevapB || cevapC || cevapD || 'A', // İlk bulunan cevabı varsayılan yap
         dersKodu: soru.dersKodu,
@@ -388,8 +389,23 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
       });
     });
 
-    return cevapAnahtari;
-  }, [kitapcikVerileri]);
+    // ✅ KRİTİK: Kullanıcının ders sırasına göre cevap anahtarını sırala ve 1..N yeniden numaralandır
+    // Aksi halde optik şablon (ders sırası) ile cevap anahtarı (sabit LGS sırası) uyuşmaz ve netler düşer.
+    const orderIndex: Record<string, number> = {};
+    dersSirasi.forEach((kod, idx) => { orderIndex[kod] = idx; });
+    cevapAnahtari.sort((a, b) => {
+      const ai = orderIndex[a.dersKodu] ?? 999;
+      const bi = orderIndex[b.dersKodu] ?? 999;
+      if (ai !== bi) return ai - bi;
+      // ders içi: soruNo'yu kullan (global olsa da stabil)
+      return (a.soruNo ?? 0) - (b.soruNo ?? 0);
+    });
+
+    // Yeniden numaralandır
+    let seq = 1;
+    const renumbered = cevapAnahtari.map(r => ({ ...r, soruNo: seq++ }));
+    return renumbered;
+  }, [kitapcikVerileri, dersSirasi]);
 
   const computeSig = useCallback((data: CevapAnahtariSatir[]) => {
     // Hafif/Deterministik imza (aynı veri tekrar tekrar wizard'a gitmesin)
