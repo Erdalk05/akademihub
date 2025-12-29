@@ -128,6 +128,11 @@ export default function SinavSihirbazi({
   const [sablonModu, setSablonModu] = useState<'kutuphane' | 'ozel'>('kutuphane');
   const [cevapGirisYontemi, setCevapGirisYontemi] = useState<'kazanim' | 'manuel'>('manuel');
   const [cevapAnahtari, setCevapAnahtari] = useState<CevapAnahtariSatir[]>([]);
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ DERS SIRASI - Kullanıcının sürükle-bırak ile belirlediği sıra
+  // Bu sıra kaydedilir ve tekrar yüklendiğinde aynı kalır
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const [cevapAnahtariDersSirasi, setCevapAnahtariDersSirasi] = useState<string[]>(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
   // Cevap anahtarı şablon kütüphanesi
   const [cevapSablonlari, setCevapSablonlari] = useState<CevapAnahtariSablonDB[]>([]);
   const [cevapSablonLoading, setCevapSablonLoading] = useState(false);
@@ -708,6 +713,11 @@ export default function SinavSihirbazi({
                           const sablon = cevapSablonlari.find(s => s.id === selectedCevapSablonId);
                           if (!sablon) return;
                           setCevapAnahtari(sablon.cevap_anahtari || []);
+                          // ✅ Ders sırasını da yükle (varsa)
+                          if (sablon.ders_sirasi && sablon.ders_sirasi.length > 0) {
+                            setCevapAnahtariDersSirasi(sablon.ders_sirasi);
+                            console.log(`📋 Şablondan ders sırası yüklendi: ${sablon.ders_sirasi.join(',')}`);
+                          }
                           // Kullanıcı manuel ekranı görsün
                           setCevapGirisYontemi('manuel');
                         }}
@@ -759,6 +769,8 @@ export default function SinavSihirbazi({
                               sinav_turu: sinavBilgisi.tip,
                               sinif_seviyesi: sinavBilgisi.sinifSeviyesi,
                               cevap_anahtari: cevapAnahtari,
+                              // ✅ Ders sırasını da kaydet
+                              ders_sirasi: cevapAnahtariDersSirasi,
                               organization_id: organizationId,
                             });
                             if (!created) {
@@ -815,7 +827,12 @@ export default function SinavSihirbazi({
               {cevapGirisYontemi === 'manuel' && (
                 <ManuelCevapAnahtari
                   examType={sinavBilgisi.tip}
-                  onSave={(data) => {
+                  onSave={(payload) => {
+                    // ═══════════════════════════════════════════════════════════════════════
+                    // ✅ KRİTİK: Cevap anahtarı + ders sırası birlikte kaydedilir
+                    // ═══════════════════════════════════════════════════════════════════════
+                    const { cevapAnahtari: data, dersSirasi } = payload;
+                    
                     // ✅ 0-soru kaydı kazara state'i silmesin
                     setCevapAnahtari(prev => {
                       if (data.length === 0 && prev.length > 0) {
@@ -824,14 +841,24 @@ export default function SinavSihirbazi({
                       }
                       return data;
                     });
+                    
+                    // ✅ Ders sırasını da kaydet
+                    if (dersSirasi && dersSirasi.length > 0) {
+                      setCevapAnahtariDersSirasi(dersSirasi);
+                      console.log(`📋 Ders sırası kaydedildi: ${dersSirasi.join(',')}`);
+                    }
 
                     // Debug özet (A/B gerçekten geliyor mu?)
                     const bCount = data.filter(r => r.kitapcikCevaplari?.B !== undefined).length;
                     const aCount = data.filter(r => r.kitapcikCevaplari?.A !== undefined).length;
-                    console.log(`📌 Cevap Anahtarı Kaydedildi: toplam=${data.length} | A=${aCount} | B=${bCount}`);
+                    console.log(`📌 Cevap Anahtarı Kaydedildi: toplam=${data.length} | A=${aCount} | B=${bCount} | dersSirasi=${dersSirasi?.join(',')}`);
                   }}
-                  onClear={() => setCevapAnahtari([])}
+                  onClear={() => {
+                    setCevapAnahtari([]);
+                    // Ders sırasını sıfırlama - kullanıcı isterse
+                  }}
                   initialData={cevapAnahtari}
+                  initialDersSirasi={cevapAnahtariDersSirasi}
                 />
               )}
 

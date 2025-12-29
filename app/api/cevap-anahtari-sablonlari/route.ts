@@ -10,6 +10,8 @@ const CreateSchema = z.object({
   sinav_turu: z.string().max(50).optional().nullable(),
   sinif_seviyesi: z.string().max(20).optional().nullable(),
   cevap_anahtari: z.array(z.any()).min(1),
+  // ✅ Ders sırası - kullanıcının sürükle-bırak ile belirlediği sıra
+  ders_sirasi: z.array(z.string()).optional().nullable(),
   organization_id: z.string().uuid().optional().nullable(),
 });
 
@@ -79,6 +81,8 @@ export async function POST(req: NextRequest) {
       sinav_turu: parsed.data.sinav_turu ?? null,
       sinif_seviyesi: parsed.data.sinif_seviyesi ?? null,
       cevap_anahtari: parsed.data.cevap_anahtari,
+      // ✅ Ders sırası - kullanıcının sürükle-bırak ile belirlediği sıra
+      ders_sirasi: parsed.data.ders_sirasi ?? null,
       organization_id: parsed.data.organization_id ?? null,
       is_active: true,
       updated_at: new Date().toISOString(),

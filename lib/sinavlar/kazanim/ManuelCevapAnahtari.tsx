@@ -55,17 +55,33 @@ interface KitapcikVerisi {
 // CevapAnahtariSatir tipini import et
 import { CevapAnahtariSatir } from './types';
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * CEVAP ANAHTARI KAYIT YAPISI
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * Cevap anahtarı ile birlikte ders sırası da kaydedilir.
+ * Bu sayede kullanıcının sürükle-bırak ile belirlediği ders sırası korunur.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+export interface CevapAnahtariWithOrder {
+  cevapAnahtari: CevapAnahtariSatir[];
+  dersSirasi: string[];
+}
+
 interface ManuelCevapAnahtariProps {
   examType?: string; // LGS, TYT, AYT, DENEME, AYT_SAY, AYT_SOS vb.
-  onSave?: (data: CevapAnahtariSatir[]) => void;
+  /** Cevap anahtarı + ders sırası birlikte kaydedilir */
+  onSave?: (data: CevapAnahtariWithOrder) => void;
   // ✅ 0-soru kaydı sadece kullanıcı "Temizle" dediğinde olmalı
   onClear?: () => void;
   initialData?: CevapAnahtariSatir[];
+  /** Ders sırası - kaydedilmiş sıra varsa onu kullan */
+  initialDersSirasi?: string[];
 }
 
 type GirisYontemi = 'yapistir' | 'surukle' | 'yukle';
 
-export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: ManuelCevapAnahtariProps) {
+export default function ManuelCevapAnahtari({ onSave, onClear, initialData, initialDersSirasi }: ManuelCevapAnahtariProps) {
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE YÖNETİMİ
   // ═══════════════════════════════════════════════════════════════════════════
@@ -79,7 +95,12 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
   const lastSentSigRef = useRef<string>('');
   
   // 🔀 DERS SIRALAMASI - Sürükle-Bırak için
-  const [dersSirasi, setDersSirasi] = useState<string[]>(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
+  // ✅ KRİTİK: initialDersSirasi varsa onu kullan, yoksa varsayılan sıra
+  const [dersSirasi, setDersSirasi] = useState<string[]>(
+    initialDersSirasi && initialDersSirasi.length > 0 
+      ? initialDersSirasi 
+      : ['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']
+  );
   const [draggedDers, setDraggedDers] = useState<string | null>(null);
   const [dragOverDers, setDragOverDers] = useState<string | null>(null);
   
@@ -109,6 +130,14 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
     
     return initial;
   });
+
+  // ✅ INITIAL DERS SIRASI → kaydedilmiş sıra varsa onu kullan
+  useEffect(() => {
+    if (initialDersSirasi && initialDersSirasi.length > 0) {
+      console.log('📋 Ders sırası yükleniyor:', initialDersSirasi);
+      setDersSirasi(initialDersSirasi);
+    }
+  }, [initialDersSirasi]);
 
   // ✅ INITIAL DATA (wizard state) → manuel ekranı geri doldur
   // Kritik: Step değişip geri gelince ekran boş görünüyordu (veri kayboldu sanılıyordu).
@@ -283,9 +312,9 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
       onClear();
     } else {
       // Geriye dönük uyumluluk: onClear yoksa yine de wizard'ı sıfırla
-      onSave?.([]);
+      onSave?.({ cevapAnahtari: [], dersSirasi: dersSirasi });
     }
-  }, [aktifKitapcik, onClear, onSave]);
+  }, [aktifKitapcik, onClear, onSave, dersSirasi]);
 
   // Dosya yükleme
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,10 +481,18 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData }: Ma
       }
       lastSentSigRef.current = sig;
 
-      onSave(data);
-      console.log(`✅ onSave çağrıldı: ${data.length} soru | reason=${reason} | sig=${sig}`);
+      // ═══════════════════════════════════════════════════════════════════════════
+      // ✅ KRİTİK: Cevap anahtarı ile birlikte DERS SIRASI da kaydedilir
+      // ═══════════════════════════════════════════════════════════════════════════
+      const payload: CevapAnahtariWithOrder = {
+        cevapAnahtari: data,
+        dersSirasi: dersSirasi,
+      };
+      
+      onSave(payload);
+      console.log(`✅ onSave çağrıldı: ${data.length} soru | dersSirasi=${dersSirasi.join(',')} | reason=${reason} | sig=${sig}`);
     },
-    [computeSig, onSave],
+    [computeSig, onSave, dersSirasi],
   );
 
   const saveToWizard = useCallback(() => {

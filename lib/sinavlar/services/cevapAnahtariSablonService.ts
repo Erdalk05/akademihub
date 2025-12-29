@@ -12,6 +12,13 @@ export interface CevapAnahtariSablonDB {
   sinav_turu: string | null;
   sinif_seviyesi: string | null;
   cevap_anahtari: CevapAnahtariSatir[];
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════════
+   * ✅ DERS SIRASI - Kullanıcının sürükle-bırak ile belirlediği sıra
+   * Bu sıra şablonla birlikte kaydedilir ve tekrar yüklendiğinde aynı kalır.
+   * ═══════════════════════════════════════════════════════════════════════════════
+   */
+  ders_sirasi?: string[] | null;
   organization_id: string | null;
   is_active: boolean;
   created_at: string;
@@ -35,6 +42,7 @@ export async function createCevapAnahtariSablon(input: {
   sinav_turu?: string | null;
   sinif_seviyesi?: string | null;
   cevap_anahtari: CevapAnahtariSatir[];
+  ders_sirasi?: string[] | null;
   organization_id?: string | null;
 }): Promise<CevapAnahtariSablonDB | null> {
   const res = await fetch('/api/cevap-anahtari-sablonlari', {
