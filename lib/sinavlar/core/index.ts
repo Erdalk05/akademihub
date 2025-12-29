@@ -67,13 +67,11 @@ export {
 } from './parser';
 
 // ============================================
-// 🚀 PARSE ENGINE V1.0 (Yeni Deterministik Motor)
+// 🚀 PARSE ENGINE (FINAL - Endüstri Standardı)
 // ============================================
 export {
   // Ana Fonksiyonlar
-  parseStudentAnswers,
   parseOpticalFile,
-  analyzeGlobalSlots,
   
   // Geriye Uyumluluk
   toOptikSatir,
@@ -86,13 +84,8 @@ export {
   type LessonBlock,
   type ExamStructure,
   type ParseTemplate,
-  type AlignmentConfidence,
-  type ReviewStatus,
-  type AlignmentWarning,
   type LessonBlockResult,
-  type ParseDebugInfo,
   type ParsedStudentResult,
-  type GlobalSlotAnalysis,
   type BatchParseResult,
 } from './parseEngine';
 
