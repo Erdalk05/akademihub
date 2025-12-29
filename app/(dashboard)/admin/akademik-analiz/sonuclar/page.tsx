@@ -47,10 +47,51 @@ interface StudentResult {
   yanlis: number;
   bos: number;
   net: number;
-  puan: number;              // MEB LGS Puanı (100-500)
+  puan: number | null;       // Puan (varsa)
   basariOrani: number;
   durum: 'cok-iyi' | 'iyi' | 'orta' | 'gelismeli';
+  dersBazli?: Array<{
+    dersKodu: string;
+    dersAdi: string;
+    dogru: number;
+    yanlis: number;
+    bos: number;
+    net: number;
+  }>;
 }
+
+const DersCard = ({ ders }: { ders: NonNullable<StudentResult['dersBazli']>[number] }) => {
+  const total = Math.max(1, ders.dogru + ders.yanlis + ders.bos);
+  const rate = Math.round((ders.dogru / total) * 100);
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="font-semibold text-slate-800">{ders.dersAdi}</div>
+        <div className="text-sm font-bold text-blue-700">{Number(ders.net).toFixed(2)} net</div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-center">
+          <div className="text-xs text-emerald-700">Doğru</div>
+          <div className="text-lg font-bold text-emerald-700">{ders.dogru}</div>
+        </div>
+        <div className="rounded-xl bg-red-50 border border-red-200 p-2 text-center">
+          <div className="text-xs text-red-700">Yanlış</div>
+          <div className="text-lg font-bold text-red-700">{ders.yanlis}</div>
+        </div>
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-2 text-center">
+          <div className="text-xs text-slate-600">Boş</div>
+          <div className="text-lg font-bold text-slate-700">{ders.bos}</div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-2 bg-emerald-500" style={{ width: `${rate}%` }} />
+        </div>
+        <div className="mt-1 text-xs text-slate-500">Başarı: %{rate}</div>
+      </div>
+    </div>
+  );
+};
 
 interface ExamData {
   id: string;
@@ -62,8 +103,16 @@ interface ExamData {
   ortalamaNet: number;
   enYuksekNet: number;
   enDusukNet: number;
-  ortalamaPuan: number;      // MEB LGS Puanı ortalama (100-500)
-  enYuksekPuan: number;      // En yüksek LGS puanı
+  ortalamaPuan: number | null;
+  enYuksekPuan: number | null;
+  dersOrtalamalari?: Array<{
+    dersKodu: string;
+    dersAdi: string;
+    ortDogru: number;
+    ortYanlis: number;
+    ortBos: number;
+    ortNet: number;
+  }>;
   ogrenciler: StudentResult[];
 }
 
@@ -152,6 +201,7 @@ function SonuclarContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [filterDurum, setFilterDurum] = useState<string>('all');
+  const [expandedStudentNo, setExpandedStudentNo] = useState<string | null>(null);
 
   // =============================================================================
   // DATA LOADING
@@ -194,18 +244,7 @@ function SonuclarContent() {
           const bos = o.toplamBos || 0;
           const net = o.toplamNet || 0;
           const basariOrani = Math.round((dogru / 90) * 100);
-          
-          // MEB 100-500 Skala Puanı
-          let puan = o.toplamPuan;
-          
-          // Eğer puan 100'den küçükse veya yoksa, MEB formülüyle hesapla
-          if (!puan || puan < 100) {
-            // Basit hesaplama: Net × ortalama katsayı (yaklaşık 3) → ölçekleme
-            const tahminiAHP = net * 3;
-            const olceklenmisKatki = (tahminiAHP * 400) / 270;
-            puan = 100 + olceklenmisKatki;
-            puan = Math.max(100, Math.min(500, puan));
-          }
+          const puan = typeof o.toplamPuan === 'number' ? o.toplamPuan : null;
           
           return {
             sira: i + 1,
@@ -217,9 +256,10 @@ function SonuclarContent() {
             yanlis,
             bos,
             net,
-            puan: Math.round(puan * 100) / 100, // MEB LGS Puanı (100-500)
+            puan,
             basariOrani,
-            durum: getDurum(basariOrani)
+            durum: getDurum(basariOrani),
+            dersBazli: Array.isArray(o.dersBazli) ? o.dersBazli : []
           };
         });
 
@@ -239,12 +279,19 @@ function SonuclarContent() {
           enDusukNet: ogrenciler.length > 0 
             ? Math.min(...ogrenciler.map(o => o.net)) 
             : 0,
-          ortalamaPuan: ogrenciler.length > 0
-            ? ogrenciler.reduce((s, o) => s + o.puan, 0) / ogrenciler.length
-            : 100,
-          enYuksekPuan: ogrenciler.length > 0
-            ? Math.max(...ogrenciler.map(o => o.puan))
-            : 100,
+          // Puan alanı her sınavda olmayabilir (null olabilir). Güvenli hesapla.
+          ortalamaPuan: (() => {
+            const puanli = ogrenciler.filter(o => typeof o.puan === 'number') as Array<StudentResult & { puan: number }>;
+            if (puanli.length === 0) return null;
+            const avg = puanli.reduce((s, o) => s + o.puan, 0) / puanli.length;
+            return Math.round(avg * 100) / 100;
+          })(),
+          enYuksekPuan: (() => {
+            const puanli = ogrenciler.filter(o => typeof o.puan === 'number') as Array<StudentResult & { puan: number }>;
+            if (puanli.length === 0) return null;
+            return Math.max(...puanli.map(o => o.puan));
+          })(),
+          dersOrtalamalari: examData.dersOrtalamalari || [],
           ogrenciler
         };
 
@@ -286,13 +333,39 @@ function SonuclarContent() {
     
     // Sort
     result.sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
+      const aVal = (a as any)[sortField];
+      const bVal = (b as any)[sortField];
       return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
     });
     
     return result;
   }, [exam?.ogrenciler, searchTerm, filterDurum, sortField, sortOrder]);
+
+  const dersOrtalamalari = React.useMemo(() => {
+    const rows = exam?.dersOrtalamalari || [];
+    const byCode = new Map<string, any>();
+    for (const r of rows) byCode.set(String(r.dersKodu).toUpperCase(), r);
+    const get = (code: string) => byCode.get(code) || null;
+
+    const tur = get('TUR');
+    const ink = get('INK');
+    const din = get('DIN');
+    const ing = get('ING');
+    const mat = get('MAT');
+    const fen = get('FEN');
+
+    const sozel = (tur?.ortNet || 0) + (ink?.ortNet || 0) + (din?.ortNet || 0) + (ing?.ortNet || 0);
+    const sayisal = (mat?.ortNet || 0) + (fen?.ortNet || 0);
+    const lgs90 = sozel + sayisal;
+
+    return {
+      tur, ink, din, ing, mat, fen,
+      sozel: Math.round(sozel * 100) / 100,
+      sayisal: Math.round(sayisal * 100) / 100,
+      lgs90: Math.round(lgs90 * 100) / 100,
+      hasAny: rows.length > 0,
+    };
+  }, [exam?.dersOrtalamalari]);
 
   // Distribution stats
   const distribution = React.useMemo(() => {
@@ -459,7 +532,9 @@ function SonuclarContent() {
               </div>
             </div>
             <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold text-amber-600">{exam.ortalamaPuan.toFixed(2)}</span>
+              <span className="text-3xl font-bold text-amber-600">
+                {typeof exam.ortalamaPuan === 'number' ? exam.ortalamaPuan.toFixed(2) : '—'}
+              </span>
             </div>
             <div className="text-xs text-amber-500 mt-1">100-500 MEB Skalası</div>
           </motion.div>
@@ -517,6 +592,61 @@ function SonuclarContent() {
               </div>
             </div>
           </div>
+        </motion.div>
+
+        {/* Ana Ders Ortalamaları (3. foto) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <BarChart3 size={16} className="text-emerald-600" />
+              Ana Ders Listesi (Ortalamalar)
+            </h3>
+            <span className="text-xs text-slate-400">Net ortalamaları</span>
+          </div>
+
+          {!dersOrtalamalari.hasAny ? (
+            <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-4">
+              Ders ortalamaları bulunamadı. (Bu sınavda `exam_student_results.subject_results` boş olabilir.)
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-500 uppercase tracking-wider">
+                    <th className="text-left py-2 pr-3">Tür</th>
+                    <th className="text-center py-2 px-3">(90) LGS</th>
+                    <th className="text-center py-2 px-3">(50) Sözel</th>
+                    <th className="text-center py-2 px-3">(40) Sayısal</th>
+                    <th className="text-center py-2 px-3">(20) Türkçe</th>
+                    <th className="text-center py-2 px-3">(10) T.C.</th>
+                    <th className="text-center py-2 px-3">(10) Din</th>
+                    <th className="text-center py-2 px-3">(10) Yabancı</th>
+                    <th className="text-center py-2 px-3">(20) Mat</th>
+                    <th className="text-center py-2 pl-3">(20) Fen</th>
+                  </tr>
+                </thead>
+                <tbody className="border-t border-slate-200">
+                  <tr className="font-medium">
+                    <td className="py-3 pr-3 text-slate-700">Ortalama</td>
+                    <td className="text-center py-3 px-3 text-emerald-700">{dersOrtalamalari.lgs90.toFixed(2)}</td>
+                    <td className="text-center py-3 px-3 text-slate-700">{dersOrtalamalari.sozel.toFixed(2)}</td>
+                    <td className="text-center py-3 px-3 text-slate-700">{dersOrtalamalari.sayisal.toFixed(2)}</td>
+                    <td className="text-center py-3 px-3">{(dersOrtalamalari.tur?.ortNet ?? 0).toFixed(2)}</td>
+                    <td className="text-center py-3 px-3">{(dersOrtalamalari.ink?.ortNet ?? 0).toFixed(2)}</td>
+                    <td className="text-center py-3 px-3">{(dersOrtalamalari.din?.ortNet ?? 0).toFixed(2)}</td>
+                    <td className="text-center py-3 px-3">{(dersOrtalamalari.ing?.ortNet ?? 0).toFixed(2)}</td>
+                    <td className="text-center py-3 px-3">{(dersOrtalamalari.mat?.ortNet ?? 0).toFixed(2)}</td>
+                    <td className="text-center py-3 pl-3">{(dersOrtalamalari.fen?.ortNet ?? 0).toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </motion.div>
 
         {/* Search & Filters */}
@@ -633,16 +763,17 @@ function SonuclarContent() {
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.map((student, index) => {
                   const durumStyle = getDurumStyle(student.durum);
-                  
+                  const isOpen = expandedStudentNo === student.ogrenciNo;
+                  const dersler = (student.dersBazli || []).filter(d => d && d.dersKodu);
+
                   return (
-                    <motion.tr 
-                      key={index}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.02 }}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                      onClick={() => router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam.id}&studentNo=${student.ogrenciNo}`)}
-                    >
+                    <React.Fragment key={`${student.ogrenciNo}-${index}`}>
+                      <motion.tr 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.01 }}
+                        className="hover:bg-slate-50 transition-colors group"
+                      >
                       <td className="px-4 py-4">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
                           student.sira <= 3 
@@ -685,9 +816,13 @@ function SonuclarContent() {
                         <span className="text-lg font-bold text-blue-600">{student.net.toFixed(2)}</span>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <span className="px-3 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 rounded-full text-sm font-bold border border-amber-200">
-                          {student.puan.toFixed(2)}
-                        </span>
+                        {typeof student.puan === 'number' ? (
+                          <span className="px-3 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 rounded-full text-sm font-bold border border-amber-200">
+                            {student.puan.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${durumStyle.bg} ${durumStyle.text}`}>
@@ -695,11 +830,61 @@ function SonuclarContent() {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <button className="p-2 hover:bg-emerald-100 rounded-xl transition-colors group-hover:text-emerald-600">
-                          <Eye size={18} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setExpandedStudentNo(prev => (prev === student.ogrenciNo ? null : student.ogrenciNo))}
+                            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-600"
+                            title={isOpen ? 'Kapat' : 'Detay aç'}
+                          >
+                            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </button>
+                          <button
+                            onClick={() => router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam.id}&studentNo=${student.ogrenciNo}`)}
+                            className="p-2 hover:bg-emerald-100 rounded-xl transition-colors text-slate-600 hover:text-emerald-700"
+                            title="Karneyi görüntüle"
+                          >
+                            <Eye size={18} />
+                          </button>
+                        </div>
                       </td>
-                    </motion.tr>
+                      </motion.tr>
+
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.tr
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                          >
+                            <td colSpan={10} className="px-4 pb-5">
+                              <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                    <BookOpen size={16} className="text-emerald-600" />
+                                    Ders Detayları
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    {dersler.length > 0 ? `${dersler.length} ders` : 'Ders detayı bulunamadı'}
+                                  </div>
+                                </div>
+
+                                {dersler.length === 0 ? (
+                                  <div className="text-sm text-slate-500">
+                                    Bu sınavda ders detayları yok. (Beklenen: `exam_student_results.subject_results`)
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {dersler.map((d, idx2) => (
+                                      <DersCard key={`${d.dersKodu}-${idx2}`} ders={d} />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </motion.tr>
+                        )}
+                      </AnimatePresence>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
