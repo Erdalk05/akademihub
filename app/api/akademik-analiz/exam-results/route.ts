@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       .select(
         `
         *,
-        student:students(id, student_number, first_name, last_name, class_name)
+        student:students(*)
       `,
       )
       .eq('exam_id', examId)
@@ -50,6 +50,27 @@ export async function GET(req: NextRequest) {
     if (resultsError) {
       console.error('[Exam Results API] exam_student_results hatası:', resultsError);
       return NextResponse.json({ error: resultsError.message }, { status: 500 });
+    }
+
+    // Velileri getir (guardians tablosu)
+    const studentIds = Array.from(
+      new Set((results || []).map((r: any) => r.student_id).filter(Boolean).map((x: any) => String(x))),
+    );
+    const guardiansByStudent = new Map<string, any[]>();
+    if (studentIds.length > 0) {
+      const { data: guardians, error: gErr } = await supabase
+        .from('guardians')
+        .select('student_id, first_name, last_name, relation, phone, phone2, email, guardian_type')
+        .in('student_id', studentIds);
+      if (gErr) {
+        console.warn('[Exam Results API] guardians okunamadı:', gErr);
+      } else {
+        (guardians || []).forEach((g: any) => {
+          const sid = String(g.student_id);
+          if (!guardiansByStudent.has(sid)) guardiansByStudent.set(sid, []);
+          guardiansByStudent.get(sid)!.push(g);
+        });
+      }
     }
 
     const toplamSoru = Number(exam.total_questions || 90);
@@ -71,15 +92,24 @@ export async function GET(req: NextRequest) {
       const puan = puanRaw !== null ? Math.round(Number(puanRaw) * 100) / 100 : null;
 
       // Öğrenci adı: DB’de zaten Türkçe büyük harf (biz böyle kaydediyoruz) ama yine de birleştir
-      const firstName = String(r.student?.first_name || '').trim();
-      const lastName = String(r.student?.last_name || '').trim();
-      const fullName = `${firstName} ${lastName}`.trim() || 'Bilinmeyen';
+      const student = (r.student || {}) as any;
+      const fullName =
+        String(student.full_name || '').trim() ||
+        `${String(student.first_name || '').trim()} ${String(student.last_name || '').trim()}`.trim() ||
+        'Bilinmeyen';
+
+      const sid = String(r.student_id || '');
+      const guardians = guardiansByStudent.get(sid) || [];
+      const primaryGuardian =
+        guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
+        guardians[0] ||
+        null;
 
       return {
         id: r.id,
-        ogrenciNo: String(r.student?.student_number || ''),
+        ogrenciNo: String(student.student_no || ''),
         ogrenciAdi: fullName,
-        sinifNo: r.student?.class_name || null,
+        sinifNo: student.class_name || student.enrolled_class || student.class || null,
         kitapcik: 'A', // exam_student_answers’da kitapçık tutulmadığı için burada güvenli varsayım
         toplamDogru: Number(r.total_correct || 0),
         toplamYanlis: Number(r.total_wrong || 0),
@@ -90,6 +120,23 @@ export async function GET(req: NextRequest) {
         sinifSira: r.rank_in_class || null,
         dersBazli,
         percentile: r.percentile ?? null,
+        veli: primaryGuardian
+          ? {
+              adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
+              yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
+              telefon: primaryGuardian.phone || null,
+              telefon2: primaryGuardian.phone2 || null,
+              email: primaryGuardian.email || null,
+            }
+          : null,
+        veliler: guardians.map(g => ({
+          adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
+          yakinlik: g.relation || g.guardian_type || null,
+          telefon: g.phone || null,
+          telefon2: g.phone2 || null,
+          email: g.email || null,
+          tip: g.guardian_type || null,
+        })),
       };
     });
 

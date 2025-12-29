@@ -58,6 +58,21 @@ interface StudentResult {
     bos: number;
     net: number;
   }>;
+  veli?: {
+    adSoyad: string;
+    yakinlik?: string | null;
+    telefon?: string | null;
+    telefon2?: string | null;
+    email?: string | null;
+  } | null;
+  veliler?: Array<{
+    adSoyad: string;
+    yakinlik?: string | null;
+    telefon?: string | null;
+    telefon2?: string | null;
+    email?: string | null;
+    tip?: string | null;
+  }>;
 }
 
 const DersCard = ({ ders }: { ders: NonNullable<StudentResult['dersBazli']>[number] }) => {
@@ -89,6 +104,26 @@ const DersCard = ({ ders }: { ders: NonNullable<StudentResult['dersBazli']>[numb
         </div>
         <div className="mt-1 text-xs text-slate-500">Başarı: %{rate}</div>
       </div>
+    </div>
+  );
+};
+
+const VeliCard = ({ veli }: { veli: NonNullable<StudentResult['veliler']>[number] }) => {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="font-semibold text-slate-800">{veli.adSoyad || 'Veli'}</div>
+          <div className="text-xs text-slate-500">
+            {(veli.yakinlik || veli.tip || 'Veli').toString().toUpperCase()}
+          </div>
+        </div>
+        <div className="text-right text-sm text-slate-700">
+          <div>{veli.telefon || '—'}</div>
+          <div className="text-xs text-slate-500">{veli.telefon2 || ''}</div>
+        </div>
+      </div>
+      {veli.email ? <div className="mt-2 text-xs text-slate-500">{veli.email}</div> : null}
     </div>
   );
 };
@@ -196,6 +231,7 @@ function SonuclarContent() {
   
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<ExamData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'sira' | 'net' | 'puan'>('sira');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -209,13 +245,16 @@ function SonuclarContent() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       let examData = null;
       
       if (examId) {
         const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
         const data = await response.json();
-        if (response.ok && data.exam) {
+        if (!response.ok) {
+          setLoadError(data?.error || 'Sonuçlar getirilemedi');
+        } else if (data.exam) {
           examData = data.exam;
         }
       } else {
@@ -299,6 +338,7 @@ function SonuclarContent() {
       }
     } catch (error) {
       console.error('Veri yüklenirken hata:', error);
+      setLoadError((error as any)?.message || 'Veri yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -420,7 +460,9 @@ function SonuclarContent() {
             <BarChart3 className="w-10 h-10 text-slate-400" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 mb-3">Sınav Bulunamadı</h2>
-          <p className="text-slate-500 mb-6">Henüz analiz edilmiş bir sınav bulunmuyor.</p>
+          <p className="text-slate-500 mb-4">
+            {loadError ? `Hata: ${loadError}` : 'Henüz analiz edilmiş bir sınav bulunmuyor.'}
+          </p>
           <button
             onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
             className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
@@ -794,7 +836,14 @@ function SonuclarContent() {
                             <div className="font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors">
                               {student.ogrenciAdi}
                             </div>
-                            <div className="text-xs text-slate-400">No: {student.ogrenciNo}</div>
+                            <div className="text-xs text-slate-400">
+                              No: {student.ogrenciNo}
+                              {student.veli?.adSoyad ? (
+                                <span className="ml-2 text-slate-500">
+                                  • Veli: {student.veli.adSoyad}{student.veli.telefon ? ` (${student.veli.telefon})` : ''}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -879,6 +928,25 @@ function SonuclarContent() {
                                     ))}
                                   </div>
                                 )}
+
+                                {/* Veli Bilgileri */}
+                                <div className="mt-6">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="text-sm font-semibold text-slate-700">Veli Bilgileri</div>
+                                    <div className="text-xs text-slate-500">
+                                      {(student.veliler || []).length > 0 ? `${(student.veliler || []).length} veli` : 'Veli bulunamadı'}
+                                    </div>
+                                  </div>
+                                  {(student.veliler || []).length === 0 ? (
+                                    <div className="text-sm text-slate-500">Bu öğrenci için veli kaydı bulunamadı.</div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                      {(student.veliler || []).map((v, idx3) => (
+                                        <VeliCard key={`${v.adSoyad}-${idx3}`} veli={v} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                           </motion.tr>
