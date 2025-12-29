@@ -122,6 +122,22 @@ export async function GET(req: NextRequest) {
           guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
           guardians[0] ||
           null;
+        // Guardians yoksa students tablosundaki parent_name/parent_phone fallback
+        const studentParentName = String(student.parent_name || '').trim();
+        const studentParentPhone = String(student.parent_phone || '').trim();
+        const fallbackVeli = !primaryGuardian && (studentParentName || studentParentPhone)
+          ? {
+              first_name: studentParentName.split(' ').slice(0, -1).join(' ') || studentParentName,
+              last_name: studentParentName.split(' ').slice(-1).join('') || '',
+              relation: 'parent',
+              phone: studentParentPhone || null,
+              phone2: null,
+              email: null,
+              guardian_type: 'primary',
+            }
+          : null;
+        const mergedGuardians = fallbackVeli ? [fallbackVeli, ...guardians] : guardians;
+        const effectivePrimary = primaryGuardian || fallbackVeli;
 
         return {
           id: r.id,
@@ -138,16 +154,16 @@ export async function GET(req: NextRequest) {
           sinifSira: r.rank_in_class || null,
           dersBazli,
           percentile: r.percentile ?? null,
-          veli: primaryGuardian
+          veli: effectivePrimary
             ? {
-                adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
-                yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
-                telefon: primaryGuardian.phone || null,
-                telefon2: primaryGuardian.phone2 || null,
-                email: primaryGuardian.email || null,
+                adSoyad: `${String(effectivePrimary.first_name || '').trim()} ${String(effectivePrimary.last_name || '').trim()}`.trim() || studentParentName,
+                yakinlik: effectivePrimary.relation || effectivePrimary.guardian_type || null,
+                telefon: effectivePrimary.phone || studentParentPhone || null,
+                telefon2: effectivePrimary.phone2 || null,
+                email: effectivePrimary.email || null,
               }
             : null,
-          veliler: guardians.map(g => ({
+          veliler: mergedGuardians.map(g => ({
             adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
             yakinlik: g.relation || g.guardian_type || null,
             telefon: g.phone || null,
@@ -190,6 +206,21 @@ export async function GET(req: NextRequest) {
             guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
             guardians[0] ||
             null;
+          const studentParentName = String(student?.parent_name || '').trim();
+          const studentParentPhone = String(student?.parent_phone || '').trim();
+          const fallbackVeli = !primaryGuardian && (studentParentName || studentParentPhone)
+            ? {
+                first_name: studentParentName.split(' ').slice(0, -1).join(' ') || studentParentName,
+                last_name: studentParentName.split(' ').slice(-1).join('') || '',
+                relation: 'parent',
+                phone: studentParentPhone || null,
+                phone2: null,
+                email: null,
+                guardian_type: 'primary',
+              }
+            : null;
+          const mergedGuardians = fallbackVeli ? [fallbackVeli, ...guardians] : guardians;
+          const effectivePrimary = primaryGuardian || fallbackVeli;
 
           return {
             id: r.id,
@@ -206,16 +237,16 @@ export async function GET(req: NextRequest) {
             sinifSira: r.rank_in_class || null,
             dersBazli,
             percentile: r.percentile ?? null,
-            veli: primaryGuardian
+            veli: effectivePrimary
               ? {
-                  adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
-                  yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
-                  telefon: primaryGuardian.phone || null,
-                  telefon2: primaryGuardian.phone2 || null,
-                  email: primaryGuardian.email || null,
+                  adSoyad: `${String(effectivePrimary.first_name || '').trim()} ${String(effectivePrimary.last_name || '').trim()}`.trim() || studentParentName,
+                  yakinlik: effectivePrimary.relation || effectivePrimary.guardian_type || null,
+                  telefon: effectivePrimary.phone || studentParentPhone || null,
+                  telefon2: effectivePrimary.phone2 || null,
+                  email: effectivePrimary.email || null,
                 }
               : null,
-            veliler: guardians.map(g => ({
+            veliler: mergedGuardians.map(g => ({
               adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
               yakinlik: g.relation || g.guardian_type || null,
               telefon: g.phone || null,
@@ -250,6 +281,21 @@ export async function GET(req: NextRequest) {
               guardians.find(g => g.guardian_type === 'primary' || g.guardian_type === 'legal') ||
               guardians[0] ||
               null;
+            const studentParentName = String(student?.parent_name || '').trim();
+            const studentParentPhone = String(student?.parent_phone || '').trim();
+            const fallbackVeli = !primaryGuardian && (studentParentName || studentParentPhone)
+              ? {
+                  first_name: studentParentName.split(' ').slice(0, -1).join(' ') || studentParentName,
+                  last_name: studentParentName.split(' ').slice(-1).join('') || '',
+                  relation: 'parent',
+                  phone: studentParentPhone || null,
+                  phone2: null,
+                  email: null,
+                  guardian_type: 'primary',
+                }
+              : null;
+            const mergedGuardians = fallbackVeli ? [fallbackVeli, ...guardians] : guardians;
+            const effectivePrimary = primaryGuardian || fallbackVeli;
 
             return {
               id: r.id,
@@ -266,16 +312,16 @@ export async function GET(req: NextRequest) {
               sinifSira: r.class_rank || null,
               dersBazli: [], // legacy'de ders kırılımı yoksa boş gelir
               percentile: null,
-              veli: primaryGuardian
+              veli: effectivePrimary
                 ? {
-                    adSoyad: `${String(primaryGuardian.first_name || '').trim()} ${String(primaryGuardian.last_name || '').trim()}`.trim(),
-                    yakinlik: primaryGuardian.relation || primaryGuardian.guardian_type || null,
-                    telefon: primaryGuardian.phone || null,
-                    telefon2: primaryGuardian.phone2 || null,
-                    email: primaryGuardian.email || null,
+                    adSoyad: `${String(effectivePrimary.first_name || '').trim()} ${String(effectivePrimary.last_name || '').trim()}`.trim() || studentParentName,
+                    yakinlik: effectivePrimary.relation || effectivePrimary.guardian_type || null,
+                    telefon: effectivePrimary.phone || studentParentPhone || null,
+                    telefon2: effectivePrimary.phone2 || null,
+                    email: effectivePrimary.email || null,
                   }
                 : null,
-              veliler: guardians.map(g => ({
+              veliler: mergedGuardians.map(g => ({
                 adSoyad: `${String(g.first_name || '').trim()} ${String(g.last_name || '').trim()}`.trim(),
                 yakinlik: g.relation || g.guardian_type || null,
                 telefon: g.phone || null,
