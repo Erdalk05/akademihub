@@ -158,7 +158,12 @@ export default function SinavSihirbazi({
         return reportSonuclari?.length ? true : (cevapAnahtari.length > 0);
       case 3:
         // REPORT_EXPORT: optik şablon gerekmez
-        return reportSonuclari?.length ? true : (selectedSablon !== null || customSablon !== null);
+        if (reportSonuclari?.length) return true;
+        // Özel şablon modunda: Kaydet/Güncelle yapılmadan ilerleme YASAK
+        // (aksi halde editörde yapılan değişiklikler wizard'a aktarılmadan Step 4'e geçilir)
+        if (sablonModu === 'ozel') return customSablon !== null;
+        // Kütüphane modunda: seçili şablon yeterli
+        return selectedSablon !== null;
       case 4:
         // Ya optik raw parse edilmiş ya da report results var
         return parsedOgrenciler.length > 0 || (reportSonuclari?.length ?? 0) > 0;

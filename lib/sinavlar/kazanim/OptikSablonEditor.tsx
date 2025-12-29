@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Save,
@@ -13,9 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Copy
+  Copy,
+  AlertCircle
 } from 'lucide-react';
-import { OptikAlanTanimi, OptikSablon, CevapAnahtariSatir } from './types';
+import { ALAN_RENKLERI, OptikAlanTanimi, OptikSablon, CevapAnahtariSatir } from './types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STANDART ALAN TÜRLERİ - MEB/KURUM OPTİK FORMLARI
@@ -73,7 +74,7 @@ const VARSAYILAN_SABLONLAR: OptikFormSablon[] = [
     sinifTipi: 'LGS',
     alanlar: [
       { id: '1', label: 'ÖĞRENCİ NO', baslangic: 1, bitis: 10 },
-      { id: '2', label: 'İSİM', baslangic: 11, bitis: 35 },
+      { id: '2', label: 'AD SOYAD', baslangic: 11, bitis: 35 },
       { id: '3', label: 'KİTAPÇIK', baslangic: 36, bitis: 36 },
       { id: '4', label: 'TÜRKÇE', baslangic: 37, bitis: 56 },
       { id: '5', label: 'T.C. İNKILAP TARİHİ VE ATATÜRKÇÜLÜK', baslangic: 57, bitis: 66 },
@@ -89,7 +90,7 @@ const VARSAYILAN_SABLONLAR: OptikFormSablon[] = [
     sinifTipi: 'TYT',
     alanlar: [
       { id: '1', label: 'ÖĞRENCİ NO', baslangic: 1, bitis: 10 },
-      { id: '2', label: 'İSİM', baslangic: 11, bitis: 35 },
+      { id: '2', label: 'AD SOYAD', baslangic: 11, bitis: 35 },
       { id: '3', label: 'KİTAPÇIK', baslangic: 36, bitis: 36 },
       { id: '4', label: 'TÜRKÇE', baslangic: 37, bitis: 76 },
       { id: '5', label: 'SOSYAL BİLGİLER', baslangic: 77, bitis: 96 },
@@ -98,6 +99,45 @@ const VARSAYILAN_SABLONLAR: OptikFormSablon[] = [
     ]
   },
 ];
+
+const LS_TEMPLATES_KEY = 'akademihub_optik_editor_templates_v1';
+
+function normalizeLabelForMatch(label: string): string {
+  return (label || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
+}
+
+function inferAlanTypeFromLabel(label: string): OptikAlanTanimi['alan'] {
+  const t = normalizeLabelForMatch(label);
+
+  if (t.includes('ÖĞRENCİ NO') || t === 'NUMARA' || t.includes('ÖĞRENCİ NUMARA')) return 'ogrenci_no';
+  if (t.includes('AD SOYAD') || t.includes('ADI SOYADI') || t === 'İSİM' || t === 'ISIM' || t.includes('ÖĞRENCİ ADI')) return 'ogrenci_adi';
+  if (t.includes('TC') || t.includes('KİMLİK') || t.includes('KIMLIK')) return 'tc';
+  if (t.includes('SINIF')) return 'sinif_no';
+  if (t.includes('KURUM KODU') || t.includes('OKUL KODU')) return 'kurum_kodu';
+  if (t.includes('CİNSİYET') || t.includes('CINSIYET')) return 'cinsiyet';
+  if (t.includes('KİTAPÇIK') || t.includes('KITAPCIK')) return 'kitapcik';
+
+  // Cevaplar alanı: kullanıcı ister tek "CEVAPLAR" ister ders ders yazar. Burada güvenli yaklaşım:
+  // Sadece açıkça "CEVAP" denmişse cevaplar olarak işaretle.
+  if (t === 'CEVAP' || t === 'CEVAPLAR' || t.includes('CEVAP ALANI')) return 'cevaplar';
+
+  return 'ozel';
+}
+
+function inferColorForAlanType(alan: OptikAlanTanimi['alan']): string {
+  return (ALAN_RENKLERI as any)?.[alan] || '#6B7280';
+}
+
+function getToplamSoruFromType(sinifTipi: string): number {
+  const t = (sinifTipi || '').toUpperCase();
+  if (t.includes('TYT')) return 120;
+  if (t.includes('LGS')) return 90;
+  // Kurum/diğerleri: şimdilik 90 (wizard LGS ağırlıklı). İleride formdan hesaplanabilir.
+  return 90;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROPS
@@ -126,7 +166,11 @@ export default function OptikSablonEditor({
   const [sayfa, setSayfa] = useState(1);
   const [yeniAlanModalAcik, setYeniAlanModalAcik] = useState(false);
   const [yeniSablonModalAcik, setYeniSablonModalAcik] = useState(false);
-  const [duzenlemeModu, setDuzenlemeModu] = useState(false);
+  const [kaydetModalAcik, setKaydetModalAcik] = useState(false);
+  const [kaydetAd, setKaydetAd] = useState('');
+  const [kaydetHata, setKaydetHata] = useState<string | null>(null);
+  const [lastSavedSigById, setLastSavedSigById] = useState<Record<string, string>>({});
+  const lastLoadedRef = useRef(false);
   
   // Yeni şablon formu
   const [yeniSablonAdi, setYeniSablonAdi] = useState('');
@@ -166,6 +210,67 @@ export default function OptikSablonEditor({
     return dersler;
   }, [cevapAnahtari]);
 
+  // LocalStorage'dan kullanıcı şablonlarını yükle
+  useEffect(() => {
+    if (lastLoadedRef.current) return;
+    lastLoadedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(LS_TEMPLATES_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as OptikFormSablon[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+      // Varsayılanlarla çakışmayı engelle
+      const defaultsById = new Set(VARSAYILAN_SABLONLAR.map(s => s.id));
+      const customOnly = parsed.filter(s => s?.id && !defaultsById.has(s.id) && Array.isArray(s.alanlar));
+
+      if (customOnly.length > 0) {
+        setSablonlar(prev => {
+          const prevIds = new Set(prev.map(p => p.id));
+          const merged = [...prev];
+          for (const s of customOnly) {
+            if (!prevIds.has(s.id)) merged.push(s);
+          }
+          return merged;
+        });
+
+        // Kaydedildi imzalarını doldur (Güncelle butonu için)
+        const sigs: Record<string, string> = {};
+        for (const s of customOnly) {
+          sigs[s.id] = JSON.stringify({
+            ad: s.ad,
+            sinifTipi: s.sinifTipi,
+            alanlar: (s.alanlar || []).map(a => ({ label: a.label, baslangic: a.baslangic, bitis: a.bitis })),
+          });
+        }
+        setLastSavedSigById(prev => ({ ...sigs, ...prev }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const seciliSig = useMemo(() => {
+    if (!seciliSablon) return '';
+    return JSON.stringify({
+      ad: seciliSablon.ad,
+      sinifTipi: seciliSablon.sinifTipi,
+      alanlar: seciliSablon.alanlar.map(a => ({ label: a.label, baslangic: a.baslangic, bitis: a.bitis })),
+    });
+  }, [seciliSablon]);
+
+  const isDirty = useMemo(() => {
+    if (!seciliSablon) return false;
+    const last = lastSavedSigById[seciliSablon.id];
+    // İlk kez: varsayılan şablonlar için dirty saymayalım; kullanıcı değiştirince dirty olur.
+    return Boolean(last && last !== seciliSig);
+  }, [lastSavedSigById, seciliSablon, seciliSig]);
+
+  const isKnownSaved = useMemo(() => {
+    if (!seciliSablon) return false;
+    return Boolean(lastSavedSigById[seciliSablon.id]);
+  }, [lastSavedSigById, seciliSablon]);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // FONKSİYONLAR
   // ═══════════════════════════════════════════════════════════════════════════
@@ -184,7 +289,11 @@ export default function OptikSablonEditor({
       ]
     };
     
-    setSablonlar([...sablonlar, yeniSablon]);
+    setSablonlar(prev => {
+      const next = [...prev, yeniSablon];
+      persistTemplatesToLocalStorage(next);
+      return next;
+    });
     setSeciliSablonId(yeniSablon.id);
     setYeniSablonModalAcik(false);
     setYeniSablonAdi('');
@@ -208,7 +317,10 @@ export default function OptikSablonEditor({
       return s;
     });
     
-    setSablonlar(guncelSablonlar);
+    setSablonlar(() => {
+      persistTemplatesToLocalStorage(guncelSablonlar);
+      return guncelSablonlar;
+    });
     setYeniAlanModalAcik(false);
     setYeniAlanLabel('');
     setYeniAlanBaslangic(1);
@@ -226,7 +338,10 @@ export default function OptikSablonEditor({
       return s;
     });
     
-    setSablonlar(guncelSablonlar);
+    setSablonlar(() => {
+      persistTemplatesToLocalStorage(guncelSablonlar);
+      return guncelSablonlar;
+    });
   };
   
   // Alan güncelle
@@ -251,7 +366,10 @@ export default function OptikSablonEditor({
       return s;
     });
     
-    setSablonlar(guncelSablonlar);
+    setSablonlar(() => {
+      persistTemplatesToLocalStorage(guncelSablonlar);
+      return guncelSablonlar;
+    });
   };
   
   // Alanları yeniden sırala
@@ -265,12 +383,19 @@ export default function OptikSablonEditor({
       return s;
     });
     
-    setSablonlar(guncelSablonlar);
+    setSablonlar(() => {
+      persistTemplatesToLocalStorage(guncelSablonlar);
+      return guncelSablonlar;
+    });
   };
   
   // Şablon sil
   const handleSablonSil = (sablonId: string) => {
-    setSablonlar(sablonlar.filter(s => s.id !== sablonId));
+    setSablonlar(prev => {
+      const next = prev.filter(s => s.id !== sablonId);
+      persistTemplatesToLocalStorage(next);
+      return next;
+    });
     if (seciliSablonId === sablonId) {
       setSeciliSablonId(null);
     }
@@ -284,13 +409,111 @@ export default function OptikSablonEditor({
       ad: `${sablon.ad} (Kopya)`,
       alanlar: sablon.alanlar.map(a => ({ ...a, id: `alan-${Date.now()}-${Math.random()}` }))
     };
-    setSablonlar([...sablonlar, kopya]);
+    setSablonlar(prev => {
+      const next = [...prev, kopya];
+      persistTemplatesToLocalStorage(next);
+      return next;
+    });
   };
   
   // Hazır alan ekle
   const handleHazirAlanEkle = (label: string) => {
     setYeniAlanLabel(label);
     setYeniAlanModalAcik(true);
+  };
+
+  const persistTemplatesToLocalStorage = (templates: OptikFormSablon[]) => {
+    try {
+      // Sadece kullanıcı şablonlarını sakla (varsayılanları değil)
+      const defaultsById = new Set(VARSAYILAN_SABLONLAR.map(s => s.id));
+      const customOnly = templates.filter(t => t?.id && !defaultsById.has(t.id));
+      window.localStorage.setItem(LS_TEMPLATES_KEY, JSON.stringify(customOnly));
+    } catch {
+      // ignore
+    }
+  };
+
+  const openKaydetModal = () => {
+    if (!seciliSablon) return;
+    setKaydetHata(null);
+    setKaydetAd(seciliSablon.ad || '');
+    setKaydetModalAcik(true);
+  };
+
+  const doSaveOrUpdate = () => {
+    if (!seciliSablon) return;
+    const name = normalizeLabelForMatch(kaydetAd);
+    if (!name) {
+      setKaydetHata('Şablon adı zorunlu. Lütfen bir ad yazın.');
+      return;
+    }
+
+    // Varsayılan şablon güncellenmesin: kopya olarak kaydet
+    const isDefault = VARSAYILAN_SABLONLAR.some(s => s.id === seciliSablon.id);
+    const targetId = isDefault ? `sablon-${Date.now()}` : seciliSablon.id;
+
+    const updated: OptikFormSablon = {
+      ...seciliSablon,
+      id: targetId,
+      ad: name,
+    };
+
+    setSablonlar(prev => {
+      let next = prev;
+      if (isDefault) {
+        next = [...prev, updated];
+      } else {
+        next = prev.map(s => (s.id === seciliSablon.id ? updated : s));
+      }
+      persistTemplatesToLocalStorage(next);
+      return next;
+    });
+
+    // Kaydedildi imzasını güncelle
+    setLastSavedSigById(prev => ({
+      ...prev,
+      [targetId]: JSON.stringify({
+        ad: name,
+        sinifTipi: updated.sinifTipi,
+        alanlar: updated.alanlar.map(a => ({ label: a.label, baslangic: a.baslangic, bitis: a.bitis })),
+      }),
+    }));
+
+    setSeciliSablonId(targetId);
+    setKaydetModalAcik(false);
+
+    // Wizard'a aktarılacak sablon: alan tiplerini label’dan otomatik çıkar
+    if (onSave) {
+      const alanTanimlari: OptikAlanTanimi[] = updated.alanlar.map(a => {
+        const alanType = inferAlanTypeFromLabel(a.label);
+        return {
+          alan: alanType,
+          baslangic: a.baslangic,
+          bitis: a.bitis,
+          label: a.label,
+          color: inferColorForAlanType(alanType),
+          ...(alanType === 'ozel' ? { customLabel: a.label } : {}),
+        };
+      });
+
+      const toplamSoru = getToplamSoruFromType(updated.sinifTipi);
+      const cevapBaslangic =
+        alanTanimlari.find(at => at.alan === 'cevaplar')?.baslangic ||
+        alanTanimlari.find(at => /TÜRKÇE|MATEMATİK|FEN|SOSYAL|İNGİLİZCE|İNKILAP|DİN/i.test(at.label))?.baslangic ||
+        1;
+
+      const optikSablon: Omit<OptikSablon, 'id'> = {
+        sablonAdi: updated.ad,
+        aciklama: `${updated.sinifTipi} şablonu`,
+        alanTanimlari,
+        cevapBaslangic,
+        toplamSoru,
+        isDefault: false,
+        isActive: true,
+      };
+
+      onSave(optikSablon);
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -350,7 +573,7 @@ export default function OptikSablonEditor({
                   {(sayfa - 1) * SAYFA_BOYUTU + idx + 1}
                 </span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setSeciliSablonId(sablon.id); setDuzenlemeModu(true); }}
+                  onClick={(e) => { e.stopPropagation(); setSeciliSablonId(sablon.id); }}
                   className="p-1 text-amber-500 hover:bg-amber-100 rounded"
                   title="Düzenle"
                 >
@@ -521,31 +744,11 @@ export default function OptikSablonEditor({
               {/* Kaydet */}
               <div className="px-4 py-3 border-t border-slate-200 flex justify-end">
                 <button
-                  onClick={() => {
-                    if (onSave && seciliSablon) {
-                      const optikSablon: Omit<OptikSablon, 'id'> = {
-                        sablonAdi: seciliSablon.ad,
-                        aciklama: `${seciliSablon.sinifTipi} şablonu`,
-                        alanTanimlari: seciliSablon.alanlar.map(a => ({
-                          alan: 'ozel' as const,
-                          baslangic: a.baslangic,
-                          bitis: a.bitis,
-                          label: a.label,
-                          color: '#6B7280'
-                        })),
-                        cevapBaslangic: seciliSablon.alanlar.find(a => a.label.includes('TÜRKÇE'))?.baslangic || 1,
-                        toplamSoru: 90,
-                        isDefault: false,
-                        isActive: true
-                      };
-                      onSave(optikSablon);
-                    }
-                    alert('Şablon kaydedildi!');
-                  }}
+                  onClick={openKaydetModal}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
                 >
                   <Save size={16} />
-                  Kaydet
+                  {isKnownSaved ? 'Güncelle' : 'Kaydet'}
                 </button>
               </div>
             </>
@@ -743,6 +946,81 @@ export default function OptikSablonEditor({
                 >
                   <Plus size={16} />
                   Ekle
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* KAYDET / GÜNCELLE MODAL */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {kaydetModalAcik && seciliSablon && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setKaydetModalAcik(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl p-6 w-[420px] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-slate-800 mb-1">
+                {isKnownSaved ? 'Şablonu Güncelle' : 'Şablonu Kaydet'}
+              </h3>
+              <p className="text-sm text-slate-500 mb-4">
+                Hazır şablonlar listesine eklemek için şablon adını kaydetmelisiniz.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Şablon Adı</label>
+                  <input
+                    type="text"
+                    value={kaydetAd}
+                    onChange={(e) => {
+                      setKaydetHata(null);
+                      setKaydetAd(e.target.value.toUpperCase());
+                    }}
+                    placeholder="Örn: ÖZDEBİR LGS 2025"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none uppercase"
+                  />
+                </div>
+
+                {kaydetHata && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 mt-0.5" />
+                    <div>{kaydetHata}</div>
+                  </div>
+                )}
+
+                <div className="text-xs text-slate-500">
+                  - Alan adları otomatik <b>BÜYÜK HARF</b> kaydedilir
+                  <br />
+                  - Öğrenci eşleşmesi için <b>ÖĞRENCİ NO</b> ve <b>AD SOYAD</b> alanlarının tanımlı olması önerilir
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setKaydetModalAcik(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={doSaveOrUpdate}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  {isKnownSaved ? 'Güncelle ve Devam Et' : 'Kaydet ve Devam Et'}
                 </button>
               </div>
             </motion.div>
