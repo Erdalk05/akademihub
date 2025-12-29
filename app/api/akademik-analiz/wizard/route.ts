@@ -182,7 +182,9 @@ export async function POST(req: NextRequest) {
                 const bNo = b.kitapcikSoruNo?.[kitapcik as 'A'|'B'|'C'|'D'] || b.soruNo;
                 return aNo - bNo;
               })
-              .map(s => s.dogruCevap);
+              // ✅ KRİTİK: Kitapçık bazlı cevap varsa onu kullan, yoksa A cevabına fallback
+              // Not: Manuel cevap anahtarı girişinde A ve B kitapçığı cevapları farklı olabilir.
+              .map((s: any) => (s.kitapcikCevaplari?.[kitapcik] ?? s.dogruCevap));
             
             cevapInserts.push({
               test_id: test.id,
