@@ -186,6 +186,102 @@ export const LGS_EXAM_STRUCTURE: ExamStructure = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
+// V4.0: CONFIDENCE HESAPLAMA
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * V4.0: Öğrenci parse sonucu için güven skoru hesapla
+ * 
+ * FORMÜL:
+ * confidence = 
+ *   0.40 × slotCompleteness +    // Kaç soru slot'u tespit edildi
+ *   0.30 × aeDensity +           // A-E cevap yoğunluğu
+ *   0.20 × bookletCertainty +    // Kitapçık bilgisi var mı
+ *   0.10 × lessonBlockConsistency // Ders blokları tutarlı mı
+ * 
+ * Sonuç: 0.0 - 1.0 arası
+ */
+export interface ConfidenceResult {
+  score: number;                    // 0.0 - 1.0
+  status: ReviewStatus;             // 'OK' | 'NEEDS_REVIEW' | 'REJECTED'
+  confidence: AlignmentConfidence;  // 'HIGH' | 'MEDIUM' | 'LOW' | 'CRITICAL'
+  factors: {
+    slotCompleteness: number;
+    aeDensity: number;
+    bookletCertainty: number;
+    lessonBlockConsistency: number;
+  };
+}
+
+export function calculateParseConfidence(
+  detectedAnswerCount: number,
+  expectedCount: number,
+  booklet: 'A' | 'B' | 'C' | 'D' | null,
+  lessonBlocksValid: boolean,
+  isOutlier: boolean = false,
+): ConfidenceResult {
+  // 1) Slot Completeness (40%) - kaç cevap tespit edildi
+  const slotCompleteness = Math.min(detectedAnswerCount / expectedCount, 1.0);
+  
+  // 2) A-E Density (30%) - aynı şey şimdilik
+  const aeDensity = slotCompleteness;
+  
+  // 3) Booklet Certainty (20%) - kitapçık bilgisi var mı
+  const bookletCertainty = booklet !== null ? 1.0 : 0.0;
+  
+  // 4) Lesson Block Consistency (10%) - ders blokları tutarlı mı
+  const lessonBlockConsistency = lessonBlocksValid ? 1.0 : 0.5;
+  
+  // Toplam skor
+  let score = 
+    0.40 * slotCompleteness +
+    0.30 * aeDensity +
+    0.20 * bookletCertainty +
+    0.10 * lessonBlockConsistency;
+  
+  // Outlier penalty (START kayması varsa)
+  if (isOutlier) {
+    score *= 0.7; // %30 ceza
+  }
+  
+  // Status belirleme
+  let status: ReviewStatus;
+  let confidence: AlignmentConfidence;
+  
+  if (score >= 0.85 && booklet !== null && !isOutlier) {
+    status = 'OK';
+    confidence = 'HIGH';
+  } else if (score >= 0.70 && booklet !== null) {
+    status = 'OK';
+    confidence = 'MEDIUM';
+  } else if (score >= 0.50) {
+    status = 'NEEDS_REVIEW';
+    confidence = 'LOW';
+  } else {
+    status = 'REJECTED';
+    confidence = 'CRITICAL';
+  }
+  
+  // Kitapçık yoksa her durumda REVIEW
+  if (booklet === null && status === 'OK') {
+    status = 'NEEDS_REVIEW';
+    confidence = 'LOW';
+  }
+  
+  return {
+    score,
+    status,
+    confidence,
+    factors: {
+      slotCompleteness,
+      aeDensity,
+      bookletCertainty,
+      lessonBlockConsistency,
+    },
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
 // V3.0: SLOT TESPİTİ - Boşluk/Separator/Cevap Ayrımı
 // ════════════════════════════════════════════════════════════════════════════════
 
@@ -320,10 +416,102 @@ export function detectQuestionSlots(
 }
 
 /**
- * V3.1: START kayması olan dosyalar için RELATIVE slot tespiti.
- * Her satırda lineStart tespit edilir, sonra line.slice(lineStart) üzerinden
- * pozisyon analizi yapılır (0-indexed, normalize).
+ * V4.0: MODE-BASED START NORMALİZASYONU
+ * 
+ * Problem: Her satırda lineStart farklı olabilir (26, 44, 51 gibi).
+ * Farklı offset'lerden slice yapınca slot tespiti bozuluyor.
+ * 
+ * Çözüm:
+ * 1. Her satır için lineStart tespit et
+ * 2. En sık görülen (MODE) start'ı bul
+ * 3. Tüm satırları MODE start'a göre normalize et
+ * 4. Farklı start'a sahip satırları FLAG'le (outlier)
+ * 5. Slot tespitini normalize edilmiş dizilerde yap
  */
+export interface NormalizedLineData {
+  slotAnalysis: SlotAnalysisResult;
+  modeStart: number;                    // En sık görülen start
+  lineStarts: number[];                 // Her satırın kendi start'ı
+  outlierIndices: number[];             // modeStart'tan farklı olan satırlar
+  slicedLines: string[];                // MODE start'a göre slice edilmiş
+  startTolerance: number;               // ±tolerans (varsayılan 5)
+}
+
+export function detectQuestionSlotsWithModeStart(
+  rawLines: string[],
+  expectedSlots: number = 90,
+  startTolerance: number = 5,
+): NormalizedLineData {
+  const validLines = rawLines.filter(l => l && l.trim().length > 0);
+  const lineStarts: number[] = [];
+  
+  // 1) Her satır için lineStart tespit et
+  for (const line of validLines) {
+    const start = detectLineStart(line).startIndex;
+    lineStarts.push(start >= 0 ? start : 0);
+  }
+  
+  // 2) MODE (en sık görülen) start'ı bul
+  const startCounts = new Map<number, number>();
+  for (const start of lineStarts) {
+    // Tolerans dahilinde gruplama (±5 karakter)
+    const bucket = Math.round(start / startTolerance) * startTolerance;
+    startCounts.set(bucket, (startCounts.get(bucket) || 0) + 1);
+  }
+  
+  let modeStart = 0;
+  let maxCount = 0;
+  for (const [bucket, count] of startCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      modeStart = bucket;
+    }
+  }
+  
+  // 3) Outlier'ları tespit et (modeStart'tan farklı olanlar)
+  const outlierIndices: number[] = [];
+  for (let i = 0; i < lineStarts.length; i++) {
+    const diff = Math.abs(lineStarts[i] - modeStart);
+    if (diff > startTolerance) {
+      outlierIndices.push(i);
+    }
+  }
+  
+  // 4) Tüm satırları MODE start'a göre slice et
+  const slicedLines: string[] = [];
+  for (const line of validLines) {
+    if (modeStart < line.length) {
+      slicedLines.push(line.slice(modeStart));
+    } else {
+      slicedLines.push(''); // Satır çok kısa
+    }
+  }
+  
+  // 5) Slot tespiti (normalize edilmiş dizilerde, minStart=0)
+  const slotAnalysis = detectQuestionSlots(slicedLines, 0, expectedSlots);
+  
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('🎯 V4.0 MODE-BASED START NORMALİZASYONU');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log(`   Toplam satır: ${validLines.length}`);
+  console.log(`   Mode START: ${modeStart} (${maxCount}/${validLines.length} satır)`);
+  console.log(`   Outlier sayısı: ${outlierIndices.length} (±${startTolerance} tolerans)`);
+  if (outlierIndices.length > 0 && outlierIndices.length <= 10) {
+    console.log(`   Outlier satırlar: [${outlierIndices.map(i => i + 1).join(', ')}]`);
+  }
+  console.log('═══════════════════════════════════════════════════════════════');
+  
+  return {
+    slotAnalysis,
+    modeStart,
+    lineStarts,
+    outlierIndices,
+    slicedLines,
+    startTolerance,
+  };
+}
+
+// Geriye uyumluluk için eski fonksiyon imzası
 export function detectQuestionSlotsRelativeToLineStart(
   rawLines: string[],
   expectedSlots: number = 90,
@@ -332,28 +520,19 @@ export function detectQuestionSlotsRelativeToLineStart(
   lineStarts: number[];
   slicedLines: string[];
 } {
-  const validLines = rawLines.filter(l => l && l.trim().length > 0);
-  const lineStarts: number[] = [];
-  const slicedLines: string[] = [];
-
-  for (const line of validLines) {
-    const start = detectLineStart(line).startIndex;
-    // lineStart bulunamazsa 0 al (fallback), yine de slice et
-    const safeStart = start >= 0 ? start : 0;
-    lineStarts.push(safeStart);
-    slicedLines.push(line.slice(safeStart));
-  }
-
-  // Sliced diziler zaten start'tan başladığı için minStart=0
-  const slotAnalysis = detectQuestionSlots(slicedLines, 0, expectedSlots);
-  return { slotAnalysis, lineStarts, slicedLines };
+  const result = detectQuestionSlotsWithModeStart(rawLines, expectedSlots, 5);
+  return {
+    slotAnalysis: result.slotAnalysis,
+    lineStarts: result.lineStarts,
+    slicedLines: result.slicedLines,
+  };
 }
 
 /**
  * V3.0: Bir satırdan QUESTION_SLOT pozisyonlarına göre cevapları çıkar.
  * 
- * @param line Ham satır
- * @param questionSlots QUESTION_SLOT pozisyonları (sıralı)
+ * @param line Ham satır (zaten modeStart'tan slice edilmiş olmalı)
+ * @param questionSlots QUESTION_SLOT pozisyonları (sıralı, 0-indexed)
  */
 function extractAnswersBySlots(
   line: string,
@@ -375,6 +554,122 @@ function extractAnswersBySlots(
       // Satır yeterince uzun değil = BOŞ CEVAP
       answers.push(null);
     }
+  }
+  
+  return answers;
+}
+
+/**
+ * V4.0: SEPARATOR TESPİTLİ CEVAP ÇIKARMA
+ * 
+ * Basitleştirilmiş ve güvenilir yaklaşım:
+ * - modeStart'tan itibaren karakterleri tara
+ * - A-E karakterlerini sırayla topla
+ * - 2+ ardışık boşluk = separator (atla)
+ * - 1 boşluk sonrası A-E = bu boşluk separator
+ * - 1 boşluk sonrası boşluk = hala separator
+ * - expectedCount'a ulaşınca dur
+ * 
+ * Bu yaklaşım slot tespitine alternatif olarak kullanılabilir.
+ */
+export function extractAnswersWithSeparatorDetection(
+  line: string,
+  startIndex: number,
+  expectedCount: number,
+): {
+  answers: (string | null)[];
+  detectedCount: number;
+  separatorCount: number;
+  blankCount: number;
+} {
+  const answers: (string | null)[] = [];
+  const upperLine = line.toUpperCase();
+  
+  let i = startIndex;
+  let separatorCount = 0;
+  let consecutiveNonAE = 0;
+  
+  while (i < upperLine.length && answers.length < expectedCount) {
+    const ch = upperLine[i];
+    
+    if (VALID_ANSWERS_SET.has(ch)) {
+      // A-E bulundu - cevap ekle
+      answers.push(ch);
+      consecutiveNonAE = 0;
+    } else if (ch === ' ' || ch === '_' || ch === '-' || ch === '.') {
+      // Potansiyel boşluk veya separator
+      consecutiveNonAE++;
+      
+      // İleriye bak - sonraki karakter ne?
+      const nextIdx = i + 1;
+      const nextCh = nextIdx < upperLine.length ? upperLine[nextIdx] : '';
+      
+      if (consecutiveNonAE >= 2) {
+        // 2+ ardışık non-A-E = separator alanı, atla
+        separatorCount++;
+      } else if (VALID_ANSWERS_SET.has(nextCh)) {
+        // Sonraki karakter A-E = bu tek boşluk separator, atla
+        separatorCount++;
+      } else {
+        // Belirsiz - potansiyel boş cevap
+        // Ama hemen ekleme, bir sonraki karaktere bak
+        // Eğer sonraki de boşluksa bu separator'dır
+      }
+    } else {
+      // Diğer karakterler (rakam, özel karakter)
+      consecutiveNonAE++;
+    }
+    
+    i++;
+  }
+  
+  // Eksik cevapları null ile doldur
+  while (answers.length < expectedCount) {
+    answers.push(null);
+  }
+  
+  const blankCount = answers.filter(a => a === null).length;
+  const detectedCount = answers.filter(a => a !== null).length;
+  
+  return {
+    answers,
+    detectedCount,
+    separatorCount,
+    blankCount,
+  };
+}
+
+/**
+ * V4.0: SADECE A-E KARAKTERLERINI SIRALI TOPLA
+ * 
+ * En basit ve güvenilir yaklaşım:
+ * - startIndex'ten itibaren tara
+ * - Sadece A-E karakterlerini al
+ * - Diğer her şeyi (boşluk, rakam, vs.) atla
+ * - expectedCount'a ulaşınca dur
+ * 
+ * NOT: Bu yaklaşım "boş bırakılan soruları" tespit ETMEZ.
+ * Sadece işaretlenmiş cevapları toplar.
+ */
+export function extractAnswersSimple(
+  line: string,
+  startIndex: number,
+  expectedCount: number,
+): (string | null)[] {
+  const answers: (string | null)[] = [];
+  const upperLine = line.toUpperCase();
+  
+  for (let i = startIndex; i < upperLine.length && answers.length < expectedCount; i++) {
+    const ch = upperLine[i];
+    if (VALID_ANSWERS_SET.has(ch)) {
+      answers.push(ch);
+    }
+    // Diğer karakterleri atla
+  }
+  
+  // Eksik cevapları null ile doldur
+  while (answers.length < expectedCount) {
+    answers.push(null);
   }
   
   return answers;

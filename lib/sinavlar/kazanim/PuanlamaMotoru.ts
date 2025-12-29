@@ -639,26 +639,44 @@ export interface EsnekTestSonucu {
 }
 
 /**
- * ESNEK PUANLAMA FONKSİYONU
+ * ESNEK PUANLAMA FONKSİYONU V4.0
  * 
  * Özel kurum sınavları için test bazlı değerlendirme yapar.
  * Her test için ayrı katsayı ve yanlış ceza oranı uygulanır.
  * Kitapçık türüne göre doğru cevap anahtarı kullanılır.
+ * 
+ * ⚠️ KRİTİK DEĞİŞİKLİK (V4.0):
+ * - Kitapçık null ise otomatik "A"ya düşme YOK
+ * - Kitapçık null → uyarı verilir, ama yine de A kullanılır (fallback)
+ * - Console'a açık uyarı yazılır
  */
 export function esnekDegerlendir(
   ogrenci: ParsedOptikSatir,
   yapilandirma: EsnekSinavYapilandirmasi
 ): EsnekDegerlendirmeSonucu {
   // ═══════════════════════════════════════════════════════════════════════════
-  // KRİTİK: ÖĞRENCİNİN KİTAPÇIĞINI AL
+  // V4.0: KİTAPÇIK KONTROLÜ - NULL İSE UYARI VER
   // ═══════════════════════════════════════════════════════════════════════════
-  const kitapcik = (ogrenci.kitapcik || 'A') as 'A' | 'B' | 'C' | 'D';
+  const hamKitapcik = ogrenci.kitapcik;
+  let kitapcik: 'A' | 'B' | 'C' | 'D';
+  let kitapcikBelirli = true;
+  
+  if (hamKitapcik === 'A' || hamKitapcik === 'B' || hamKitapcik === 'C' || hamKitapcik === 'D') {
+    kitapcik = hamKitapcik;
+  } else {
+    // Kitapçık null veya geçersiz - A'ya fallback ama UYARI VER
+    kitapcik = 'A';
+    kitapcikBelirli = false;
+    console.warn(`⚠️ KİTAPÇIK BELİRSİZ: ${ogrenci.ogrenciNo} (${ogrenci.ogrenciAdi}) - Ham değer: "${hamKitapcik}"`);
+    console.warn(`   → Fallback olarak A kitapçığı kullanılıyor. Bu öğrencinin sonuçları GÜVENİLİR DEĞİL!`);
+  }
+  
   const tumCevaplar = ogrenci.cevaplar || [];
   
   // Debug: Kitapçık tipi ve ilk 10 cevap
   console.log('───────────────────────────────────────────────────────────────');
   console.log(`📝 ÖĞRENCİ: ${ogrenci.ogrenciNo} (${ogrenci.ogrenciAdi})`);
-  console.log(`   Ham kitapçık değeri: "${ogrenci.kitapcik}" → Kullanılan: "${kitapcik}"`);
+  console.log(`   Ham kitapçık değeri: "${hamKitapcik}" → Kullanılan: "${kitapcik}"${!kitapcikBelirli ? ' ⚠️ FALLBACK' : ''}`);
   console.log(`   İlk 10 cevap: ${tumCevaplar.slice(0, 10).map(c => c || '_').join('')}`);
   
   let toplamDogru = 0;
