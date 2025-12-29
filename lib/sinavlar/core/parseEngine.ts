@@ -286,12 +286,19 @@ function extractLessonCodeFromLabel(label: string): string | null {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z]/g, ''); // sadece ASCII harfler
 
+  // ✅ Özel durum: UI'da "T.C." dersi çoğu yerde sadece "TC" / "T.C" diye kısaltılıyor.
+  // Bu alan TC KİMLİK değildir (tc kimlik alanı isAnswerSegmentField ile dışarıda tutulur).
+  // Bu yüzden "tc" tek başına geldiğinde INK kabul ediyoruz.
+  if (normalized === 'tc' || normalized === 'tctarihi' || normalized.includes('tcink')) {
+    return 'INK';
+  }
+
   // Ders eşleştirme tablosu
   const mappings: [string[], string][] = [
     [['turkce', 'turk'], 'TUR'],
     [['matematik', 'mat'], 'MAT'],
     [['fen', 'fenbilimleri', 'fenbilgisi'], 'FEN'],
-    [['inkilap', 'ataturk', 'tcinkılap', 'tcinkilap'], 'INK'],
+    [['inkilap', 'ataturk', 'tcinkilap'], 'INK'],
     [['din', 'dinkulturu', 'dinkulturuvea'], 'DIN'],
     [['ingilizce', 'yabancidil', 'ing'], 'ING'],
     [['sosyal', 'sosyalbilgiler'], 'SOS'],
@@ -520,8 +527,13 @@ function parseStudentLine(
     
     // Ders koduna göre kaydet
     if (lessonCode) {
-      lessonAnswers[lessonCode] = segAnswers;
-      console.log(`   ${lessonCode}=${segLen} (${seg.label}: ${seg.baslangic}-${seg.bitis})`);
+      // ✅ Aynı ders birden fazla segmentte gelebilir (örn: TUR 10 + TUR 10).
+      // Overwrite etmek yerine CONCAT yapıyoruz; aksi halde TUR=10 gibi eksik okuma olur.
+      const prev = lessonAnswers[lessonCode] || [];
+      lessonAnswers[lessonCode] = [...prev, ...segAnswers];
+      console.log(
+        `   ${lessonCode}=${lessonAnswers[lessonCode].length} (+${segLen}) (${seg.label}: ${seg.baslangic}-${seg.bitis})`,
+      );
     } else {
       // Ders kodu bulunamadı - genel cevaplar alanı olabilir
       console.log(`   ???=${segLen} (${seg.label}: ${seg.baslangic}-${seg.bitis}) - Ders kodu tespit edilemedi`);
