@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     // 1) Exam + answer_key
     const { data: exam, error: examErr } = await supabase
       .from('exams')
-      .select('id, answer_key')
+      .select('id, answer_key, booklets')
       .eq('id', examId)
       .single();
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     // 2) Exam tests
     const { data: tests, error: testsErr } = await supabase
       .from('exam_tests')
-      .select('id, subject_code')
+      .select('id, subject_code, test_name')
       .eq('exam_id', examId);
 
     if (testsErr) {
@@ -79,27 +79,61 @@ export async function POST(req: NextRequest) {
     }
 
     // 3) Delete existing booklet keys for these tests
-    const { error: delErr } = await supabase
+    const { count: deletedCount, error: delErr } = await supabase
       .from('booklet_answer_keys')
-      .delete()
+      .delete({ count: 'exact' })
       .in('test_id', testIds);
 
     if (delErr) {
       return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
     }
+    console.log(`[REBUILD-BOOKLET] deleted booklet_answer_keys=${deletedCount ?? 0}`);
 
     // 4) Rebuild correctly
     const now = new Date().toISOString();
     const inserts: any[] = [];
 
+    const byDersKodu = new Map<string, AnswerKeyRow[]>();
+    const byDersAdi = new Map<string, AnswerKeyRow[]>();
+    for (const r of answerKey) {
+      const k = String(r.dersKodu || '').toUpperCase();
+      if (k) {
+        if (!byDersKodu.has(k)) byDersKodu.set(k, []);
+        byDersKodu.get(k)!.push(r);
+      }
+      const a = String(r.dersAdi || '').toUpperCase();
+      if (a) {
+        if (!byDersAdi.has(a)) byDersAdi.set(a, []);
+        byDersAdi.get(a)!.push(r);
+      }
+    }
+
+    const rawBooklets = (exam as any).booklets as unknown;
+    const booklets =
+      Array.isArray(rawBooklets) && rawBooklets.length > 0
+        ? rawBooklets
+            .map((b: any) => String(b).toUpperCase())
+            .filter((b: string) => b === 'A' || b === 'B' || b === 'C' || b === 'D')
+        : (['A', 'B'] as const);
+
     for (const test of tests || []) {
       const subjectCode = String((test as any).subject_code || '').toUpperCase();
-      if (!subjectCode) continue;
+      const testName = String((test as any).test_name || '').toUpperCase();
+      if (!subjectCode && !testName) continue;
 
-      const testSorulari = answerKey.filter(r => String(r.dersKodu || '').toUpperCase() === subjectCode);
-      if (testSorulari.length === 0) continue;
+      const testSorulari =
+        (subjectCode && byDersKodu.get(subjectCode)) ||
+        (testName && byDersAdi.get(testName)) ||
+        [];
 
-      for (const booklet of ['A', 'B'] as const) {
+      if (testSorulari.length === 0) {
+        console.warn(
+          `[REBUILD-BOOKLET] WARN eşleşmeyen test: test_id=${(test as any).id} subject_code="${subjectCode}" test_name="${testName}"`,
+        );
+        continue;
+      }
+
+      for (const booklet of booklets as Array<'A' | 'B' | 'C' | 'D'>) {
         const answers = [...testSorulari]
           .sort((a, b) => {
             const aNo = a.kitapcikSoruNo?.[booklet] ?? a.soruNo;
@@ -132,9 +166,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log(`[REBUILD-BOOKLET] inserted booklet_answer_keys=${inserts.length}`);
     console.log(`[REBUILD-BOOKLET] DONE examId=${examId} rebuiltTests=${(tests || []).length}`);
 
-    return NextResponse.json({ ok: true, rebuiltTests: (tests || []).length });
+    return NextResponse.json({
+      ok: true,
+      rebuiltTests: (tests || []).length,
+      deletedKeys: deletedCount ?? 0,
+      insertedKeys: inserts.length,
+      bookletsUsed: booklets,
+    });
   } catch (e: any) {
     const status = e?.statusCode || 500;
     console.error('[REBUILD-BOOKLET] ERROR', e);
