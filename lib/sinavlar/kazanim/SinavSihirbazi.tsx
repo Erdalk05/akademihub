@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   Wand2,
   ChevronLeft,
@@ -40,6 +41,7 @@ import {
   getCevapAnahtariSablonlari,
   createCevapAnahtariSablon,
   deleteCevapAnahtariSablon,
+  updateCevapAnahtariSablon,
   type CevapAnahtariSablonDB,
 } from '@/lib/sinavlar/services/cevapAnahtariSablonService';
 import type { ReportStudentResult, TxtImportKind } from '@/lib/sinavlar/import/txt';
@@ -743,6 +745,34 @@ export default function SinavSihirbazi({
                         }`}
                       >
                         Sil
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const sablon = cevapSablonlari.find(s => s.id === selectedCevapSablonId);
+                          if (!sablon) return;
+                          const yeniAd = window.prompt('Şablon adını güncelle', sablon.sablon_adi);
+                          if (!yeniAd) return;
+                          const trimmed = yeniAd.trim();
+                          if (trimmed.length < 2) {
+                            toast.error('Şablon adı en az 2 karakter olmalı');
+                            return;
+                          }
+                          const updated = await updateCevapAnahtariSablon(sablon.id, { sablon_adi: trimmed });
+                          if (!updated) {
+                            toast.error('Güncelleme başarısız');
+                            return;
+                          }
+                          toast.success('Şablon adı güncellendi');
+                          refreshCevapSablonlari();
+                        }}
+                        disabled={!selectedCevapSablonId || cevapSablonLoading}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                          !selectedCevapSablonId || cevapSablonLoading
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Düzenle
                       </button>
                     </div>
                   </div>

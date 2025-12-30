@@ -68,4 +68,21 @@ export async function deleteCevapAnahtariSablon(id: string): Promise<boolean> {
   return true;
 }
 
+export async function updateCevapAnahtariSablon(
+  id: string,
+  input: { sablon_adi?: string; aciklama?: string | null },
+): Promise<CevapAnahtariSablonDB | null> {
+  const res = await fetch(`/api/cevap-anahtari-sablonlari/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!res.ok || !json?.success) {
+    console.error('Cevap anahtarı şablonu güncelleme hatası:', json?.error || res.statusText);
+    return null;
+  }
+  return json.data as CevapAnahtariSablonDB;
+}
+
 

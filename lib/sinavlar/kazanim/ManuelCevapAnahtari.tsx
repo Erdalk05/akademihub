@@ -93,6 +93,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uiPersistKey = 'akademihub_manuel_cevap_anahtari_ui_v1';
   const lastSentSigRef = useRef<string>('');
+  const unlockedWarnedRef = useRef<Set<string>>(new Set());
   
   // 🔀 DERS SIRALAMASI - Sürükle-Bırak için
   // ✅ KRİTİK: initialDersSirasi varsa onu kullan, yoksa varsayılan sıra
@@ -493,8 +494,9 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     // ✅ KRİTİK: Ders sırası değişince de wizard'a kaydetmeliyiz.
     // Aksi halde kullanıcı sürükle-bırak yapıp ileri/geri gidince sıra eski haline döner.
     pushStr(`order:${(order || []).join(',')}`);
-    // Performans için ilk 30 satırla imza üret (LGS 90 için yeterli)
-    for (let i = 0; i < Math.min(30, data.length); i++) {
+    // ✅ KRİTİK: İlk 30 satırla imza üretmek B kitapçığında (DIN/ING/MAT/FEN) güncellemelerini kaçırıyordu.
+    // LGS 90 satır → 90 iterasyon maliyeti düşük; tüm satırları dahil ediyoruz.
+    for (let i = 0; i < data.length; i++) {
       const r = data[i];
       pushStr(String(r.soruNo));
       pushStr(String(r.dogruCevap || ''));
@@ -677,6 +679,40 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     syncDraftFromStateForKitapcik(aktifKitapcik);
   }, [aktifKitapcik, syncDraftFromStateForKitapcik]);
 
+  // ✅ Güvenlik: Eksik/boş dersler kilitli kalmasın
+  // Kullanıcı bazen yanlışlıkla kilitleyebiliyor veya state/şablon yüklemesi sonrası tutarsız kilit oluşabiliyor.
+  useEffect(() => {
+    const locked = kilitliDersler[aktifKitapcik];
+    if (!locked || locked.size === 0) return;
+
+    const toUnlock: string[] = [];
+    for (const dersKodu of Array.from(locked)) {
+      const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+      if (!ders) continue;
+      const count = (getDersCevapString(aktifKitapcik, dersKodu) || '').replace(/[^ABCDE]/g, '').length;
+      if (count < ders.soruSayisi) {
+        toUnlock.push(dersKodu);
+      }
+    }
+
+    if (toUnlock.length === 0) return;
+
+    setKilitliDersler(prev => {
+      const yeniSet = new Set(prev[aktifKitapcik]);
+      toUnlock.forEach(k => yeniSet.delete(k));
+      return { ...prev, [aktifKitapcik]: yeniSet };
+    });
+
+    // Kullanıcıya 1 kez uyar (spam olmasın)
+    toUnlock.forEach(k => {
+      const key = `${aktifKitapcik}:${k}`;
+      if (unlockedWarnedRef.current.has(key)) return;
+      unlockedWarnedRef.current.add(key);
+      const ders = LGS_DERSLER.find(d => d.kod === k);
+      toast(`${ders?.ad?.split(' ')?.[0] || k}: Eksik olduğu için kilit kaldırıldı.`, { icon: '⚠️', duration: 2500 });
+    });
+  }, [aktifKitapcik, getDersCevapString, kilitliDersler]);
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // ⚠️ DEVRE DIŞI: Otomatik kaydet (debounce)
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -714,6 +750,13 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
     // Cevapları temizle ve büyük harfe çevir
     const temizCevaplar = cevaplar.toUpperCase().replace(/[^ABCDE]/g, '');
+    const count = temizCevaplar.length;
+    if (count > 0 && count < ders.soruSayisi) {
+      toast(`${ders.ad.split(' ')[0]}: Eksik cevap (${count}/${ders.soruSayisi}). Kilitlenmedi, devam edebilirsiniz.`, {
+        icon: '⚠️',
+        duration: 3500,
+      });
+    }
     
     const baslangicIndex = dersBaslangicIndex(dersKodu);
 
@@ -746,7 +789,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     setDersCevaplari(prev => ({ ...prev, [aktifKitapcik]: { ...prev[aktifKitapcik], [dersKodu]: temizCevaplar.slice(0, ders.soruSayisi) } }));
     
     // Tam cevap girildiyse (aktif kitapçık için) kilitle
-    if (temizCevaplar.length >= ders.soruSayisi) {
+    if (temizCevaplar.length === ders.soruSayisi) {
       setKilitliDersler(prev => ({
         ...prev,
         [aktifKitapcik]: new Set([...prev[aktifKitapcik], dersKodu]),
@@ -784,6 +827,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
             FEN: sliced.slice(offsets.FEN, offsets.FEN + lens.FEN),
           },
         }));
+        // ✅ Sadece gerçekten 90 cevap dağıtıldıysa kilitle (bu fonksiyon 90'a göre çalışır).
         setKilitliDersler(prevLocks => ({
           ...prevLocks,
           [aktifKitapcik]: new Set(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']),
@@ -1279,7 +1323,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
                         >
                           <Check size={16} className="text-green-600" />
                           <span className="text-sm font-medium text-green-700">
-                            ✓ {ders.soruSayisi} cevap kaydedildi
+                            ✓ {kilitliCevapString.replace(/[^ABCDE]/g, '').length}/{ders.soruSayisi} cevap kaydedildi
                           </span>
                           {/* ✅ İstenen: Kilitliyken de şıklar görünsün */}
                           <span className="text-xs font-mono text-green-800 bg-white/60 px-2 py-1 rounded border border-green-200 max-w-[240px] truncate">
