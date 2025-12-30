@@ -232,6 +232,7 @@ function SonuclarContent() {
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState<ExamData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [contractWarnings, setContractWarnings] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'sira' | 'net' | 'puan'>('sira');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -246,15 +247,19 @@ function SonuclarContent() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setContractWarnings([]);
     try {
       let examData = null;
       
       if (examId) {
-        const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}`);
+        const response = await fetch(`/api/akademik-analiz/exam-results?examId=${examId}&contract=v1`);
         const data = await response.json();
         if (!response.ok) {
           setLoadError(data?.error || 'Sonuçlar getirilemedi');
-        } else if (data.exam) {
+        } else if (data?.contract?.exam) {
+          examData = data.contract.exam;
+          setContractWarnings(Array.isArray(data?.contract?.meta?.warnings) ? data.contract.meta.warnings : []);
+        } else if (data?.exam) {
           examData = data.exam;
         }
       } else {
@@ -268,9 +273,12 @@ function SonuclarContent() {
         const data = await response.json();
         
         if (response.ok && data.exams?.[0]) {
-          const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${data.exams[0].id}`);
+          const detailRes = await fetch(`/api/akademik-analiz/exam-results?examId=${data.exams[0].id}&contract=v1`);
           const detailData = await detailRes.json();
-          if (detailRes.ok && detailData.exam) {
+          if (detailRes.ok && detailData?.contract?.exam) {
+            examData = detailData.contract.exam;
+            setContractWarnings(Array.isArray(detailData?.contract?.meta?.warnings) ? detailData.contract.meta.warnings : []);
+          } else if (detailRes.ok && detailData?.exam) {
             examData = detailData.exam;
           }
         }
@@ -692,6 +700,18 @@ function SonuclarContent() {
               </table>
             </div>
           )}
+
+          {/* ✅ Contract uyarıları (non-blocking) */}
+          {contractWarnings.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="font-semibold mb-1">Uyarılar</div>
+              <ul className="list-disc pl-5 space-y-1">
+                {contractWarnings.map((w, idx) => (
+                  <li key={`${w}-${idx}`}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </motion.div>
 
         {/* Search & Filters */}
