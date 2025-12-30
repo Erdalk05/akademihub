@@ -171,8 +171,37 @@ export async function GET(req: NextRequest) {
       const studentIds = Array.from(new Set((newResults || []).map((r: any) => String(r.student_id || '')).filter(Boolean)));
       const guardiansByStudent = await buildGuardiansMap(studentIds);
 
+      // ✅ Enrichment: bazı sınavlarda exam_student_results.subject_results boş kalabiliyor.
+      // Bu durumda exam_student_analytics tablosundan (varsa) ders kırılımını doldur.
+      const hasAnySubjectResults =
+        (newResults || []).some((r: any) => r?.subject_results && Object.keys(r.subject_results || {}).length > 0);
+
+      let analyticsByStudentNo = new Map<string, any>();
+      if (!hasAnySubjectResults) {
+        const { data: aRows, error: aErr2 } = await supabase
+          .from('exam_student_analytics')
+          .select('student_no, subject_performance, subject_results')
+          .eq('exam_id', examId);
+        if (aErr2) {
+          console.warn('[Exam Results API] enrichment için exam_student_analytics okunamadı:', aErr2);
+        } else {
+          (aRows || []).forEach((r: any) => {
+            const no = String(r.student_no || '').trim();
+            if (no) analyticsByStudentNo.set(no, r);
+          });
+        }
+      }
+
       ogrenciler = (newResults || []).map((r: any, index: number) => {
-        const subj = (r.subject_results || {}) as Record<string, any>;
+        const student = (r.student || {}) as any;
+        const studentNoForEnrich = String(student.student_no || r.student_no || '').trim();
+        const enrichRow = studentNoForEnrich ? analyticsByStudentNo.get(studentNoForEnrich) : null;
+
+        const subj =
+          ((Object.keys((r.subject_results || {}) as any).length === 0 && enrichRow)
+            ? (enrichRow.subject_performance || enrichRow.subject_results || {})
+            : (r.subject_results || {})) as Record<string, any>;
+
         let dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
           dersKodu,
           dersAdi: getDersAdi(dersKodu),
@@ -188,7 +217,6 @@ export async function GET(req: NextRequest) {
         const puanRaw = (r.scaled_score ?? r.raw_score ?? null) as number | null;
         const puan = puanRaw !== null ? Math.round(Number(puanRaw) * 100) / 100 : null;
 
-        const student = (r.student || {}) as any;
         const fullName =
           String(student.full_name || '').trim() ||
           `${String(student.first_name || '').trim()} ${String(student.last_name || '').trim()}`.trim() ||

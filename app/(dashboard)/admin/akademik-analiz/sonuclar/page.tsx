@@ -277,7 +277,7 @@ function SonuclarContent() {
       }
 
       if (examData) {
-        const ogrenciler: StudentResult[] = (examData.ogrenciler || []).map((o: any, i: number) => {
+          const ogrenciler: StudentResult[] = (examData.ogrenciler || []).map((o: any, i: number) => {
           const dogru = o.toplamDogru || 0;
           const yanlis = o.toplamYanlis || 0;
           const bos = o.toplamBos || 0;
@@ -298,7 +298,10 @@ function SonuclarContent() {
             puan,
             basariOrani,
             durum: getDurum(basariOrani),
-            dersBazli: Array.isArray(o.dersBazli) ? o.dersBazli : []
+              dersBazli: Array.isArray(o.dersBazli) ? o.dersBazli : [],
+              // ✅ API zaten veli/veliler gönderiyor; UI dönüşümünde düşmesin
+              veli: o.veli ?? null,
+              veliler: Array.isArray(o.veliler) ? o.veliler : [],
           };
         });
 
@@ -827,16 +830,16 @@ function SonuclarContent() {
                           {student.sira}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 min-w-[360px]">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center text-slate-600 font-semibold">
                             {student.ogrenciAdi.charAt(0)}
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors whitespace-nowrap">
                               {student.ogrenciAdi}
                             </div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-slate-400 whitespace-nowrap">
                               No: {student.ogrenciNo}
                               {student.veli?.adSoyad ? (
                                 <span className="ml-2 text-slate-500">
