@@ -349,21 +349,46 @@ export default function OptikSablonEditor({
   // Alan güncelle
   const handleAlanGuncelle = (alanId: string, field: 'label' | 'baslangic' | 'bitis', value: string | number) => {
     if (!seciliSablon) return;
+
+    // ✅ Sadece manuel giriş: number spinner yerine text+inputMode kullanacağız.
+    // Burada da numeric alanları güvenli parse ediyoruz (sadece rakam).
+    const parseNumeric = (v: string | number): number | null => {
+      if (typeof v === 'number') {
+        if (Number.isNaN(v)) return null;
+        return Math.max(1, Math.floor(v));
+      }
+      const onlyDigits = String(v).replace(/[^\d]/g, '');
+      if (!onlyDigits) return null;
+      const n = Number(onlyDigits);
+      if (Number.isNaN(n)) return null;
+      return Math.max(1, Math.floor(n));
+    };
     
     const guncelSablonlar = sablonlar.map(s => {
       if (s.id === seciliSablonId) {
-        return {
-          ...s,
-          alanlar: s.alanlar.map(a => {
-            if (a.id === alanId) {
-              if (field === 'label') {
-                return { ...a, label: String(value).toUpperCase() };
-              }
-              return { ...a, [field]: Number(value) };
+        const updatedAlanlar = s.alanlar.map(a => {
+          if (a.id === alanId) {
+            if (field === 'label') {
+              return { ...a, label: String(value).toUpperCase() };
             }
-            return a;
-          })
-        };
+            const n = parseNumeric(value);
+            if (n === null) return a; // boş/invalid → dokunma
+            return { ...a, [field]: n };
+          }
+          return a;
+        });
+
+        // ✅ Kullanıcı sayı girince otomatik düzen: başlangıca göre sırala
+        const shouldAutoSort = field === 'baslangic' || field === 'bitis';
+        const finalAlanlar = shouldAutoSort
+          ? [...updatedAlanlar].sort((x, y) => {
+              if (x.baslangic !== y.baslangic) return x.baslangic - y.baslangic;
+              if (x.bitis !== y.bitis) return x.bitis - y.bitis;
+              return x.label.localeCompare(y.label, 'tr');
+            })
+          : updatedAlanlar;
+
+        return { ...s, alanlar: finalAlanlar };
       }
       return s;
     });
@@ -683,20 +708,24 @@ export default function OptikSablonEditor({
                       
                       {/* Başlangıç */}
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={alan.baslangic}
                         onChange={(e) => handleAlanGuncelle(alan.id, 'baslangic', e.target.value)}
                         className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded text-sm text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                        min={1}
+                        placeholder="1"
                       />
                       
                       {/* Bitiş */}
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={alan.bitis}
                         onChange={(e) => handleAlanGuncelle(alan.id, 'bitis', e.target.value)}
                         className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded text-sm text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                        min={1}
+                        placeholder="10"
                       />
                       
                       {/* Sil butonu */}
@@ -910,20 +939,30 @@ export default function OptikSablonEditor({
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Karakteri</label>
                     <input
-                      type="number"
-                      value={yeniAlanBaslangic}
-                      onChange={(e) => setYeniAlanBaslangic(Number(e.target.value))}
-                      min={1}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(yeniAlanBaslangic)}
+                      onChange={(e) => {
+                        const only = e.target.value.replace(/[^\d]/g, '');
+                        if (!only) return;
+                        setYeniAlanBaslangic(Math.max(1, Number(only)));
+                      }}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-center font-mono"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Bitiş Karakteri</label>
                     <input
-                      type="number"
-                      value={yeniAlanBitis}
-                      onChange={(e) => setYeniAlanBitis(Number(e.target.value))}
-                      min={1}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(yeniAlanBitis)}
+                      onChange={(e) => {
+                        const only = e.target.value.replace(/[^\d]/g, '');
+                        if (!only) return;
+                        setYeniAlanBitis(Math.max(1, Number(only)));
+                      }}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-center font-mono"
                     />
                   </div>
