@@ -40,6 +40,82 @@ export async function GET(req: NextRequest) {
     const toplamSoru = Number(exam.total_questions || 90);
     const wrongDiv = String(exam.exam_type || 'LGS').toUpperCase() === 'LGS' ? 3 : 4;
 
+    // ============================================================
+    // ✅ LEGACY DERS KIRILIMI ALGILAMA (PDF benzeri)
+    // ============================================================
+    // Eski tablolarda ders kırılımı JSON olarak değil, kolon olarak gelebilir.
+    // Kolon adları kuruma göre değişebildiği için çok esnek arama yapıyoruz.
+    const pickNumber = (obj: any, keys: string[]): number | null => {
+      for (const k of keys) {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== null && obj[k] !== undefined) {
+          const n = Number(obj[k]);
+          if (!Number.isNaN(n)) return n;
+        }
+      }
+      return null;
+    };
+
+    const inferDersBazliFromRow = (row: any): any[] => {
+      if (!row || typeof row !== 'object') return [];
+      const out: any[] = [];
+
+      const defs = [
+        { code: 'TUR', name: getDersAdi('TUR'), synonyms: ['tur', 'turkce', 'turkçe'] },
+        { code: 'INK', name: 'T.C. İnkılap', synonyms: ['ink', 'inkilap', 't.c', 'tc', 't.cinkilap', 'tcinkilap', 't.cinkılap'] },
+        { code: 'DIN', name: getDersAdi('DIN'), synonyms: ['din', 'dinkulturu', 'dinkültürü'] },
+        { code: 'ING', name: getDersAdi('ING'), synonyms: ['ing', 'ingilizce', 'yabanci', 'yabancidil', 'yabancı'] },
+        { code: 'MAT', name: getDersAdi('MAT'), synonyms: ['mat', 'matematik'] },
+        { code: 'FEN', name: getDersAdi('FEN'), synonyms: ['fen', 'fenbilimleri', 'fenbilgisi'] },
+      ];
+
+      for (const d of defs) {
+        const nets: string[] = [];
+        const dogru: string[] = [];
+        const yanlis: string[] = [];
+        const bos: string[] = [];
+
+        for (const s of d.synonyms) {
+          const base = s.replace(/[^a-z0-9]/gi, '').toLowerCase();
+          // Net
+          nets.push(`${base}_net`, `${base}net`, `${base}_n`, `${base}n`);
+          // Doğru
+          dogru.push(`${base}_dogru`, `${base}dogru`, `${base}_d`, `${base}d`, `${base}_correct`, `${base}correct`);
+          // Yanlış
+          yanlis.push(`${base}_yanlis`, `${base}yanlis`, `${base}_y`, `${base}y`, `${base}_wrong`, `${base}wrong`);
+          // Boş
+          bos.push(`${base}_bos`, `${base}bos`, `${base}_b`, `${base}b`, `${base}_empty`, `${base}empty`);
+        }
+
+        // Bazı dump’larda direkt kolon adı ders kodu ile olabilir
+        nets.push(`${d.code.toLowerCase()}_net`, `${d.code.toLowerCase()}net`);
+        dogru.push(`${d.code.toLowerCase()}_dogru`, `${d.code.toLowerCase()}dogru`);
+        yanlis.push(`${d.code.toLowerCase()}_yanlis`, `${d.code.toLowerCase()}yanlis`);
+        bos.push(`${d.code.toLowerCase()}_bos`, `${d.code.toLowerCase()}bos`);
+
+        const net = pickNumber(row, nets);
+        const c = pickNumber(row, dogru) ?? 0;
+        const w = pickNumber(row, yanlis) ?? 0;
+        const e = pickNumber(row, bos) ?? 0;
+
+        // Eğer hiç veri yoksa ekleme
+        if (net === null && c === 0 && w === 0 && e === 0) continue;
+
+        // Net yoksa doğru/yanlış varsa hesapla
+        const computedNet = net !== null ? net : (Number(c) - (Number(w) / wrongDiv));
+
+        out.push({
+          dersKodu: d.code,
+          dersAdi: d.name,
+          dogru: Number(c) || 0,
+          yanlis: Number(w) || 0,
+          bos: Number(e) || 0,
+          net: Math.round(Number(computedNet) * 100) / 100,
+        });
+      }
+
+      return out;
+    };
+
     // 1) NEW: exam_student_results
     const { data: newResults, error: newErr } = await supabase
       .from('exam_student_results')
@@ -97,7 +173,7 @@ export async function GET(req: NextRequest) {
 
       ogrenciler = (newResults || []).map((r: any, index: number) => {
         const subj = (r.subject_results || {}) as Record<string, any>;
-        const dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
+        let dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
           dersKodu,
           dersAdi: getDersAdi(dersKodu),
           dogru: Number((v as any)?.correct ?? 0),
@@ -105,6 +181,9 @@ export async function GET(req: NextRequest) {
           bos: Number((v as any)?.empty ?? 0),
           net: Number((v as any)?.net ?? 0),
         }));
+        if (dersBazli.length === 0) {
+          dersBazli = inferDersBazliFromRow(r);
+        }
 
         const puanRaw = (r.scaled_score ?? r.raw_score ?? null) as number | null;
         const puan = puanRaw !== null ? Math.round(Number(puanRaw) * 100) / 100 : null;
@@ -189,7 +268,7 @@ export async function GET(req: NextRequest) {
 
         ogrenciler = (analytics || []).map((r: any, index: number) => {
           const subj = (r.subject_performance || r.subject_results || {}) as Record<string, any>;
-          const dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
+          let dersBazli = Object.entries(subj).map(([dersKodu, v]) => ({
             dersKodu,
             dersAdi: getDersAdi(dersKodu),
             dogru: Number((v as any)?.correct ?? 0),
@@ -197,6 +276,9 @@ export async function GET(req: NextRequest) {
             bos: Number((v as any)?.empty ?? 0),
             net: Number((v as any)?.net ?? 0),
           }));
+          if (dersBazli.length === 0) {
+            dersBazli = inferDersBazliFromRow(r);
+          }
 
           const studentNo = String(r.student_no || '');
           const student = studentByNo.get(studentNo) || null;
@@ -310,7 +392,7 @@ export async function GET(req: NextRequest) {
               toplamPuan: typeof r.total_score === 'number' ? r.total_score : (r.total_score ? Number(r.total_score) : null),
               siralama: Number(r.general_rank || index + 1),
               sinifSira: r.class_rank || null,
-              dersBazli: [], // legacy'de ders kırılımı yoksa boş gelir
+              dersBazli: inferDersBazliFromRow(r), // legacy'de kolonlardan otomatik algıla
               percentile: null,
               veli: effectivePrimary
                 ? {
