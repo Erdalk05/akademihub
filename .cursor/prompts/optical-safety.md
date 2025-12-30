@@ -6,6 +6,15 @@ Bu dosya, AkademiHub optik sınav analiz sisteminde **sessiz yanlış sonuç** r
 
 ---
 
+## Not: Hibrit Guard ile Birlikte Kullanım
+
+Bu checklist, optik/puanlama hattı için **en üst seviye sert guard** kurallarıdır.  
+Projede ayrıca genel kapsam için `/.cursor/prompts/hybrid-guard.md` bulunur.
+
+**Öncelik kuralı**:
+- Optik/puanlama/veri yazımı konularında: Bu dosyadaki kurallar + Hibrit Guard’ın “SERT” kuralları birlikte geçerlidir.
+- **Sessiz fallback veya sessiz varsayım kesinlikle yasaktır.**
+
 ## CURSOR PROMPT (AYNEN)
 
 ```txt
