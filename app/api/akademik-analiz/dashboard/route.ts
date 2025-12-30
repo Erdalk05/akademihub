@@ -51,26 +51,59 @@ export async function GET(req: NextRequest) {
     // ========================================================================
     // 2. TÜM ÖĞRENCİ SONUÇLARI (organizasyon bazlı)
     // ========================================================================
-    const { data: allResults } = await supabase
-      .from('exam_student_results')
+    const { data: legacyResults } = await supabase
+      .from('student_exam_results')
       .select(`
         id,
         exam_id,
-        student_id,
+        student_no,
+        student_name,
+        class_name,
         total_net,
         total_correct,
         total_wrong,
         total_empty,
-        percentile,
-        subject_results,
-        student:students(id, first_name, last_name, full_name, student_no),
-        exam:exams(id, name, exam_date, total_questions, exam_type)
+        total_score,
+        general_rank,
+        created_at,
+        exam:exams(id, name, exam_date, total_questions, exam_type, organization_id)
       `)
-      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
 
-    // Type cast: Supabase join'ler tek obje döner ama TS array olarak görür
-    const results: any[] = allResults || [];
+    // exam.organization_id üzerinden filtrele
+    const filteredResults = (legacyResults || []).filter(
+      (r: any) => r.exam?.organization_id === organizationId
+    );
+
+    console.log('Filtrelenen sonuç sayısı:', filteredResults.length);
+    if (filteredResults.length > 0) {
+      console.log('İlk kayıt:', filteredResults[0]);
+    }
+
+    // UI/hesaplama kodu "exam_student_results" formatını bekliyor; burada minimal normalize ediyoruz
+    const results: any[] = (filteredResults || []).map((r: any) => ({
+      id: r.id,
+      exam_id: r.exam_id,
+      student_id: null,
+      total_net: r.total_net ?? 0,
+      total_correct: r.total_correct ?? 0,
+      total_wrong: r.total_wrong ?? 0,
+      total_empty: r.total_empty ?? 0,
+      percentile: 0,
+      subject_results: {}, // legacy tabloda ders kırılımı yok → boş obje
+      student: {
+        id: null,
+        first_name: '',
+        last_name: '',
+        full_name: r.student_name || '',
+        class_name: r.class_name || '',
+        student_no: r.student_no || '',
+      },
+      exam: r.exam,
+    }));
+
+    console.log('Results sayısı:', results.length);
+    console.log('Toplam net:', results.reduce((sum, r) => sum + r.total_net, 0));
 
     // ========================================================================
     // 3. TEMEL METRİKLER
