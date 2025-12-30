@@ -16,8 +16,14 @@ export async function GET(req: NextRequest) {
     const examId = searchParams.get('examId');
     const contract = (searchParams.get('contract') || '').toLowerCase(); // 'v1'
     
+    // ✅ Bu endpoint sadece contract=v1 modunda çalışır (UI kırılmasın diye açıkça şart koşuyoruz)
+    if (contract !== 'v1') {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+    }
+
+    // ✅ Guard: examId yoksa 404 dön (sessiz fallback yasak)
     if (!examId) {
-      return NextResponse.json({ error: 'examId gerekli' }, { status: 400 });
+      return NextResponse.json({ error: 'examId gerekli' }, { status: 404 });
     }
     
     // Sınav bilgilerini getir
@@ -527,27 +533,24 @@ export async function GET(req: NextRequest) {
       ogrenciler,
     };
 
-    if (contract === 'v1') {
-      // ✅ Mega JSON Contract v1
-      return NextResponse.json({
-        contract: {
-          version: 'v1',
-          exam: examPayload,
-          meta: {
-            generatedAt: new Date().toISOString(),
-            sources: {
-              tables: Array.from(metaTables),
-              note: `resultSource=${resultSource}`,
-            },
-            warnings: metaWarnings,
-            guards: metaGuards,
-          },
-        },
-      });
-    }
+    // ✅ Mega JSON Contract v1 (zorunlu alanlar: contract + meta.sources.tables + meta.warnings)
+    const meta = {
+      generatedAt: new Date().toISOString(),
+      sources: {
+        tables: Array.from(metaTables),
+        note: `resultSource=${resultSource}`,
+      },
+      warnings: metaWarnings,
+      guards: metaGuards,
+    };
 
-    // ✅ Backward compatible response
-    return NextResponse.json({ exam: examPayload });
+    return NextResponse.json({
+      contract: {
+        version: 'v1',
+        exam: examPayload,
+      },
+      meta,
+    });
     
   } catch (error: any) {
     console.error('[Exam Results API] Beklenmeyen hata:', error);
