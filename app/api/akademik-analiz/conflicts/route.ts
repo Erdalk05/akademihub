@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       .from('exam_validation_errors')
       .select(`
         *,
-        student:students(id, student_number, first_name, last_name),
+        student:students(id, student_no, first_name, last_name),
         exam:exams(id, name)
       `)
       .order('created_at', { ascending: false })

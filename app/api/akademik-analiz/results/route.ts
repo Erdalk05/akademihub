@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       .from('exam_student_results')
       .select(`
         *,
-        student:students(id, student_number, first_name, last_name, class_name),
+        student:students(id, student_no, first_name, last_name, class_name),
         exam:exams(id, name, exam_date, total_questions)
       `)
       .range(offset, offset + limit - 1);

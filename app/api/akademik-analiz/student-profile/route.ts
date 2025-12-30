@@ -31,14 +31,15 @@ export async function GET(req: NextRequest) {
     if (studentId) {
       const { data } = await supabase
         .from('students')
-        .select('id, student_no, student_number, first_name, last_name, full_name, class_name, tc_no, photo_url, organization_id')
+        // ✅ Guard: DB şemasında olmayan kolonlara dokunma (student_number yok).
+        .select('id, student_no, first_name, last_name, full_name, class_name, tc_no, photo_url, organization_id')
         .eq('id', studentId)
         .single();
       student = data || null;
     } else {
       let q = supabase
         .from('students')
-        .select('id, student_no, student_number, first_name, last_name, full_name, class_name, tc_no, photo_url, organization_id')
+        .select('id, student_no, first_name, last_name, full_name, class_name, tc_no, photo_url, organization_id')
         .eq('student_no', String(studentNo || '').trim());
 
       if (organizationId) {
@@ -247,7 +248,7 @@ export async function GET(req: NextRequest) {
     });
 
     const profil = {
-      ogrenciNo: String(student.student_no || student.student_number || ''),
+      ogrenciNo: String(student.student_no || ''),
       ogrenciAdi: displayName,
       sinif: String(student.class_name || ''),
       okul: '',
