@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const examId = searchParams.get('examId');
+    const contract = (searchParams.get('contract') || '').toLowerCase(); // 'v1'
     
     if (!examId) {
       return NextResponse.json({ error: 'examId gerekli' }, { status: 400 });
@@ -39,6 +40,9 @@ export async function GET(req: NextRequest) {
     // 3) student_exam_results (legacy)
     const toplamSoru = Number(exam.total_questions || 90);
     const wrongDiv = String(exam.exam_type || 'LGS').toUpperCase() === 'LGS' ? 3 : 4;
+    const metaWarnings: string[] = [];
+    const metaGuards: Array<{ level: 'INFO' | 'WARN' | 'ERROR'; area: string; message: string; detail?: any; at: string }> = [];
+    const metaTables = new Set<string>(['exams']);
 
     // ============================================================
     // ✅ LEGACY DERS KIRILIMI ALGILAMA (PDF benzeri)
@@ -110,6 +114,7 @@ export async function GET(req: NextRequest) {
           yanlis: Number(w) || 0,
           bos: Number(e) || 0,
           net: Math.round(Number(computedNet) * 100) / 100,
+          source: 'LEGACY_COLS',
         });
       }
 
@@ -125,6 +130,7 @@ export async function GET(req: NextRequest) {
 
     if (newErr) {
       console.warn('[Exam Results API] exam_student_results okunamadı:', newErr);
+      metaWarnings.push('exam_student_results okunamadı (fallback devreye girdi).');
     }
 
     // Yardımcı: guardians map (student_id -> guardians[])
@@ -166,10 +172,14 @@ export async function GET(req: NextRequest) {
     };
 
     let ogrenciler: any[] = [];
+    let resultSource: 'EXAM_STUDENT_RESULTS' | 'EXAM_STUDENT_ANALYTICS' | 'STUDENT_EXAM_RESULTS' | 'NONE' = 'NONE';
 
     if ((newResults || []).length > 0) {
+      resultSource = 'EXAM_STUDENT_RESULTS';
+      metaTables.add('exam_student_results');
       const studentIds = Array.from(new Set((newResults || []).map((r: any) => String(r.student_id || '')).filter(Boolean)));
       const guardiansByStudent = await buildGuardiansMap(studentIds);
+      if (studentIds.length > 0) metaTables.add('guardians');
 
       // ✅ Enrichment: bazı sınavlarda exam_student_results.subject_results boş kalabiliyor.
       // Bu durumda exam_student_analytics tablosundan (varsa) ders kırılımını doldur.
@@ -178,12 +188,15 @@ export async function GET(req: NextRequest) {
 
       let analyticsByStudentNo = new Map<string, any>();
       if (!hasAnySubjectResults) {
+        metaWarnings.push('exam_student_results.subject_results boş → exam_student_analytics ile ders kırılımı zenginleştirildi.');
+        metaTables.add('exam_student_analytics');
         const { data: aRows, error: aErr2 } = await supabase
           .from('exam_student_analytics')
           .select('student_no, subject_performance, subject_results')
           .eq('exam_id', examId);
         if (aErr2) {
           console.warn('[Exam Results API] enrichment için exam_student_analytics okunamadı:', aErr2);
+          metaWarnings.push('exam_student_analytics okunamadı (ders kırılımı zenginleştirme başarısız olabilir).');
         } else {
           (aRows || []).forEach((r: any) => {
             const no = String(r.student_no || '').trim();
@@ -196,6 +209,7 @@ export async function GET(req: NextRequest) {
         const student = (r.student || {}) as any;
         const studentNoForEnrich = String(student.student_no || r.student_no || '').trim();
         const enrichRow = studentNoForEnrich ? analyticsByStudentNo.get(studentNoForEnrich) : null;
+        const usedEnrichedSubject = !!(enrichRow && Object.keys((r.subject_results || {}) as any).length === 0);
 
         const subj =
           ((Object.keys((r.subject_results || {}) as any).length === 0 && enrichRow)
@@ -209,6 +223,7 @@ export async function GET(req: NextRequest) {
           yanlis: Number((v as any)?.wrong ?? 0),
           bos: Number((v as any)?.empty ?? 0),
           net: Number((v as any)?.net ?? 0),
+          source: usedEnrichedSubject ? 'ANALYTICS' : 'SUBJECT_RESULTS',
         }));
         if (dersBazli.length === 0) {
           dersBazli = inferDersBazliFromRow(r);
@@ -268,6 +283,7 @@ export async function GET(req: NextRequest) {
                 telefon: effectivePrimary.phone || studentParentPhone || null,
                 telefon2: effectivePrimary.phone2 || null,
                 email: effectivePrimary.email || null,
+                source: primaryGuardian ? 'GUARDIANS_TABLE' : (fallbackVeli ? 'STUDENTS_PARENT_FIELDS' : 'UNKNOWN'),
               }
             : null,
           veliler: mergedGuardians.map(g => ({
@@ -277,6 +293,7 @@ export async function GET(req: NextRequest) {
             telefon2: g.phone2 || null,
             email: g.email || null,
             tip: g.guardian_type || null,
+            source: (fallbackVeli && g === fallbackVeli) ? 'STUDENTS_PARENT_FIELDS' : 'GUARDIANS_TABLE',
           })),
         };
       });
@@ -289,10 +306,14 @@ export async function GET(req: NextRequest) {
         .order('rank_in_exam', { ascending: true });
 
       if (!aErr && (analytics || []).length > 0) {
+        resultSource = 'EXAM_STUDENT_ANALYTICS';
+        metaTables.add('exam_student_analytics');
         const studentNos = Array.from(new Set((analytics || []).map((r: any) => String(r.student_no || '')).filter(Boolean)));
         const studentByNo = await mapStudentNoToId(studentNos);
         const studentIds = Array.from(new Set(Array.from(studentByNo.values()).map((s: any) => String(s.id))));
         const guardiansByStudent = await buildGuardiansMap(studentIds);
+        if (studentNos.length > 0) metaTables.add('students');
+        if (studentIds.length > 0) metaTables.add('guardians');
 
         ogrenciler = (analytics || []).map((r: any, index: number) => {
           const subj = (r.subject_performance || r.subject_results || {}) as Record<string, any>;
@@ -303,6 +324,7 @@ export async function GET(req: NextRequest) {
             yanlis: Number((v as any)?.wrong ?? 0),
             bos: Number((v as any)?.empty ?? 0),
             net: Number((v as any)?.net ?? 0),
+            source: 'ANALYTICS',
           }));
           if (dersBazli.length === 0) {
             dersBazli = inferDersBazliFromRow(r);
@@ -354,6 +376,7 @@ export async function GET(req: NextRequest) {
                   telefon: effectivePrimary.phone || studentParentPhone || null,
                   telefon2: effectivePrimary.phone2 || null,
                   email: effectivePrimary.email || null,
+                  source: primaryGuardian ? 'GUARDIANS_TABLE' : (fallbackVeli ? 'STUDENTS_PARENT_FIELDS' : 'UNKNOWN'),
                 }
               : null,
             veliler: mergedGuardians.map(g => ({
@@ -363,6 +386,7 @@ export async function GET(req: NextRequest) {
               telefon2: g.phone2 || null,
               email: g.email || null,
               tip: g.guardian_type || null,
+              source: (fallbackVeli && g === fallbackVeli) ? 'STUDENTS_PARENT_FIELDS' : 'GUARDIANS_TABLE',
             })),
           };
         });
@@ -376,11 +400,16 @@ export async function GET(req: NextRequest) {
 
         if (lErr) {
           console.warn('[Exam Results API] student_exam_results okunamadı:', lErr);
+          metaWarnings.push('student_exam_results okunamadı (son fallback başarısız).');
         } else {
+          resultSource = 'STUDENT_EXAM_RESULTS';
+          metaTables.add('student_exam_results');
           const studentNos = Array.from(new Set((legacy || []).map((r: any) => String(r.student_no || '')).filter(Boolean)));
           const studentByNo = await mapStudentNoToId(studentNos);
           const studentIds = Array.from(new Set(Array.from(studentByNo.values()).map((s: any) => String(s.id))));
           const guardiansByStudent = await buildGuardiansMap(studentIds);
+          if (studentNos.length > 0) metaTables.add('students');
+          if (studentIds.length > 0) metaTables.add('guardians');
 
           ogrenciler = (legacy || []).map((r: any, index: number) => {
             const studentNo = String(r.student_no || '');
@@ -429,6 +458,7 @@ export async function GET(req: NextRequest) {
                     telefon: effectivePrimary.phone || studentParentPhone || null,
                     telefon2: effectivePrimary.phone2 || null,
                     email: effectivePrimary.email || null,
+                    source: primaryGuardian ? 'GUARDIANS_TABLE' : (fallbackVeli ? 'STUDENTS_PARENT_FIELDS' : 'UNKNOWN'),
                   }
                 : null,
               veliler: mergedGuardians.map(g => ({
@@ -438,6 +468,7 @@ export async function GET(req: NextRequest) {
                 telefon2: g.phone2 || null,
                 email: g.email || null,
                 tip: g.guardian_type || null,
+                source: (fallbackVeli && g === fallbackVeli) ? 'STUDENTS_PARENT_FIELDS' : 'GUARDIANS_TABLE',
               })),
             };
           });
@@ -467,6 +498,7 @@ export async function GET(req: NextRequest) {
       ortYanlis: t.sayi > 0 ? Math.round((t.yanlis / t.sayi) * 100) / 100 : 0,
       ortBos: t.sayi > 0 ? Math.round((t.bos / t.sayi) * 100) / 100 : 0,
       ortNet: t.sayi > 0 ? Math.round((t.net / t.sayi) * 100) / 100 : 0,
+      source: 'AGG_FROM_STUDENT_ROWS',
     }));
     
     // İstatistikleri hesapla
@@ -480,22 +512,42 @@ export async function GET(req: NextRequest) {
       : null;
     const enYuksekPuan = puanli.length > 0 ? Math.max(...puanli.map((o: any) => o.toplamPuan || 0)) : null;
     
-    return NextResponse.json({
-      exam: {
-        id: exam.id,
-        ad: exam.name,
-        tarih: exam.exam_date,
-        tip: exam.exam_type || 'LGS',
-        toplamSoru,
-        toplamOgrenci,
-        ortalamaNet: parseFloat(ortalamaNet.toFixed(2)),
-        ortalamaPuan: ortalamaPuan !== null ? Math.round(ortalamaPuan * 100) / 100 : null,
-        enYuksekPuan,
-        wrongPenaltyDivisor: wrongDiv,
-        dersOrtalamalari,
-        ogrenciler
-      }
-    });
+    const examPayload = {
+      id: exam.id,
+      ad: exam.name,
+      tarih: exam.exam_date,
+      tip: exam.exam_type || 'LGS',
+      toplamSoru,
+      toplamOgrenci,
+      ortalamaNet: parseFloat(ortalamaNet.toFixed(2)),
+      ortalamaPuan: ortalamaPuan !== null ? Math.round(ortalamaPuan * 100) / 100 : null,
+      enYuksekPuan,
+      wrongPenaltyDivisor: wrongDiv,
+      dersOrtalamalari,
+      ogrenciler,
+    };
+
+    if (contract === 'v1') {
+      // ✅ Mega JSON Contract v1
+      return NextResponse.json({
+        contract: {
+          version: 'v1',
+          exam: examPayload,
+          meta: {
+            generatedAt: new Date().toISOString(),
+            sources: {
+              tables: Array.from(metaTables),
+              note: `resultSource=${resultSource}`,
+            },
+            warnings: metaWarnings,
+            guards: metaGuards,
+          },
+        },
+      });
+    }
+
+    // ✅ Backward compatible response
+    return NextResponse.json({ exam: examPayload });
     
   } catch (error: any) {
     console.error('[Exam Results API] Beklenmeyen hata:', error);
