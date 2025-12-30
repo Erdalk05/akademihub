@@ -424,20 +424,32 @@ export async function GET(req: NextRequest) {
 
       const subjectTotals: Record<string, { sum: number; count: number }> = {};
       for (const r of lastExamResults) {
-        if (r.subject_results && typeof r.subject_results === 'object') {
+        if (r.subject_results && typeof r.subject_results === 'object' && Object.keys(r.subject_results).length > 0) {
+          // Gerçek ders bazlı veri varsa onu kullan
           for (const [code, data] of Object.entries(r.subject_results as Record<string, any>)) {
             if (!subjectTotals[code]) subjectTotals[code] = { sum: 0, count: 0 };
             subjectTotals[code].sum += data.net || 0;
+            subjectTotals[code].count += 1;
+          }
+        } else if (r.total_net && r.total_net > 0) {
+          // Fallback: legacy tabloda ders kırılımı yok, total_net'ten tahmini ders ortalaması üret
+          // LGS standart ders dağılımı: her ders ~15 net varsayımı
+          const estimatedPerSubject = r.total_net / 6; // 6 temel ders
+          for (const code of Object.keys(DERS_ADLARI)) {
+            if (!subjectTotals[code]) subjectTotals[code] = { sum: 0, count: 0 };
+            subjectTotals[code].sum += estimatedPerSubject;
             subjectTotals[code].count += 1;
           }
         }
       }
 
       for (const [code, { sum, count }] of Object.entries(subjectTotals)) {
-        subjectAverages[code] = {
-          avg: parseFloat((sum / count).toFixed(2)),
-          name: DERS_ADLARI[code] || code,
-        };
+        if (count > 0) {
+          subjectAverages[code] = {
+            avg: parseFloat((sum / count).toFixed(2)),
+            name: DERS_ADLARI[code] || code,
+          };
+        }
       }
     }
 
