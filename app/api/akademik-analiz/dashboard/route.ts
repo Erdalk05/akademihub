@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         total_empty,
         percentile,
         subject_results,
-        student:students(id, first_name, last_name, full_name, class_name, student_no),
+        student:students(id, first_name, last_name, full_name, student_no),
         exam:exams(id, name, exam_date, total_questions, exam_type)
       `)
       .eq('organization_id', organizationId)
