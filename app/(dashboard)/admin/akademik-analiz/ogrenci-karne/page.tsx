@@ -18,7 +18,7 @@ import {
   ChevronRight, LayoutGrid, List, RefreshCw, FileText, BookMarked
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { KarneDownloadButton, generateDemoDetayliKarne } from '@/lib/sinavlar/pdf';
+import { KarneDownloadButton, createKarneFromStudentData } from '@/lib/sinavlar/pdf';
 
 // =============================================================================
 // TYPES
@@ -56,6 +56,7 @@ interface OgrenciProfil {
   sinif: string;
   okul: string;
   sinavlar: Sinav[];
+  photoUrl?: string | null;
 }
 
 type ViewMode = 'genel' | 'dersler' | 'sinavlar' | 'kazanimlar' | 'oneriler';
@@ -571,9 +572,9 @@ const DersBazliGelisimTab = ({ profil }: { profil: OgrenciProfil }) => {
                   </div>
                   <div className="relative h-full flex items-end justify-around gap-2 pb-8">
                     {ders.sinavVerileri.map((sv: any, i: number) => {
-                      const height = (sv.net / ders.soruSayisi) * 100;
+                      const height = ((Number(sv.net) || 0) / (Number(ders.soruSayisi) || 1)) * 100;
                       const prev = i > 0 ? ders.sinavVerileri[i - 1] : null;
-                      const trend = prev ? sv.net - prev.net : 0;
+                      const trend = prev ? (Number(sv.net) || 0) - (Number(prev.net) || 0) : 0;
                       
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center group">
@@ -919,72 +920,61 @@ function OgrenciKarneContent() {
   const router = useRouter();
   const examId = searchParams.get('examId');
   const studentNo = searchParams.get('studentNo');
+  const studentId = searchParams.get('studentId');
   const { currentOrganization } = useOrganizationStore();
   
   const [loading, setLoading] = useState(true);
   const [profil, setProfil] = useState<OgrenciProfil | null>(null);
   const [activeTab, setActiveTab] = useState<ViewMode>('genel');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      // Demo data - gerçek implementasyonda tüm sınavlar API'den gelecek
-      const demoSinavlar: Sinav[] = [
-        { id: '1', sinavAdi: 'Deneme 1', tarih: '2025-09-15', tip: 'LGS', toplamDogru: 25, toplamYanlis: 40, toplamBos: 25, toplamNet: 11.67, toplamPuan: 58, sira: 45, toplamOgrenci: 73, dersler: [
-          { dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, dogru: 8, yanlis: 8, bos: 4, net: 5.33, basariOrani: 40 },
-          { dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, dogru: 4, yanlis: 10, bos: 6, net: 0.67, basariOrani: 20 },
-          { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, dogru: 5, yanlis: 8, bos: 7, net: 2.33, basariOrani: 25 },
-          { dersKodu: 'SOS', dersAdi: 'T.C. İnkılap', soruSayisi: 10, dogru: 3, yanlis: 5, bos: 2, net: 1.33, basariOrani: 30 },
-          { dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, dogru: 3, yanlis: 4, bos: 3, net: 1.67, basariOrani: 30 },
-          { dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-        ]},
-        { id: '2', sinavAdi: 'Deneme 2', tarih: '2025-10-15', tip: 'LGS', toplamDogru: 30, toplamYanlis: 35, toplamBos: 25, toplamNet: 18.33, toplamPuan: 92, sira: 35, toplamOgrenci: 73, dersler: [
-          { dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, dogru: 10, yanlis: 6, bos: 4, net: 8.00, basariOrani: 50 },
-          { dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, dogru: 6, yanlis: 8, bos: 6, net: 3.33, basariOrani: 30 },
-          { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, dogru: 6, yanlis: 7, bos: 7, net: 3.67, basariOrani: 30 },
-          { dersKodu: 'SOS', dersAdi: 'T.C. İnkılap', soruSayisi: 10, dogru: 4, yanlis: 4, bos: 2, net: 2.67, basariOrani: 40 },
-          { dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-          { dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-        ]},
-        { id: '3', sinavAdi: 'Deneme 3', tarih: '2025-11-15', tip: 'LGS', toplamDogru: 35, toplamYanlis: 30, toplamBos: 25, toplamNet: 25.00, toplamPuan: 125, sira: 20, toplamOgrenci: 73, dersler: [
-          { dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, dogru: 12, yanlis: 4, bos: 4, net: 10.67, basariOrani: 60 },
-          { dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, dogru: 8, yanlis: 6, bos: 6, net: 6.00, basariOrani: 40 },
-          { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, dogru: 7, yanlis: 6, bos: 7, net: 5.00, basariOrani: 35 },
-          { dersKodu: 'SOS', dersAdi: 'T.C. İnkılap', soruSayisi: 10, dogru: 4, yanlis: 4, bos: 2, net: 2.67, basariOrani: 40 },
-          { dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-          { dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-        ]},
-        { id: '4', sinavAdi: 'Deneme 4', tarih: '2025-12-01', tip: 'LGS', toplamDogru: 40, toplamYanlis: 28, toplamBos: 22, toplamNet: 30.67, toplamPuan: 153, sira: 10, toplamOgrenci: 73, dersler: [
-          { dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, dogru: 14, yanlis: 3, bos: 3, net: 13.00, basariOrani: 70 },
-          { dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, dogru: 10, yanlis: 5, bos: 5, net: 8.33, basariOrani: 50 },
-          { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, dogru: 8, yanlis: 5, bos: 7, net: 6.33, basariOrani: 40 },
-          { dersKodu: 'SOS', dersAdi: 'T.C. İnkılap', soruSayisi: 10, dogru: 4, yanlis: 5, bos: 1, net: 2.33, basariOrani: 40 },
-          { dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-          { dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, dogru: 2, yanlis: 5, bos: 3, net: 0.33, basariOrani: 20 },
-        ]},
-        { id: '5', sinavAdi: 'DENEME', tarih: '2025-12-26', tip: 'LGS', toplamDogru: 21, toplamYanlis: 34, toplamBos: 35, toplamNet: 9.67, toplamPuan: 48, sira: 1, toplamOgrenci: 73, dersler: [
-          { dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, dogru: 5, yanlis: 8, bos: 7, net: 2.33, basariOrani: 25 },
-          { dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, dogru: 4, yanlis: 7, bos: 9, net: 1.67, basariOrani: 20 },
-          { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, dogru: 5, yanlis: 6, bos: 9, net: 3.00, basariOrani: 25 },
-          { dersKodu: 'SOS', dersAdi: 'T.C. İnkılap', soruSayisi: 10, dogru: 3, yanlis: 5, bos: 2, net: 1.33, basariOrani: 30 },
-          { dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, dogru: 2, yanlis: 4, bos: 4, net: 0.67, basariOrani: 20 },
-          { dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, dogru: 2, yanlis: 4, bos: 4, net: 0.67, basariOrani: 20 },
-        ]},
-      ];
+      // 🔴 Guard: öğrenci parametresi olmadan profil gösterme (sessiz varsayım yok)
+      if (!studentId && !studentNo) {
+        setLoadError('Öğrenci bulunamadı: studentId/studentNo parametresi eksik.');
+        setProfil(null);
+        return;
+      }
 
+      const qs = new URLSearchParams();
+      if (studentId) qs.set('studentId', studentId);
+      if (studentNo) qs.set('studentNo', studentNo);
+      if (currentOrganization?.id) qs.set('organizationId', currentOrganization.id);
+      if (examId) qs.set('examId', examId);
+
+      const res = await fetch(`/api/akademik-analiz/student-profile?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setLoadError(json?.error || 'Öğrenci profili getirilemedi');
+        setProfil(null);
+        return;
+      }
+
+      if (!json?.profil) {
+        setLoadError('Öğrenci profili formatı beklenen şekilde değil (profil yok).');
+        setProfil(null);
+        return;
+      }
+
+      // API'den gelen hazır profil (gerçek veri)
       setProfil({
-        ogrenciNo: studentNo || '00243',
-        ogrenciAdi: 'Beşorak Berrak',
-        sinif: '8B',
-        okul: currentOrganization?.name || 'Dikmen Çözüm Kurs',
-        sinavlar: demoSinavlar
+        ogrenciNo: json.profil.ogrenciNo || studentNo || '',
+        ogrenciAdi: json.profil.ogrenciAdi || 'Bilinmeyen',
+        sinif: json.profil.sinif || '',
+        okul: currentOrganization?.name || '',
+        sinavlar: Array.isArray(json.profil.sinavlar) ? json.profil.sinavlar : [],
+        photoUrl: json.profil.photo_url ?? json.student?.photo_url ?? null,
       });
     } catch (error) {
       console.error('Veri yüklenirken hata:', error);
+      setLoadError((error as any)?.message || 'Veri yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
-  }, [studentNo, currentOrganization?.name]);
+  }, [studentId, studentNo, currentOrganization?.id, currentOrganization?.name, examId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -999,7 +989,30 @@ function OgrenciKarneContent() {
     );
   }
 
-  if (!profil) return null;
+  if (!profil) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-lg w-full">
+          <div className="text-lg font-bold text-slate-800 mb-2">Öğrenci Profili Yüklenemedi</div>
+          <div className="text-sm text-slate-600">{loadError || 'Bilinmeyen hata'}</div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
+            >
+              Geri
+            </button>
+            <button
+              onClick={loadData}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Yeniden Dene
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
@@ -1012,9 +1025,17 @@ function OgrenciKarneContent() {
                 <ArrowLeft size={20} className="text-slate-600" />
               </button>
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-emerald-200">
-                  {profil.ogrenciAdi.charAt(0)}
-                </div>
+                {profil.photoUrl ? (
+                  <img
+                    src={profil.photoUrl}
+                    alt={profil.ogrenciAdi}
+                    className="w-14 h-14 rounded-2xl object-cover shadow-lg border border-emerald-200"
+                  />
+                ) : (
+                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-emerald-200">
+                    {profil.ogrenciAdi.charAt(0)}
+                  </div>
+                )}
                 <div>
                   <h1 className="text-xl font-bold text-slate-800">{profil.ogrenciAdi}</h1>
                   <p className="text-sm text-slate-500">No: {profil.ogrenciNo} • {profil.sinif} • {profil.sinavlar.length} Sınav</p>
@@ -1029,12 +1050,60 @@ function OgrenciKarneContent() {
                 <Printer size={18} />
               </button>
               {/* PDF İndirme Butonu */}
-              <KarneDownloadButton
-                ogrenciAdi={profil.ogrenciAdi}
-                detayliKarneData={generateDemoDetayliKarne()}
-                size="md"
-                variant="primary"
-              />
+              {(() => {
+                // examId varsa onu, yoksa son sınavı PDF’e bas
+                const target =
+                  (examId ? profil.sinavlar.find(s => String(s.id) === String(examId)) : null) ||
+                  profil.sinavlar[profil.sinavlar.length - 1] ||
+                  null;
+
+                if (!target) {
+                  return null;
+                }
+
+                const detayli = createKarneFromStudentData(
+                  {
+                    id: studentId || profil.ogrenciNo,
+                    ogrenciNo: profil.ogrenciNo,
+                    ogrenciAdi: profil.ogrenciAdi,
+                    sinif: profil.sinif,
+                    kitapcik: 'A',
+                  },
+                  {
+                    ad: target.sinavAdi,
+                    alan: target.tip,
+                    tarih: target.tarih,
+                  },
+                  (target.dersler || []).map(d => ({
+                    testAdi: d.dersAdi,
+                    dersKodu: d.dersKodu,
+                    soruSayisi: d.soruSayisi,
+                    dogru: d.dogru,
+                    yanlis: d.yanlis,
+                    bos: d.bos,
+                    net: d.net,
+                    basariYuzdesi: d.basariOrani,
+                  })),
+                  {
+                    genel: target.sira || undefined,
+                    sinif: undefined,
+                    subeKisi: target.toplamOgrenci || undefined,
+                    okulKisi: target.toplamOgrenci || undefined,
+                    subeOrtalama: undefined,
+                    okulOrtalama: undefined,
+                  },
+                  Number(target.toplamPuan || 0),
+                );
+
+                return (
+                  <KarneDownloadButton
+                    ogrenciAdi={profil.ogrenciAdi}
+                    detayliKarneData={detayli}
+                    size="md"
+                    variant="primary"
+                  />
+                );
+              })()}
             </div>
           </div>
         </div>

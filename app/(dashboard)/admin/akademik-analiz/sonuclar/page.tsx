@@ -43,6 +43,7 @@ interface StudentResult {
   ogrenciAdi: string;
   sinif?: string;
   kitapcik?: string;
+  studentId?: string | null;
   dogru: number;
   yanlis: number;
   bos: number;
@@ -299,6 +300,7 @@ function SonuclarContent() {
             ogrenciAdi: o.ogrenciAdi || 'Bilinmeyen',
             sinif: o.sinifNo || '8',
             kitapcik: o.kitapcik || 'A',
+            studentId: o.studentId ?? null,
             dogru,
             yanlis,
             bos,
@@ -911,7 +913,13 @@ function SonuclarContent() {
                             {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                           </button>
                           <button
-                            onClick={() => router.push(`/admin/akademik-analiz/ogrenci-karne?examId=${exam.id}&studentNo=${student.ogrenciNo}`)}
+                            onClick={() => {
+                              const qs = new URLSearchParams();
+                              qs.set('examId', exam.id);
+                              if (student.studentId) qs.set('studentId', String(student.studentId));
+                              qs.set('studentNo', String(student.ogrenciNo));
+                              router.push(`/admin/akademik-analiz/ogrenci-karne?${qs.toString()}`);
+                            }}
                             className="p-2 hover:bg-emerald-100 rounded-xl transition-colors text-slate-600 hover:text-emerald-700"
                             title="Karneyi görüntüle"
                           >

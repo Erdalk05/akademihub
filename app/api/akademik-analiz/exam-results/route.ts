@@ -269,6 +269,7 @@ export async function GET(req: NextRequest) {
 
         return {
           id: r.id,
+          studentId: sid,
           ogrenciNo: String(student.student_no || r.student_no || ''),
           ogrenciAdi: fullName,
           sinifNo: student.class_name || student.enrolled_class || student.class || r.class_name || null,
@@ -362,6 +363,7 @@ export async function GET(req: NextRequest) {
 
           return {
             id: r.id,
+            studentId: sid || null,
             ogrenciNo: studentNo,
             ogrenciAdi: String(r.student_name || student?.full_name || '').trim() || 'Bilinmeyen',
             sinifNo: String(r.class_name || student?.class_name || student?.enrolled_class || ''),
@@ -444,6 +446,7 @@ export async function GET(req: NextRequest) {
 
             return {
               id: r.id,
+              studentId: sid || null,
               ogrenciNo: studentNo,
               ogrenciAdi: String(r.student_name || student?.full_name || '').trim() || 'Bilinmeyen',
               sinifNo: String(r.class_name || student?.class_name || student?.enrolled_class || ''),
