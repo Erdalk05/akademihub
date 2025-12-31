@@ -914,11 +914,9 @@ function SonuclarContent() {
                           </button>
                           <button
                             onClick={() => {
-                              const qs = new URLSearchParams();
-                              qs.set('examId', exam.id);
-                              if (student.studentId) qs.set('studentId', String(student.studentId));
-                              qs.set('studentNo', String(student.ogrenciNo));
-                              router.push(`/admin/akademik-analiz/ogrenci-karne?${qs.toString()}`);
+                              if (student.studentId) {
+                                router.push(`/admin/akademik-analiz/ogrenci-karne?studentId=${student.studentId}&examId=${exam.id}`);
+                              }
                             }}
                             className="p-2 hover:bg-emerald-100 rounded-xl transition-colors text-slate-600 hover:text-emerald-700"
                             title="Karneyi görüntüle"

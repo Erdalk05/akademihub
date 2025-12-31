@@ -1132,10 +1132,9 @@ export default function AkademikAnalizDashboard() {
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => {
-                                  const qs = new URLSearchParams();
-                                  if (student.studentId) qs.set('studentId', student.studentId);
-                                  qs.set('studentNo', student.studentNo);
-                                  router.push(`/admin/akademik-analiz/ogrenci-karne?${qs.toString()}`);
+                                  if (student.studentId) {
+                                    router.push(`/admin/akademik-analiz/ogrenci-karne?studentId=${student.studentId}`);
+                                  }
                                 }}
                                 className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
                                 title="Karneyi Görüntüle"
