@@ -12,6 +12,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -50,6 +52,7 @@ export default function DashboardV2() {
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [gradeLevel, setGradeLevel] = useState<string>('8');
   const [compareWith, setCompareWith] = useState<'previous' | 'average' | ''>('');
+  const [trendWindow, setTrendWindow] = useState<number>(5);
   const [availableExams, setAvailableExams] = useState<Array<{ id: string; name: string; date: string }>>([]);
 
   // ========================================================================
@@ -104,6 +107,7 @@ export default function DashboardV2() {
         params.set('examId', selectedExamId);
         params.set('gradeLevel', gradeLevel);
         if (compareWith) params.set('compareWith', compareWith);
+        if (trendWindow > 0) params.set('trendWindow', String(trendWindow));
 
         const response = await fetch(`/api/v2/exam-analytics?${params.toString()}`);
         const result = await response.json();
@@ -122,7 +126,7 @@ export default function DashboardV2() {
     };
 
     fetchAnalytics();
-  }, [selectedExamId, gradeLevel, compareWith]);
+  }, [selectedExamId, gradeLevel, compareWith, trendWindow]);
 
   // ========================================================================
   // RENDER: LOADING
@@ -166,6 +170,12 @@ export default function DashboardV2() {
     subject: subj.subjectName,
     value: subj.successRate,
   }));
+
+  const trendChartData = data.trends?.lastExams.map(point => ({
+    name: point.examName.length > 15 ? point.examName.slice(0, 15) + '...' : point.examName,
+    net: point.averageNet,
+    date: new Date(point.examDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+  })) || [];
 
   // ========================================================================
   // RENDER: MAIN DASHBOARD
@@ -318,6 +328,44 @@ export default function DashboardV2() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* BLOCK 2.5 - TIME DIMENSION (V2.1) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4">Zaman İçinde Gidişat</h3>
+          {trendChartData.length > 1 ? (
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    formatter={(value: number) => [`${value} Net`, 'Ortalama']}
+                    labelFormatter={(label) => `Sınav: ${label}`}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="net" 
+                    name="Ortalama Net" 
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <div className="text-center">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">Trend için yeterli sınav yok</p>
+                <p className="text-slate-400 text-xs mt-1">En az 2 sınav gereklidir</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* BLOCK 3 - SUBJECT PERFORMANCE */}

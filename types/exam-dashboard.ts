@@ -84,6 +84,22 @@ export interface SubjectPerformance {
 }
 
 // ============================================================================
+// TIME DIMENSION (V2.1)
+// ============================================================================
+
+export interface ExamTrendPoint {
+  examId: string;
+  examName: string;
+  examDate: string;
+  averageNet: number;
+}
+
+export interface ExamTrends {
+  lastExams: ExamTrendPoint[];   // ordered by date asc
+  windowSize: number;              // e.g. 3, 5, 10
+}
+
+// ============================================================================
 // MAIN RESPONSE CONTRACT
 // ============================================================================
 
@@ -93,6 +109,7 @@ export interface ExamDashboardResponse {
   summary: ExamSummaryKPIs;
   classByClass: ClassPerformance[];
   subjectBySubject: SubjectPerformance[];
+  trends?: ExamTrends;
   // Metadata
   meta: {
     calculatedAt: string;

@@ -14,6 +14,8 @@ import type {
   ExamSummaryKPIs,
   ClassPerformance,
   SubjectPerformance,
+  ExamTrends,
+  ExamTrendPoint,
 } from '@/types/exam-dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest) {
     const examId = searchParams.get('examId');
     const gradeLevel = searchParams.get('gradeLevel');
     const compareWith = searchParams.get('compareWith') as 'previous' | 'average' | null;
+    const trendWindow = searchParams.get('trendWindow') ? parseInt(searchParams.get('trendWindow')!) : null;
 
     if (!examId || !gradeLevel) {
       return NextResponse.json(
@@ -247,6 +250,52 @@ export async function GET(req: NextRequest) {
         hasComparison: comparisonContext.type !== null,
       },
     };
+
+    // ========================================================================
+    // 8. TIME DIMENSION (V2.1) - OPTIONAL TRENDS
+    // ========================================================================
+    if (trendWindow && trendWindow > 0) {
+      // Fetch last N exams for this grade level and organization
+      const { data: trendExams } = await supabase
+        .from('exams')
+        .select('id, name, exam_date')
+        .eq('organization_id', selectedExam.organization_id)
+        .eq('grade_level', gradeLevel)
+        .lte('exam_date', selectedExam.exam_date) // Include current and earlier
+        .order('exam_date', { ascending: false })
+        .limit(trendWindow);
+
+      const trendPoints: ExamTrendPoint[] = [];
+
+      if (trendExams && trendExams.length > 0) {
+        // For each exam, compute averageNet
+        for (const exam of trendExams) {
+          const { data: examResults } = await supabase
+            .from('student_exam_results')
+            .select('total_net')
+            .eq('exam_id', exam.id);
+
+          if (examResults && examResults.length > 0) {
+            const avgNet = examResults.reduce((sum, r) => sum + (r.total_net || 0), 0) / examResults.length;
+            
+            trendPoints.push({
+              examId: exam.id,
+              examName: exam.name,
+              examDate: exam.exam_date || '',
+              averageNet: parseFloat(avgNet.toFixed(2)),
+            });
+          }
+        }
+
+        // Sort by date ascending (oldest to newest)
+        trendPoints.sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime());
+
+        response.trends = {
+          lastExams: trendPoints,
+          windowSize: trendWindow,
+        };
+      }
+    }
 
     return NextResponse.json(response);
 
