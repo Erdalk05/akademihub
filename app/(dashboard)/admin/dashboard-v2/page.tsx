@@ -25,6 +25,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  Cell,
 } from 'recharts';
 import {
   TrendingUp,
@@ -35,6 +36,8 @@ import {
   AlertCircle,
   Calendar,
   RefreshCw,
+  UserCheck,
+  BarChart2,
 } from 'lucide-react';
 import type { ExamDashboardResponse } from '@/types/exam-dashboard';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -176,6 +179,22 @@ export default function DashboardV2() {
     net: point.averageNet,
     date: new Date(point.examDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
   })) || [];
+
+  const segmentCounts = data.studentSegments
+    ? {
+        LOW: data.studentSegments.filter(s => s.segment === 'LOW').length,
+        MID: data.studentSegments.filter(s => s.segment === 'MID').length,
+        HIGH: data.studentSegments.filter(s => s.segment === 'HIGH').length,
+      }
+    : null;
+
+  const segmentChartData = segmentCounts
+    ? [
+        { name: 'Düşük Risk', value: segmentCounts.HIGH, fill: '#10b981' },
+        { name: 'Orta Performans', value: segmentCounts.MID, fill: '#3b82f6' },
+        { name: 'Yüksek Risk', value: segmentCounts.LOW, fill: '#ef4444' },
+      ]
+    : [];
 
   // ========================================================================
   // RENDER: MAIN DASHBOARD
@@ -382,6 +401,141 @@ export default function DashboardV2() {
               </RadarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* BLOCK 4 - RISK SEGMENTATION (V2.2) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <UserCheck className="w-5 h-5 text-slate-600" />
+            <h3 className="font-bold text-slate-800">Öğrenci Segmentasyonu</h3>
+          </div>
+          
+          {segmentChartData.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                  <div className="text-3xl font-bold text-emerald-600">{segmentCounts!.HIGH}</div>
+                  <div className="text-sm text-emerald-700 font-medium mt-1">Düşük Risk</div>
+                  <div className="text-xs text-emerald-600 mt-1">Top %20</div>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-200">
+                  <div className="text-3xl font-bold text-blue-600">{segmentCounts!.MID}</div>
+                  <div className="text-sm text-blue-700 font-medium mt-1">Orta Performans</div>
+                  <div className="text-xs text-blue-600 mt-1">Middle %60</div>
+                </div>
+                <div className="text-center p-4 bg-red-50 rounded-xl border border-red-200">
+                  <div className="text-3xl font-bold text-red-600">{segmentCounts!.LOW}</div>
+                  <div className="text-sm text-red-700 font-medium mt-1">Yüksek Risk</div>
+                  <div className="text-xs text-red-600 mt-1">Bottom %20</div>
+                </div>
+              </div>
+              
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={segmentChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" name="Öğrenci Sayısı" radius={[8, 8, 0, 0]}>
+                      {segmentChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <div className="text-center">
+                <UserCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">Segmentasyon için yeterli öğrenci yok</p>
+                <p className="text-slate-400 text-xs mt-1">En az 5 öğrenci gereklidir</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* BLOCK 5 - CLASS DISTRIBUTION (V2.2) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-5 h-5 text-slate-600" />
+            <h3 className="font-bold text-slate-800">Sınıf İçi Dağılım</h3>
+          </div>
+          
+          {data.classDistributions && data.classDistributions.length > 0 ? (
+            <div className="space-y-6">
+              {data.classDistributions.map((cls) => (
+                <div key={cls.className} className="border border-slate-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-slate-700 mb-3">{cls.className}</h4>
+                  
+                  <div className="relative h-16">
+                    {/* Box plot approximation */}
+                    <div className="absolute top-0 left-0 right-0 h-full flex items-center">
+                      {/* Background scale */}
+                      <div className="w-full h-8 bg-slate-100 rounded-lg relative">
+                        {/* Min to Max range */}
+                        <div
+                          className="absolute h-full bg-blue-200 rounded-lg"
+                          style={{
+                            left: `${(cls.minNet / (cls.maxNet || 1)) * 100}%`,
+                            width: `${((cls.maxNet - cls.minNet) / (cls.maxNet || 1)) * 100}%`,
+                          }}
+                        />
+                        {/* Q1 to Q3 (IQR) */}
+                        <div
+                          className="absolute h-full bg-blue-500 rounded-lg"
+                          style={{
+                            left: `${(cls.q1 / (cls.maxNet || 1)) * 100}%`,
+                            width: `${((cls.q3 - cls.q1) / (cls.maxNet || 1)) * 100}%`,
+                          }}
+                        />
+                        {/* Median line */}
+                        <div
+                          className="absolute h-full w-1 bg-white"
+                          style={{
+                            left: `${(cls.median / (cls.maxNet || 1)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-5 gap-2 mt-3 text-xs">
+                    <div className="text-center">
+                      <div className="text-slate-500">Min</div>
+                      <div className="font-semibold text-slate-700">{cls.minNet.toFixed(1)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-slate-500">Q1</div>
+                      <div className="font-semibold text-slate-700">{cls.q1.toFixed(1)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-slate-500">Medyan</div>
+                      <div className="font-semibold text-blue-600">{cls.median.toFixed(1)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-slate-500">Q3</div>
+                      <div className="font-semibold text-slate-700">{cls.q3.toFixed(1)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-slate-500">Max</div>
+                      <div className="font-semibold text-slate-700">{cls.maxNet.toFixed(1)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <div className="text-center">
+                <BarChart2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">Dağılım analizi için yeterli veri yok</p>
+                <p className="text-slate-400 text-xs mt-1">Her sınıfta en az 5 öğrenci gereklidir</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* METADATA */}

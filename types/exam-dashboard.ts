@@ -100,6 +100,27 @@ export interface ExamTrends {
 }
 
 // ============================================================================
+// SEGMENTATION (V2.2)
+// ============================================================================
+
+export interface StudentSegment {
+  studentId: string;
+  fullName: string;
+  className: string;
+  averageNet: number;
+  segment: 'LOW' | 'MID' | 'HIGH';
+}
+
+export interface ClassDistribution {
+  className: string;
+  minNet: number;
+  q1: number;
+  median: number;
+  q3: number;
+  maxNet: number;
+}
+
+// ============================================================================
 // MAIN RESPONSE CONTRACT
 // ============================================================================
 
@@ -110,6 +131,8 @@ export interface ExamDashboardResponse {
   classByClass: ClassPerformance[];
   subjectBySubject: SubjectPerformance[];
   trends?: ExamTrends;
+  studentSegments?: StudentSegment[];
+  classDistributions?: ClassDistribution[];
   // Metadata
   meta: {
     calculatedAt: string;

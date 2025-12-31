@@ -16,6 +16,8 @@ import type {
   SubjectPerformance,
   ExamTrends,
   ExamTrendPoint,
+  StudentSegment,
+  ClassDistribution,
 } from '@/types/exam-dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -295,6 +297,79 @@ export async function GET(req: NextRequest) {
           windowSize: trendWindow,
         };
       }
+    }
+
+    // ========================================================================
+    // 9. SEGMENTATION (V2.2) - STUDENT & CLASS ANALYSIS
+    // ========================================================================
+    
+    // A) STUDENT SEGMENTATION (percentile-based)
+    if (results.length >= 5) {
+      // Sort by total_net descending
+      const sortedStudents = [...results].sort((a, b) => (b.total_net || 0) - (a.total_net || 0));
+      
+      const bottom20Index = Math.floor(sortedStudents.length * 0.2);
+      const top20Index = Math.floor(sortedStudents.length * 0.8);
+
+      const studentSegments: StudentSegment[] = sortedStudents.map((r, idx) => {
+        let segment: 'LOW' | 'MID' | 'HIGH';
+        
+        if (idx >= top20Index) {
+          segment = 'LOW';
+        } else if (idx < bottom20Index) {
+          segment = 'HIGH';
+        } else {
+          segment = 'MID';
+        }
+
+        return {
+          studentId: r.id || '',
+          fullName: r.student_name || 'Bilinmeyen',
+          className: r.class_name || 'Bilinmeyen',
+          averageNet: r.total_net || 0,
+          segment,
+        };
+      });
+
+      response.studentSegments = studentSegments;
+    }
+
+    // B) CLASS DISTRIBUTION (quartile analysis)
+    const classGroups: Record<string, number[]> = {};
+    
+    results.forEach(r => {
+      const cls = r.class_name || 'Bilinmeyen';
+      if (!classGroups[cls]) classGroups[cls] = [];
+      classGroups[cls].push(r.total_net || 0);
+    });
+
+    const classDistributions: ClassDistribution[] = [];
+
+    for (const [className, nets] of Object.entries(classGroups)) {
+      if (nets.length < 5) continue; // Skip classes with < 5 students
+
+      // Sort ascending
+      const sorted = nets.sort((a, b) => a - b);
+      const n = sorted.length;
+
+      // Simple percentile calculation
+      const getPercentile = (p: number): number => {
+        const index = Math.floor((n - 1) * p);
+        return sorted[index];
+      };
+
+      classDistributions.push({
+        className,
+        minNet: sorted[0],
+        q1: getPercentile(0.25),
+        median: getPercentile(0.50),
+        q3: getPercentile(0.75),
+        maxNet: sorted[n - 1],
+      });
+    }
+
+    if (classDistributions.length > 0) {
+      response.classDistributions = classDistributions;
     }
 
     return NextResponse.json(response);
