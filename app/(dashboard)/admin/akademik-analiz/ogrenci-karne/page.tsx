@@ -69,6 +69,10 @@ function OgrenciKarneContent() {
   const studentId = searchParams.get('studentId');
   const examId = searchParams.get('examId');
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:70',message:'Component mount',data:{studentId,examId,hasSearchParams:!!searchParams,orgId:currentOrganization?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+  // #endregion
+
   const [loading, setLoading] = useState(true);
   const [profil, setProfil] = useState<OgrenciProfil | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -77,9 +81,16 @@ function OgrenciKarneContent() {
     setLoading(true);
     setLoadError(null);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:80',message:'Load data start',data:{studentId,examId,hasOrgId:!!currentOrganization?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C'})}).catch(()=>{});
+    // #endregion
+
     try {
       /* 🔒 GUARD — studentId YOKSA ASLA DEVAM ETME */
       if (!studentId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:87',message:'Missing studentId',data:{studentId,examId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
         setLoadError('studentId parametresi eksik.');
         setProfil(null);
         return;
@@ -96,8 +107,14 @@ function OgrenciKarneContent() {
         qs.set('examId', examId);
       }
 
-      const res = await fetch(`/api/akademik-analiz/student-profile?${qs.toString()}`);
-      const json = await res.json();
+      const res = await fetch(
+        `/api/akademik-analiz/${studentId}?${qs.toString()}`
+      );
+      
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:108',message:'API response',data:{ok:res.ok,status:res.status,hasProfileData:!!json?.profil,error:json?.error},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,D'})}).catch(()=>{});
+      // #endregion
 
       if (!res.ok) {
         setLoadError(json?.error || 'Öğrenci profili getirilemedi');
@@ -119,7 +136,14 @@ function OgrenciKarneContent() {
         sinavlar: Array.isArray(json.profil.sinavlar) ? json.profil.sinavlar : [],
         photoUrl: json.profil.photo_url ?? null,
       });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:131',message:'Profile set success',data:{ogrenciAdi:json.profil.ogrenciAdi,sinavCount:json.profil.sinavlar?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:136',message:'Catch error',data:{errorMsg:err?.message,errorName:err?.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D,E'})}).catch(()=>{});
+      // #endregion
       setLoadError(err?.message || 'Bilinmeyen hata');
       setProfil(null);
     } finally {
@@ -252,6 +276,10 @@ PAGE EXPORT
 ============================================================================= */
 
 export default function OgrenciKarnePage() {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ogrenci-karne/page.tsx:268',message:'Page wrapper render',data:{hasSuspense:true},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,E'})}).catch(()=>{});
+  // #endregion
+  
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>}>
       <OgrenciKarneContent />
