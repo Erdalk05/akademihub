@@ -145,6 +145,35 @@ export interface ContextInsight {
 }
 
 // ============================================================================
+// INTERVENTION ENGINE (V3)
+// ============================================================================
+
+export type InterventionPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+
+export type InterventionReason =
+  | 'LOW_SEGMENT'
+  | 'RAPID_DECLINE'
+  | 'SUBJECT_WEAKNESS'
+  | 'CLASS_OUTLIER'
+  | 'MULTIPLE_RISKS';
+
+export interface StudentIntervention {
+  studentId: string;
+  fullName: string;
+  className: string;
+  priority: InterventionPriority;
+  reasons: InterventionReason[];
+  summary: string;
+}
+
+export interface ClassIntervention {
+  className: string;
+  priority: InterventionPriority;
+  reasons: InterventionReason[];
+  summary: string;
+}
+
+// ============================================================================
 // MAIN RESPONSE CONTRACT
 // ============================================================================
 
@@ -158,6 +187,8 @@ export interface ExamDashboardResponse {
   studentSegments?: StudentSegment[];
   classDistributions?: ClassDistribution[];
   insights?: ContextInsight[];
+  studentInterventions?: StudentIntervention[];
+  classInterventions?: ClassIntervention[];
   // Metadata
   meta: {
     calculatedAt: string;

@@ -41,6 +41,8 @@ import {
   Lightbulb,
   CheckCircle,
   Info,
+  AlertOctagon,
+  AlertTriangle as TriangleAlert,
 } from 'lucide-react';
 import type { ExamDashboardResponse } from '@/types/exam-dashboard';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -303,6 +305,120 @@ export default function DashboardV2() {
               <h3 className="font-bold text-slate-600">Akıllı Özet</h3>
             </div>
             <p className="text-sm text-slate-500">Bu sınav için anlamlı bir sapma tespit edilmedi.</p>
+          </div>
+        )}
+
+        {/* BLOCK 0.1 - STUDENT INTERVENTIONS (V3) */}
+        {data.studentInterventions && data.studentInterventions.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertOctagon className="w-5 h-5 text-red-600" />
+              <h3 className="font-bold text-slate-800">Müdahale Gerektiren Öğrenciler</h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-slate-600">Öğrenci</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-slate-600">Sınıf</th>
+                    <th className="text-center py-2 px-3 text-sm font-semibold text-slate-600">Öncelik</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-slate-600">Durum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.studentInterventions.map((intervention, idx) => {
+                    const priorityConfig = {
+                      HIGH: { label: 'Yüksek', bgColor: 'bg-red-100', textColor: 'text-red-700', borderColor: 'border-red-300' },
+                      MEDIUM: { label: 'Orta', bgColor: 'bg-amber-100', textColor: 'text-amber-700', borderColor: 'border-amber-300' },
+                      LOW: { label: 'Düşük', bgColor: 'bg-slate-100', textColor: 'text-slate-700', borderColor: 'border-slate-300' },
+                    }[intervention.priority];
+
+                    return (
+                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 px-3 text-sm font-medium text-slate-800">
+                          {intervention.fullName}
+                        </td>
+                        <td className="py-3 px-3 text-sm text-slate-600">
+                          {intervention.className}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${priorityConfig.bgColor} ${priorityConfig.textColor} ${priorityConfig.borderColor}`}>
+                            {priorityConfig.label}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-sm text-slate-700">
+                          {intervention.summary}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {data.studentInterventions && data.studentInterventions.length === 0 && (
+          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-bold text-emerald-800">Müdahale Gerektiren Öğrenciler</h3>
+            </div>
+            <p className="text-sm text-emerald-700">Bu sınav için öğrenci bazlı müdahale gerekmemektedir.</p>
+          </div>
+        )}
+
+        {/* BLOCK 0.2 - CLASS INTERVENTIONS (V3) */}
+        {data.classInterventions && data.classInterventions.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <TriangleAlert className="w-5 h-5 text-amber-600" />
+              <h3 className="font-bold text-slate-800">Müdahale Gerektiren Sınıflar</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {data.classInterventions.map((intervention, idx) => {
+                const priorityConfig = {
+                  HIGH: { bgColor: 'bg-red-50', borderColor: 'border-red-300', textColor: 'text-red-800', badgeBg: 'bg-red-100', badgeText: 'text-red-700' },
+                  MEDIUM: { bgColor: 'bg-amber-50', borderColor: 'border-amber-300', textColor: 'text-amber-800', badgeBg: 'bg-amber-100', badgeText: 'text-amber-700' },
+                  LOW: { bgColor: 'bg-slate-50', borderColor: 'border-slate-300', textColor: 'text-slate-800', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700' },
+                }[intervention.priority];
+
+                return (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg border ${priorityConfig.bgColor} ${priorityConfig.borderColor}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-bold text-lg text-slate-800">
+                            {intervention.className}
+                          </span>
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded ${priorityConfig.badgeBg} ${priorityConfig.badgeText}`}>
+                            {intervention.priority === 'HIGH' ? 'Yüksek Öncelik' : intervention.priority === 'MEDIUM' ? 'Orta Öncelik' : 'Düşük Öncelik'}
+                          </span>
+                        </div>
+                        <p className={`text-sm font-medium ${priorityConfig.textColor}`}>
+                          {intervention.summary}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {data.classInterventions && data.classInterventions.length === 0 && (
+          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-bold text-emerald-800">Müdahale Gerektiren Sınıflar</h3>
+            </div>
+            <p className="text-sm text-emerald-700">Bu sınav için sınıf bazlı müdahale gerekmemektedir.</p>
           </div>
         )}
 

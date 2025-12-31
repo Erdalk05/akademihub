@@ -19,6 +19,9 @@ import type {
   StudentSegment,
   ClassDistribution,
   ContextInsight,
+  StudentIntervention,
+  ClassIntervention,
+  InterventionReason,
 } from '@/types/exam-dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -473,6 +476,152 @@ export async function GET(req: NextRequest) {
     
     if (insights.length > 0) {
       response.insights = insights.slice(0, 5);
+    }
+
+    // ========================================================================
+    // 11. INTERVENTION ENGINE (V3) - PRIORITIZED ACTION LISTS
+    // ========================================================================
+
+    // A) STUDENT INTERVENTIONS
+    const studentInterventions: StudentIntervention[] = [];
+
+    if (response.studentSegments && response.studentSegments.length > 0) {
+      // Check for decline insights
+      const hasDeclineInsight = insights.some(i => i.type === 'DECLINE');
+      const subjectWeaknessSubjects = insights
+        .filter(i => i.type === 'DECLINE' && i.relatedSubject)
+        .map(i => i.relatedSubject!);
+
+      response.studentSegments.forEach(student => {
+        const reasons: InterventionReason[] = [];
+
+        // LOW_SEGMENT
+        if (student.segment === 'LOW') {
+          reasons.push('LOW_SEGMENT');
+        }
+
+        // RAPID_DECLINE (if decline insight exists, apply to LOW segment students)
+        if (student.segment === 'LOW' && hasDeclineInsight) {
+          reasons.push('RAPID_DECLINE');
+        }
+
+        // SUBJECT_WEAKNESS (if student is in LOW and subject weakness exists)
+        if (student.segment === 'LOW' && subjectWeaknessSubjects.length > 0) {
+          reasons.push('SUBJECT_WEAKNESS');
+        }
+
+        // For MID segment, only include if ≥2 reasons (would need trend data per student, skip for now)
+        // Since we don't have per-student trends, focus on LOW segment
+
+        // Determine priority
+        let priority: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+        
+        if (student.segment === 'LOW' && reasons.length >= 2) {
+          priority = 'HIGH';
+          if (reasons.length >= 3) {
+            reasons.push('MULTIPLE_RISKS');
+          }
+        } else if (student.segment === 'LOW' && reasons.length === 1) {
+          priority = 'MEDIUM';
+        }
+
+        // Only add LOW segment students or MID with issues
+        if (student.segment === 'LOW') {
+          // Generate summary
+          let summary = '';
+          if (reasons.includes('MULTIPLE_RISKS')) {
+            summary = 'Risk grubunda, birden fazla performans düşüşü tespit edilmiştir.';
+          } else if (reasons.includes('RAPID_DECLINE')) {
+            summary = 'Risk grubunda ve son sınavlarda belirgin düşüş görülmektedir.';
+          } else if (reasons.includes('SUBJECT_WEAKNESS')) {
+            summary = 'Risk grubunda ve bazı derslerde zayıf performans göstermektedir.';
+          } else {
+            summary = 'Performans takibi önerilmektedir.';
+          }
+
+          studentInterventions.push({
+            studentId: student.studentId,
+            fullName: student.fullName,
+            className: student.className,
+            priority,
+            reasons,
+            summary,
+          });
+        }
+      });
+
+      // Sort by priority
+      const priorityOrder = { HIGH: 1, MEDIUM: 2, LOW: 3 };
+      studentInterventions.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+      
+      if (studentInterventions.length > 0) {
+        response.studentInterventions = studentInterventions.slice(0, 10);
+      }
+    }
+
+    // B) CLASS INTERVENTIONS
+    const classInterventions: ClassIntervention[] = [];
+
+    if (response.classDistributions && response.studentSegments) {
+      // Check for outlier insights
+      const outlierClasses = insights
+        .filter(i => i.type === 'OUTLIER' && i.relatedClass)
+        .map(i => i.relatedClass!);
+
+      response.classDistributions.forEach(cls => {
+        const reasons: InterventionReason[] = [];
+
+        // CLASS_OUTLIER
+        if (outlierClasses.includes(cls.className)) {
+          reasons.push('CLASS_OUTLIER');
+        }
+
+        // Check LOW segment ratio in this class
+        const classStudents = response.studentSegments!.filter(s => s.className === cls.className);
+        const lowStudents = classStudents.filter(s => s.segment === 'LOW');
+        const lowRatio = classStudents.length > 0 ? (lowStudents.length / classStudents.length) * 100 : 0;
+
+        if (lowRatio >= 30) {
+          reasons.push('LOW_SEGMENT');
+        }
+
+        // Determine priority
+        let priority: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+        
+        if (reasons.includes('CLASS_OUTLIER') && reasons.includes('LOW_SEGMENT')) {
+          priority = 'HIGH';
+          reasons.push('MULTIPLE_RISKS');
+        } else if (reasons.length > 0) {
+          priority = 'MEDIUM';
+        }
+
+        if (reasons.length > 0) {
+          // Generate summary
+          let summary = '';
+          if (reasons.includes('MULTIPLE_RISKS')) {
+            summary = 'Bu sınıf kurum ortalamasının altında ve risk oranı yüksektir.';
+          } else if (reasons.includes('CLASS_OUTLIER')) {
+            summary = 'Bu sınıfın performansı kurum ortalamasının belirgin şekilde altındadır.';
+          } else if (reasons.includes('LOW_SEGMENT')) {
+            summary = `Bu sınıfta risk grubundaki öğrenci oranı %${lowRatio.toFixed(0)} seviyesindedir.`;
+          }
+
+          classInterventions.push({
+            className: cls.className,
+            priority,
+            reasons,
+            summary,
+          });
+        }
+      });
+
+      // Sort by priority
+      const priorityOrder = { HIGH: 1, MEDIUM: 2, LOW: 3 };
+      classInterventions.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+      
+      if (classInterventions.length > 0) {
+        response.classInterventions = classInterventions.slice(0, 5);
+      }
     }
 
     return NextResponse.json(response);
