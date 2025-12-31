@@ -38,6 +38,9 @@ import {
   RefreshCw,
   UserCheck,
   BarChart2,
+  Lightbulb,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
 import type { ExamDashboardResponse } from '@/types/exam-dashboard';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
@@ -258,6 +261,51 @@ export default function DashboardV2() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* BLOCK 0 - SMART INSIGHTS (V2.3) */}
+        {data.insights && data.insights.length > 0 && (
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-5 h-5 text-blue-600" />
+              <h3 className="font-bold text-slate-800">Akıllı Özet</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {data.insights.map((insight, idx) => {
+                const levelConfig = {
+                  WARNING: { icon: AlertCircle, bgColor: 'bg-amber-50', borderColor: 'border-amber-200', textColor: 'text-amber-800', iconColor: 'text-amber-600' },
+                  POSITIVE: { icon: CheckCircle, bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', textColor: 'text-emerald-800', iconColor: 'text-emerald-600' },
+                  INFO: { icon: Info, bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-800', iconColor: 'text-blue-600' },
+                };
+                
+                const config = levelConfig[insight.level];
+                const Icon = config.icon;
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-3 p-4 rounded-lg border ${config.bgColor} ${config.borderColor}`}
+                  >
+                    <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${config.iconColor}`} />
+                    <p className={`text-sm font-medium ${config.textColor}`}>
+                      {insight.message}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {data.insights && data.insights.length === 0 && (
+          <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="w-5 h-5 text-slate-400" />
+              <h3 className="font-bold text-slate-600">Akıllı Özet</h3>
+            </div>
+            <p className="text-sm text-slate-500">Bu sınav için anlamlı bir sapma tespit edilmedi.</p>
+          </div>
+        )}
+
         {/* BLOCK 1 - EXAM SUMMARY KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">

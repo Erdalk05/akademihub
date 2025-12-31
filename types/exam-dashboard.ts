@@ -121,6 +121,30 @@ export interface ClassDistribution {
 }
 
 // ============================================================================
+// CONTEXTUAL INTELLIGENCE (V2.3)
+// ============================================================================
+
+export type InsightType =
+  | 'DIFFICULTY'
+  | 'IMPROVEMENT'
+  | 'DECLINE'
+  | 'RISK'
+  | 'OUTLIER';
+
+export type InsightLevel =
+  | 'INFO'
+  | 'POSITIVE'
+  | 'WARNING';
+
+export interface ContextInsight {
+  type: InsightType;
+  level: InsightLevel;
+  message: string;
+  relatedClass?: string;
+  relatedSubject?: string;
+}
+
+// ============================================================================
 // MAIN RESPONSE CONTRACT
 // ============================================================================
 
@@ -133,6 +157,7 @@ export interface ExamDashboardResponse {
   trends?: ExamTrends;
   studentSegments?: StudentSegment[];
   classDistributions?: ClassDistribution[];
+  insights?: ContextInsight[];
   // Metadata
   meta: {
     calculatedAt: string;

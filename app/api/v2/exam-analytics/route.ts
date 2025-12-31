@@ -18,6 +18,7 @@ import type {
   ExamTrendPoint,
   StudentSegment,
   ClassDistribution,
+  ContextInsight,
 } from '@/types/exam-dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -370,6 +371,108 @@ export async function GET(req: NextRequest) {
 
     if (classDistributions.length > 0) {
       response.classDistributions = classDistributions;
+    }
+
+    // ========================================================================
+    // 10. CONTEXTUAL INTELLIGENCE (V2.3) - RULE-BASED INSIGHTS
+    // ========================================================================
+    const insights: ContextInsight[] = [];
+    const currentAvgNet = avgNet;
+
+    // A) EXAM DIFFICULTY (compare to trend average)
+    if (response.trends && response.trends.lastExams.length >= 2) {
+      const trendAvg = response.trends.lastExams.reduce((sum, e) => sum + e.averageNet, 0) / response.trends.lastExams.length;
+      const diffPct = ((currentAvgNet - trendAvg) / trendAvg) * 100;
+      
+      if (diffPct <= -5) {
+        insights.push({
+          type: 'DIFFICULTY',
+          level: 'INFO',
+          message: `Bu sınav önceki sınavlara göre %${Math.abs(diffPct).toFixed(1)} daha düşük ortalama net ile sonuçlandı.`,
+        });
+      }
+    }
+
+    // B) GENERAL IMPROVEMENT / DECLINE (compare to previous exam if exists)
+    if (summary.deltaAverageNet !== null && summary.deltaAverageNet !== undefined) {
+      const changeNet = summary.deltaAverageNet;
+      const changePct = summary.deltaPercentage;
+      
+      if (changePct !== null && changePct !== undefined) {
+        if (changePct >= 3) {
+          insights.push({
+            type: 'IMPROVEMENT',
+            level: 'POSITIVE',
+            message: `Sınav ortalaması önceki sınava göre ${changeNet.toFixed(1)} net artış gösterdi (%${changePct.toFixed(1)}).`,
+          });
+        } else if (changePct <= -3) {
+          insights.push({
+            type: 'DECLINE',
+            level: 'WARNING',
+            message: `Sınav ortalaması önceki sınava göre ${Math.abs(changeNet).toFixed(1)} net düşüş gösterdi (%${Math.abs(changePct).toFixed(1)}).`,
+          });
+        }
+      }
+    }
+
+    // C) RISK ESCALATION (LOW segment ratio check)
+    if (response.studentSegments && response.studentSegments.length > 0) {
+      const lowCount = response.studentSegments.filter(s => s.segment === 'LOW').length;
+      const lowRatio = (lowCount / response.studentSegments.length) * 100;
+      
+      // Expected is 20%, if significantly higher, flag it
+      if (lowRatio >= 25) {
+        insights.push({
+          type: 'RISK',
+          level: 'WARNING',
+          message: `Düşük performans grubundaki öğrenci oranı beklenen %20'nin üzerinde: %${lowRatio.toFixed(1)} (${lowCount} öğrenci).`,
+        });
+      }
+    }
+
+    // D) CLASS OUTLIERS (median deviation)
+    if (response.classDistributions && response.classDistributions.length > 0) {
+      const overallMedian = response.classDistributions.reduce((sum, c) => sum + c.median, 0) / response.classDistributions.length;
+      
+      response.classDistributions.forEach(cls => {
+        const deviationPct = ((cls.median - overallMedian) / overallMedian) * 100;
+        
+        if (Math.abs(deviationPct) >= 10) {
+          const direction = deviationPct > 0 ? 'üzerinde' : 'altında';
+          insights.push({
+            type: 'OUTLIER',
+            level: 'INFO',
+            message: `${cls.className} sınıfı genel medyandan %${Math.abs(deviationPct).toFixed(1)} ${direction} performans gösterdi.`,
+            relatedClass: cls.className,
+          });
+        }
+      });
+    }
+
+    // E) SUBJECT IMPACT (below-average subjects)
+    if (response.subjectBySubject && response.subjectBySubject.length > 0) {
+      const subjectAvg = response.subjectBySubject.reduce((sum, s) => sum + s.averageNet, 0) / response.subjectBySubject.length;
+      
+      response.subjectBySubject.forEach(subj => {
+        const deviationPct = ((subj.averageNet - subjectAvg) / subjectAvg) * 100;
+        
+        if (deviationPct <= -15) {
+          insights.push({
+            type: 'DECLINE',
+            level: 'INFO',
+            message: `${subj.subjectName} dersi genel ders ortalamasından %${Math.abs(deviationPct).toFixed(1)} düşük performans gösterdi.`,
+            relatedSubject: subj.subjectCode,
+          });
+        }
+      });
+    }
+
+    // Sort by severity: WARNING → POSITIVE → INFO, limit to 5
+    const severityOrder = { WARNING: 1, POSITIVE: 2, INFO: 3 };
+    insights.sort((a, b) => severityOrder[a.level] - severityOrder[b.level]);
+    
+    if (insights.length > 0) {
+      response.insights = insights.slice(0, 5);
     }
 
     return NextResponse.json(response);
