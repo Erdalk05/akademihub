@@ -7,12 +7,12 @@
  * Uses existing V2.3 analytics data without modification.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { ExamDashboardResponse } from '@/types/exam-dashboard';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
-export default function ExamExecutiveReport() {
+function ExamExecutiveReportContent() {
   const searchParams = useSearchParams();
   const { currentOrganization } = useOrganizationStore();
 
@@ -403,6 +403,14 @@ export default function ExamExecutiveReport() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function ExamExecutiveReport() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-white"><div className="w-10 h-10 border-4 border-slate-300 border-t-blue-500 rounded-full animate-spin" /></div>}>
+      <ExamExecutiveReportContent />
+    </Suspense>
   );
 }
 

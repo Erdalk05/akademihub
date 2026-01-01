@@ -7,7 +7,7 @@
  * Does NOT replace existing dashboard.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart,
@@ -47,7 +47,7 @@ import {
 import type { ExamDashboardResponse } from '@/types/exam-dashboard';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 
-export default function DashboardV2() {
+function DashboardV2Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentOrganization } = useOrganizationStore();
@@ -709,6 +709,14 @@ export default function DashboardV2() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardV2() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-slate-300 border-t-emerald-500 rounded-full animate-spin" /></div>}>
+      <DashboardV2Content />
+    </Suspense>
   );
 }
 
