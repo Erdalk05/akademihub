@@ -38,7 +38,8 @@ export default function LayoutWrapper({
   // Notification context - safely access
   let unreadCount = 0;
   try {
-    const notifContext = useNotificationContext();
+    import { useNotificationContext } from "@/lib/contexts/NotificationContext";
+
     unreadCount = notifContext?.unreadCount || 0;
   } catch {
     // Context not available
