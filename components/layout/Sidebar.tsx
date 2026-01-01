@@ -127,7 +127,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       ],
     },
     {
-      label: 'Akademik Analiz',
+      label: 'Exam Intelligence Platform',
       href: '/admin/akademik-analiz',
       icon: <GraduationCap size={20} />,
       hideForSuperAdmin: true,
@@ -177,7 +177,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
     });
   
   const getActiveMenu = () => {
-    if (pathname.startsWith('/admin/akademik-analiz')) return 'Akademik Analiz';
+    if (pathname.startsWith('/admin/akademik-analiz')) return 'Exam Intelligence Platform';
     if (pathname.startsWith('/finance/reports')) return 'Raporlar';
     if (pathname.startsWith('/finance')) return 'Finans';
     if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';

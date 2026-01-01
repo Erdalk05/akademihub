@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Akademik Analiz - K12Net Benzeri Detaylı Sınav Sonuçları
+ * Exam Intelligence Platform - K12Net Benzeri Detaylı Sınav Sonuçları
  * Yatay kaydırma, sabit sütunlar, kompakt tasarım
  */
 

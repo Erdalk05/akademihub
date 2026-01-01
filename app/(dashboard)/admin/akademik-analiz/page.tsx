@@ -420,7 +420,7 @@ export default function AkademikAnalizDashboard() {
                 </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Akademik Analiz</h1>
+                <h1 className="text-2xl font-bold text-slate-800">Exam Intelligence Platform</h1>
                 <p className="text-sm text-slate-500">Gelişmiş Performans İzleme</p>
               </div>
             </div>
@@ -1213,7 +1213,7 @@ export default function AkademikAnalizDashboard() {
 
         {/* Footer */}
         <div className="text-center py-4 text-sm text-slate-400">
-          <p>AkademiHub Akademik Analiz Dashboard V2.0</p>
+          <p>AkademiHub Exam Intelligence Platform V2.0</p>
           <p className="text-xs mt-1">Son güncelleme: {new Date().toLocaleString('tr-TR')}</p>
         </div>
       </div>
