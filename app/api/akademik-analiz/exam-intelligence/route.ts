@@ -26,10 +26,18 @@ import type {
 // SUPABASE CLIENT
 // ============================================================================
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Not: Build sırasında env yoksa import-time crash olmaması için client'ı
+  // sadece request geldiğinde oluşturuyoruz.
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Supabase env eksik: NEXT_PUBLIC_SUPABASE_URL ve/veya SUPABASE_SERVICE_ROLE_KEY');
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
 
 // ============================================================================
 // STATISTICAL HELPERS
@@ -145,6 +153,7 @@ export async function POST(request: NextRequest) {
   const warnings: string[] = [];
 
   try {
+    const supabase = getSupabaseClient();
     const body = await request.json();
     const { examId, options } = body;
 
