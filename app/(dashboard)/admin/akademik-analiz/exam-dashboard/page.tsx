@@ -139,7 +139,7 @@ function ExamDashboardContent() {
         const data = await res.json();
         if (data?.exams) {
           setExams(data.exams);
-          if (!selectedExam && (data.exams?.length ?? 0) > 0) {
+          if (!selectedExam && ((data.exams ?? []).length ?? 0) > 0) {
             setSelectedExam(data.exams[0].id);
           }
         }
@@ -198,8 +198,22 @@ function ExamDashboardContent() {
   // COMPUTED VALUES
   // ========================================================================
 
-  const filteredStudents = useMemo(() => getFilteredStudents(), [examData, filters]);
-  const classList = useMemo(() => getClassList(), [examData]);
+  const filteredStudents = useMemo(() => {
+    try {
+      const arr = getFilteredStudents?.();
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [examData, filters, getFilteredStudents]);
+  const classList = useMemo(() => {
+    try {
+      const arr = getClassList?.();
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [examData, getClassList]);
 
   // ========================================================================
   // LOADING STATE
@@ -398,20 +412,20 @@ function ExamDashboardContent() {
           />
           <KPICard
             title="Risk Öğrenci"
-            value={riskStudents?.length ?? 0}
+            value={(riskStudents ?? []).length ?? 0}
             icon={<AlertTriangle className="text-red-400" size={20} />}
             color="red"
           />
           <KPICard
             title="Potansiyel"
-            value={opportunities?.length ?? 0}
+            value={(opportunities ?? []).length ?? 0}
             icon={<Sparkles className="text-cyan-400" size={20} />}
             color="cyan"
           />
         </div>
 
         {/* INSIGHTS BANNER */}
-        {(recommendations?.length ?? 0) > 0 && (
+        {((recommendations ?? []).length ?? 0) > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -434,7 +448,7 @@ function ExamDashboardContent() {
           {/* LEFT: TREND + CLASS COMPARISON */}
           <div className="lg:col-span-2 space-y-6">
             {/* TREND CHART */}
-            {(trends?.length ?? 0) > 1 && (
+            {((trends ?? []).length ?? 0) > 1 && (
               <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <TrendingUp className="text-emerald-400" size={20} />
@@ -544,7 +558,7 @@ function ExamDashboardContent() {
                 <AlertTriangle className="text-red-400" size={20} />
                 Risk Öğrencileri
                 <span className="ml-auto text-sm font-normal text-slate-400">
-                  {riskStudents?.length ?? 0} öğrenci
+                  {(riskStudents ?? []).length ?? 0} öğrenci
                 </span>
               </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -580,7 +594,7 @@ function ExamDashboardContent() {
               <Users className="text-blue-400" size={20} />
               Öğrenci Listesi
               <span className="text-sm font-normal text-slate-400 ml-2">
-                ({filteredStudents?.length ?? 0} öğrenci)
+                ({(filteredStudents ?? []).length ?? 0} öğrenci)
               </span>
             </h3>
 
@@ -718,7 +732,7 @@ function ExamDashboardContent() {
             </table>
           </div>
 
-          {(filteredStudents?.length ?? 0) > 50 && (
+          {((filteredStudents ?? []).length ?? 0) > 50 && (
             <div className="mt-4 text-center text-sm text-slate-400">
               İlk 50 öğrenci gösteriliyor. Daha fazlası için filtreleme yapın.
             </div>

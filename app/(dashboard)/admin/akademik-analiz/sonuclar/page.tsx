@@ -136,77 +136,84 @@ interface AIInsight {
 // CUSTOM HOOKS
 const useExamAnalytics = (exams: ExamStats[]) => {
   return useMemo(() => {
-    if (exams.length === 0) return null;
+    const safeExams = Array.isArray(exams) ? exams : [];
+    if (safeExams.length === 0) return null;
     
     // Detaylı istatistikler
-    const totalStudents = exams.reduce((sum, e) => sum + e.total_students, 0);
-    const avgSuccess = exams.reduce((sum, e) => sum + e.success_rate, 0) / exams.length;
-    const topSchoolPerformer = exams
-      .flatMap(e => e.top_performer)
-      .sort((a, b) => b.net - a.net)[0];
+    const totalStudents = safeExams.reduce((sum, e) => sum + (e?.total_students || 0), 0);
+    const avgSuccess = safeExams.reduce((sum, e) => sum + (e?.success_rate || 0), 0) / safeExams.length;
+    const topSchoolPerformer = safeExams
+      .flatMap(e => e?.top_performer)
+      .filter(Boolean)
+      .sort((a, b) => (b?.net || 0) - (a?.net || 0))[0];
     
     // Trend analizi
-    const sortedByDate = [...exams].sort((a, b) => 
-      new Date(a.exam_date).getTime() - new Date(b.exam_date).getTime()
+    const sortedByDate = [...safeExams].sort((a, b) => 
+      new Date(a?.exam_date || 0).getTime() - new Date(b?.exam_date || 0).getTime()
     );
     
     const momentumTrend = sortedByDate.map((exam, i) => ({
-      name: exam.name,
-      momentum: exam.momentum,
-      trend: i > 0 ? exam.momentum - sortedByDate[i-1].momentum : 0
+      name: exam?.name || '',
+      momentum: exam?.momentum || 0,
+      trend: i > 0 ? (exam?.momentum || 0) - (sortedByDate[i-1]?.momentum || 0) : 0
     }));
 
     // Sınıf performans matrisi
-    const classMatrix = exams.reduce((acc, exam) => {
-      exam.class_rankings.forEach(cr => {
-        if (!acc[cr.className]) {
-          acc[cr.className] = {
-            totalNet: 0,
-            count: 0,
-            students: new Set()
-          };
+    const classMatrix = safeExams.reduce((acc, exam) => {
+      const rankings = Array.isArray(exam?.class_rankings) ? exam.class_rankings : [];
+      rankings.forEach(cr => {
+        if (cr && cr.className) {
+          if (!acc[cr.className]) {
+            acc[cr.className] = {
+              totalNet: 0,
+              count: 0,
+              students: new Set()
+            };
+          }
+          acc[cr.className].totalNet += cr.avgNet || 0;
+          acc[cr.className].count++;
+          if (cr.topStudent) acc[cr.className].students.add(cr.topStudent);
         }
-        acc[cr.className].totalNet += cr.avgNet;
-        acc[cr.className].count++;
-        acc[cr.className].students.add(cr.topStudent);
       });
       return acc;
     }, {} as any);
 
     // Konu bazlı performans
-    const topicPerformance = exams.reduce((acc, exam) => {
-      if (!acc[exam.weakest_topic.name]) {
-        acc[exam.weakest_topic.name] = { weak: 0, strong: 0 };
+    const topicPerformance = safeExams.reduce((acc, exam) => {
+      const weakName = exam?.weakest_topic?.name;
+      const strongName = exam?.strongest_topic?.name;
+      if (weakName) {
+        if (!acc[weakName]) acc[weakName] = { weak: 0, strong: 0 };
+        acc[weakName].weak++;
       }
-      if (!acc[exam.strongest_topic.name]) {
-        acc[exam.strongest_topic.name] = { weak: 0, strong: 0 };
+      if (strongName) {
+        if (!acc[strongName]) acc[strongName] = { weak: 0, strong: 0 };
+        acc[strongName].strong++;
       }
-      acc[exam.weakest_topic.name].weak++;
-      acc[exam.strongest_topic.name].strong++;
       return acc;
     }, {} as any);
 
     // Risk analizi
-    const riskStudents = exams
-      .filter(e => e.momentum < -5)
+    const riskStudents = safeExams
+      .filter(e => (e?.momentum || 0) < -5)
       .map(e => ({
-        examName: e.name,
-        riskLevel: e.momentum < -10 ? 'high' : 'medium',
-        affectedStudents: Math.floor(e.total_students * 0.2)
+        examName: e?.name || '',
+        riskLevel: (e?.momentum || 0) < -10 ? 'high' : 'medium',
+        affectedStudents: Math.floor((e?.total_students || 0) * 0.2)
       }));
 
     return {
       basicStats: {
-        totalExams: exams.length,
+        totalExams: safeExams.length,
         totalStudents,
         avgSuccess,
         topSchoolPerformer,
-        avgMomentum: exams.reduce((sum, e) => sum + e.momentum, 0) / exams.length
+        avgMomentum: safeExams.reduce((sum, e) => sum + (e?.momentum || 0), 0) / safeExams.length
       },
       trends: {
         momentumTrend,
-        weeklyExams: exams.filter(e => {
-          const daysDiff = differenceInDays(new Date(), new Date(e.exam_date));
+        weeklyExams: safeExams.filter(e => {
+          const daysDiff = differenceInDays(new Date(), new Date(e?.exam_date || 0));
           return daysDiff <= 7;
         }).length,
         monthlyGrowth: calculateGrowthRate(sortedByDate)
@@ -233,21 +240,27 @@ const useExamAnalytics = (exams: ExamStats[]) => {
 
 // UTILITY FUNCTIONS
 const calculateGrowthRate = (sortedExams: ExamStats[]) => {
-  if (sortedExams.length < 2) return 0;
-  const recent = sortedExams.slice(-5);
-  const older = sortedExams.slice(-10, -5);
+  const safeExams = Array.isArray(sortedExams) ? sortedExams : [];
+  if (safeExams.length < 2) return 0;
+  const recent = safeExams.slice(-5);
+  const older = safeExams.slice(-10, -5);
   
-  const recentAvg = recent.reduce((sum, e) => sum + e.average_net, 0) / recent.length;
-  const olderAvg = older.reduce((sum, e) => sum + e.average_net, 0) / older.length;
+  if (recent.length === 0 || older.length === 0) return 0;
   
+  const recentAvg = recent.reduce((sum, e) => sum + (e?.average_net || 0), 0) / recent.length;
+  const olderAvg = older.reduce((sum, e) => sum + (e?.average_net || 0), 0) / older.length;
+  
+  if (olderAvg === 0) return 0;
   return ((recentAvg - olderAvg) / olderAvg) * 100;
 };
 
 const generateAIInsights = (analytics: any): AIInsight[] => {
   const insights: AIInsight[] = [];
   
+  if (!analytics) return insights;
+  
   // Momentum bazlı öneriler
-  if (analytics?.basicStats.avgMomentum < -2) {
+  if ((analytics?.basicStats?.avgMomentum ?? 0) < -2) {
     insights.push({
       type: 'warning',
       title: 'Genel Performans Düşüşü',
@@ -260,27 +273,29 @@ const generateAIInsights = (analytics: any): AIInsight[] => {
   }
   
   // Sınıf dengesizliği
-  const classPerformances = analytics?.classAnalysis || [];
-  const performanceGap = Math.max(...classPerformances.map((c: any) => c.avgPerformance)) - 
-                         Math.min(...classPerformances.map((c: any) => c.avgPerformance));
-  
-  if (performanceGap > 15) {
-    insights.push({
-      type: 'danger',
-      title: 'Sınıflar Arası Dengesizlik',
-      description: `Sınıflar arasında ${performanceGap.toFixed(1)} net fark var. Bu durum eğitim kalitesinde farklılığa işaret ediyor.`,
-      actionable: true,
-      priority: 'high',
-      suggestedAction: 'Düşük performanslı sınıflara mentorluk programı başlatın'
-    });
+  const classPerformances = Array.isArray(analytics?.classAnalysis) ? analytics.classAnalysis : [];
+  if (classPerformances.length > 0) {
+    const performances = classPerformances.map((c: any) => c?.avgPerformance ?? 0);
+    const performanceGap = Math.max(...performances) - Math.min(...performances);
+    
+    if (performanceGap > 15 && isFinite(performanceGap)) {
+      insights.push({
+        type: 'danger',
+        title: 'Sınıflar Arası Dengesizlik',
+        description: `Sınıflar arasında ${performanceGap.toFixed(1)} net fark var. Bu durum eğitim kalitesinde farklılığa işaret ediyor.`,
+        actionable: true,
+        priority: 'high',
+        suggestedAction: 'Düşük performanslı sınıflara mentorluk programı başlatın'
+      });
+    }
   }
   
   // Başarı hikayesi
-  if (analytics?.trends.monthlyGrowth > 10) {
+  if ((analytics?.trends?.monthlyGrowth ?? 0) > 10) {
     insights.push({
       type: 'success',
       title: 'Mükemmel İlerleme!',
-      description: `Son dönemde %${analytics.trends.monthlyGrowth.toFixed(1)} performans artışı kaydedildi.`,
+      description: `Son dönemde %${(analytics.trends.monthlyGrowth ?? 0).toFixed(1)} performans artışı kaydedildi.`,
       actionable: false,
       priority: 'low',
       relatedMetric: 'growth'
@@ -288,16 +303,17 @@ const generateAIInsights = (analytics: any): AIInsight[] => {
   }
   
   // Konu bazlı öneriler
-  const weakTopics = analytics?.topicAnalysis
-    ?.filter((t: any) => t.ratio < 0.3)
-    ?.sort((a: any, b: any) => a.ratio - b.ratio)
-    ?.slice(0, 3);
+  const topicAnalysis = Array.isArray(analytics?.topicAnalysis) ? analytics.topicAnalysis : [];
+  const weakTopics = topicAnalysis
+    .filter((t: any) => (t?.ratio ?? 1) < 0.3)
+    .sort((a: any, b: any) => (a?.ratio ?? 0) - (b?.ratio ?? 0))
+    .slice(0, 3);
     
-  if (weakTopics?.length > 0) {
+  if (weakTopics.length > 0) {
     insights.push({
       type: 'info',
       title: 'Kritik Konular Tespit Edildi',
-      description: `${weakTopics.map((t: any) => t.topic).join(', ')} konularında yoğunlaştırılmış eğitim gerekiyor.`,
+      description: `${weakTopics.map((t: any) => t?.topic ?? '').filter(Boolean).join(', ')} konularında yoğunlaştırılmış eğitim gerekiyor.`,
       actionable: true,
       priority: 'medium',
       suggestedAction: 'Bu konularda video ders ve etüt programı oluşturun'
@@ -486,24 +502,29 @@ export default function UltraAdvancedSinavListesiPage() {
 
   // FILTERING & SORTING - Enhanced
   const processedExams = useMemo(() => {
-    let filtered = exams.filter(exam => {
-      const matchesSearch = exam.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           exam.top_performer.name.toLowerCase().includes(searchTerm.toLowerCase());
+    let filtered = (Array.isArray(exams) ? exams : []).filter(exam => {
+      const nameSafe = typeof exam.name === 'string' ? exam.name : '';
+      const topPerformerNameSafe = typeof exam.top_performer?.name === 'string' ? exam.top_performer.name : '';
+      const matchesSearch = nameSafe.toLowerCase().includes(
+        typeof searchTerm === 'string' ? searchTerm.toLowerCase() : ''
+      ) || topPerformerNameSafe.toLowerCase().includes(
+        typeof searchTerm === 'string' ? searchTerm.toLowerCase() : ''
+      );
       const matchesType = filterType === 'all' || exam.exam_type === filterType;
-      const matchesClass = filterClass === 'all' || exam.class_rankings.some(c => c.className === filterClass);
-      
+      const matchesClass = filterClass === 'all' || (Array.isArray(exam.class_rankings) ? exam.class_rankings : []).some(c => c && typeof c.className === 'string' && c.className === filterClass);
+
       // Date range filter
       let matchesDate = true;
       if (filterDateRange !== 'all') {
         const examDate = new Date(exam.exam_date);
         const now = new Date();
         const daysDiff = differenceInDays(now, examDate);
-        
+
         matchesDate = filterDateRange === 'week' ? daysDiff <= 7 :
                      filterDateRange === 'month' ? daysDiff <= 30 :
                      daysDiff <= 120; // term
       }
-      
+
       return matchesSearch && matchesType && matchesClass && matchesDate;
     });
 
