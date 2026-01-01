@@ -371,42 +371,42 @@ function ExamDashboardContent() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <KPICard
             title="Katılımcı"
-            value={overall.participantCount}
+            value={String(overall.participantCount || 0)}
             icon={<Users className="w-5 h-5" />}
             color="cyan"
             subtitle="Toplam Öğrenci"
           />
           <KPICard
             title="Ortalama Net"
-            value={overall.averageNet?.toFixed(2) || '0.00'}
+            value={overall.averageNet ? overall.averageNet.toFixed(2) : '0.00'}
             icon={<Target className="w-5 h-5" />}
             color="indigo"
-            subtitle={`Medyan: ${overall.medianNet?.toFixed(2) || '0'}`}
+            subtitle={`Medyan: ${overall.medianNet ? overall.medianNet.toFixed(2) : '0.00'}`}
           />
           <KPICard
             title="En Yüksek"
-            value={overall.maxNet?.toFixed(2) || '0.00'}
+            value={overall.maxNet ? overall.maxNet.toFixed(2) : '0.00'}
             icon={<Trophy className="w-5 h-5" />}
             color="amber"
             subtitle="Maksimum Net"
           />
           <KPICard
             title="Std. Sapma"
-            value={overall.standardDeviation?.toFixed(2) || '0.00'}
+            value={overall.standardDeviation ? overall.standardDeviation.toFixed(2) : '0.00'}
             icon={<Activity className="w-5 h-5" />}
             color="purple"
             subtitle="Dağılım"
           />
           <KPICard
             title="Risk Öğrenci"
-            value={riskStudents.length}
+            value={String(riskStudents.length || 0)}
             icon={<AlertTriangle className="w-5 h-5" />}
             color="red"
             subtitle="Takip Gerekli"
           />
           <KPICard
             title="Potansiyel"
-            value={opportunities.length}
+            value={String(opportunities.length || 0)}
             icon={<Sparkles className="w-5 h-5" />}
             color="teal"
             subtitle="Gelişim Fırsatı"
@@ -448,9 +448,9 @@ function ExamDashboardContent() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={bySubject.map(s => ({
-                    subject: typeof s.subjectName === 'string' ? s.subjectName : 'Ders',
-                    net: s.averageNet || 0,
-                    successRate: s.successRate || 0,
+                    subject: (typeof s?.subjectName === 'string' ? s.subjectName : 'Ders').slice(0, 15),
+                    net: Number(s?.averageNet || 0),
+                    successRate: Number(s?.successRate || 0),
                   }))}>
                     <PolarGrid stroke="#334155" />
                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
@@ -475,10 +475,10 @@ function ExamDashboardContent() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byClass.map(c => ({
-                    name: typeof c.className === 'string' ? c.className : 'Sınıf',
-                    net: c.averageNet || 0,
-                    students: c.studentCount || 0,
-                    diff: c.comparedToSchool || 0,
+                    name: (typeof c?.className === 'string' ? c.className : 'Sınıf').slice(0, 10),
+                    net: Number(c?.averageNet || 0),
+                    students: Number(c?.studentCount || 0),
+                    diff: Number(c?.comparedToSchool || 0),
                   }))} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
                     <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} />
@@ -486,13 +486,13 @@ function ExamDashboardContent() {
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
                       formatter={(value: any, name: string) => [
-                        typeof value === 'number' ? value.toFixed(2) : value,
+                        typeof value === 'number' ? value.toFixed(2) : String(value),
                         name === 'net' ? 'Ortalama Net' : name
                       ]}
                     />
                     <Bar dataKey="net" name="Ortalama Net" radius={[0, 8, 8, 0]}>
                       {byClass.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={(entry.comparedToSchool || 0) >= 0 ? '#22d3ee' : '#6366f1'} />
+                        <Cell key={`cell-${index}`} fill={Number(entry?.comparedToSchool || 0) >= 0 ? '#22d3ee' : '#6366f1'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -510,9 +510,9 @@ function ExamDashboardContent() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={trends.map(t => ({
-                      name: typeof t.examName === 'string' ? t.examName.slice(0, 12) : 'Sınav',
-                      net: t.averageNet || 0,
-                      katilim: t.participantCount || 0,
+                      name: (typeof t?.examName === 'string' ? t.examName : 'Sınav').slice(0, 12),
+                      net: Number(t?.averageNet || 0),
+                      katilim: Number(t?.participantCount || 0),
                     }))}>
                       <defs>
                         <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
@@ -552,11 +552,11 @@ function ExamDashboardContent() {
                       {idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white text-sm truncate">{student.fullName}</p>
-                      <p className="text-xs text-slate-400">{student.className}</p>
+                      <p className="font-medium text-white text-sm truncate">{student.fullName || 'İsimsiz'}</p>
+                      <p className="text-xs text-slate-400">{student.className || '-'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-cyan-400">{student.totalNet?.toFixed(2)}</p>
+                      <p className="font-bold text-cyan-400">{student.totalNet ? student.totalNet.toFixed(2) : '0.00'}</p>
                       <p className="text-xs text-slate-500">Net</p>
                     </div>
                   </div>
@@ -575,8 +575,8 @@ function ExamDashboardContent() {
                 {riskStudents.slice(0, 5).map((risk) => (
                   <div key={risk.studentId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl">
                     <div>
-                      <p className="font-medium text-white text-sm">{risk.fullName}</p>
-                      <p className="text-xs text-slate-400">{risk.className}</p>
+                      <p className="font-medium text-white text-sm">{risk.fullName || 'İsimsiz'}</p>
+                      <p className="text-xs text-slate-400">{risk.className || '-'}</p>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       risk.riskLevel === 'critical' ? 'bg-red-500/20 text-red-400' :
@@ -600,12 +600,12 @@ function ExamDashboardContent() {
                 İstatistikler
               </h3>
               <div className="space-y-4">
-                <StatRow label="Minimum Net" value={overall.minNet?.toFixed(2) || '0'} />
-                <StatRow label="Maksimum Net" value={overall.maxNet?.toFixed(2) || '0'} />
-                <StatRow label="Q1 (25%)" value={overall.q1?.toFixed(2) || '0'} />
-                <StatRow label="Q3 (75%)" value={overall.q3?.toFixed(2) || '0'} />
-                <StatRow label="IQR" value={overall.iqr?.toFixed(2) || '0'} />
-                <StatRow label="Varyans" value={overall.variance?.toFixed(2) || '0'} />
+                <StatRow label="Minimum Net" value={(overall.minNet || 0).toFixed(2)} />
+                <StatRow label="Maksimum Net" value={(overall.maxNet || 0).toFixed(2)} />
+                <StatRow label="Q1 (25%)" value={(overall.q1 || 0).toFixed(2)} />
+                <StatRow label="Q3 (75%)" value={(overall.q3 || 0).toFixed(2)} />
+                <StatRow label="IQR" value={(overall.iqr || 0).toFixed(2)} />
+                <StatRow label="Varyans" value={(overall.variance || 0).toFixed(2)} />
               </div>
             </div>
           </div>
@@ -669,10 +669,10 @@ function ExamDashboardContent() {
                   <tr key={student.studentId} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                     <td className="py-3 px-4 text-sm text-slate-400">{idx + 1}</td>
                     <td className="py-3 px-4">
-                      <p className="font-medium text-white text-sm">{student.fullName}</p>
-                      <p className="text-xs text-slate-500">{student.studentNo}</p>
+                      <p className="font-medium text-white text-sm">{student.fullName || 'İsimsiz'}</p>
+                      <p className="text-xs text-slate-500">{student.studentNo || '-'}</p>
                     </td>
-                    <td className="py-3 px-4 text-sm text-slate-300">{student.className}</td>
+                    <td className="py-3 px-4 text-sm text-slate-300">{student.className || '-'}</td>
                     <td className="py-3 px-4 text-center text-sm">
                       <span className="text-teal-400">{student.totalCorrect || 0}</span>
                       <span className="text-slate-500">/</span>
@@ -681,10 +681,10 @@ function ExamDashboardContent() {
                       <span className="text-slate-400">{student.totalEmpty || 0}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="font-bold text-cyan-400">{student.totalNet?.toFixed(2) || '0'}</span>
+                      <span className="font-bold text-cyan-400">{student.totalNet ? student.totalNet.toFixed(2) : '0.00'}</span>
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-slate-300">
-                      {student.totalScore?.toFixed(0) || '0'}
+                      {student.totalScore ? student.totalScore.toFixed(0) : '0'}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className="text-sm text-indigo-400">{student.percentile || 0}%</span>
@@ -693,11 +693,11 @@ function ExamDashboardContent() {
                       {student.trendDirection === 'up' && <ArrowUpRight className="inline text-teal-400 w-4 h-4" />}
                       {student.trendDirection === 'down' && <ArrowDownRight className="inline text-red-400 w-4 h-4" />}
                       {student.trendDirection === 'stable' && <Minus className="inline text-slate-400 w-4 h-4" />}
-                      {student.netChange !== undefined && (
+                      {student.netChange !== undefined && student.netChange !== null && (
                         <span className={`ml-1 text-xs ${
                           student.netChange > 0 ? 'text-teal-400' : student.netChange < 0 ? 'text-red-400' : 'text-slate-400'
                         }`}>
-                          {student.netChange > 0 ? '+' : ''}{student.netChange?.toFixed(1) || '0'}
+                          {student.netChange > 0 ? '+' : ''}{student.netChange.toFixed(1)}
                         </span>
                       )}
                     </td>
