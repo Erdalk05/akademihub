@@ -2,96 +2,80 @@
 
 /**
  * AkademiHub Exam Intelligence Dashboard
- * Türkiye'nin en gelişmiş sınav analiz platformu
+ * Türkiye'nin en gelişmiş K12 sınav analiz platformu
+ * Enterprise-grade • MEB/ÖSYM Uyumlu • AI Destekli
  */
 
-import React, { useEffect, useState, useMemo, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Cell,
-  ScatterChart,
-  Scatter,
-  ZAxis,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
+  PolarRadiusAxis, Radar, Cell, AreaChart, Area, PieChart, Pie,
+  ComposedChart, Scatter
 } from 'recharts';
 import {
-  Users,
-  TrendingUp,
-  TrendingDown,
-  Target,
-  Award,
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle,
-  Search,
-  Filter,
-  Download,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  LayoutGrid,
-  BarChart2,
-  Activity,
-  Layers,
-  Eye,
-  XCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-  GraduationCap,
-  BookOpen,
-  Brain,
-  Sparkles,
-  FileText,
-  Send,
-  Menu,
-  X,
+  Users, TrendingUp, TrendingDown, Target, Award, AlertTriangle,
+  AlertCircle, Search, Download, RefreshCw, BarChart2, Activity,
+  Eye, ArrowUpRight, ArrowDownRight, Minus, GraduationCap, BookOpen,
+  Brain, Sparkles, Menu, ChevronDown, ChevronUp, Filter, Percent,
+  Zap, Crown, Star, Trophy, School, Calendar, Clock, CheckCircle2,
+  XCircle, FileText, Share2, Settings, Layers, PieChart as PieIcon,
+  TrendingUp as TrendIcon
 } from 'lucide-react';
 import { useExamIntelligenceStore } from '@/lib/store/examIntelligenceStore';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import type {
-  ExamIntelligenceResponse,
-  StudentResult,
-  RiskLevel,
-  ViewMode,
+  ExamIntelligenceResponse, StudentResult, RiskLevel, ViewMode,
+  ClassStats, SubjectStats
 } from '@/types/exam-intelligence';
 
 // ============================================================================
-// COLOR SCHEMES
+// THEME COLORS - AkademiHub Corporate (NO WhatsApp Green)
 // ============================================================================
 
-const RISK_COLORS: Record<RiskLevel, string> = {
-  critical: '#dc2626',
-  high: '#ea580c',
-  medium: '#eab308',
-  low: '#22c55e',
-  none: '#3b82f6',
+const THEME = {
+  // Primary palette
+  primary: '#0891b2',      // cyan-600
+  primaryDark: '#0e7490',  // cyan-700
+  primaryLight: '#22d3ee', // cyan-400
+  
+  // Accent
+  accent: '#6366f1',       // indigo-500
+  accentLight: '#818cf8',  // indigo-400
+  
+  // Background
+  bgDark: '#0f172a',       // slate-900
+  bgCard: '#1e293b',       // slate-800
+  bgHover: '#334155',      // slate-700
+  
+  // Text
+  textPrimary: '#f1f5f9',  // slate-100
+  textSecondary: '#94a3b8', // slate-400
+  textMuted: '#64748b',    // slate-500
+  
+  // Status
+  success: '#14b8a6',      // teal-500
+  warning: '#f59e0b',      // amber-500
+  danger: '#ef4444',       // red-500
+  info: '#3b82f6',         // blue-500
+  
+  // Borders
+  border: '#334155',       // slate-700
+  borderLight: '#475569',  // slate-600
 };
 
-const SUBJECT_COLORS = [
-  '#3b82f6', // Blue
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#f97316', // Orange
-  '#22c55e', // Green
-  '#06b6d4', // Cyan
-];
+const RISK_COLORS: Record<RiskLevel, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#14b8a6',
+  none: '#6366f1',
+};
+
+const SUBJECT_COLORS = ['#0891b2', '#6366f1', '#8b5cf6', '#06b6d4', '#0ea5e9', '#14b8a6'];
+const CHART_COLORS = ['#22d3ee', '#818cf8', '#2dd4bf', '#38bdf8', '#a78bfa', '#67e8f9'];
 
 // ============================================================================
 // MAIN DASHBOARD CONTENT
@@ -104,27 +88,16 @@ function ExamDashboardContent() {
 
   const { currentOrganization } = useOrganizationStore();
   const {
-    examData,
-    isLoading,
-    error,
-    viewMode,
-    filters,
-    sidebarOpen,
-    selectedStudentId,
-    setExamData,
-    setLoading,
-    setError,
-    setViewMode,
-    setFilters,
-    resetFilters,
-    setSidebarOpen,
-    setSelectedStudentId,
-    getFilteredStudents,
-    getClassList,
+    examData, isLoading, error, viewMode, filters, sidebarOpen,
+    selectedStudentId, setExamData, setLoading, setError, setViewMode,
+    setFilters, resetFilters, setSidebarOpen, setSelectedStudentId,
+    getFilteredStudents, getClassList, getSubjectList,
   } = useExamIntelligenceStore();
 
-  const [exams, setExams] = useState<Array<{ id: string; name: string; exam_date: string }>>([]);
+  const [exams, setExams] = useState<Array<{ id: string; name: string; exam_date: string; exam_type: string }>>([]);
   const [selectedExam, setSelectedExam] = useState<string>(examId || '');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'classes' | 'subjects' | 'trends'>('overview');
+  const [refreshing, setRefreshing] = useState(false);
 
   // ========================================================================
   // FETCH EXAMS LIST
@@ -133,66 +106,65 @@ function ExamDashboardContent() {
   useEffect(() => {
     const fetchExams = async () => {
       if (!currentOrganization?.id) return;
-
       try {
         const res = await fetch(`/api/akademik-analiz/exams?organizationId=${currentOrganization.id}`);
         const data = await res.json();
-        if (data?.exams) {
+        if (data?.exams && Array.isArray(data.exams)) {
           setExams(data.exams);
-          if (!selectedExam && ((data.exams ?? []).length ?? 0) > 0) {
+          if (!selectedExam && data.exams.length > 0) {
             setSelectedExam(data.exams[0].id);
           }
         }
       } catch (err) {
-        console.error('Sınavlar yüklenemedi:', err);
+        // Silent fail for production
       }
     };
-
     fetchExams();
-  }, [currentOrganization?.id]);
+  }, [currentOrganization?.id, selectedExam]);
 
   // ========================================================================
   // FETCH EXAM DATA
   // ========================================================================
 
+  const fetchExamData = useCallback(async () => {
+    if (!selectedExam) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/akademik-analiz/exam-intelligence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          examId: selectedExam,
+          options: {
+            includeHistorical: true,
+            includePredictions: true,
+            includeComparisons: true,
+            depth: 'comprehensive',
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Veri yüklenemedi');
+      setExamData(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedExam, setExamData, setLoading, setError]);
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (!selectedExam) return;
+    fetchExamData();
+  }, [fetchExamData]);
 
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await fetch('/api/akademik-analiz/exam-intelligence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            examId: selectedExam,
-            options: {
-              includeHistorical: true,
-              includePredictions: true,
-              includeComparisons: true,
-              depth: 'detailed',
-            },
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data?.error || 'Veri yüklenemedi');
-        }
-
-        setExamData(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [selectedExam]);
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchExamData();
+  };
 
   // ========================================================================
   // COMPUTED VALUES
@@ -206,6 +178,7 @@ function ExamDashboardContent() {
       return [];
     }
   }, [examData, filters, getFilteredStudents]);
+
   const classList = useMemo(() => {
     try {
       const arr = getClassList?.();
@@ -215,17 +188,30 @@ function ExamDashboardContent() {
     }
   }, [examData, getClassList]);
 
+  const subjectList = useMemo(() => {
+    try {
+      const arr = getSubjectList?.();
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [examData, getSubjectList]);
+
   // ========================================================================
   // LOADING STATE
   // ========================================================================
 
-  if (isLoading) {
+  if (isLoading && !examData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-6" />
-          <p className="text-slate-400 text-lg">Analiz yükleniyor...</p>
-          <p className="text-slate-500 text-sm mt-2">Veriler işleniyor, lütfen bekleyin</p>
+          <div className="relative w-24 h-24 mx-auto mb-8">
+            <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full" />
+            <div className="absolute inset-0 border-4 border-transparent border-t-cyan-400 rounded-full animate-spin" />
+            <Brain className="absolute inset-0 m-auto w-10 h-10 text-cyan-400" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Exam Intelligence</h3>
+          <p className="text-slate-400">Veriler analiz ediliyor...</p>
         </div>
       </div>
     );
@@ -238,13 +224,13 @@ function ExamDashboardContent() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
-        <div className="bg-slate-800/50 backdrop-blur border border-red-500/30 rounded-2xl p-8 max-w-md text-center">
+        <div className="bg-slate-800/80 backdrop-blur border border-red-500/30 rounded-2xl p-8 max-w-md text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Hata Oluştu</h2>
+          <h2 className="text-xl font-bold text-white mb-2">Bağlantı Hatası</h2>
           <p className="text-slate-400 mb-6">{error}</p>
           <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors"
+            onClick={handleRefresh}
+            className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-medium transition-colors"
           >
             Tekrar Dene
           </button>
@@ -261,19 +247,20 @@ function ExamDashboardContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
         <div className="max-w-xl mx-auto mt-20 text-center">
-          <GraduationCap className="w-20 h-20 text-slate-600 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-white mb-4">Sınav Seçin</h2>
+          <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <GraduationCap className="w-12 h-12 text-cyan-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">Sınav Analizi</h2>
           <p className="text-slate-400 mb-8">Analiz görüntülemek için bir sınav seçin</p>
-
           <select
             value={selectedExam}
             onChange={(e) => setSelectedExam(e.target.value)}
-            className="w-full max-w-md px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full max-w-md px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
           >
             <option value="">Sınav Seçin...</option>
             {(exams ?? []).map((ex) => (
               <option key={ex.id} value={ex.id}>
-                {ex.name} - {new Date(ex.exam_date).toLocaleDateString('tr-TR')}
+                {typeof ex.name === 'string' ? ex.name : 'İsimsiz'} - {new Date(ex.exam_date).toLocaleDateString('tr-TR')}
               </option>
             ))}
           </select>
@@ -283,28 +270,22 @@ function ExamDashboardContent() {
   }
 
   const { exam, statistics, insights } = examData;
-  
-  // Safe destructuring with defaults to prevent runtime crashes
   const overall = statistics?.overall;
-  const byClass = statistics?.byClass ?? [];
-  const bySubject = statistics?.bySubject ?? [];
-  const trends = statistics?.trends ?? [];
-  const riskStudents = insights?.riskStudents ?? [];
-  const opportunities = insights?.opportunities ?? [];
-  const recommendations = insights?.recommendations ?? [];
+  const byClass = Array.isArray(statistics?.byClass) ? statistics.byClass : [];
+  const bySubject = Array.isArray(statistics?.bySubject) ? statistics.bySubject : [];
+  const trends = Array.isArray(statistics?.trends) ? statistics.trends : [];
+  const riskStudents = Array.isArray(insights?.riskStudents) ? insights.riskStudents : [];
+  const opportunities = Array.isArray(insights?.opportunities) ? insights.opportunities : [];
+  const recommendations = Array.isArray(insights?.recommendations) ? insights.recommendations : [];
 
-  // Guard: if overall statistics are missing, show empty state
   if (!overall) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
-        <div className="bg-slate-800/50 backdrop-blur border border-amber-500/30 rounded-2xl p-8 max-w-md text-center">
+        <div className="bg-slate-800/80 backdrop-blur border border-amber-500/30 rounded-2xl p-8 max-w-md text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Veri Eksik</h2>
-          <p className="text-slate-400 mb-6">Bu sınav için istatistikler henüz hesaplanmamış.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors"
-          >
+          <h2 className="text-xl font-bold text-white mb-2">Veri Bekleniyor</h2>
+          <p className="text-slate-400 mb-6">Bu sınav için henüz sonuç girilmemiş.</p>
+          <button onClick={handleRefresh} className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-medium transition-colors">
             Yenile
           </button>
         </div>
@@ -313,333 +294,361 @@ function ExamDashboardContent() {
   }
 
   // ========================================================================
-  // RENDER MAIN DASHBOARD
+  // MAIN RENDER
   // ========================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* TOP HEADER */}
-      <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur border-b border-slate-700/50">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-[#0c1929] to-slate-900">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/50">
+        <div className="px-4 lg:px-6 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo & Title */}
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 lg:hidden"
-              >
-                <Menu size={20} />
-              </button>
-
-              <div>
-                <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Brain className="text-emerald-500" size={24} />
-                  Exam Intelligence
-                </h1>
-                <p className="text-sm text-slate-400">{currentOrganization?.name}</p>
+              <div className="hidden lg:flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                  <Brain className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-white">Exam Intelligence</h1>
+                  <p className="text-xs text-slate-500">{currentOrganization?.name || 'AkademiHub'}</p>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Exam Selector */}
+            {/* Exam Selector & Actions */}
+            <div className="flex items-center gap-3">
               <select
                 value={selectedExam}
                 onChange={(e) => setSelectedExam(e.target.value)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-emerald-500"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-cyan-500 min-w-[200px]"
               >
                 {(exams ?? []).map((ex) => (
                   <option key={ex.id} value={ex.id}>
-                    {ex.name}
+                    {typeof ex.name === 'string' ? ex.name : 'Sınav'} ({ex.exam_type || 'LGS'})
                   </option>
                 ))}
               </select>
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-slate-800 rounded-lg p-1">
-                {(['grid', 'statistical', 'heatmap'] as ViewMode[]).map((mode) => (
+              <div className="hidden md:flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
+                {(['overview', 'students', 'classes', 'subjects'] as const).map((tab) => (
                   <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      viewMode === mode
-                        ? 'bg-emerald-600 text-white'
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      activeTab === tab
+                        ? 'bg-cyan-600 text-white shadow-lg'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    {mode === 'grid' && 'Tablo'}
-                    {mode === 'statistical' && 'İstatistik'}
-                    {mode === 'heatmap' && 'Isı Haritası'}
+                    {tab === 'overview' && 'Genel'}
+                    {tab === 'students' && 'Öğrenciler'}
+                    {tab === 'classes' && 'Sınıflar'}
+                    {tab === 'subjects' && 'Dersler'}
                   </button>
                 ))}
               </div>
 
-              {/* Export Button */}
-              <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
-                <Download size={20} />
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700">
+                <Download className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <div className="p-6 space-y-6">
-        {/* KPI CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      {/* CONTENT */}
+      <main className="p-4 lg:p-6 space-y-6">
+        {/* HERO KPI SECTION */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <KPICard
             title="Katılımcı"
             value={overall.participantCount}
-            icon={<Users className="text-blue-400" size={20} />}
-            color="blue"
+            icon={<Users className="w-5 h-5" />}
+            color="cyan"
+            subtitle="Toplam Öğrenci"
           />
           <KPICard
             title="Ortalama Net"
-            value={overall.averageNet.toFixed(1)}
-            icon={<Target className="text-emerald-400" size={20} />}
-            color="emerald"
-            subtitle={`Medyan: ${overall.medianNet.toFixed(1)}`}
-          />
-          <KPICard
-            title="Std. Sapma"
-            value={overall.standardDeviation.toFixed(2)}
-            icon={<Activity className="text-purple-400" size={20} />}
-            color="purple"
+            value={overall.averageNet?.toFixed(2) || '0.00'}
+            icon={<Target className="w-5 h-5" />}
+            color="indigo"
+            subtitle={`Medyan: ${overall.medianNet?.toFixed(2) || '0'}`}
           />
           <KPICard
             title="En Yüksek"
-            value={overall.maxNet.toFixed(1)}
-            icon={<Award className="text-amber-400" size={20} />}
+            value={overall.maxNet?.toFixed(2) || '0.00'}
+            icon={<Trophy className="w-5 h-5" />}
             color="amber"
+            subtitle="Maksimum Net"
+          />
+          <KPICard
+            title="Std. Sapma"
+            value={overall.standardDeviation?.toFixed(2) || '0.00'}
+            icon={<Activity className="w-5 h-5" />}
+            color="purple"
+            subtitle="Dağılım"
           />
           <KPICard
             title="Risk Öğrenci"
-            value={(riskStudents ?? []).length ?? 0}
-            icon={<AlertTriangle className="text-red-400" size={20} />}
+            value={riskStudents.length}
+            icon={<AlertTriangle className="w-5 h-5" />}
             color="red"
+            subtitle="Takip Gerekli"
           />
           <KPICard
             title="Potansiyel"
-            value={(opportunities ?? []).length ?? 0}
-            icon={<Sparkles className="text-cyan-400" size={20} />}
-            color="cyan"
+            value={opportunities.length}
+            icon={<Sparkles className="w-5 h-5" />}
+            color="teal"
+            subtitle="Gelişim Fırsatı"
           />
         </div>
 
-        {/* INSIGHTS BANNER */}
-        {((recommendations ?? []).length ?? 0) > 0 && (
+        {/* AI INSIGHT BANNER */}
+        {recommendations.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-4"
+            className="bg-gradient-to-r from-cyan-600/10 via-indigo-600/10 to-purple-600/10 border border-cyan-500/20 rounded-2xl p-4"
           >
             <div className="flex items-start gap-3">
-              <Brain className="text-amber-400 mt-0.5" size={20} />
-              <div className="flex-1">
-                <p className="font-medium text-amber-300 mb-1">AI Önerisi</p>
-                <p className="text-sm text-slate-300">
-                  {recommendations[0]?.recommendation}
-                </p>
+              <div className="p-2 bg-cyan-500/20 rounded-lg">
+                <Brain className="w-5 h-5 text-cyan-400" />
               </div>
+              <div className="flex-1">
+                <p className="font-semibold text-cyan-300 mb-1">AI Analiz Önerisi</p>
+                <p className="text-sm text-slate-300">{recommendations[0]?.recommendation || 'Analiz devam ediyor...'}</p>
+              </div>
+              <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded-full">
+                {recommendations[0]?.priority === 'high' ? 'Öncelikli' : 'Öneri'}
+              </span>
             </div>
           </motion.div>
         )}
 
-        {/* MAIN GRID */}
+        {/* MAIN DASHBOARD GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT: TREND + CLASS COMPARISON */}
+          {/* LEFT COLUMN - Charts */}
           <div className="lg:col-span-2 space-y-6">
-            {/* TREND CHART */}
-            {((trends ?? []).length ?? 0) > 1 && (
-              <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <TrendingUp className="text-emerald-400" size={20} />
-                  Performans Trendi
-                </h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trends}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                      <XAxis
-                        dataKey="examName"
-                        tick={{ fill: '#94a3b8', fontSize: 11 }}
-                        tickFormatter={(v) => v.slice(0, 10)}
-                      />
-                      <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '8px',
-                        }}
-                        labelStyle={{ color: '#fff' }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="averageNet"
-                        stroke="#10b981"
-                        strokeWidth={3}
-                        dot={{ fill: '#10b981', r: 5 }}
-                        name="Ortalama Net"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {/* CLASS COMPARISON */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+            {/* Subject Performance Radar */}
+            <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <BarChart2 className="text-blue-400" size={20} />
+                <BookOpen className="w-5 h-5 text-indigo-400" />
+                Ders Bazlı Performans
+              </h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={bySubject.map(s => ({
+                    subject: typeof s.subjectName === 'string' ? s.subjectName : 'Ders',
+                    net: s.averageNet || 0,
+                    successRate: s.successRate || 0,
+                  }))}>
+                    <PolarGrid stroke="#334155" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <PolarRadiusAxis tick={{ fill: '#64748b', fontSize: 10 }} />
+                    <Radar dataKey="net" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.3} name="Ortalama Net" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                      labelStyle={{ color: '#fff' }}
+                    />
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Class Comparison Bar Chart */}
+            <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <BarChart2 className="w-5 h-5 text-cyan-400" />
                 Sınıf Karşılaştırması
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byClass} layout="vertical">
+                  <BarChart data={byClass.map(c => ({
+                    name: typeof c.className === 'string' ? c.className : 'Sınıf',
+                    net: c.averageNet || 0,
+                    students: c.studentCount || 0,
+                    diff: c.comparedToSchool || 0,
+                  }))} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
                     <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis type="category" dataKey="className" tick={{ fill: '#94a3b8', fontSize: 12 }} width={60} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} width={60} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                      }}
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                      formatter={(value: any, name: string) => [
+                        typeof value === 'number' ? value.toFixed(2) : value,
+                        name === 'net' ? 'Ortalama Net' : name
+                      ]}
                     />
-                    <Bar dataKey="averageNet" name="Ortalama Net" radius={[0, 8, 8, 0]}>
-                      {(byClass ?? []).map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.comparedToSchool >= 0 ? '#10b981' : '#ef4444'}
-                        />
+                    <Bar dataKey="net" name="Ortalama Net" radius={[0, 8, 8, 0]}>
+                      {byClass.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={(entry.comparedToSchool || 0) >= 0 ? '#22d3ee' : '#6366f1'} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Trend Chart */}
+            {trends.length > 1 && (
+              <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-teal-400" />
+                  Performans Trendi
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trends.map(t => ({
+                      name: typeof t.examName === 'string' ? t.examName.slice(0, 12) : 'Sınav',
+                      net: t.averageNet || 0,
+                      katilim: t.participantCount || 0,
+                    }))}>
+                      <defs>
+                        <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} />
+                      <Area type="monotone" dataKey="net" stroke="#22d3ee" strokeWidth={2} fill="url(#netGradient)" name="Ortalama Net" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* RIGHT: SUBJECT RADAR + RISK LIST */}
+          {/* RIGHT COLUMN - Lists & Stats */}
           <div className="space-y-6">
-            {/* SUBJECT RADAR */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+            {/* Top Performers */}
+            <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <BookOpen className="text-purple-400" size={20} />
-                Ders Profili
+                <Crown className="w-5 h-5 text-amber-400" />
+                En Başarılı Öğrenciler
               </h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={bySubject}>
-                    <PolarGrid stroke="#334155" />
-                    <PolarAngleAxis dataKey="subjectName" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <PolarRadiusAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <Radar
-                      dataKey="successRate"
-                      stroke="#8b5cf6"
-                      fill="#8b5cf6"
-                      fillOpacity={0.4}
-                      name="Başarı %"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                      }}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="space-y-3">
+                {filteredStudents.slice(0, 5).map((student, idx) => (
+                  <div key={student.studentId} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-xl hover:bg-slate-700/50 transition-colors cursor-pointer">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                      idx === 0 ? 'bg-amber-500/20 text-amber-400' :
+                      idx === 1 ? 'bg-slate-400/20 text-slate-300' :
+                      idx === 2 ? 'bg-orange-500/20 text-orange-400' :
+                      'bg-slate-600/50 text-slate-400'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white text-sm truncate">{student.fullName}</p>
+                      <p className="text-xs text-slate-400">{student.className}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-cyan-400">{student.totalNet?.toFixed(2)}</p>
+                      <p className="text-xs text-slate-500">Net</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* RISK STUDENTS */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+            {/* Risk Students */}
+            <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <AlertTriangle className="text-red-400" size={20} />
-                Risk Öğrencileri
-                <span className="ml-auto text-sm font-normal text-slate-400">
-                  {(riskStudents ?? []).length ?? 0} öğrenci
-                </span>
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                Risk Altındaki Öğrenciler
+                <span className="ml-auto text-sm font-normal text-slate-400">{riskStudents.length}</span>
               </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {(riskStudents ?? []).slice(0, 5).map((risk) => (
-                  <div
-                    key={risk.studentId}
-                    className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl"
-                  >
+                {riskStudents.slice(0, 5).map((risk) => (
+                  <div key={risk.studentId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl">
                     <div>
                       <p className="font-medium text-white text-sm">{risk.fullName}</p>
                       <p className="text-xs text-slate-400">{risk.className}</p>
                     </div>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        risk.riskLevel === 'critical'
-                          ? 'bg-red-500/20 text-red-400'
-                          : 'bg-orange-500/20 text-orange-400'
-                      }`}
-                    >
-                      {risk.riskLevel === 'critical' ? 'Kritik' : 'Yüksek'}
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      risk.riskLevel === 'critical' ? 'bg-red-500/20 text-red-400' :
+                      risk.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {risk.riskLevel === 'critical' ? 'Kritik' : risk.riskLevel === 'high' ? 'Yüksek' : 'Orta'}
                     </span>
                   </div>
                 ))}
+                {riskStudents.length === 0 && (
+                  <p className="text-center text-slate-500 py-4">Risk altında öğrenci yok</p>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-400" />
+                İstatistikler
+              </h3>
+              <div className="space-y-4">
+                <StatRow label="Minimum Net" value={overall.minNet?.toFixed(2) || '0'} />
+                <StatRow label="Maksimum Net" value={overall.maxNet?.toFixed(2) || '0'} />
+                <StatRow label="Q1 (25%)" value={overall.q1?.toFixed(2) || '0'} />
+                <StatRow label="Q3 (75%)" value={overall.q3?.toFixed(2) || '0'} />
+                <StatRow label="IQR" value={overall.iqr?.toFixed(2) || '0'} />
+                <StatRow label="Varyans" value={overall.variance?.toFixed(2) || '0'} />
               </div>
             </div>
           </div>
         </div>
 
         {/* STUDENT TABLE */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Users className="text-blue-400" size={20} />
+              <Users className="w-5 h-5 text-cyan-400" />
               Öğrenci Listesi
-              <span className="text-sm font-normal text-slate-400 ml-2">
-                ({(filteredStudents ?? []).length ?? 0} öğrenci)
-              </span>
+              <span className="text-sm font-normal text-slate-400 ml-2">({filteredStudents.length} öğrenci)</span>
             </h3>
 
-            {/* Search */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Öğrenci ara..."
-                  value={filters.searchQuery}
+                  value={filters.searchQuery || ''}
                   onChange={(e) => setFilters({ searchQuery: e.target.value })}
-                  className="pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className="pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 w-48"
                 />
               </div>
 
-              {/* Class Filter */}
               <select
                 value={filters.selectedClasses?.[0] || ''}
-                onChange={(e) =>
-                  setFilters({
-                    selectedClasses: e.target.value ? [e.target.value] : [],
-                  })
-                }
-                className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm"
+                onChange={(e) => setFilters({ selectedClasses: e.target.value ? [e.target.value] : [] })}
+                className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-xl text-white text-sm"
               >
                 <option value="">Tüm Sınıflar</option>
-                {(classList ?? []).map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {classList.map((c) => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
 
-              {/* Reset */}
-              <button
-                onClick={resetFilters}
-                className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white"
-              >
-                <RefreshCw size={16} />
+              <button onClick={resetFilters} className="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white">
+                <RefreshCw className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -647,70 +656,59 @@ function ExamDashboardContent() {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-slate-400">Sıra</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-slate-400">Öğrenci</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-slate-400">Sınıf</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">D/Y/B</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Net</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Puan</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Yüzdelik</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">%'lik</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Trend</th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Risk</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-400">Detay</th>
                 </tr>
               </thead>
               <tbody>
-                {(filteredStudents ?? []).slice(0, 50).map((student, idx) => (
-                  <tr
-                    key={student.studentId}
-                    className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
-                  >
+                {filteredStudents.slice(0, 50).map((student, idx) => (
+                  <tr key={student.studentId} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                     <td className="py-3 px-4 text-sm text-slate-400">{idx + 1}</td>
                     <td className="py-3 px-4">
                       <p className="font-medium text-white text-sm">{student.fullName}</p>
                       <p className="text-xs text-slate-500">{student.studentNo}</p>
                     </td>
                     <td className="py-3 px-4 text-sm text-slate-300">{student.className}</td>
+                    <td className="py-3 px-4 text-center text-sm">
+                      <span className="text-teal-400">{student.totalCorrect || 0}</span>
+                      <span className="text-slate-500">/</span>
+                      <span className="text-red-400">{student.totalWrong || 0}</span>
+                      <span className="text-slate-500">/</span>
+                      <span className="text-slate-400">{student.totalEmpty || 0}</span>
+                    </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="font-bold text-emerald-400">{student.totalNet.toFixed(1)}</span>
+                      <span className="font-bold text-cyan-400">{student.totalNet?.toFixed(2) || '0'}</span>
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-slate-300">
-                      {student.totalScore.toFixed(0)}
+                      {student.totalScore?.toFixed(0) || '0'}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="text-sm text-blue-400">{student.percentile}%</span>
+                      <span className="text-sm text-indigo-400">{student.percentile || 0}%</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      {student.trendDirection === 'up' && (
-                        <ArrowUpRight className="inline text-emerald-400" size={18} />
-                      )}
-                      {student.trendDirection === 'down' && (
-                        <ArrowDownRight className="inline text-red-400" size={18} />
-                      )}
-                      {student.trendDirection === 'stable' && (
-                        <Minus className="inline text-slate-400" size={18} />
-                      )}
+                      {student.trendDirection === 'up' && <ArrowUpRight className="inline text-teal-400 w-4 h-4" />}
+                      {student.trendDirection === 'down' && <ArrowDownRight className="inline text-red-400 w-4 h-4" />}
+                      {student.trendDirection === 'stable' && <Minus className="inline text-slate-400 w-4 h-4" />}
                       {student.netChange !== undefined && (
-                        <span
-                          className={`ml-1 text-xs ${
-                            student.netChange > 0 ? 'text-emerald-400' : student.netChange < 0 ? 'text-red-400' : 'text-slate-400'
-                          }`}
-                        >
-                          {student.netChange > 0 ? '+' : ''}
-                          {student.netChange.toFixed(1)}
+                        <span className={`ml-1 text-xs ${
+                          student.netChange > 0 ? 'text-teal-400' : student.netChange < 0 ? 'text-red-400' : 'text-slate-400'
+                        }`}>
+                          {student.netChange > 0 ? '+' : ''}{student.netChange?.toFixed(1) || '0'}
                         </span>
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          student.riskLevel === 'critical'
-                            ? 'bg-red-500/20 text-red-400'
-                            : student.riskLevel === 'high'
-                            ? 'bg-orange-500/20 text-orange-400'
-                            : student.riskLevel === 'medium'
-                            ? 'bg-yellow-500/20 text-yellow-400'
-                            : student.riskLevel === 'low'
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-blue-500/20 text-blue-400'
-                        }`}
-                      >
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        student.riskLevel === 'critical' ? 'bg-red-500/20 text-red-400' :
+                        student.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                        student.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                        student.riskLevel === 'low' ? 'bg-teal-500/20 text-teal-400' :
+                        'bg-indigo-500/20 text-indigo-400'
+                      }`}>
                         {student.riskLevel === 'critical' && 'Kritik'}
                         {student.riskLevel === 'high' && 'Yüksek'}
                         {student.riskLevel === 'medium' && 'Orta'}
@@ -718,27 +716,24 @@ function ExamDashboardContent() {
                         {student.riskLevel === 'none' && 'İyi'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => setSelectedStudentId(student.studentId)}
-                        className="p-1.5 hover:bg-slate-600 rounded text-slate-400 hover:text-white"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {((filteredStudents ?? []).length ?? 0) > 50 && (
+          {filteredStudents.length > 50 && (
             <div className="mt-4 text-center text-sm text-slate-400">
               İlk 50 öğrenci gösteriliyor. Daha fazlası için filtreleme yapın.
             </div>
           )}
         </div>
-      </div>
+
+        {/* FOOTER */}
+        <div className="text-center text-xs text-slate-500 py-4">
+          <p>AkademiHub Exam Intelligence Platform • MEB/ÖSYM Uyumlu • Enterprise Edition</p>
+        </div>
+      </main>
     </div>
   );
 }
@@ -748,35 +743,31 @@ function ExamDashboardContent() {
 // ============================================================================
 
 function KPICard({
-  title,
-  value,
-  icon,
-  color,
-  subtitle,
+  title, value, icon, color, subtitle
 }: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
-  color: string;
+  color: 'cyan' | 'indigo' | 'amber' | 'purple' | 'red' | 'teal';
   subtitle?: string;
 }) {
-  const colorClasses: Record<string, string> = {
-    blue: 'from-blue-500/10 to-blue-500/5 border-blue-500/20',
-    emerald: 'from-emerald-500/10 to-emerald-500/5 border-emerald-500/20',
-    purple: 'from-purple-500/10 to-purple-500/5 border-purple-500/20',
-    amber: 'from-amber-500/10 to-amber-500/5 border-amber-500/20',
-    red: 'from-red-500/10 to-red-500/5 border-red-500/20',
-    cyan: 'from-cyan-500/10 to-cyan-500/5 border-cyan-500/20',
+  const colorMap = {
+    cyan: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30 text-cyan-400',
+    indigo: 'from-indigo-500/20 to-indigo-500/5 border-indigo-500/30 text-indigo-400',
+    amber: 'from-amber-500/20 to-amber-500/5 border-amber-500/30 text-amber-400',
+    purple: 'from-purple-500/20 to-purple-500/5 border-purple-500/30 text-purple-400',
+    red: 'from-red-500/20 to-red-500/5 border-red-500/30 text-red-400',
+    teal: 'from-teal-500/20 to-teal-500/5 border-teal-500/30 text-teal-400',
   };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-gradient-to-br ${colorClasses[color]} border rounded-2xl p-4`}
+      className={`bg-gradient-to-br ${colorMap[color].split(' ').slice(0, 2).join(' ')} border ${colorMap[color].split(' ')[2]} rounded-2xl p-4 backdrop-blur`}
     >
       <div className="flex items-center gap-2 mb-2">
-        {icon}
+        <span className={colorMap[color].split(' ')[3]}>{icon}</span>
         <span className="text-sm text-slate-400">{title}</span>
       </div>
       <p className="text-2xl font-bold text-white">{value}</p>
@@ -786,7 +777,20 @@ function KPICard({
 }
 
 // ============================================================================
-// PAGE EXPORT WITH SUSPENSE
+// STAT ROW COMPONENT
+// ============================================================================
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-slate-400">{label}</span>
+      <span className="font-mono text-sm text-white">{value}</span>
+    </div>
+  );
+}
+
+// ============================================================================
+// PAGE EXPORT
 // ============================================================================
 
 export default function ExamDashboardPage() {
@@ -794,7 +798,7 @@ export default function ExamDashboardPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
         </div>
       }
     >
@@ -802,4 +806,3 @@ export default function ExamDashboardPage() {
     </Suspense>
   );
 }
-
