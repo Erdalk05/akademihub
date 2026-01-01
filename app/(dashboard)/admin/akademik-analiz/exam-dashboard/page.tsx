@@ -323,11 +323,20 @@ function ExamDashboardContent() {
                 onChange={(e) => setSelectedExam(e.target.value)}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-cyan-500 min-w-[200px]"
               >
-                {(exams ?? []).map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {typeof ex.name === 'string' ? ex.name : 'Sınav'} ({ex.exam_type || 'LGS'})
-                  </option>
-                ))}
+                {(exams ?? []).map((ex) => {
+                  const safeExamType =
+                    typeof (ex as any)?.exam_type === 'string'
+                      ? (ex as any).exam_type
+                      : typeof (ex as any)?.exam_type?.name === 'string'
+                        ? (ex as any).exam_type.name
+                        : 'LGS';
+
+                  return (
+                    <option key={ex.id} value={ex.id}>
+                      {typeof ex.name === 'string' ? ex.name : 'Sınav'} ({safeExamType})
+                    </option>
+                  );
+                })}
               </select>
 
               <div className="hidden md:flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">

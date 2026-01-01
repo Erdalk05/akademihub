@@ -33,6 +33,13 @@ import { motion } from 'framer-motion';
 // TYPES
 // ============================================================================
 
+const normalizeExamType = (examType: any): string =>
+  typeof examType === 'string'
+    ? examType
+    : typeof examType?.name === 'string'
+    ? examType.name
+    : 'LGS';
+
 interface ExamData {
   id: string;
   name: string;
@@ -148,7 +155,13 @@ export default function SonuclarPage() {
       const nameSafe = typeof exam.name === 'string' ? exam.name : '';
       const searchSafe = typeof searchTerm === 'string' ? searchTerm : '';
       const matchesSearch = nameSafe.toLowerCase().includes(searchSafe.toLowerCase());
-      const matchesType = filterType === 'all' || exam.exam_type === filterType;
+      const safeExamType =
+        typeof (exam as any)?.exam_type === 'string'
+          ? (exam as any).exam_type
+          : typeof (exam as any)?.exam_type?.name === 'string'
+            ? (exam as any).exam_type.name
+            : 'LGS';
+      const matchesType = filterType === 'all' || safeExamType === filterType;
       return matchesSearch && matchesType;
     });
 
@@ -387,7 +400,15 @@ export default function SonuclarPage() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
-                        {(exam.exam_type || 'LGS').slice(0, 3)}
+                        {(() => {
+                          const safeExamType =
+                            typeof (exam as any)?.exam_type === 'string'
+                              ? (exam as any).exam_type
+                              : typeof (exam as any)?.exam_type?.name === 'string'
+                                ? (exam as any).exam_type.name
+                                : 'LGS';
+                          return safeExamType.slice(0, 3);
+                        })()}
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-slate-800">
