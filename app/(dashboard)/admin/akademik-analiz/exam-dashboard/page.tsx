@@ -139,7 +139,7 @@ function ExamDashboardContent() {
         const data = await res.json();
         if (data?.exams) {
           setExams(data.exams);
-          if (!selectedExam && data.exams.length > 0) {
+          if (!selectedExam && (data.exams?.length ?? 0) > 0) {
             setSelectedExam(data.exams[0].id);
           }
         }
@@ -257,7 +257,7 @@ function ExamDashboardContent() {
             className="w-full max-w-md px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           >
             <option value="">Sınav Seçin...</option>
-            {exams.map((ex) => (
+            {(exams ?? []).map((ex) => (
               <option key={ex.id} value={ex.id}>
                 {ex.name} - {new Date(ex.exam_date).toLocaleDateString('tr-TR')}
               </option>
@@ -332,7 +332,7 @@ function ExamDashboardContent() {
                 onChange={(e) => setSelectedExam(e.target.value)}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-emerald-500"
               >
-                {exams.map((ex) => (
+                {(exams ?? []).map((ex) => (
                   <option key={ex.id} value={ex.id}>
                     {ex.name}
                   </option>
@@ -398,20 +398,20 @@ function ExamDashboardContent() {
           />
           <KPICard
             title="Risk Öğrenci"
-            value={riskStudents.length}
+            value={riskStudents?.length ?? 0}
             icon={<AlertTriangle className="text-red-400" size={20} />}
             color="red"
           />
           <KPICard
             title="Potansiyel"
-            value={opportunities.length}
+            value={opportunities?.length ?? 0}
             icon={<Sparkles className="text-cyan-400" size={20} />}
             color="cyan"
           />
         </div>
 
         {/* INSIGHTS BANNER */}
-        {recommendations.length > 0 && (
+        {(recommendations?.length ?? 0) > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -434,7 +434,7 @@ function ExamDashboardContent() {
           {/* LEFT: TREND + CLASS COMPARISON */}
           <div className="lg:col-span-2 space-y-6">
             {/* TREND CHART */}
-            {trends.length > 1 && (
+            {(trends?.length ?? 0) > 1 && (
               <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <TrendingUp className="text-emerald-400" size={20} />
@@ -492,7 +492,7 @@ function ExamDashboardContent() {
                       }}
                     />
                     <Bar dataKey="averageNet" name="Ortalama Net" radius={[0, 8, 8, 0]}>
-                      {byClass.map((entry, index) => (
+                      {(byClass ?? []).map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={entry.comparedToSchool >= 0 ? '#10b981' : '#ef4444'}
@@ -544,11 +544,11 @@ function ExamDashboardContent() {
                 <AlertTriangle className="text-red-400" size={20} />
                 Risk Öğrencileri
                 <span className="ml-auto text-sm font-normal text-slate-400">
-                  {riskStudents.length} öğrenci
+                  {riskStudents?.length ?? 0} öğrenci
                 </span>
               </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {riskStudents.slice(0, 5).map((risk) => (
+                {(riskStudents ?? []).slice(0, 5).map((risk) => (
                   <div
                     key={risk.studentId}
                     className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl"
@@ -580,7 +580,7 @@ function ExamDashboardContent() {
               <Users className="text-blue-400" size={20} />
               Öğrenci Listesi
               <span className="text-sm font-normal text-slate-400 ml-2">
-                ({filteredStudents.length} öğrenci)
+                ({filteredStudents?.length ?? 0} öğrenci)
               </span>
             </h3>
 
@@ -599,7 +599,7 @@ function ExamDashboardContent() {
 
               {/* Class Filter */}
               <select
-                value={filters.selectedClasses[0] || ''}
+                value={filters.selectedClasses?.[0] || ''}
                 onChange={(e) =>
                   setFilters({
                     selectedClasses: e.target.value ? [e.target.value] : [],
@@ -608,7 +608,7 @@ function ExamDashboardContent() {
                 className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm"
               >
                 <option value="">Tüm Sınıflar</option>
-                {classList.map((c) => (
+                {(classList ?? []).map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -642,7 +642,7 @@ function ExamDashboardContent() {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.slice(0, 50).map((student, idx) => (
+                {(filteredStudents ?? []).slice(0, 50).map((student, idx) => (
                   <tr
                     key={student.studentId}
                     className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
@@ -718,7 +718,7 @@ function ExamDashboardContent() {
             </table>
           </div>
 
-          {filteredStudents.length > 50 && (
+          {(filteredStudents?.length ?? 0) > 50 && (
             <div className="mt-4 text-center text-sm text-slate-400">
               İlk 50 öğrenci gösteriliyor. Daha fazlası için filtreleme yapın.
             </div>

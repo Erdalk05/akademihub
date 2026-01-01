@@ -8,7 +8,6 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { useAcademicYearStore, getCurrentAcademicYear } from '@/lib/store/academicYearStore';
-import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 
 // Lazy load heavy components
 const SearchModal = lazy(() => import('@/components/modals/SearchModal'));
@@ -35,15 +34,8 @@ export default function LayoutWrapper({
   const { selectedYear, availableYears, setSelectedYear } = useAcademicYearStore();
   const currentAcademicYear = getCurrentAcademicYear();
   
-  // Notification context - safely access
-  let unreadCount = 0;
-  try {
-    import { useNotificationContext } from "@/lib/contexts/NotificationContext";
-
-    unreadCount = notifContext?.unreadCount || 0;
-  } catch {
-    // Context not available
-  }
+  // Notification count (hardcoded for now)
+  const unreadCount = 0;
   
   // Logout handler
   const handleLogout = useCallback(async () => {
