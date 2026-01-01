@@ -143,3 +143,7 @@ function getNotificationIcon(type: NotificationType): string {
   };
   return icons[type] || '🔔';
 }
+// ... mevcut kodlar (Provider, useNotifications vs.) burada bitiyor ...
+
+// En alta bu satırı yapıştır:
+export const useNotificationContext = useNotifications;
