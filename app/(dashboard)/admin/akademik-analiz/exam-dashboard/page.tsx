@@ -269,7 +269,34 @@ function ExamDashboardContent() {
   }
 
   const { exam, statistics, insights } = examData;
-  const { overall, byClass, bySubject, trends } = statistics;
+  
+  // Safe destructuring with defaults to prevent runtime crashes
+  const overall = statistics?.overall;
+  const byClass = statistics?.byClass ?? [];
+  const bySubject = statistics?.bySubject ?? [];
+  const trends = statistics?.trends ?? [];
+  const riskStudents = insights?.riskStudents ?? [];
+  const opportunities = insights?.opportunities ?? [];
+  const recommendations = insights?.recommendations ?? [];
+
+  // Guard: if overall statistics are missing, show empty state
+  if (!overall) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
+        <div className="bg-slate-800/50 backdrop-blur border border-amber-500/30 rounded-2xl p-8 max-w-md text-center">
+          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Veri Eksik</h2>
+          <p className="text-slate-400 mb-6">Bu sınav için istatistikler henüz hesaplanmamış.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors"
+          >
+            Yenile
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ========================================================================
   // RENDER MAIN DASHBOARD
@@ -371,20 +398,20 @@ function ExamDashboardContent() {
           />
           <KPICard
             title="Risk Öğrenci"
-            value={insights.riskStudents.length}
+            value={riskStudents.length}
             icon={<AlertTriangle className="text-red-400" size={20} />}
             color="red"
           />
           <KPICard
             title="Potansiyel"
-            value={insights.opportunities.length}
+            value={opportunities.length}
             icon={<Sparkles className="text-cyan-400" size={20} />}
             color="cyan"
           />
         </div>
 
         {/* INSIGHTS BANNER */}
-        {insights.recommendations.length > 0 && (
+        {recommendations.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -395,7 +422,7 @@ function ExamDashboardContent() {
               <div className="flex-1">
                 <p className="font-medium text-amber-300 mb-1">AI Önerisi</p>
                 <p className="text-sm text-slate-300">
-                  {insights.recommendations[0]?.recommendation}
+                  {recommendations[0]?.recommendation}
                 </p>
               </div>
             </div>
@@ -517,11 +544,11 @@ function ExamDashboardContent() {
                 <AlertTriangle className="text-red-400" size={20} />
                 Risk Öğrencileri
                 <span className="ml-auto text-sm font-normal text-slate-400">
-                  {insights.riskStudents.length} öğrenci
+                  {riskStudents.length} öğrenci
                 </span>
               </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {insights.riskStudents.slice(0, 5).map((risk) => (
+                {riskStudents.slice(0, 5).map((risk) => (
                   <div
                     key={risk.studentId}
                     className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl"
