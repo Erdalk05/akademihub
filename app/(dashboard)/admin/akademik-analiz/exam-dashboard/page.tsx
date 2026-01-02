@@ -31,34 +31,22 @@ import type {
   ClassStats, SubjectStats
 } from '@/types/exam-intelligence';
 
-// ============================================================================
-// THEME COLORS - WhatsApp Green & White
-// ============================================================================
-
 const THEME = {
-  primary: '#25D366',       // WhatsApp Green
-  primaryDark: '#1CB655',   // darker green
-  primaryLight: '#7EF0A5',  // light green
-
-  accent: '#128C7E',        // WhatsApp dark teal
-  accentLight: '#34B7F1',   // WhatsApp cyan accent
-
-  bgDark: '#0f172a',        // slate-900 (keep depth)
-  bgCard: '#ffffff',        // white cards
-  bgHover: '#f1f5f9',       // light hover
-
-  textPrimary: '#0f172a',   // dark text
-  textSecondary: '#475569', // slate-600
-  textMuted: '#64748b',     // slate-500
-
-  success: '#25D366',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  info: '#3b82f6',
-
-  border: '#e2e8f0',        // light border
-  borderLight: '#e5e7eb',
+  primary: '#22d3ee',
+  accent: '#14b8a6',
+  bgDark: '#0f172a',
+  bgCard: '#1e293b',
+  border: '#334155',
+  textPrimary: '#f1f5f9',
+  textSecondary: '#94a3b8',
 };
+
+const normalizeExamType = (examType: any): string =>
+  typeof examType === 'string'
+    ? examType
+    : typeof examType?.name === 'string'
+    ? examType.name
+    : 'LGS';
 
 const RISK_COLORS: Record<RiskLevel, string> = {
   critical: '#ef4444',
@@ -68,8 +56,8 @@ const RISK_COLORS: Record<RiskLevel, string> = {
   none: '#6366f1',
 };
 
-const SUBJECT_COLORS = ['#25D366', '#128C7E', '#34B7F1', '#16a34a', '#047857', '#0ea5e9'];
-const CHART_COLORS = ['#25D366', '#128C7E', '#34B7F1', '#16a34a', '#047857', '#0ea5e9'];
+const SUBJECT_COLORS = ['#22d3ee', '#6366f1', '#14b8a6', '#a855f7', '#f59e0b', '#3b82f6'];
+const CHART_COLORS = ['#22d3ee', '#6366f1', '#14b8a6', '#a855f7', '#f59e0b', '#3b82f6'];
 
 // ============================================================================
 // MAIN DASHBOARD CONTENT
@@ -351,20 +339,20 @@ function ExamDashboardContent() {
   // ========================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-emerald-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-emerald-100 shadow-sm">
+      <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-sm">
         <div className="px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between gap-4">
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
               <div className="hidden lg:flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-xl flex items-center justify-center shadow-lg shadow-emerald-300/30">
+                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/30">
                   <Brain className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-slate-900">Exam Intelligence</h1>
-                  <p className="text-xs text-slate-500">{currentOrganization?.name || 'AkademiHub'}</p>
+                  <h1 className="text-lg font-bold text-white">Exam Intelligence</h1>
+                  <p className="text-xs text-slate-400">{currentOrganization?.name || 'AkademiHub'}</p>
                 </div>
               </div>
             </div>
@@ -376,20 +364,11 @@ function ExamDashboardContent() {
                 onChange={(e) => setSelectedExam(e.target.value)}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-cyan-500 min-w-[200px]"
               >
-                {(exams ?? []).map((ex) => {
-                  const safeExamType =
-                    typeof (ex as any)?.exam_type === 'string'
-                      ? (ex as any).exam_type
-                      : typeof (ex as any)?.exam_type?.name === 'string'
-                        ? (ex as any).exam_type.name
-                        : 'LGS';
-
-                  return (
-                    <option key={ex.id} value={ex.id}>
-                      {typeof ex.name === 'string' ? ex.name : 'Sınav'} ({safeExamType})
-                    </option>
-                  );
-                })}
+                {(Array.isArray(exams) ? exams : []).map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {typeof ex?.name === 'string' ? ex.name : 'Sınav'} ({normalizeExamType(ex.exam_type)})
+                  </option>
+                ))}
               </select>
 
               <div className="hidden md:flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
@@ -478,9 +457,9 @@ function ExamDashboardContent() {
         {/* CORE ANALYTICS ROW */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Histogram */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-[color:var(--green-600,#25D366)]" />
+          <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <BarChart2 className="w-5 h-5 text-cyan-400" />
               Net Dağılımı (Histogram)
             </h3>
             <div className="h-64">
@@ -490,11 +469,11 @@ function ExamDashboardContent() {
                   <XAxis dataKey="range" tick={{ fill: THEME.textSecondary, fontSize: 12 }} />
                   <YAxis tick={{ fill: THEME.textSecondary, fontSize: 12 }} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#fff', border: `1px solid ${THEME.border}` }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: `1px solid ${THEME.border}` }}
                     labelStyle={{ color: THEME.textPrimary }}
                   />
                   <Bar dataKey="count" fill={THEME.primary}>
-                    {(histogramData || []).map((_: any, idx: number) => (
+                    {(Array.isArray(histogramData) ? histogramData : []).map((_: any, idx: number) => (
                       <Cell key={idx} fill={idx % 2 === 0 ? THEME.primary : THEME.accent} />
                     ))}
                   </Bar>
@@ -504,15 +483,15 @@ function ExamDashboardContent() {
           </div>
 
           {/* Leaderboard */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Crown className="w-5 h-5 text-[color:var(--green-600,#25D366)]" />
+          <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-400" />
               Leaderboard (Top 25)
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-slate-500 border-b border-slate-200">
+                  <tr className="text-slate-400 border-b border-slate-700">
                     <th className="py-2 text-left">#</th>
                     <th className="py-2 text-left">Öğrenci</th>
                     <th className="py-2 text-left">Sınıf</th>
@@ -523,20 +502,20 @@ function ExamDashboardContent() {
                 </thead>
                 <tbody>
                   {leaderboardData.map((row) => (
-                    <tr key={row.rank} className="border-b border-slate-100">
-                      <td className="py-2 font-semibold text-slate-700">{row.rank}</td>
-                      <td className="py-2 text-slate-800">{row.name}</td>
-                      <td className="py-2 text-slate-600">{row.className}</td>
-                      <td className="py-2 text-center font-semibold text-emerald-600">{row.net}</td>
-                      <td className="py-2 text-center text-slate-700">{row.percentile}%</td>
+                    <tr key={row.rank} className="border-b border-slate-700/50">
+                      <td className="py-2 font-semibold text-slate-300">{row.rank}</td>
+                      <td className="py-2 text-white">{row.name}</td>
+                      <td className="py-2 text-slate-400">{row.className}</td>
+                      <td className="py-2 text-center font-semibold text-cyan-400">{row.net}</td>
+                      <td className="py-2 text-center text-slate-300">{row.percentile}%</td>
                       <td className="py-2 text-center">
-                        {row.trend === 'up' && <ArrowUpRight className="inline text-emerald-600 w-4 h-4" />}
-                        {row.trend === 'down' && <ArrowDownRight className="inline text-red-500 w-4 h-4" />}
+                        {row.trend === 'up' && <ArrowUpRight className="inline text-teal-400 w-4 h-4" />}
+                        {row.trend === 'down' && <ArrowDownRight className="inline text-red-400 w-4 h-4" />}
                         {row.trend === 'stable' && <Minus className="inline text-slate-400 w-4 h-4" />}
                         {row.netChange !== undefined && row.netChange !== null && (
                           <span
                             className={`ml-1 text-xs ${
-                              row.netChange > 0 ? 'text-emerald-600' : row.netChange < 0 ? 'text-red-500' : 'text-slate-500'
+                              row.netChange > 0 ? 'text-teal-400' : row.netChange < 0 ? 'text-red-400' : 'text-slate-400'
                             }`}
                           >
                             {row.netChange > 0 ? '+' : ''}{Number(row.netChange).toFixed(1)}
@@ -547,7 +526,7 @@ function ExamDashboardContent() {
                   ))}
                   {leaderboardData.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-slate-400">
+                      <td colSpan={6} className="py-4 text-center text-slate-500">
                         Veri bulunamadı
                       </td>
                     </tr>
@@ -558,9 +537,9 @@ function ExamDashboardContent() {
           </div>
 
           {/* Percentile Scatter */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-[color:var(--green-600,#25D366)]" />
+          <div className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-purple-400" />
               Yüzdelik Haritası (Net vs % Dilim)
             </h3>
             <div className="h-64">
@@ -581,7 +560,7 @@ function ExamDashboardContent() {
                   />
                   <Tooltip
                     cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{ backgroundColor: '#fff', border: `1px solid ${THEME.border}` }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: `1px solid ${THEME.border}` }}
                     formatter={(value: any, name: string) => [value, name]}
                   />
                   <Scatter data={percentileScatterData} fill={THEME.accent} />
@@ -930,12 +909,12 @@ function KPICard({
   subtitle?: string;
 }) {
   const colorMap = {
-    cyan: 'from-[#25D366]/15 to-white border-[#25D366]/40 text-[#128C7E]',
-    indigo: 'from-[#34B7F1]/20 to-white border-[#34B7F1]/40 text-[#0f172a]',
-    amber: 'from-amber-400/20 to-white border-amber-300/60 text-amber-600',
-    purple: 'from-emerald-200/30 to-white border-emerald-200 text-emerald-700',
-    red: 'from-red-400/15 to-white border-red-300/50 text-red-600',
-    teal: 'from-[#128C7E]/15 to-white border-[#128C7E]/40 text-[#128C7E]',
+    cyan: 'from-cyan-500/20 to-cyan-900/20 border-cyan-500/30 text-cyan-400',
+    indigo: 'from-indigo-500/20 to-indigo-900/20 border-indigo-500/30 text-indigo-400',
+    amber: 'from-amber-500/20 to-amber-900/20 border-amber-500/30 text-amber-400',
+    purple: 'from-purple-500/20 to-purple-900/20 border-purple-500/30 text-purple-400',
+    red: 'from-red-500/20 to-red-900/20 border-red-500/30 text-red-400',
+    teal: 'from-teal-500/20 to-teal-900/20 border-teal-500/30 text-teal-400',
   };
 
   return (
