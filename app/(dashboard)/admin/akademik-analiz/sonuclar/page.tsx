@@ -40,6 +40,12 @@ const normalizeExamType = (examType: any): string =>
     ? examType.name
     : 'LGS';
 
+const safeString = (val: any, fallback = ''): string =>
+  typeof val === 'string' ? val : fallback;
+
+const safeNumber = (val: any, fallback = 0): number =>
+  typeof val === 'number' && !isNaN(val) ? val : fallback;
+
 interface ExamData {
   id: string;
   name: string;
@@ -266,7 +272,7 @@ export default function SonuclarPage() {
             </div>
                 <div>
                   <h1 className="text-2xl font-bold">Sınav Sonuçları</h1>
-                  <p className="text-cyan-100 text-sm">{currentOrganization?.name || 'AkademiHub'}</p>
+                  <p className="text-cyan-100 text-sm">{safeString(currentOrganization?.name, 'AkademiHub')}</p>
             </div>
         </div>
 
@@ -411,12 +417,12 @@ export default function SonuclarPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="w-4 h-4" />
-                            {exam.total_students || 0} öğrenci
+                            {safeNumber(exam.total_students)} öğrenci
                           </span>
-                          {exam.average_net !== undefined && (
+                          {typeof exam.average_net === 'number' && (
                             <span className="flex items-center gap-1">
                               <Target className="w-4 h-4" />
-                              Ort: {(exam.average_net || 0).toFixed(2)} net
+                              Ort: {safeNumber(exam.average_net).toFixed(2)} net
                     </span>
                           )}
                         </div>
@@ -424,8 +430,8 @@ export default function SonuclarPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                      <Badge variant={exam.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
-                        {exam.status === 'completed' ? 'Tamamlandı' : 'İşleniyor'}
+                      <Badge variant={safeString(exam.status) === 'completed' ? 'default' : 'secondary'} className="text-xs">
+                        {safeString(exam.status) === 'completed' ? 'Tamamlandı' : 'İşleniyor'}
                       </Badge>
                     <Button
                         variant="outline"
