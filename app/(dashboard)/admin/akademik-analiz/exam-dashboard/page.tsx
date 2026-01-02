@@ -135,6 +135,14 @@ function ExamDashboardContent() {
         });
 
         const data = await res.json();
+      console.log('🔍 API Response:', {
+        hasData: !!data,
+        hasStatistics: !!data?.statistics,
+        hasOverall: !!data?.statistics?.overall,
+        participantCount: data?.statistics?.overall?.participantCount,
+        studentsLength: data?.students?.length,
+        rawData: data
+      });
       if (!res.ok) throw new Error(data?.error || 'Veri yüklenemedi');
         setExamData(data);
       } catch (err: any) {
