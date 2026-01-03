@@ -173,16 +173,23 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       }
       return item;
     });
-  
-  const getActiveMenu = () => {
-    if (pathname.startsWith('/admin/akademik-analiz')) return 'Exam Intelligence Platform';
-    if (pathname.startsWith('/finance/reports')) return 'Raporlar';
-    if (pathname.startsWith('/finance')) return 'Finans';
-    if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';
-    if (pathname.startsWith('/settings')) return 'Ayarlar';
-    return null;
-  };
-  
+    const getActiveMenu = () => {
+      if (pathname.startsWith('/admin/exam-intelligence')) {
+        return 'Exam Intelligence Platform';
+      }
+    
+      if (pathname.startsWith('/admin/akademik-analiz/sihirbaz')) {
+        return 'Yeni Sınav';
+      }
+    
+      if (pathname.startsWith('/finance/reports')) return 'Raporlar';
+      if (pathname.startsWith('/finance')) return 'Finans';
+      if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';
+      if (pathname.startsWith('/settings')) return 'Ayarlar';
+    
+      return null;
+    };
+    
   const [expandedMenu, setExpandedMenu] = useState<string | null>(getActiveMenu());
 
   const isActive = (href?: string) => {
