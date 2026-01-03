@@ -7,31 +7,32 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
   const orgId = new URL(request.url).searchParams.get('organizationId');
 
-  if (!orgId) {
-    return NextResponse.json({ stats: { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0 }, recentExams: [], classPerformance: [] });
-  }
+  const empty = { stats: { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0, riskCount: 0 }, recentExams: [], classPerformance: [], topStudents: [] };
+  if (!orgId) return NextResponse.json(empty);
 
   const { count: totalExams } = await supabase.from('exams').select('*', { count: 'exact', head: true }).eq('organization_id', orgId);
   const { data: exams } = await supabase.from('exams').select('id').eq('organization_id', orgId);
   const examIds = (exams || []).map((e: { id: string }) => e.id);
 
-  let results: { total_net: number | null; student_id: string | null; student_name: string | null; class_name: string | null }[] = [];
-  if (examIds.length > 0) {
-    const { data } = await supabase.from('student_exam_results').select('total_net, student_id, student_name, class_name').in('exam_id', examIds);
-    results = data || [];
-  }
+  if (examIds.length === 0) return NextResponse.json(empty);
 
-  // student_id null olabilir, student_name ile benzersiz öğrenci say
-  const uniqueStudents = new Set(results.map(r => r.student_id || r.student_name).filter(Boolean));
+  const { data } = await supabase.from('student_exam_results').select('total_net, student_id, student_name, student_no, class_name, total_score, general_rank').in('exam_id', examIds);
+  const results = data || [];
+
+  // Benzersiz öğrenci sayısı (student_name bazlı)
+  const uniqueNames = new Set(results.map(r => r.student_name).filter(Boolean));
+  const totalStudents = uniqueNames.size;
+
   const nets = results.map(r => Number(r.total_net) || 0);
-  const totalStudents = uniqueStudents.size || results.length;
   const avgNet = nets.length > 0 ? Math.round((nets.reduce((a, b) => a + b, 0) / nets.length) * 10) / 10 : 0;
   const maxNet = nets.length > 0 ? Math.max(...nets) : 0;
   const mean = nets.length > 0 ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
   const stdDev = nets.length > 0 ? Math.round(Math.sqrt(nets.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / nets.length) * 10) / 10 : 0;
+  const riskCount = nets.filter(n => n < 30).length;
 
   const { data: recentExams } = await supabase.from('exams').select('id, name, exam_date, exam_type, grade_level').eq('organization_id', orgId).order('exam_date', { ascending: false }).limit(5);
 
+  // Sınıf performansı
   const classStats: Record<string, { total: number; count: number }> = {};
   results.forEach(r => {
     const cn = r.class_name || 'Belirsiz';
@@ -39,8 +40,17 @@ export async function GET(request: NextRequest) {
     classStats[cn].total += Number(r.total_net) || 0;
     classStats[cn].count += 1;
   });
-
   const classPerformance = Object.entries(classStats).map(([name, s]) => ({ name, avgNet: Math.round((s.total / s.count) * 10) / 10, studentCount: s.count })).sort((a, b) => b.avgNet - a.avgNet);
 
-  return NextResponse.json({ stats: { totalExams: totalExams || 0, totalStudents, avgNet, maxNet, stdDev }, recentExams: recentExams || [], classPerformance });
+  // Top 10 öğrenci
+  const topStudents = [...results].sort((a, b) => (Number(b.total_net) || 0) - (Number(a.total_net) || 0)).slice(0, 10).map((s, i) => ({
+    rank: i + 1,
+    name: s.student_name || 'Bilinmiyor',
+    class: s.class_name || '-',
+    net: Number(s.total_net) || 0,
+    score: Number(s.total_score) || 0,
+    initials: (s.student_name || 'X').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+  }));
+
+  return NextResponse.json({ stats: { totalExams: totalExams || 0, totalStudents, avgNet, maxNet, stdDev, riskCount }, recentExams: recentExams || [], classPerformance, topStudents });
 }
