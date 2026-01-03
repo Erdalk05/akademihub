@@ -99,12 +99,15 @@ export async function POST(req: NextRequest) {
     }
     
     // 2. Sınavı oluştur (exams tablosu)
+    // academicYearId UUID formatında değilse null olarak ayarla
+    const isValidUUID = academicYearId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(academicYearId);
+    
     const examData = {
       name: sinavBilgisi.ad,
       exam_date: sinavBilgisi.tarih,
       exam_type_id: examTypeId,
       organization_id: organizationId || null,
-      academic_year_id: academicYearId || null,
+      academic_year_id: isValidUUID ? academicYearId : null,
       total_questions: cevapAnahtari.length || sinavBilgisi.toplamSoru || 0,
       grade_level: sinavBilgisi.sinifSeviyesi || '8',
       exam_type: sinavBilgisi.tip,
