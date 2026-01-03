@@ -1,67 +1,45 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceRoleClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  try {
-    // 1️⃣ En son sınav
-    const { data: exam } = await supabase
-      .from('exams')
-      .select('id')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+export async function GET(request: NextRequest) {
+  const supabase = getServiceRoleClient();
+  const orgId = new URL(request.url).searchParams.get('organizationId');
 
-    if (!exam) {
-      return NextResponse.json(defaultResponse())
-    }
-
-    // 2️⃣ Sınav sonuçları
-    const { data: results } = await supabase
-      .from('student_exam_results')
-      .select('net')
-      .eq('exam_id', exam.id)
-
-    if (!results || results.length === 0) {
-      return NextResponse.json(defaultResponse())
-    }
-
-    const nets = results.map(r => Number(r.net) || 0)
-    const totalStudents = nets.length
-    const sum = nets.reduce((a, b) => a + b, 0)
-    const averageNet = sum / totalStudents
-    const maxNet = Math.max(...nets)
-
-    const variance =
-      nets.reduce((acc, n) => acc + Math.pow(n - averageNet, 2), 0) /
-      totalStudents
-
-    const stdDev = Math.sqrt(variance)
-
-    return NextResponse.json({
-      totalStudents,
-      averageNet: Number(averageNet.toFixed(2)),
-      maxNet,
-      stdDev: Number(stdDev.toFixed(2)),
-      histogram: [],
-      leaderboard: []
-    })
-  } catch (error) {
-    return NextResponse.json(defaultResponse())
+  if (!orgId) {
+    return NextResponse.json({ stats: { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0 }, recentExams: [], classPerformance: [] });
   }
-}
 
-function defaultResponse() {
-  return {
-    totalStudents: 0,
-    averageNet: 0,
-    maxNet: 0,
-    stdDev: 0,
-    histogram: [],
-    leaderboard: []
+  const { count: totalExams } = await supabase.from('exams').select('*', { count: 'exact', head: true }).eq('organization_id', orgId);
+  const { data: exams } = await supabase.from('exams').select('id').eq('organization_id', orgId);
+  const examIds = (exams || []).map((e: { id: string }) => e.id);
+
+  let results: { total_net: number | null; student_id: string; class_name: string | null }[] = [];
+  if (examIds.length > 0) {
+    const { data } = await supabase.from('student_exam_results').select('total_net, student_id, class_name').in('exam_id', examIds);
+    results = data || [];
   }
+
+  const uniqueStudents = new Set(results.map(r => r.student_id));
+  const nets = results.map(r => Number(r.total_net) || 0);
+  const totalStudents = uniqueStudents.size;
+  const avgNet = nets.length > 0 ? Math.round((nets.reduce((a, b) => a + b, 0) / nets.length) * 10) / 10 : 0;
+  const maxNet = nets.length > 0 ? Math.max(...nets) : 0;
+  const mean = nets.length > 0 ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+  const stdDev = nets.length > 0 ? Math.round(Math.sqrt(nets.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / nets.length) * 10) / 10 : 0;
+
+  const { data: recentExams } = await supabase.from('exams').select('id, name, exam_date, exam_type, grade_level').eq('organization_id', orgId).order('exam_date', { ascending: false }).limit(5);
+
+  const classStats: Record<string, { total: number; count: number }> = {};
+  results.forEach(r => {
+    const cn = r.class_name || 'Belirsiz';
+    if (!classStats[cn]) classStats[cn] = { total: 0, count: 0 };
+    classStats[cn].total += Number(r.total_net) || 0;
+    classStats[cn].count += 1;
+  });
+
+  const classPerformance = Object.entries(classStats).map(([name, s]) => ({ name, avgNet: Math.round((s.total / s.count) * 10) / 10, studentCount: s.count })).sort((a, b) => b.avgNet - a.avgNet);
+
+  return NextResponse.json({ stats: { totalExams: totalExams || 0, totalStudents, avgNet, maxNet, stdDev }, recentExams: recentExams || [], classPerformance });
 }

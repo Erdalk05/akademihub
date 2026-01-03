@@ -1,244 +1,96 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { useExamDashboard } from '@/lib/exam-intelligence/hooks/useExamDashboard';
-import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
-import { 
-  BarChart3, Users, Target, TrendingUp, 
-  GraduationCap, FileText, ArrowRight, Activity,
-  RefreshCw, AlertCircle, Calendar, Loader2
-} from 'lucide-react';
+import { Users, Target, TrendingUp, BarChart3, FileText, GraduationCap, Loader2, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+
+interface DashboardData {
+  stats: { totalExams: number; totalStudents: number; avgNet: number; maxNet: number; stdDev: number };
+  recentExams: { id: string; name: string; exam_date: string; exam_type: string; grade_level: string }[];
+  classPerformance: { name: string; avgNet: number; studentCount: number }[];
+}
 
 export default function ExamIntelligenceDashboard() {
-  const router = useRouter();
   const { currentOrganization } = useOrganizationStore();
-  
-  // Gerçek veri hook'u
-  const { data, isLoading, error, refetch } = useExamDashboard(currentOrganization?.id);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Quick Links
-  const quickLinks = [
-    { label: 'Sınıf Analizi', href: '/admin/exam-intelligence/sinif', icon: GraduationCap },
-    { label: 'Öğrenci Analizi', href: '/admin/exam-intelligence/ogrenci', icon: Users },
-    { label: 'Sınav Sonuçları', href: '/admin/akademik-analiz/sonuclar', icon: BarChart3 },
-    { label: 'Yeni Sınav', href: '/admin/akademik-analiz/sihirbaz', icon: FileText },
-  ];
+  const fetchData = async () => {
+    if (!currentOrganization?.id) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}`);
+      const json = await res.json();
+      setData(json);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
 
-  // Loading State
-  if (isLoading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mx-auto mb-4" />
-            <p className="text-slate-600">Veriler yükleniyor...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => { fetchData(); }, [currentOrganization?.id]);
 
-  // Error State
-  if (error) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-red-800 mb-2">Veri Yüklenemedi</h3>
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={refetch}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            Tekrar Dene
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
 
-  // Stats from API (safe access)
-  const statsData = data?.stats || { totalExams: 0, totalStudents: 0, averageNet: 0, successRate: 0, maxNet: 0, stdDev: 0 };
-  
-  const stats = [
-    { 
-      label: 'Toplam Öğrenci', 
-      value: statsData.totalStudents || 0, 
-      icon: Users, 
-      color: 'indigo' 
-    },
-    { 
-      label: 'Ortalama Net', 
-      value: (statsData.averageNet || 0).toFixed(1), 
-      icon: Target, 
-      color: 'emerald' 
-    },
-    { 
-      label: 'En Yüksek Net', 
-      value: (statsData.maxNet || 0).toFixed(1), 
-      icon: TrendingUp, 
-      color: 'cyan' 
-    },
-    { 
-      label: 'Std. Sapma', 
-      value: (statsData.stdDev || 0).toFixed(1), 
-      icon: Activity, 
-      color: 'amber' 
-    },
-  ];
+  const stats = data?.stats || { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0 };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-cyan-600 to-indigo-600 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Activity className="w-7 h-7" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Exam Intelligence</h1>
-                <p className="text-cyan-100">{currentOrganization?.name || 'Dashboard'}</p>
-              </div>
-            </div>
-            <button
-              onClick={refetch}
-              className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-              title="Yenile"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+    <div className="p-6 space-y-6">
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white flex justify-between items-center">
+        <div><h1 className="text-2xl font-bold">Exam Intelligence</h1><p className="text-emerald-100">{currentOrganization?.name}</p></div>
+        <button onClick={fetchData} className="p-2 bg-white/20 rounded-lg hover:bg-white/30"><RefreshCw className="w-5 h-5" /></button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between mb-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-${stat.color}-100`}>
-                <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
-            <p className="text-sm text-slate-500">{stat.label}</p>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: 'Sınav', value: stats.totalExams, icon: FileText, color: 'blue' },
+          { label: 'Öğrenci', value: stats.totalStudents, icon: Users, color: 'indigo' },
+          { label: 'Ort. Net', value: stats.avgNet, icon: Target, color: 'emerald' },
+          { label: 'Max Net', value: stats.maxNet, icon: TrendingUp, color: 'purple' },
+          { label: 'Std. Sapma', value: stats.stdDev, icon: BarChart3, color: 'amber' },
+        ].map((s, i) => (
+          <div key={i} className={`bg-white rounded-xl p-4 shadow border-l-4 border-${s.color}-500`}>
+            <div className="flex justify-between items-center mb-2"><span className="text-sm text-gray-500">{s.label}</span><s.icon className={`w-5 h-5 text-${s.color}-500`} /></div>
+            <p className="text-2xl font-bold">{s.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Quick Links */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Hızlı Erişim</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {quickLinks.map((link, idx) => (
-            <button
-              key={idx}
-              onClick={() => router.push(link.href)}
-              className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group"
-            >
-              <link.icon className="w-5 h-5 text-slate-400 group-hover:text-cyan-600" />
-              <span className="text-sm font-medium text-slate-700 group-hover:text-cyan-700">
-                {link.label}
-              </span>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 ml-auto" />
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { href: '/admin/exam-intelligence/siniflar', label: 'Sınıf Analizi', icon: GraduationCap },
+          { href: '/admin/exam-intelligence/ogrenciler', label: 'Öğrenci Analizi', icon: Users },
+          { href: '/admin/exam-intelligence/sinavlar', label: 'Sınav Sonuçları', icon: BarChart3 },
+          { href: '/admin/akademik-analiz/sihirbaz', label: 'Yeni Sınav', icon: FileText },
+        ].map((l, i) => (
+          <Link key={i} href={l.href} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100"><l.icon className="w-5 h-5 text-emerald-600" /><span>{l.label}</span></Link>
+        ))}
       </div>
 
-      {/* Recent Exams & Class Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Son Sınavlar */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Son Sınavlar</h3>
-          {data?.recentExams && data.recentExams.length > 0 ? (
-            <div className="space-y-3">
-              {data.recentExams.map((exam) => (
-                <div 
-                  key={exam.id}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                  onClick={() => router.push(`/admin/exam-intelligence/sinav/${exam.id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-cyan-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800">{exam.name}</p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {exam.exam_date 
-                          ? format(new Date(exam.exam_date), 'dd MMM yyyy', { locale: tr })
-                          : 'Tarih yok'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-medium px-2 py-1 bg-cyan-100 text-cyan-700 rounded-lg">
-                    {exam.exam_type || 'LGS'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="h-48 bg-slate-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <p className="text-slate-400">Henüz sınav yok</p>
-                <button
-                  onClick={() => router.push('/admin/akademik-analiz/sihirbaz')}
-                  className="mt-3 text-sm text-cyan-600 hover:text-cyan-700 font-medium"
-                >
-                  İlk sınavı ekle →
-                </button>
-              </div>
-            </div>
+        <div className="bg-white rounded-xl shadow p-5">
+          <h3 className="font-bold mb-4">Son Sınavlar</h3>
+          {(data?.recentExams || []).length === 0 ? <p className="text-gray-400 text-center py-8">Henüz sınav yok</p> : (
+            <div className="space-y-2">{data?.recentExams.map(e => (
+              <Link key={e.id} href={`/admin/exam-intelligence/sinavlar/${e.id}`} className="flex justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                <div><p className="font-medium">{e.name}</p><p className="text-xs text-gray-500">{e.exam_type}</p></div>
+                <span className="text-sm text-gray-400">{new Date(e.exam_date).toLocaleDateString('tr-TR')}</span>
+              </Link>
+            ))}</div>
           )}
         </div>
 
-        {/* Sınıf Özeti */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Sınıf Performansı</h3>
-          {data?.classSummary && data.classSummary.length > 0 ? (
-            <div className="space-y-3">
-              {data.classSummary.slice(0, 5).map((cls, idx) => (
-                <div 
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      idx === 0 ? 'bg-amber-100 text-amber-600' :
-                      idx === 1 ? 'bg-slate-200 text-slate-600' :
-                      idx === 2 ? 'bg-orange-100 text-orange-600' :
-                      'bg-slate-100 text-slate-500'
-                    }`}>
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800">{cls.name}</p>
-                      <p className="text-xs text-slate-500">{cls.studentCount} öğrenci</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-slate-800">{cls.averageNet}</p>
-                    <p className="text-xs text-slate-500">ort. net</p>
-                  </div>
+        <div className="bg-white rounded-xl shadow p-5">
+          <h3 className="font-bold mb-4">Sınıf Performansı</h3>
+          {(data?.classPerformance || []).length === 0 ? <p className="text-gray-400 text-center py-8">Veri yok</p> : (
+            <div className="space-y-2">{data?.classPerformance.slice(0, 8).map((c, i) => (
+              <div key={c.name} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold ${i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-700' : 'bg-gray-300'}`}>{i + 1}</span>
+                  <span className="font-medium">{c.name}</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="h-48 bg-slate-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <GraduationCap className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <p className="text-slate-400">Sınıf verisi yok</p>
+                <div className="text-right"><p className="font-bold text-emerald-600">{c.avgNet}</p><p className="text-xs text-gray-500">{c.studentCount} sonuç</p></div>
               </div>
-            </div>
+            ))}</div>
           )}
         </div>
       </div>
