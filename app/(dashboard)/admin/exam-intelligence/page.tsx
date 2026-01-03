@@ -60,30 +60,32 @@ export default function ExamIntelligenceDashboard() {
     );
   }
 
-  // Stats from API
+  // Stats from API (safe access)
+  const statsData = data?.stats || { totalExams: 0, totalStudents: 0, averageNet: 0, successRate: 0, maxNet: 0, stdDev: 0 };
+  
   const stats = [
     { 
-      label: 'Toplam Sınav', 
-      value: data?.stats.totalExams || 0, 
-      icon: FileText, 
-      color: 'cyan' 
-    },
-    { 
       label: 'Toplam Öğrenci', 
-      value: data?.stats.totalStudents || 0, 
+      value: statsData.totalStudents || 0, 
       icon: Users, 
       color: 'indigo' 
     },
     { 
       label: 'Ortalama Net', 
-      value: data?.stats.averageNet?.toFixed(1) || '0', 
+      value: (statsData.averageNet || 0).toFixed(1), 
       icon: Target, 
       color: 'emerald' 
     },
     { 
-      label: 'Başarı Oranı', 
-      value: `%${data?.stats.successRate || 0}`, 
+      label: 'En Yüksek Net', 
+      value: (statsData.maxNet || 0).toFixed(1), 
       icon: TrendingUp, 
+      color: 'cyan' 
+    },
+    { 
+      label: 'Std. Sapma', 
+      value: (statsData.stdDev || 0).toFixed(1), 
+      icon: Activity, 
       color: 'amber' 
     },
   ];

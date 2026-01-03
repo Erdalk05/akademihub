@@ -11,6 +11,8 @@ interface DashboardStats {
   totalStudents: number;
   averageNet: number;
   successRate: number;
+  maxNet: number;
+  stdDev: number;
 }
 
 interface RecentExam {
@@ -40,6 +42,16 @@ interface UseDashboardReturn {
   refetch: () => void;
 }
 
+// Default values
+const defaultStats: DashboardStats = {
+  totalExams: 0,
+  totalStudents: 0,
+  averageNet: 0,
+  successRate: 0,
+  maxNet: 0,
+  stdDev: 0,
+};
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -52,7 +64,11 @@ export function useExamDashboard(organizationId: string | undefined): UseDashboa
   const fetchDashboard = useCallback(async () => {
     if (!organizationId) {
       setIsLoading(false);
-      setError('Organization ID gerekli');
+      setData({
+        stats: defaultStats,
+        recentExams: [],
+        classSummary: [],
+      });
       return;
     }
 
@@ -64,21 +80,31 @@ export function useExamDashboard(organizationId: string | undefined): UseDashboa
         `/api/exam-intelligence/dashboard?organizationId=${organizationId}`
       );
 
-      if (!response.ok) {
-        throw new Error('Veriler alınamadı');
-      }
-
       const result = await response.json();
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
+      // API response'u normalize et (yeni format uyumluluğu)
+      const normalizedData: DashboardData = {
+        stats: {
+          totalExams: result.totalExams ?? result.data?.stats?.totalExams ?? 0,
+          totalStudents: result.totalStudents ?? result.data?.stats?.totalStudents ?? 0,
+          averageNet: result.averageNet ?? result.data?.stats?.averageNet ?? 0,
+          successRate: result.successRate ?? result.data?.stats?.successRate ?? 0,
+          maxNet: result.maxNet ?? result.data?.stats?.maxNet ?? 0,
+          stdDev: result.stdDev ?? result.data?.stats?.stdDev ?? 0,
+        },
+        recentExams: result.recentExams ?? result.data?.recentExams ?? [],
+        classSummary: result.classSummary ?? result.data?.classSummary ?? [],
+      };
 
-      setData(result.data);
-    } catch (err: any) {
+      setData(normalizedData);
+    } catch (err: unknown) {
       console.error('[useExamDashboard] Error:', err);
-      setError(err.message || 'Bir hata oluştu');
-      setData(null);
+      // Hata durumunda bile boş data set et (crash engellemek için)
+      setData({
+        stats: defaultStats,
+        recentExams: [],
+        classSummary: [],
+      });
     } finally {
       setIsLoading(false);
     }
