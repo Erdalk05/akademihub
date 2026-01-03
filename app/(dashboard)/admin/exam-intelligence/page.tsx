@@ -20,7 +20,7 @@ interface DashboardData {
   classPerformance: { name: string; avgNet: number; studentCount: number; subjects: Record<string, number> }[];
   subjectAverages: Record<string, number>;
   top5Students: { rank: number; name: string; class: string; net: number; initials: string; subjects: Record<string, number> }[];
-  examTimeline: { id: string; name: string; date: string; type: string; subjects: Record<string, number> }[];
+  examTimeline: { id: string; name: string; date: string; type: string; avgNet: number; studentCount: number; subjects: Record<string, number> }[];
   aiComments: string[];
   risks: { name: string; class: string; net: number }[];
 }
@@ -162,12 +162,8 @@ export default function ExamIntelligenceDashboard() {
               </div>
               <p className="text-3xl font-black text-[#25D366]">{c.avgNet}</p>
               <p className="text-xs text-gray-500 mb-3">{c.studentCount} sonuç</p>
-              <div className="flex gap-1">
-                {Object.entries(c.subjects || {}).slice(0, 5).map(([subj, val]) => (
-                  <div key={subj} className="flex-1 h-2 rounded-full bg-gray-200 overflow-hidden">
-                    <div className="h-full bg-[#25D366]" style={{ width: `${(val / 20) * 100}%` }} />
-                  </div>
-                ))}
+              <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div className="h-full bg-[#25D366]" style={{ width: `${Math.min(100, (c.avgNet / 80) * 100)}%` }} />
               </div>
             </div>
           ))}
@@ -190,12 +186,13 @@ export default function ExamIntelligenceDashboard() {
                   <p className="text-xs text-gray-500">{exam.type}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {Object.entries(exam.subjects || {}).map(([subj, val]) => (
-                  <span key={subj} className={`px-3 py-1 rounded-full text-xs font-bold ${val >= 15 ? 'bg-green-100 text-green-700' : val >= 10 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                    {subj.slice(0, 3).toUpperCase()}: {val}
-                  </span>
-                ))}
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                  Ort: {exam.avgNet}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {exam.studentCount} öğrenci
+                </span>
               </div>
               <button onClick={(e) => { e.stopPropagation(); handleDeleteExam(exam.id, exam.name); }} className="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-red-100 text-red-500 transition">
                 <Trash2 size={18} />
@@ -218,14 +215,7 @@ export default function ExamIntelligenceDashboard() {
                 <p className="mt-3 font-bold text-gray-800 truncate">{st.name}</p>
                 <p className="text-sm text-gray-500">{st.class}</p>
                 <p className="text-2xl font-black text-[#25D366] mt-2">{st.net}</p>
-                <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                  {Object.entries(st.subjects || {}).slice(0, 4).map(([s, v]) => (
-                    <div key={s} className="flex justify-between">
-                      <span>{s.slice(0, 3).toUpperCase()}</span>
-                      <span className="font-semibold">{v}</span>
-                    </div>
-                  ))}
-                </div>
+                <p className="mt-2 text-xs text-gray-400">#{st.rank} sıralama</p>
               </div>
             ))}
           </div>

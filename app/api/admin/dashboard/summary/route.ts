@@ -7,7 +7,6 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
   const url = new URL(request.url);
   const orgId = url.searchParams.get('organizationId');
-  const scope = url.searchParams.get('scope') || 'all';
 
   const empty = {
     kpis: { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0, riskCount: 0 },
@@ -30,12 +29,10 @@ export async function GET(request: NextRequest) {
 
   const { data: results } = await supabase
     .from('student_exam_results')
-    .select('exam_id, student_id, student_name, class_name, total_net, turkce_net, matematik_net, fen_net, sosyal_net, ingilizce_net, din_net, is_guest')
+    .select('exam_id, student_id, student_name, class_name, total_net, total_score')
     .in('exam_id', examIds);
 
-  let filtered = results || [];
-  if (scope === 'institution') filtered = filtered.filter((r: any) => !r.is_guest);
-  else if (scope === 'guest') filtered = filtered.filter((r: any) => r.is_guest);
+  const filtered = results || [];
 
   const uniqueNames = new Set(filtered.map((r: any) => r.student_name).filter(Boolean));
   const totalStudents = uniqueNames.size;
@@ -49,45 +46,22 @@ export async function GET(request: NextRequest) {
 
   const healthScore = Math.min(100, Math.max(0, Math.round(avgNet * 1.2 + (100 - stdDev * 2))));
 
-  const classStats: Record<string, { total: number; count: number; turkce: number; mat: number; fen: number; sos: number; ing: number }> = {};
+  const classStats: Record<string, { total: number; count: number }> = {};
   filtered.forEach((r: any) => {
     const cn = r.class_name || 'Belirsiz';
-    if (!classStats[cn]) classStats[cn] = { total: 0, count: 0, turkce: 0, mat: 0, fen: 0, sos: 0, ing: 0 };
+    if (!classStats[cn]) classStats[cn] = { total: 0, count: 0 };
     classStats[cn].total += Number(r.total_net) || 0;
     classStats[cn].count += 1;
-    classStats[cn].turkce += Number(r.turkce_net) || 0;
-    classStats[cn].mat += Number(r.matematik_net) || 0;
-    classStats[cn].fen += Number(r.fen_net) || 0;
-    classStats[cn].sos += Number(r.sosyal_net) || 0;
-    classStats[cn].ing += Number(r.ingilizce_net) || 0;
   });
 
   const classPerformance = Object.entries(classStats).map(([name, s]) => ({
     name,
     avgNet: Math.round((s.total / s.count) * 10) / 10,
     studentCount: s.count,
-    subjects: {
-      turkce: Math.round((s.turkce / s.count) * 10) / 10,
-      matematik: Math.round((s.mat / s.count) * 10) / 10,
-      fen: Math.round((s.fen / s.count) * 10) / 10,
-      sosyal: Math.round((s.sos / s.count) * 10) / 10,
-      ingilizce: Math.round((s.ing / s.count) * 10) / 10
-    }
+    subjects: {}
   })).sort((a, b) => b.avgNet - a.avgNet);
 
-  const avg = (field: string) => {
-    const vals = filtered.map((r: any) => Number(r[field]) || 0);
-    return vals.length > 0 ? Math.round((vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10) / 10 : 0;
-  };
-
-  const subjectAverages = {
-    turkce: avg('turkce_net'),
-    matematik: avg('matematik_net'),
-    fen: avg('fen_net'),
-    sosyal: avg('sosyal_net'),
-    ingilizce: avg('ingilizce_net'),
-    din: avg('din_net')
-  };
+  const subjectAverages = { turkce: 0, matematik: 0, fen: 0, sosyal: 0, ingilizce: 0, din: 0 };
 
   const top5Students = [...filtered]
     .sort((a: any, b: any) => (Number(b.total_net) || 0) - (Number(a.total_net) || 0))
@@ -98,41 +72,29 @@ export async function GET(request: NextRequest) {
       class: s.class_name || '-',
       net: Number(s.total_net) || 0,
       initials: (s.student_name || 'X').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
-      subjects: {
-        turkce: Number(s.turkce_net) || 0,
-        matematik: Number(s.matematik_net) || 0,
-        fen: Number(s.fen_net) || 0,
-        sosyal: Number(s.sosyal_net) || 0,
-        ingilizce: Number(s.ingilizce_net) || 0
-      }
+      subjects: {}
     }));
 
   const examTimeline = (exams || []).slice(0, 5).map((e: any) => {
     const examResults = filtered.filter((r: any) => r.exam_id === e.id);
-    const eAvg = (field: string) => {
-      const vals = examResults.map((r: any) => Number(r[field]) || 0);
-      return vals.length > 0 ? Math.round((vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10) / 10 : 0;
-    };
+    const examNets = examResults.map((r: any) => Number(r.total_net) || 0);
+    const examAvg = examNets.length > 0 ? Math.round((examNets.reduce((a: number, b: number) => a + b, 0) / examNets.length) * 10) / 10 : 0;
     return {
       id: e.id,
       name: e.name,
       date: e.exam_date,
       type: e.exam_type,
-      subjects: {
-        turkce: eAvg('turkce_net'),
-        matematik: eAvg('matematik_net'),
-        fen: eAvg('fen_net'),
-        sosyal: eAvg('sosyal_net'),
-        ingilizce: eAvg('ingilizce_net'),
-        din: eAvg('din_net')
-      }
+      avgNet: examAvg,
+      studentCount: examResults.length,
+      subjects: {}
     };
   });
 
   const aiComments = [
-    stdDev > 15 ? 'Matematik dersinde seviye farkı yüksek, gruplar arası destek önerilir.' : null,
+    stdDev > 15 ? 'Sınıflar arası seviye farkı yüksek, gruplar arası destek önerilir.' : null,
     riskCount > totalStudents * 0.2 ? `${riskCount} öğrenci risk altında. Bireysel takip başlatılmalı.` : null,
-    avgNet > 50 ? 'Genel performans ortalamanın üzerinde, başarı trendi olumlu.' : null
+    avgNet > 50 ? 'Genel performans ortalamanın üzerinde, başarı trendi olumlu.' : null,
+    avgNet < 40 ? 'Genel ortalama düşük, müfredat takviyesi önerilir.' : null
   ].filter(Boolean);
 
   const risks = filtered
@@ -155,4 +117,3 @@ export async function GET(request: NextRequest) {
     risks
   });
 }
-
