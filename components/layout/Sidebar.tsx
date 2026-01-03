@@ -127,17 +127,15 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       ],
     },
     {
-      label: 'Exam Intelligence Platform',
-      href: '/admin/akademik-analiz',
-      icon: <GraduationCap size={20} />,
+      label: 'Yeni Sınav',
+      href: '/admin/akademik-analiz/sihirbaz',
+      icon: <FileSpreadsheet size={20} />,
       hideForSuperAdmin: true,
-      submenu: [
-        { label: 'Genel Bakış', href: '/admin/akademik-analiz', icon: <Target size={16} /> },
-        { label: 'Yeni Sınav', href: '/admin/akademik-analiz/sihirbaz', icon: <FileSpreadsheet size={16} /> },
-        { label: 'Sonuçlar', href: '/admin/akademik-analiz/sonuclar', icon: <BarChart3 size={16} /> },
-        { label: 'Karne Oluştur', href: '/admin/akademik-analiz/karne', icon: <FileText size={16} /> },
-      ],
     },
+    // Removed old exam dashboard menu items (URLs still accessible directly):
+    // - "Genel Bakış" -> /admin/akademik-analiz
+    // - "Sonuçlar" -> /admin/akademik-analiz/sonuclar  
+    // - "Karne Oluştur" -> /admin/akademik-analiz/karne
     {
       label: 'Ayarlar',
       href: '/settings',
