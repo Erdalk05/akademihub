@@ -15,15 +15,16 @@ export async function GET(request: NextRequest) {
   const { data: exams } = await supabase.from('exams').select('id').eq('organization_id', orgId);
   const examIds = (exams || []).map((e: { id: string }) => e.id);
 
-  let results: { total_net: number | null; student_id: string; class_name: string | null }[] = [];
+  let results: { total_net: number | null; student_id: string | null; student_name: string | null; class_name: string | null }[] = [];
   if (examIds.length > 0) {
-    const { data } = await supabase.from('student_exam_results').select('total_net, student_id, class_name').in('exam_id', examIds);
+    const { data } = await supabase.from('student_exam_results').select('total_net, student_id, student_name, class_name').in('exam_id', examIds);
     results = data || [];
   }
 
-  const uniqueStudents = new Set(results.map(r => r.student_id));
+  // student_id null olabilir, student_name ile benzersiz öğrenci say
+  const uniqueStudents = new Set(results.map(r => r.student_id || r.student_name).filter(Boolean));
   const nets = results.map(r => Number(r.total_net) || 0);
-  const totalStudents = uniqueStudents.size;
+  const totalStudents = uniqueStudents.size || results.length;
   const avgNet = nets.length > 0 ? Math.round((nets.reduce((a, b) => a + b, 0) / nets.length) * 10) / 10 : 0;
   const maxNet = nets.length > 0 ? Math.max(...nets) : 0;
   const mean = nets.length > 0 ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
