@@ -4,23 +4,35 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import Link from 'next/link';
-import {
-  Users, BookOpen, Target, Trophy, TrendingUp, AlertTriangle,
-  RefreshCw, Loader2, GraduationCap, BarChart3, FileText, Trash2
+import { 
+  Users, FileText, Target, Trophy, TrendingUp, TrendingDown,
+  BarChart3, AlertTriangle, GraduationCap, RefreshCw, 
+  ChevronRight, Award, Activity, Zap, Loader2
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer 
 } from 'recharts';
+
+// ==================== TYPE TANIMLARI ====================
+interface DashboardStats {
+  totalStudents: number;
+  totalExams: number;
+  avgNet: number;
+  maxNet: number;
+  stdDev: number;
+  riskCount: number;
+}
 
 interface RecentExam {
   id: string;
   name: string;
   exam_date: string;
   exam_type: string;
+  grade_level: string;
 }
 
-interface ClassPerf {
+interface ClassPerformance {
   name: string;
   avgNet: number;
   studentCount: number;
@@ -31,260 +43,485 @@ interface TopStudent {
   name: string;
   class: string;
   net: number;
+  score: number;
   initials: string;
 }
 
 interface DashboardData {
-  stats: {
-    totalExams: number;
-    totalStudents: number;
-    avgNet: number;
-    maxNet: number;
-    stdDev: number;
-    riskCount: number;
-  };
+  stats: DashboardStats;
   recentExams: RecentExam[];
-  classPerformance: ClassPerf[];
+  classPerformance: ClassPerformance[];
   topStudents: TopStudent[];
 }
 
-const ADMIN_PIN = '1234';
+// ==================== KADEME SEÇENEKLERİ ====================
+const GRADE_LEVELS = [
+  { value: 'all', label: 'Tümü' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+  { value: '6', label: '6' },
+  { value: '7', label: '7' },
+  { value: '8', label: '8 (LGS)' },
+  { value: '9', label: '9' },
+  { value: '10', label: '10' },
+  { value: '11', label: '11' },
+  { value: '12', label: '12 (YKS)' },
+  { value: 'mezun', label: 'Mezun' },
+];
 
+// ==================== HELPER FONKSİYONLAR ====================
+const getHealthScore = (stats: DashboardStats | null): number => {
+  if (!stats || stats.totalExams === 0) return 0;
+  const avgNetScore = Math.min((stats.avgNet / 80) * 40, 40);
+  const consistencyScore = Math.max(30 - stats.stdDev, 0);
+  const riskScore = Math.max(30 - (stats.riskCount * 3), 0);
+  return Math.round(avgNetScore + consistencyScore + riskScore);
+};
+
+const getHealthColor = (score: number): string => {
+  if (score >= 80) return '#25D366';
+  if (score >= 60) return '#F59E0B';
+  return '#EF4444';
+};
+
+const getHealthLabel = (score: number): string => {
+  if (score >= 80) return 'İyi';
+  if (score >= 60) return 'Orta';
+  return 'Risk';
+};
+
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+const getRankBadge = (rank: number): string | null => {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  return null;
+};
+
+// ==================== MAIN COMPONENT ====================
 export default function ExamIntelligenceDashboard() {
   const router = useRouter();
   const { currentOrganization } = useOrganizationStore();
+  
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedGrade, setSelectedGrade] = useState('all');
 
-  const fetchData = async () => {
+  // ==================== VERİ ÇEKME ====================
+  const fetchData = async (showRefresh = false) => {
     if (!currentOrganization?.id) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+
+    if (showRefresh) setRefreshing(true);
+    
     try {
-      const res = await fetch(`/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}`);
+      const gradeParam = selectedGrade !== 'all' ? `&grade=${selectedGrade}` : '';
+      const res = await fetch(
+        `/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}${gradeParam}`
+      );
+      
+      if (!res.ok) throw new Error('API error');
+      
       const json = await res.json();
       setData(json);
-    } catch (e) { 
-      console.error(e); 
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
   };
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [currentOrganization?.id]);
+  useEffect(() => {
+    fetchData();
+  }, [currentOrganization?.id, selectedGrade]);
 
-  const handleDeleteExam = async (examId: string, examName: string) => {
-    const pin = window.prompt(`"${examName}" sınavını silmek için ADMIN PIN giriniz:`);
-    if (pin !== ADMIN_PIN) {
-      if (pin !== null) alert('Hatalı PIN!');
-      return;
-    }
-    const confirm = window.confirm(`"${examName}" sınavı kalıcı olarak silinecek. Emin misiniz?`);
-    if (!confirm) return;
-    try {
-      await fetch(`/api/admin/exams/${examId}`, { method: 'DELETE' });
-      fetchData();
-    } catch (e) { console.error(e); }
-  };
-
+  // ==================== LOADING STATE ====================
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-10 h-10 animate-spin text-[#25D366]" />
       </div>
     );
   }
 
-  const s = data?.stats || { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0, riskCount: 0 };
-  const healthScore = Math.min(100, Math.max(0, Math.round(s.avgNet * 1.2 + (100 - s.stdDev * 2))));
-  const healthPieData = [{ value: healthScore }, { value: 100 - healthScore }];
-  
-  const classChartData = (data?.classPerformance || []).slice(0, 8).map(c => ({
+  // ==================== EMPTY STATE ====================
+  if (!data || (data?.recentExams || []).length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+          <p className="text-gray-500 text-lg mb-2">Henüz sınav verisi yok</p>
+          <Link 
+            href="/admin/akademik-analiz/sihirbaz" 
+            className="text-[#25D366] hover:underline font-medium"
+          >
+            İlk sınavı ekle →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== VERİ HAZIRLIĞI ====================
+  const stats = data?.stats || {
+    totalStudents: 0,
+    totalExams: 0,
+    avgNet: 0,
+    maxNet: 0,
+    stdDev: 0,
+    riskCount: 0
+  };
+
+  const healthScore = getHealthScore(stats);
+  const healthColor = getHealthColor(healthScore);
+
+  // Grafik verisi
+  const chartData = (data?.classPerformance || []).slice(0, 8).map(c => ({
     name: c.name,
-    net: c.avgNet
+    net: Number(c.avgNet.toFixed(1))
   }));
 
+  // ==================== RENDER ====================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-slate-100 p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] rounded-3xl p-6 text-white shadow-xl">
-        <div className="flex justify-between items-center">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      
+      {/* ==================== HEADER ==================== */}
+      <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Exam Intelligence</h1>
-            <p className="text-white/80 mt-1">{currentOrganization?.name || 'Dashboard'}</p>
+            <h1 className="text-2xl font-bold">Exam Intelligence</h1>
+            <p className="text-white/80 mt-1">
+              {currentOrganization?.name || 'Kurum'} - Sınav Analiz Merkezi
+            </p>
           </div>
-          <button onClick={fetchData} className="p-3 bg-white/20 rounded-xl hover:bg-white/30 transition">
-            <RefreshCw className="w-5 h-5" />
+          <button 
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {[
-          { label: 'Aktif Öğrenci', value: s.totalStudents, icon: Users, color: '#25D366' },
-          { label: 'Toplam Sınav', value: s.totalExams, icon: BookOpen, color: '#128C7E' },
-          { label: 'Genel Ort.', value: s.avgNet, icon: Target, color: '#075E54' },
-          { label: 'En Yüksek', value: s.maxNet, icon: Trophy, color: '#FFC107' },
-          { label: 'Std. Sapma', value: s.stdDev, icon: TrendingUp, color: '#6366F1' },
-          { label: 'Risk', value: s.riskCount, icon: AlertTriangle, color: '#EF4444' },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-white rounded-3xl p-5 shadow-lg border-b-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-300" style={{ borderColor: kpi.color }}>
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">{kpi.label}</p>
-                <p className="text-3xl font-black text-gray-800 mt-1">{kpi.value}</p>
-              </div>
-              <div className="p-3 rounded-2xl" style={{ backgroundColor: `${kpi.color}15` }}>
-                <kpi.icon size={26} style={{ color: kpi.color }} />
-              </div>
-            </div>
-          </div>
+      {/* ==================== KADEME SEÇİCİ ==================== */}
+      <div className="flex flex-wrap gap-2">
+        {GRADE_LEVELS.map((grade) => (
+          <button
+            key={grade.value}
+            onClick={() => setSelectedGrade(grade.value)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              selectedGrade === grade.value
+                ? 'bg-[#25D366] text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-[#DCF8C6] hover:text-[#075E54] border border-gray-200'
+            }`}
+          >
+            {grade.label}
+          </button>
         ))}
       </div>
 
-      {/* Health Score + Class Bar Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-3xl p-6 shadow-lg flex flex-col items-center">
-          <h3 className="text-lg font-bold text-gray-700 mb-4">Akademik Sağlık Skoru</h3>
-          <div className="w-48 h-48 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={healthPieData} innerRadius={60} outerRadius={80} startAngle={180} endAngle={0} dataKey="value" stroke="none">
-                  <Cell fill="#25D366" />
-                  <Cell fill="#E5E7EB" />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center -mt-6">
-              <span className="text-5xl font-black text-[#075E54]">{healthScore}</span>
-              <span className="text-[#25D366] text-sm font-bold">{healthScore >= 70 ? 'İYİ' : healthScore >= 50 ? 'ORTA' : 'DİKKAT'}</span>
+      {/* ==================== İSTATİSTİK KARTLARI ==================== */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Aktif Öğrenci */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#25D366]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Aktif Öğrenci</span>
+            <Users className="w-5 h-5 text-[#25D366]" />
+          </div>
+          <div className="text-3xl font-bold text-gray-900">{stats.totalStudents}</div>
+        </div>
+
+        {/* Toplam Sınav */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#128C7E]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Toplam Sınav</span>
+            <FileText className="w-5 h-5 text-[#128C7E]" />
+          </div>
+          <div className="text-3xl font-bold text-gray-900">{stats.totalExams}</div>
+        </div>
+
+        {/* Genel Ortalama */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#075E54]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Genel Ort.</span>
+            <Target className="w-5 h-5 text-[#075E54]" />
+          </div>
+          <div className="text-3xl font-bold text-gray-900">{stats.avgNet.toFixed(1)}</div>
+        </div>
+
+        {/* En Yüksek */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-amber-500">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">En Yüksek</span>
+            <Trophy className="w-5 h-5 text-amber-500" />
+          </div>
+          <div className="text-3xl font-bold text-gray-900">{stats.maxNet}</div>
+        </div>
+
+        {/* Std. Sapma */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-cyan-500">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Std. Sapma</span>
+            <BarChart3 className="w-5 h-5 text-cyan-500" />
+          </div>
+          <div className="text-3xl font-bold text-gray-900">{stats.stdDev.toFixed(1)}</div>
+        </div>
+
+        {/* Risk */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Risk</span>
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div className="text-3xl font-bold text-red-600">{stats.riskCount}</div>
+        </div>
+      </div>
+
+      {/* ==================== SAĞLIK SKORU & GRAFİK ==================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Akademik Sağlık Skoru */}
+        <div className="bg-white rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-[#25D366]" />
+            Akademik Sağlık Skoru
+          </h3>
+          <div className="flex items-center justify-center py-6">
+            <div className="relative">
+              <svg className="w-48 h-48 transform -rotate-90">
+                <circle
+                  cx="96" cy="96" r="88"
+                  stroke="#e5e7eb"
+                  strokeWidth="12"
+                  fill="none"
+                />
+                <circle
+                  cx="96" cy="96" r="88"
+                  stroke={healthColor}
+                  strokeWidth="12"
+                  fill="none"
+                  strokeDasharray={`${(healthScore / 100) * 553} 553`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-5xl font-bold" style={{ color: healthColor }}>
+                  {healthScore}
+                </span>
+                <span className="text-lg font-medium" style={{ color: healthColor }}>
+                  {getHealthLabel(healthScore)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="text-lg font-bold text-gray-700 mb-4">Sınıf Ortalamaları</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={classChartData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" domain={[0, 'auto']} />
-              <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(value: number) => [`${value} net`, 'Ortalama']} />
-              <Bar dataKey="net" fill="#25D366" radius={[0, 8, 8, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Sınıf Ortalamaları Grafiği */}
+        <div className="bg-white rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-[#25D366]" />
+            Sınıf Ortalamaları
+          </h3>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={chartData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 'auto']} />
+                <YAxis type="category" dataKey="name" width={50} />
+                <Tooltip 
+                  formatter={(value: number) => [`${value} net`, 'Ortalama']}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                />
+                <Bar dataKey="net" fill="#25D366" radius={[0, 8, 8, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-gray-400">
+              Grafik verisi yok
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Class Cards (Horizontal) */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg">
-        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-          <Trophy className="text-yellow-500" /> Sınıf Performans Liderleri
+      {/* ==================== SINIF LİDERLERİ ==================== */}
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-500" />
+          Sınıf Performans Liderleri
         </h3>
-        {(data?.classPerformance || []).length === 0 ? (
-          <p className="text-gray-400 text-center py-8">Henüz sınıf verisi yok</p>
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {data?.classPerformance.slice(0, 10).map((c, i) => (
-              <div key={c.name} onClick={() => router.push(`/admin/exam-intelligence/siniflar/${c.name}`)} className="min-w-[180px] p-4 rounded-2xl border-2 border-gray-100 hover:border-[#25D366] hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-white to-gray-50">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-gray-300'}`}>{i + 1}</span>
-                  <span className="font-bold text-gray-800">{c.name}</span>
-                </div>
-                <p className="text-3xl font-black text-[#25D366]">{c.avgNet}</p>
-                <p className="text-xs text-gray-500 mb-3">{c.studentCount} sonuç</p>
-                <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-                  <div className="h-full bg-[#25D366]" style={{ width: `${Math.min(100, (c.avgNet / 80) * 100)}%` }} />
-                </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          {(data?.classPerformance || []).slice(0, 7).map((cls, index) => (
+            <div 
+              key={cls.name}
+              onClick={() => router.push(`/admin/exam-intelligence/siniflar/${encodeURIComponent(cls.name)}`)}
+              className="bg-gray-50 rounded-xl p-4 cursor-pointer hover:shadow-lg hover:bg-[#DCF8C6] transition-all"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white
+                  ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-gray-300'}`}>
+                  {index + 1}
+                </span>
+                <span className="font-semibold text-gray-800">{cls.name}</span>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="text-2xl font-bold text-[#25D366]">{cls.avgNet.toFixed(1)}</div>
+              <div className="text-xs text-gray-500">{cls.studentCount} sonuç</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Recent Exams */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Son 5 Sınav</h3>
-        {(data?.recentExams || []).length === 0 ? (
-          <div className="text-center py-8">
-            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-400">Henüz sınav yok</p>
-            <Link href="/admin/akademik-analiz/sihirbaz" className="text-[#25D366] hover:underline text-sm mt-2 inline-block">
-              İlk sınavı ekle →
+      {/* ==================== SON SINAVLAR & TOP ÖĞRENCİLER ==================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Son Sınavlar */}
+        <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#25D366]" />
+              Son Sınavlar
+            </h3>
+            <Link 
+              href="/admin/exam-intelligence/sinavlar" 
+              className="text-sm text-[#25D366] hover:underline flex items-center gap-1"
+            >
+              Tümü <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {data?.recentExams.map(exam => (
-              <div key={exam.id} className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:border-[#25D366] transition group">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-[#25D366]/10 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-500">{new Date(exam.exam_date).toLocaleDateString('tr-TR', { month: 'short' })}</span>
-                    <span className="text-xl font-black text-[#075E54]">{new Date(exam.exam_date).getDate()}</span>
+          <div className="space-y-2">
+            {(data?.recentExams || []).slice(0, 5).map((exam) => (
+              <div 
+                key={exam.id}
+                onClick={() => router.push(`/admin/exam-intelligence/sinavlar/${exam.id}`)}
+                className="flex items-center justify-between p-3 bg-gray-50 hover:bg-[#DCF8C6] rounded-xl transition cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white rounded-xl flex flex-col items-center justify-center shadow-sm">
+                    <span className="text-xs text-gray-500">
+                      {new Date(exam.exam_date).toLocaleDateString('tr-TR', { month: 'short' })}
+                    </span>
+                    <span className="text-lg font-bold text-[#25D366]">
+                      {new Date(exam.exam_date).getDate()}
+                    </span>
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800">{exam.name}</p>
-                    <p className="text-xs text-gray-500">{exam.exam_type || 'LGS'}</p>
+                    <p className="font-medium text-gray-900">{exam.name}</p>
+                    <p className="text-sm text-gray-500">{exam.exam_type}</p>
                   </div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteExam(exam.id, exam.name); }} className="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-red-100 text-red-500 transition">
-                  <Trash2 size={18} />
-                </button>
+                <ChevronRight className="w-5 h-5 text-gray-300" />
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Top Students */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">🏆 Top 10 Öğrenci</h3>
-        {(data?.topStudents || []).length === 0 ? (
-          <p className="text-gray-400 text-center py-8">Henüz öğrenci verisi yok</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {data?.topStudents.slice(0, 10).map((st, i) => (
-              <div key={st.rank} className="rounded-2xl border-2 border-gray-100 p-4 text-center hover:border-[#25D366] hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/admin/exam-intelligence/ogrenciler/${st.name}`)}>
-                <div className="text-xl mb-1">
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}
+        {/* Top 10 Öğrenci */}
+        <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-500" />
+              Top 10 Öğrenci
+            </h3>
+            <Link 
+              href="/admin/exam-intelligence/ogrenciler" 
+              className="text-sm text-[#25D366] hover:underline flex items-center gap-1"
+            >
+              Tümü <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {(data?.topStudents || []).slice(0, 10).map((student, index) => (
+              <div
+                key={student.rank}
+                onClick={() => router.push(`/admin/exam-intelligence/ogrenciler/${encodeURIComponent(student.name)}`)}
+                className={`relative p-3 rounded-xl text-center cursor-pointer transition-all hover:shadow-lg
+                  ${index < 3 
+                    ? 'bg-gradient-to-br from-[#DCF8C6] to-white border-2 border-[#25D366]' 
+                    : 'bg-gray-50 hover:bg-[#DCF8C6]'
+                  }`}
+              >
+                {getRankBadge(index + 1) && (
+                  <span className="absolute -top-2 -right-2 text-xl">{getRankBadge(index + 1)}</span>
+                )}
+                <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center text-white font-bold mb-2
+                  ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-[#25D366]'}`}>
+                  {student.initials || getInitials(student.name)}
                 </div>
-                <div className={`w-14 h-14 mx-auto rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ${
-                  i === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' : 
-                  i === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' : 
-                  i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 
-                  'bg-gradient-to-br from-[#25D366] to-[#128C7E]'
-                }`}>
-                  {st.initials}
-                </div>
-                <p className="mt-3 font-bold text-gray-800 truncate">{st.name}</p>
-                <p className="text-sm text-gray-500">{st.class}</p>
-                <p className="text-2xl font-black text-[#25D366] mt-2">{st.net}</p>
-                <p className="text-xs text-gray-400">net</p>
+                <p className="font-medium text-gray-900 text-xs truncate">{student.name}</p>
+                <p className="text-xs text-gray-500">{student.class}</p>
+                <p className="text-lg font-bold text-[#25D366] mt-1">{student.net}</p>
               </div>
             ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Quick Links */}
+      {/* ==================== HIZLI ERİŞİM ==================== */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { href: '/admin/exam-intelligence/siniflar', label: 'Sınıf Analizi', icon: GraduationCap, color: '#25D366' },
-          { href: '/admin/exam-intelligence/ogrenciler', label: 'Öğrenci Analizi', icon: Users, color: '#128C7E' },
-          { href: '/admin/exam-intelligence/sinavlar', label: 'Sınav Sonuçları', icon: BarChart3, color: '#6366F1' },
-          { href: '/admin/akademik-analiz/sihirbaz', label: 'Yeni Sınav', icon: FileText, color: '#FFC107' },
-        ].map((l, i) => (
-          <Link key={i} href={l.href} className="flex items-center gap-3 p-4 bg-white rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="p-3 rounded-xl" style={{ backgroundColor: `${l.color}15` }}>
-              <l.icon size={22} style={{ color: l.color }} />
-            </div>
-            <span className="font-bold text-gray-700 group-hover:text-[#25D366] transition">{l.label}</span>
-          </Link>
-        ))}
+        <Link 
+          href="/admin/exam-intelligence/siniflar" 
+          className="flex items-center gap-3 p-5 bg-white rounded-xl border border-gray-100 hover:border-[#25D366] hover:shadow-md transition"
+        >
+          <div className="w-12 h-12 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
+            <GraduationCap className="w-6 h-6 text-[#075E54]" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900">Sınıf Analizi</span>
+            <p className="text-sm text-gray-500">Detaylı raporlar</p>
+          </div>
+        </Link>
+
+        <Link 
+          href="/admin/exam-intelligence/ogrenciler"
+          className="flex items-center gap-3 p-5 bg-white rounded-xl border border-gray-100 hover:border-[#25D366] hover:shadow-md transition"
+        >
+          <div className="w-12 h-12 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
+            <Users className="w-6 h-6 text-[#075E54]" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900">Öğrenci Analizi</span>
+            <p className="text-sm text-gray-500">Bireysel performans</p>
+          </div>
+        </Link>
+
+        <Link 
+          href="/admin/exam-intelligence/sinavlar"
+          className="flex items-center gap-3 p-5 bg-white rounded-xl border border-gray-100 hover:border-[#25D366] hover:shadow-md transition"
+        >
+          <div className="w-12 h-12 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-[#075E54]" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900">Sınav Sonuçları</span>
+            <p className="text-sm text-gray-500">Tüm sınavlar</p>
+          </div>
+        </Link>
+
+        <Link 
+          href="/admin/akademik-analiz/sihirbaz"
+          className="flex items-center gap-3 p-5 bg-white rounded-xl border border-gray-100 hover:border-[#25D366] hover:shadow-md transition"
+        >
+          <div className="w-12 h-12 bg-[#DCF8C6] rounded-xl flex items-center justify-center">
+            <FileText className="w-6 h-6 text-[#075E54]" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900">Yeni Sınav</span>
+            <p className="text-sm text-gray-500">Sınav oluştur</p>
+          </div>
+        </Link>
       </div>
     </div>
   );
