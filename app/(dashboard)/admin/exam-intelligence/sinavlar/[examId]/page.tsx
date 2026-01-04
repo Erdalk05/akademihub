@@ -14,13 +14,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { ExportBar } from '@/components/exam-intelligence/ExportBar'
 
 type ApiResp = {
   exam: { id: string; name: string; exam_date: string; exam_type: string; grade_level?: string | null } | null
   stats: { totalStudents: number; avgNet: number; maxNet: number; stdDev: number }
-  subjectAverages: { turkce: number; matematik: number; fen: number; sosyal: number; ingilizce: number }
+  subjects?: Array<{ key: string; code: string; label: string }>
+  subjectAverages?: Record<string, number>
   classComparison: Array<{ className: string; avgNet: number; studentCount: number }>
-  topStudents: Array<{ id: string; name: string; class: string; net: number; rank: number }>
+  topStudents: Array<{ id: string; name: string; class: string; net: number; rank: number; studentType?: 'asil' | 'misafir'; subjects?: Record<string, number> }>
 }
 
 export default function ExamDetailPage({ params }: { params: { examId: string } }) {
@@ -61,6 +63,8 @@ export default function ExamDetailPage({ params }: { params: { examId: string } 
     return (data?.classComparison || []).slice(0, 12).map((c) => ({ name: c.className, net: Number(c.avgNet || 0) }))
   }, [data?.classComparison])
 
+  const exportId = `ei-exam-${params.examId}`
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -70,7 +74,31 @@ export default function ExamDetailPage({ params }: { params: { examId: string } 
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div id={exportId} className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <ExportBar
+        title="Sınav Detay"
+        pdf={{ filename: `Sinav_${data?.exam?.name || params.examId}_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: exportId }}
+        excel={{
+          filename: `Sinav_${data?.exam?.name || params.examId}`,
+          sheetName: 'Sınav Detay',
+          rows: (data?.topStudents || []).map((s) => ({
+            sira: s.rank,
+            ad: s.name,
+            sinif: s.class,
+            tur: s.studentType || '',
+            net: s.net,
+            ...(s.subjects || {}),
+          })),
+          headers: {
+            sira: 'Sıra',
+            ad: 'Ad Soyad',
+            sinif: 'Sınıf',
+            tur: 'Tür (Asil/Misafir)',
+            net: 'Net',
+          },
+        }}
+      />
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <div className="flex items-center gap-2">
@@ -128,13 +156,16 @@ export default function ExamDetailPage({ params }: { params: { examId: string } 
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border">
-          <h3 className="text-lg font-bold text-gray-900">Top 10 Öğrenci</h3>
+          <h3 className="text-lg font-bold text-gray-900">Top 10 Öğrenci (Asil/Misafir)</h3>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
             {(data?.topStudents || []).slice(0, 10).map((s) => (
               <div key={s.rank} className="p-3 rounded-xl bg-gray-50 border text-center">
                 <div className="text-xs font-bold text-gray-500">#{s.rank}</div>
                 <div className="mt-2 text-xs font-semibold text-gray-900 truncate">{s.name}</div>
                 <div className="text-[11px] text-gray-600 truncate">{s.class}</div>
+                <div className={`mt-1 text-[11px] font-bold ${s.studentType === 'misafir' ? 'text-amber-700' : 'text-emerald-700'}`}>
+                  {s.studentType === 'misafir' ? 'Misafir' : 'Asil'}
+                </div>
                 <div className="mt-1 text-sm font-black text-[#25D366]">{Number(s.net || 0).toFixed(1)}</div>
               </div>
             ))}

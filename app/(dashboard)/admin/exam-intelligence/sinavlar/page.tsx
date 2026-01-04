@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOrganizationStore } from '@/lib/store/organizationStore'
 import { Calendar, FileText, Filter, Loader2, Search, Users } from 'lucide-react'
+import { ExportBar } from '@/components/exam-intelligence/ExportBar'
 
 type ExamRow = {
   id: string
@@ -13,6 +14,8 @@ type ExamRow = {
   exam_type: string
   grade_level: string | null
   total_students: number
+  asil_students?: number
+  misafir_students?: number
   avg_net: number
   is_published: boolean
 }
@@ -78,8 +81,41 @@ export default function ExamsPage() {
     )
   }
 
+  const exportId = 'ei-exams-export'
+
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div id={exportId} className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <ExportBar
+        title="Sınavlar"
+        pdf={{ filename: `Exam_Intelligence_Sinavlar_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: exportId }}
+        excel={{
+          filename: 'Exam_Intelligence_Sinavlar',
+          sheetName: 'Sınavlar',
+          rows: filtered.map((e) => ({
+            sinav: e.name,
+            tarih: e.exam_date,
+            tur: e.exam_type,
+            kademe: e.grade_level,
+            ogrenci: e.total_students,
+            asil: e.asil_students ?? '',
+            misafir: e.misafir_students ?? '',
+            ortalama_net: e.avg_net,
+            durum: e.is_published ? 'Yayınlandı' : 'Taslak',
+          })),
+          headers: {
+            sinav: 'Sınav',
+            tarih: 'Tarih',
+            tur: 'Tür',
+            kademe: 'Kademe',
+            ogrenci: 'Öğrenci',
+            asil: 'Asil',
+            misafir: 'Misafir',
+            ortalama_net: 'Ort. Net',
+            durum: 'Durum',
+          },
+        }}
+      />
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Sınavlar</h1>
@@ -150,6 +186,8 @@ export default function ExamsPage() {
                 <th className="text-left px-4 py-3 font-semibold">Tür</th>
                 <th className="text-left px-4 py-3 font-semibold">Sınıf</th>
                 <th className="text-right px-4 py-3 font-semibold">Öğrenci</th>
+                <th className="text-right px-4 py-3 font-semibold">Asil</th>
+                <th className="text-right px-4 py-3 font-semibold">Misafir</th>
                 <th className="text-right px-4 py-3 font-semibold">Ort. Net</th>
                 <th className="text-left px-4 py-3 font-semibold">Durum</th>
               </tr>
@@ -181,6 +219,8 @@ export default function ExamsPage() {
                       {e.total_students || 0}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right text-gray-900">{e.asil_students ?? '-'}</td>
+                  <td className="px-4 py-3 text-right text-gray-900">{e.misafir_students ?? '-'}</td>
                   <td className="px-4 py-3 text-right font-bold text-[#075E54]">{Number(e.avg_net || 0).toFixed(1)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${e.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>

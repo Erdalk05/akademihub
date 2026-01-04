@@ -3,7 +3,8 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { Loader2, Building2, AlertTriangle } from 'lucide-react';
+import { Loader2, Building2 } from 'lucide-react';
+import { ExamTabs } from '@/components/exam-intelligence/ExamTabs';
 
 export default function ExamIntelligenceLayout({
   children,
@@ -48,8 +49,40 @@ export default function ExamIntelligenceLayout({
 
   // Success
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50/20 to-indigo-50/20">
-      {children}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-100">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+        {/* Header (screenshot çerçevesi) */}
+        <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] rounded-2xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black">Exam Intelligence</h1>
+              <p className="text-white/80 mt-1">{currentOrganization?.name} • Sınav Sonuçları Merkezi</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.refresh()}
+                className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 font-semibold"
+              >
+                Yenile
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-white text-[#075E54] font-black"
+              >
+                Yazdır
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-2xl p-3 shadow-sm border">
+          <ExamTabs />
+        </div>
+
+        {/* Content */}
+        <div>{children}</div>
+      </div>
     </div>
   );
 }

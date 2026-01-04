@@ -25,12 +25,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { ExportBar } from '@/components/exam-intelligence/ExportBar'
 
 type GradeValue = 'all' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | 'mezun'
 
 type DashboardData = {
   stats: {
     totalStudents: number
+    asilStudents?: number
+    misafirStudents?: number
     totalExams: number
     avgNet: number
     maxNet: number
@@ -39,7 +42,19 @@ type DashboardData = {
   }
   recentExams: Array<{ id: string; name: string; exam_date: string; exam_type: string; grade_level: string | null }>
   classPerformance: Array<{ name: string; avgNet: number; studentCount: number }>
-  topStudents: Array<{ rank: number; studentId: string | null; name: string; class: string; net: number; score: number; initials: string }>
+  subjects?: Array<{ key: string; code: string; label: string }>
+  subjectAverages?: Record<string, number>
+  examSubjectTimeline?: Array<{
+    id: string
+    name: string
+    exam_date: string
+    exam_type: string
+    grade_level: string | null
+    total_students: number
+    total_avg_net: number
+    subjects: Record<string, number>
+  }>
+  topStudents: Array<{ rank: number; studentId: string | null; name: string; class: string; net: number; score: number; initials: string; studentType?: 'asil' | 'misafir' }>
 }
 
 const GRADE_LEVELS: Array<{ value: GradeValue; label: string }> = [
@@ -129,6 +144,7 @@ export default function ExamIntelligenceDashboard() {
   }, [data?.classPerformance])
 
   const aiNotes = useMemo(() => buildAiNotes(stats), [stats])
+  const exportId = 'ei-dashboard-export'
 
   if (loading) {
     return (
@@ -177,7 +193,33 @@ export default function ExamIntelligenceDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div id={exportId} className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <ExportBar
+        title="Dashboard"
+        pdf={{ filename: `Exam_Intelligence_Dashboard_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: exportId }}
+        excel={{
+          filename: 'Exam_Intelligence_Dashboard',
+          sheetName: 'Dashboard',
+          rows: (data?.examSubjectTimeline || []).map((e) => ({
+            sinav: e.name,
+            tarih: e.exam_date,
+            tur: e.exam_type,
+            kademe: e.grade_level,
+            ogrenci: e.total_students,
+            ortalama_net: e.total_avg_net,
+            ...(e.subjects || {}),
+          })),
+          headers: {
+            sinav: 'Sınav',
+            tarih: 'Tarih',
+            tur: 'Tür',
+            kademe: 'Kademe',
+            ogrenci: 'Öğrenci',
+            ortalama_net: 'Ort. Net',
+          },
+        }}
+      />
+
       {/* Header */}
       <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -239,6 +281,17 @@ export default function ExamIntelligenceDashboard() {
             <div className="text-3xl font-black text-gray-900">{kpi.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 border shadow-sm">
+          <div className="text-sm text-gray-500 font-semibold">Asil (Kurum Öğrencisi)</div>
+          <div className="text-3xl font-black text-[#075E54] mt-1">{Number(stats.asilStudents || 0)}</div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border shadow-sm">
+          <div className="text-sm text-gray-500 font-semibold">Misafir</div>
+          <div className="text-3xl font-black text-[#075E54] mt-1">{Number(stats.misafirStudents || 0)}</div>
+        </div>
       </div>
 
       {/* Health + Class chart */}
@@ -305,6 +358,45 @@ export default function ExamIntelligenceDashboard() {
             <div className="mt-6 text-center text-gray-400">Grafik verisi yok</div>
           )}
         </div>
+      </div>
+
+      {/* 5 Sınav - Ders Bazlı Karşılaştırma */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-lg font-bold text-gray-900">5 Sınav Ders Karşılaştırması</h3>
+          <Link href="/admin/exam-intelligence/analizler/karsilastirma" className="text-sm text-[#25D366] font-semibold hover:underline">
+            Karşılaştırma
+          </Link>
+        </div>
+
+        {((data?.examSubjectTimeline || []).length > 0 && (data?.subjects || []).length > 0) ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Sınav</th>
+                  {(data?.subjects || []).map((s) => (
+                    <th key={s.code} className="text-right px-4 py-3 font-semibold">{s.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.examSubjectTimeline || []).slice(0, 5).map((e) => (
+                  <tr key={e.id} className="border-t hover:bg-[#DCF8C6] cursor-pointer" onClick={() => router.push(`/admin/exam-intelligence/sinavlar/${e.id}`)}>
+                    <td className="px-4 py-3 font-semibold text-gray-900 truncate max-w-[420px]">{e.name}</td>
+                    {(data?.subjects || []).map((s) => (
+                      <td key={s.code} className="px-4 py-3 text-right font-bold text-[#075E54]">{Number(e.subjects?.[s.code] || 0).toFixed(1)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-4 text-gray-600">
+            Ders bazlı karşılaştırma için ders net kolonları veya yeterli sınav verisi bulunamadı.
+          </div>
+        )}
       </div>
 
       {/* Recent exams + Top students */}

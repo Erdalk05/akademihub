@@ -1,5 +1,7 @@
 import { getServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { buildStudentIndex, classifyStudent } from '../../_utils/studentMatch'
+import { inferSubjectsFromKeys, pickSubjectNetKeys } from '../../_utils/subjects'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +21,8 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
   const empty = {
     exam: null,
     stats: { totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0 },
-    subjectAverages: { turkce: 0, matematik: 0, fen: 0, sosyal: 0, ingilizce: 0 },
+    subjects: [],
+    subjectAverages: {},
     classComparison: [],
     topStudents: [],
   }
@@ -38,11 +41,24 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
 
     const { data: results } = await supabase
       .from('student_exam_results')
-      .select('student_id, student_name, class_name, total_net')
+      .select('*')
       .eq('exam_id', examId)
 
     const rows = results || []
     const nets = rows.map((r: any) => Number(r.total_net) || 0)
+
+    // öğrenci index (asil/misafir)
+    const { data: students } = await supabase
+      .from('students')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .neq('status', 'deleted')
+      .limit(2000)
+    const studentIndex = buildStudentIndex(students || [])
+
+    // ders kolonları
+    const subjectNetKeys = pickSubjectNetKeys(rows[0])
+    const subjects = inferSubjectsFromKeys(subjectNetKeys)
 
     const unique = new Set<string>()
     rows.forEach((r: any) => {
@@ -78,12 +94,21 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
         class: r.class_name || '-',
         net: Number(r.total_net) || 0,
         rank: i + 1,
+        studentType: classifyStudent(studentIndex, { student_id: r.student_id, student_no: r.student_no, student_name: r.student_name, tc: r.tc_no || r.tc_id || null }).studentType,
+        subjects: Object.fromEntries(subjects.map((sub) => [sub.code, Number(r[sub.key]) || 0])),
       }))
+
+    const subjectAverages: Record<string, number> = {}
+    for (const sub of subjects) {
+      const vals = rows.map((r: any) => Number(r[sub.key]) || 0)
+      subjectAverages[sub.code] = vals.length ? Math.round((vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10) / 10 : 0
+    }
 
     return NextResponse.json({
       exam,
       stats: { totalStudents: unique.size, avgNet, maxNet, stdDev: stdDev(nets) },
-      subjectAverages: { turkce: 0, matematik: 0, fen: 0, sosyal: 0, ingilizce: 0 },
+      subjects,
+      subjectAverages,
       classComparison,
       topStudents,
     })
