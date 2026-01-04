@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useOrganizationStore } from '@/lib/store/organizationStore'
 import { ArrowLeft, BarChart3, Loader2, Users } from 'lucide-react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -37,6 +39,15 @@ type TimelineRow = {
 
 type OverviewResp = {
   subjects: SubjectDef[]
+  questionMetrics?: Array<{
+    code: string
+    label: string
+    prefix: string
+    correctKey?: string
+    wrongKey?: string
+    blankKey?: string
+    questionCountKey?: string
+  }>
   selectedClass: {
     className: string
     asil_count: number
@@ -55,6 +66,24 @@ type OverviewResp = {
       avg_score: number
       exam_count: number
     }>
+    question?: {
+      overall: {
+        student_count: number
+        avg_correct: number
+        avg_wrong: number
+        avg_blank: number
+        by_subject: Record<string, { avg_correct: number; avg_wrong: number; avg_blank: number }>
+      }
+      per_exam: Array<{
+        id: string
+        name: string
+        exam_date: string | null
+        avg_correct: number
+        avg_wrong: number
+        avg_blank: number
+        by_subject: Record<string, { avg_correct: number; avg_wrong: number; avg_blank: number }>
+      }>
+    }
   } | null
 }
 
@@ -72,11 +101,12 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
   const { currentOrganization } = useOrganizationStore()
 
   const [subjects, setSubjects] = useState<SubjectDef[]>([])
+  const [questionMetrics, setQuestionMetrics] = useState<NonNullable<OverviewResp['questionMetrics']>>([])
   const [overview, setOverview] = useState<OverviewResp['selectedClass'] | null>(null)
   const [studentsData, setStudentsData] = useState<StudentsResp['data'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'genel' | 'sinavlar' | 'dersler' | 'ogrenciler'>('genel')
+  const [activeTab, setActiveTab] = useState<'genel' | 'sinavlar' | 'dersler' | 'sorular' | 'ogrenciler'>('genel')
   const [selectedSubject, setSelectedSubject] = useState<string>('TUR')
 
   useEffect(() => {
@@ -101,6 +131,7 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
         const stJson = (await stRes.json()) as StudentsResp
 
         setSubjects(ovJson.subjects || [])
+        setQuestionMetrics(ovJson.questionMetrics || [])
         setOverview(ovJson.selectedClass || null)
         setStudentsData(stJson.data || null)
 
@@ -141,6 +172,28 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
       value: Number(x.subjects?.[selectedSubject] || 0),
     }))
   }, [overview?.timeline, selectedSubject])
+
+  const questionBarData = useMemo(() => {
+    const by = overview?.question?.overall?.by_subject || {}
+    return (questionMetrics || []).map((m) => {
+      const v = by[m.code] || { avg_correct: 0, avg_wrong: 0, avg_blank: 0 }
+      return {
+        subject: m.label,
+        correct: Number(v.avg_correct || 0),
+        wrong: Number(v.avg_wrong || 0),
+        blank: Number(v.avg_blank || 0),
+      }
+    })
+  }, [overview?.question?.overall?.by_subject, questionMetrics])
+
+  const questionTrend = useMemo(() => {
+    return (overview?.question?.per_exam || []).map((e) => ({
+      name: (e.name || '').split(' ').slice(0, 2).join(' '),
+      correct: Number(e.avg_correct || 0),
+      wrong: Number(e.avg_wrong || 0),
+      blank: Number(e.avg_blank || 0),
+    }))
+  }, [overview?.question?.per_exam])
 
   const scoreTrend = useMemo(() => {
     const t = overview?.timeline || []
@@ -196,6 +249,7 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
           { id: 'genel', label: 'Genel' },
           { id: 'sinavlar', label: 'Sınavlar' },
           { id: 'dersler', label: 'Dersler' },
+          { id: 'sorular', label: 'Sorular (D/Y/B)' },
           { id: 'ogrenciler', label: 'Öğrenciler' },
         ].map((t) => (
           <button
@@ -377,6 +431,98 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Sorular (Doğru / Yanlış / Boş) */}
+      {activeTab === 'sorular' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-3xl border shadow-sm p-5">
+            <div className="font-black text-gray-900 mb-2">Ders Bazlı Doğru / Yanlış / Boş (Ortalama)</div>
+            <div className="text-xs text-gray-500 mb-4">Sınıftaki öğrencilerin ortalama soru dağılımı</div>
+
+            {questionMetrics.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                Bu sınav türünde <span className="font-bold">doğru/yanlış/boş</span> kolonları tespit edilemedi.
+                <div className="mt-2 text-xs text-gray-400">
+                  Beklenen örnek kolonlar: <span className="font-mono">turkce_dogru</span>, <span className="font-mono">turkce_yanlis</span>, <span className="font-mono">turkce_bos</span>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={questionBarData} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="subject" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="correct" stackId="a" fill="#22C55E" name="Doğru" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="wrong" stackId="a" fill="#EF4444" name="Yanlış" />
+                    <Bar dataKey="blank" stackId="a" fill="#94A3B8" name="Boş" radius={[0, 0, 8, 8]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-3xl border shadow-sm p-5">
+            <div className="font-black text-gray-900 mb-2">Sınav Bazında D/Y/B Trendi</div>
+            <div className="text-xs text-gray-500 mb-4">Sınavlara göre toplam doğru/yanlış/boş ortalaması</div>
+            <div className="h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={questionTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-25} height={55} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="correct" stroke="#22C55E" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="wrong" stroke="#EF4444" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="blank" stroke="#94A3B8" strokeWidth={3} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="lg:col-span-3 bg-white rounded-3xl border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 bg-gradient-to-r from-[#075E54] to-[#128C7E] text-white font-black">
+              Sınav Bazında Doğru / Yanlış / Boş (Tablo)
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white text-gray-600">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-bold">Sınav</th>
+                    <th className="text-center px-3 py-3 font-bold whitespace-nowrap">DOĞRU</th>
+                    <th className="text-center px-3 py-3 font-bold whitespace-nowrap">YANLIŞ</th>
+                    <th className="text-center px-3 py-3 font-bold whitespace-nowrap">BOŞ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(overview?.question?.per_exam || []).map((e, idx) => (
+                    <tr key={e.id} className={`border-t ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-[#DCF8C6]/40`}>
+                      <td className="px-4 py-3 font-black text-gray-900 whitespace-nowrap">{e.name}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-black">
+                          {Number(e.avg_correct || 0).toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex px-3 py-1 rounded-full bg-red-100 text-red-800 font-black">
+                          {Number(e.avg_wrong || 0).toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-black">
+                          {Number(e.avg_blank || 0).toFixed(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {(overview?.question?.per_exam || []).length === 0 ? <div className="p-6 text-center text-gray-500">Veri yok.</div> : null}
           </div>
         </div>
       ) : null}

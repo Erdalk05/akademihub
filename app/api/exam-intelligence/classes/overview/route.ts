@@ -2,6 +2,7 @@ import { getServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { buildStudentIndex, classifyStudent } from '../../_utils/studentMatch'
 import { inferSubjectsFromKeys, pickSubjectNetKeys } from '../../_utils/subjects'
+import { inferQuestionMetrics } from '../../_utils/questionMetrics'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     exams: [],
     classes: [],
     selectedClass: null,
+    questionMetrics: [],
   }
 
   if (!organizationId) return NextResponse.json(empty)
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
 
     const subjectNetKeys = pickSubjectNetKeys(results[0])
     const subjects = inferSubjectsFromKeys(subjectNetKeys)
+    const questionMetrics = inferQuestionMetrics(results[0])
 
     // helpers
     const studentKey = (r: any) => String(r.student_id || r.student_no || r.student_name || '')
@@ -273,7 +276,94 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ subjects, exams: examsOut, classes: classesOut, selectedClass: selectedClassOut })
+    // 7) question aggregates (only for selected class to keep payload reasonable)
+    let questionOut: any = null
+    if (classId && questionMetrics.length > 0) {
+      // overall
+      const overallBySubject: Record<string, { correct: number; wrong: number; blank: number }> = {}
+      let totC = 0
+      let totW = 0
+      let totB = 0
+      for (const r of results) {
+        for (const m of questionMetrics) {
+          const c = m.correctKey ? Number(r[m.correctKey]) || 0 : 0
+          const w = m.wrongKey ? Number(r[m.wrongKey]) || 0 : 0
+          const b = m.blankKey ? Number(r[m.blankKey]) || 0 : 0
+          if (!overallBySubject[m.code]) overallBySubject[m.code] = { correct: 0, wrong: 0, blank: 0 }
+          overallBySubject[m.code].correct += c
+          overallBySubject[m.code].wrong += w
+          overallBySubject[m.code].blank += b
+          totC += c
+          totW += w
+          totB += b
+        }
+      }
+      const n = results.length || 0
+      const overall = {
+        student_count: n,
+        avg_correct: n ? round1(totC / n) : 0,
+        avg_wrong: n ? round1(totW / n) : 0,
+        avg_blank: n ? round1(totB / n) : 0,
+        by_subject: Object.fromEntries(
+          Object.entries(overallBySubject).map(([code, v]) => [
+            code,
+            {
+              avg_correct: n ? round1(v.correct / n) : 0,
+              avg_wrong: n ? round1(v.wrong / n) : 0,
+              avg_blank: n ? round1(v.blank / n) : 0,
+            },
+          ])
+        ),
+      }
+
+      // per exam: selectedClassOut.timeline zaten bu sınıfa ait sınavları içerir
+      const timelineRows = (selectedClassOut?.timeline || []) as any[]
+      const perExam = timelineRows.map((e: any) => {
+        const exResults = results.filter((r: any) => r.exam_id === e.id)
+        const nn = exResults.length || 0
+        let cTot = 0
+        let wTot = 0
+        let bTot = 0
+        const bySub: Record<string, { c: number; w: number; b: number }> = {}
+        for (const r of exResults) {
+          for (const m of questionMetrics) {
+            const c = m.correctKey ? Number(r[m.correctKey]) || 0 : 0
+            const w = m.wrongKey ? Number(r[m.wrongKey]) || 0 : 0
+            const b = m.blankKey ? Number(r[m.blankKey]) || 0 : 0
+            if (!bySub[m.code]) bySub[m.code] = { c: 0, w: 0, b: 0 }
+            bySub[m.code].c += c
+            bySub[m.code].w += w
+            bySub[m.code].b += b
+            cTot += c
+            wTot += w
+            bTot += b
+          }
+        }
+        return {
+          id: e.id,
+          name: e.name,
+          exam_date: e.exam_date,
+          avg_correct: nn ? round1(cTot / nn) : 0,
+          avg_wrong: nn ? round1(wTot / nn) : 0,
+          avg_blank: nn ? round1(bTot / nn) : 0,
+          by_subject: Object.fromEntries(
+            Object.entries(bySub).map(([code, v]) => [
+              code,
+              {
+                avg_correct: nn ? round1(v.c / nn) : 0,
+                avg_wrong: nn ? round1(v.w / nn) : 0,
+                avg_blank: nn ? round1(v.b / nn) : 0,
+              },
+            ])
+          ),
+        }
+      })
+
+      questionOut = { overall, per_exam: perExam }
+      selectedClassOut = { ...(selectedClassOut || {}), question: questionOut }
+    }
+
+    return NextResponse.json({ subjects, exams: examsOut, classes: classesOut, selectedClass: selectedClassOut, questionMetrics })
   } catch (e) {
     console.error(e)
     return NextResponse.json(empty)
