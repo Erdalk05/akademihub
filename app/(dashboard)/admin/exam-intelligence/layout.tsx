@@ -12,10 +12,28 @@ export default function ExamIntelligenceLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { currentOrganization, isLoading } = useOrganizationStore();
+  const {
+    currentOrganization,
+    isLoading,
+    fetchOrganizations,
+    _hasHydrated,
+    setHasHydrated,
+  } = useOrganizationStore();
+
+  // ✅ KRİTİK: organization store manual hydrate (TopBar mobilde yok → burada şart)
+  React.useEffect(() => {
+    useOrganizationStore.persist.rehydrate();
+    setHasHydrated(true);
+  }, [setHasHydrated]);
+
+  React.useEffect(() => {
+    if (_hasHydrated) {
+      fetchOrganizations();
+    }
+  }, [_hasHydrated, fetchOrganizations]);
 
   // Loading
-  if (isLoading) {
+  if (isLoading || !_hasHydrated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50/30 flex items-center justify-center">
         <div className="text-center">
