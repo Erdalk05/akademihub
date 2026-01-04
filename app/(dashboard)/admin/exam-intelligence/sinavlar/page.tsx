@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOrganizationStore } from '@/lib/store/organizationStore'
-import { Calendar, FileText, Filter, Loader2, Search, Users } from 'lucide-react'
+import { Calendar, FileText, Filter, Loader2, Search, Users, Wrench } from 'lucide-react'
 import { ExportBar } from '@/components/exam-intelligence/ExportBar'
 
 type ExamRow = {
@@ -33,6 +33,12 @@ export default function ExamsPage() {
   const [data, setData] = useState<ExamRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [repairOpen, setRepairOpen] = useState(false)
+  const [repairLoading, setRepairLoading] = useState(false)
+  const [repairError, setRepairError] = useState<string | null>(null)
+  const [repairCandidates, setRepairCandidates] = useState<any[]>([])
+  const [repairSelected, setRepairSelected] = useState<Record<string, boolean>>({})
+  const [repairDoneMsg, setRepairDoneMsg] = useState<string | null>(null)
 
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState<ExamTypeFilter>('all')
@@ -63,6 +69,80 @@ export default function ExamsPage() {
 
     run()
   }, [currentOrganization?.id])
+
+  const refreshList = async () => {
+    if (!currentOrganization?.id) return
+    try {
+      const res = await fetch(`/api/exam-intelligence/exams?organizationId=${currentOrganization.id}`)
+      const json = (await res.json()) as ApiResp
+      setData(json.exams || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const loadRepairCandidates = async () => {
+    setRepairLoading(true)
+    setRepairError(null)
+    setRepairDoneMsg(null)
+    try {
+      const res = await fetch('/api/admin/exams/repair-null-organization?limit=200')
+      const json = await res.json()
+      const exams = (json?.exams || []) as any[]
+      setRepairCandidates(exams)
+      const init: Record<string, boolean> = {}
+      exams.forEach((e) => {
+        init[String(e.id)] = true // default: seçili
+      })
+      setRepairSelected(init)
+    } catch (e) {
+      console.error(e)
+      setRepairError('Kayıp sınavlar alınamadı.')
+      setRepairCandidates([])
+      setRepairSelected({})
+    } finally {
+      setRepairLoading(false)
+    }
+  }
+
+  const runRepair = async () => {
+    if (!currentOrganization?.id) return
+    const examIds = Object.entries(repairSelected)
+      .filter(([, v]) => v)
+      .map(([id]) => id)
+    if (examIds.length === 0) {
+      setRepairError('En az 1 sınav seçmelisiniz.')
+      return
+    }
+    const ok = window.confirm(
+      `Seçilen ${examIds.length} sınav bu kuruma bağlanacak. Emin misiniz? (Bu işlem sadece organization_id=null olanlara uygulanır.)`
+    )
+    if (!ok) return
+
+    setRepairLoading(true)
+    setRepairError(null)
+    setRepairDoneMsg(null)
+    try {
+      const res = await fetch('/api/admin/exams/repair-null-organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: currentOrganization.id, examIds }),
+      })
+      const json = await res.json()
+      if (!json?.ok) {
+        setRepairError(json?.error || 'Onarım başarısız.')
+      } else {
+        setRepairDoneMsg(`✅ Onarım tamamlandı. Güncellenen sınav: ${json.updatedCount || 0}`)
+        await refreshList()
+        await loadRepairCandidates()
+      }
+    } catch (e) {
+      console.error(e)
+      setRepairError('Onarım sırasında hata oluştu.')
+    } finally {
+      setRepairLoading(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase()
@@ -121,13 +201,131 @@ export default function ExamsPage() {
           <h1 className="text-2xl font-black text-gray-900">Sınavlar</h1>
           <p className="text-sm text-gray-600">Toplam: {filtered.length}</p>
         </div>
-        <Link
-          href="/admin/akademik-analiz/sihirbaz"
-          className="px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold"
-        >
-          Yeni Sınav
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setRepairOpen(true)
+              loadRepairCandidates()
+            }}
+            className="px-4 py-2 rounded-xl bg-white border font-bold text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2"
+            title="organization_id boş kaydedilmiş sınavları bu kuruma bağla"
+          >
+            <Wrench className="w-4 h-4 text-[#075E54]" />
+            Kayıp Sınavları Onar
+          </button>
+          <Link href="/admin/akademik-analiz/sihirbaz" className="px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold">
+            Yeni Sınav
+          </Link>
+        </div>
       </div>
+
+      {/* Repair Modal (simple) */}
+      {repairOpen ? (
+        <div className="bg-white rounded-3xl border shadow-sm p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-lg font-black text-gray-900">Kayıp Sınav Onarımı</div>
+              <div className="text-xs text-gray-500">
+                Bu liste <span className="font-bold">organization_id=null</span> olan sınavları gösterir. Seçtiklerinizi mevcut kuruma bağlar.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRepairOpen(false)}
+                className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
+              >
+                Kapat
+              </button>
+              <button
+                disabled={repairLoading}
+                onClick={runRepair}
+                className="px-3 py-2 rounded-xl bg-[#075E54] text-white font-bold hover:bg-[#128C7E] disabled:opacity-60"
+              >
+                Seçileni Onar
+              </button>
+            </div>
+          </div>
+
+          {repairError ? <div className="mt-4 p-3 rounded-2xl bg-red-50 text-red-700 font-semibold">{repairError}</div> : null}
+          {repairDoneMsg ? <div className="mt-4 p-3 rounded-2xl bg-emerald-50 text-emerald-800 font-semibold">{repairDoneMsg}</div> : null}
+
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next: Record<string, boolean> = {}
+                repairCandidates.forEach((e) => (next[String(e.id)] = true))
+                setRepairSelected(next)
+              }}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
+            >
+              Tümünü Seç
+            </button>
+            <button
+              onClick={() => {
+                const next: Record<string, boolean> = {}
+                repairCandidates.forEach((e) => (next[String(e.id)] = false))
+                setRepairSelected(next)
+              }}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
+            >
+              Tümünü Kaldır
+            </button>
+            <button
+              disabled={repairLoading}
+              onClick={loadRepairCandidates}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 disabled:opacity-60"
+            >
+              Yenile
+            </button>
+          </div>
+
+          <div className="mt-4 bg-gray-50 rounded-2xl border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white text-gray-600">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-bold">Seç</th>
+                    <th className="text-left px-4 py-3 font-bold">Sınav</th>
+                    <th className="text-left px-4 py-3 font-bold">Tarih</th>
+                    <th className="text-left px-4 py-3 font-bold">Tür</th>
+                    <th className="text-left px-4 py-3 font-bold">Sınıf</th>
+                    <th className="text-left px-4 py-3 font-bold">Durum</th>
+                    <th className="text-left px-4 py-3 font-bold">Oluşturma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {repairCandidates.map((e) => {
+                    const id = String(e.id)
+                    return (
+                      <tr key={id} className="border-t hover:bg-white">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(repairSelected[id])}
+                            onChange={(ev) => setRepairSelected((p) => ({ ...p, [id]: ev.target.checked }))}
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-bold text-gray-900">{e.name || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">{e.exam_date ? new Date(e.exam_date).toLocaleDateString('tr-TR') : '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">{e.exam_type || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">{e.grade_level || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">{e.status || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {e.created_at ? new Date(e.created_at).toLocaleString('tr-TR') : '-'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {repairLoading ? <div className="p-4 text-center text-gray-500">Yükleniyor...</div> : null}
+            {!repairLoading && repairCandidates.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">Onarım adayı sınav bulunamadı.</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="bg-white border rounded-2xl p-4 text-red-600 font-semibold">{error}</div>
