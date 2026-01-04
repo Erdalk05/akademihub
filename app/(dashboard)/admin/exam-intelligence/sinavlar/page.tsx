@@ -57,7 +57,10 @@ export default function ExamsPage() {
       setError(null)
 
       try {
-        const res = await fetch(`/api/exam-intelligence/exams?organizationId=${currentOrganization.id}`)
+        const res = await fetch(
+          `/api/exam-intelligence/exams?organizationId=${currentOrganization.id}&_ts=${Date.now()}`,
+          { cache: 'no-store' }
+        )
         const json = (await res.json()) as ApiResp
         setData(json.exams || [])
       } catch (e) {
@@ -75,7 +78,10 @@ export default function ExamsPage() {
   const refreshList = async () => {
     if (!currentOrganization?.id) return
     try {
-      const res = await fetch(`/api/exam-intelligence/exams?organizationId=${currentOrganization.id}`)
+      const res = await fetch(
+        `/api/exam-intelligence/exams?organizationId=${currentOrganization.id}&_ts=${Date.now()}`,
+        { cache: 'no-store' }
+      )
       const json = (await res.json()) as ApiResp
       setData(json.exams || [])
     } catch (e) {

@@ -5,6 +5,14 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
+    // ✅ KRİTİK: Exam Intelligence API'leri cache'lenmesin (aksi halde yeni sınavlar 5 dk görünmeyebilir)
+    {
+      urlPattern: /\/api\/exam-intelligence\/.*/i,
+      handler: 'NetworkOnly',
+      options: {
+        cacheName: 'api-no-cache-exam-intelligence',
+      },
+    },
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
       handler: 'NetworkFirst',
