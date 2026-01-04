@@ -8,14 +8,28 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient()
   const url = new URL(request.url)
   const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') || 200)))
+  const q = String(url.searchParams.get('q') || '').trim()
+  const organizationId = String(url.searchParams.get('organizationId') || '').trim()
+  const mode = String(url.searchParams.get('mode') || 'null').trim() // 'null' | 'search'
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('exams')
-      .select('id, name, exam_date, exam_type, grade_level, status, created_at')
-      .is('organization_id', null)
+      .select('id, name, exam_date, exam_type, grade_level, status, created_at, organization_id')
       .order('created_at', { ascending: false })
       .limit(limit)
+
+    if (mode === 'search') {
+      // Kayıp sınavı bulmak için isimle ara (org filtre opsiyonel)
+      if (q) query = query.ilike('name', `%${q}%`)
+      // Eğer organizationId verildiyse, "bu kuruma ait olmayan"ları getir (null dahil)
+      if (organizationId) query = query.neq('organization_id', organizationId)
+    } else {
+      // default: sadece null org
+      query = query.is('organization_id', null)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('[repair-null-org-exams] list error:', error)
@@ -37,6 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null)
     const organizationId = String(body?.organizationId || '').trim()
     const examIds = Array.isArray(body?.examIds) ? body.examIds.map((x: any) => String(x).trim()).filter(Boolean) : []
+    const force = Boolean(body?.force) // true ise org dolu olsa da bu kuruma taşır
 
     if (!organizationId) {
       return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 })
@@ -46,13 +61,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'examIds gerekli' }, { status: 400 })
     }
 
-    // Sadece organization_id = null olanlar güncellensin (güvenlik)
-    const { data: updated, error } = await supabase
+    // Varsayılan güvenli mod: sadece organization_id=null olanlar güncellenir.
+    // force=true ise seçilen sınavlar başka kuruma bağlı olsa bile bu kuruma taşınır.
+    let upd = supabase
       .from('exams')
       .update({ organization_id: organizationId, updated_at: new Date().toISOString() })
       .in('id', examIds)
-      .is('organization_id', null)
-      .select('id')
+
+    if (!force) {
+      upd = upd.is('organization_id', null)
+    }
+
+    const { data: updated, error } = await upd.select('id')
 
     if (error) {
       console.error('[repair-null-org-exams] update error:', error)

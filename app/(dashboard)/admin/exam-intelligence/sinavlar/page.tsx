@@ -39,6 +39,8 @@ export default function ExamsPage() {
   const [repairCandidates, setRepairCandidates] = useState<any[]>([])
   const [repairSelected, setRepairSelected] = useState<Record<string, boolean>>({})
   const [repairDoneMsg, setRepairDoneMsg] = useState<string | null>(null)
+  const [repairMode, setRepairMode] = useState<'null' | 'search'>('null')
+  const [repairQuery, setRepairQuery] = useState('')
 
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState<ExamTypeFilter>('all')
@@ -86,7 +88,13 @@ export default function ExamsPage() {
     setRepairError(null)
     setRepairDoneMsg(null)
     try {
-      const res = await fetch('/api/admin/exams/repair-null-organization?limit=200')
+      const qs =
+        repairMode === 'search'
+          ? `/api/admin/exams/repair-null-organization?mode=search&organizationId=${encodeURIComponent(
+              currentOrganization?.id || ''
+            )}&q=${encodeURIComponent(repairQuery)}&limit=200`
+          : '/api/admin/exams/repair-null-organization?limit=200'
+      const res = await fetch(qs)
       const json = await res.json()
       const exams = (json?.exams || []) as any[]
       setRepairCandidates(exams)
@@ -105,7 +113,7 @@ export default function ExamsPage() {
     }
   }
 
-  const runRepair = async () => {
+  const runRepair = async (force: boolean) => {
     if (!currentOrganization?.id) return
     const examIds = Object.entries(repairSelected)
       .filter(([, v]) => v)
@@ -115,9 +123,18 @@ export default function ExamsPage() {
       return
     }
     const ok = window.confirm(
-      `Seçilen ${examIds.length} sınav bu kuruma bağlanacak. Emin misiniz? (Bu işlem sadece organization_id=null olanlara uygulanır.)`
+      force
+        ? `Seçilen ${examIds.length} sınav ZORLA bu kuruma TAŞINACAK. (Başka kuruma bağlı olabilir!) Emin misiniz?`
+        : `Seçilen ${examIds.length} sınav bu kuruma bağlanacak. (Sadece organization_id=null olanlara uygulanır.) Emin misiniz?`
     )
     if (!ok) return
+    if (force) {
+      const pin = window.prompt('Zorla taşıma için ONAR yazın:')
+      if (pin !== 'ONAR') {
+        setRepairError('İşlem iptal edildi.')
+        return
+      }
+    }
 
     setRepairLoading(true)
     setRepairError(null)
@@ -126,7 +143,7 @@ export default function ExamsPage() {
       const res = await fetch('/api/admin/exams/repair-null-organization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: currentOrganization.id, examIds }),
+        body: JSON.stringify({ organizationId: currentOrganization.id, examIds, force }),
       })
       const json = await res.json()
       if (!json?.ok) {
@@ -226,7 +243,10 @@ export default function ExamsPage() {
             <div>
               <div className="text-lg font-black text-gray-900">Kayıp Sınav Onarımı</div>
               <div className="text-xs text-gray-500">
-                Bu liste <span className="font-bold">organization_id=null</span> olan sınavları gösterir. Seçtiklerinizi mevcut kuruma bağlar.
+                Mod <span className="font-bold">{repairMode === 'null' ? 'Null org' : 'Arama'}</span>:{' '}
+                {repairMode === 'null'
+                  ? 'organization_id=null olan sınavları gösterir.'
+                  : 'adı ile arar ve mevcut kuruma ait olmayanları listeler.'}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -238,16 +258,58 @@ export default function ExamsPage() {
               </button>
               <button
                 disabled={repairLoading}
-                onClick={runRepair}
+                onClick={() => runRepair(false)}
                 className="px-3 py-2 rounded-xl bg-[#075E54] text-white font-bold hover:bg-[#128C7E] disabled:opacity-60"
               >
                 Seçileni Onar
+              </button>
+              <button
+                disabled={repairLoading}
+                onClick={() => runRepair(true)}
+                className="px-3 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-60"
+                title="Başka kuruma bağlı olsa bile seçilen sınavları bu kuruma taşır (dikkat)"
+              >
+                Zorla Taşı
               </button>
             </div>
           </div>
 
           {repairError ? <div className="mt-4 p-3 rounded-2xl bg-red-50 text-red-700 font-semibold">{repairError}</div> : null}
           {repairDoneMsg ? <div className="mt-4 p-3 rounded-2xl bg-emerald-50 text-emerald-800 font-semibold">{repairDoneMsg}</div> : null}
+
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setRepairMode('null')}
+              className={`px-3 py-2 rounded-xl font-bold border ${
+                repairMode === 'null' ? 'bg-[#DCF8C6] text-[#075E54] border-[#25D366]' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Null Org
+            </button>
+            <button
+              onClick={() => setRepairMode('search')}
+              className={`px-3 py-2 rounded-xl font-bold border ${
+                repairMode === 'search' ? 'bg-[#DCF8C6] text-[#075E54] border-[#25D366]' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Ara
+            </button>
+            {repairMode === 'search' ? (
+              <input
+                value={repairQuery}
+                onChange={(e) => setRepairQuery(e.target.value)}
+                placeholder="Sınav adı (örn: ÖZDEBİR)"
+                className="px-3 py-2 rounded-xl border bg-gray-50 min-w-[220px]"
+              />
+            ) : null}
+            <button
+              disabled={repairLoading}
+              onClick={loadRepairCandidates}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 disabled:opacity-60"
+            >
+              Tara
+            </button>
+          </div>
 
           <div className="mt-4 flex items-center gap-2">
             <button
@@ -290,6 +352,7 @@ export default function ExamsPage() {
                     <th className="text-left px-4 py-3 font-bold">Tür</th>
                     <th className="text-left px-4 py-3 font-bold">Sınıf</th>
                     <th className="text-left px-4 py-3 font-bold">Durum</th>
+                    <th className="text-left px-4 py-3 font-bold">Org</th>
                     <th className="text-left px-4 py-3 font-bold">Oluşturma</th>
                   </tr>
                 </thead>
@@ -310,6 +373,7 @@ export default function ExamsPage() {
                         <td className="px-4 py-3 text-gray-700">{e.exam_type || '-'}</td>
                         <td className="px-4 py-3 text-gray-700">{e.grade_level || '-'}</td>
                         <td className="px-4 py-3 text-gray-700">{e.status || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700 font-mono text-xs">{String(e.organization_id || 'null')}</td>
                         <td className="px-4 py-3 text-gray-700">
                           {e.created_at ? new Date(e.created_at).toLocaleString('tr-TR') : '-'}
                         </td>
