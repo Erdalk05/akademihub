@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOrganizationStore } from '@/lib/store/organizationStore'
-import { Calendar, FileText, Filter, Loader2, Search, Users, Wrench } from 'lucide-react'
+import { Calendar, FileText, Filter, Loader2, Search, Trash2, Users, Wrench } from 'lucide-react'
 import { ExportBar } from '@/components/exam-intelligence/ExportBar'
 
 type ExamRow = {
@@ -86,6 +86,23 @@ export default function ExamsPage() {
       setData(json.exams || [])
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  const deleteExam = async (examId: string, examName: string) => {
+    const ok = window.confirm(`\"${examName}\" sınavı kalıcı olarak silinecek. Emin misiniz?`)
+    if (!ok) return
+    try {
+      const res = await fetch(`/api/admin/exams/${examId}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => ({}))
+      if (!json?.ok) {
+        alert(json?.error || 'Silme başarısız.')
+        return
+      }
+      await refreshList()
+    } catch (e) {
+      console.error(e)
+      alert('Silme sırasında hata oluştu.')
     }
   }
 
@@ -458,6 +475,7 @@ export default function ExamsPage() {
                 <th className="text-right px-4 py-3 font-semibold">Misafir</th>
                 <th className="text-right px-4 py-3 font-semibold">Ort. Net</th>
                 <th className="text-left px-4 py-3 font-semibold">Durum</th>
+                <th className="text-right px-4 py-3 font-semibold">İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -494,6 +512,19 @@ export default function ExamsPage() {
                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${e.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
                       {e.is_published ? 'Yayınlandı' : 'Taslak'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        deleteExam(e.id, e.name)
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 text-red-700 font-bold hover:bg-red-100"
+                      title="Sınavı Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Sil
+                    </button>
                   </td>
                 </tr>
               ))}
