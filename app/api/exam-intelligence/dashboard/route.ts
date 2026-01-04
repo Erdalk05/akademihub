@@ -5,13 +5,25 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  const orgId = new URL(request.url).searchParams.get('organizationId');
+  const url = new URL(request.url);
+  const orgId = url.searchParams.get('organizationId');
+  const grade = url.searchParams.get('grade'); // '4'..'12' | 'mezun' | 'all' | null
 
   const empty = { stats: { totalExams: 0, totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0, riskCount: 0 }, recentExams: [], classPerformance: [], topStudents: [] };
   if (!orgId) return NextResponse.json(empty);
 
-  const { count: totalExams } = await supabase.from('exams').select('*', { count: 'exact', head: true }).eq('organization_id', orgId);
-  const { data: exams } = await supabase.from('exams').select('id').eq('organization_id', orgId);
+  // Supabase'de filter metodları select sonrası gelir; bu yüzden select(...).eq(...) patterni kullanıyoruz.
+  const countQuery =
+    grade && grade !== 'all'
+      ? supabase.from('exams').select('*', { count: 'exact', head: true }).eq('organization_id', orgId).eq('grade_level', grade)
+      : supabase.from('exams').select('*', { count: 'exact', head: true }).eq('organization_id', orgId);
+  const { count: totalExams } = await countQuery;
+
+  const examsQuery =
+    grade && grade !== 'all'
+      ? supabase.from('exams').select('id').eq('organization_id', orgId).eq('grade_level', grade)
+      : supabase.from('exams').select('id').eq('organization_id', orgId);
+  const { data: exams } = await examsQuery;
   const examIds = (exams || []).map((e: { id: string }) => e.id);
 
   if (examIds.length === 0) return NextResponse.json(empty);
@@ -30,7 +42,11 @@ export async function GET(request: NextRequest) {
   const stdDev = nets.length > 0 ? Math.round(Math.sqrt(nets.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / nets.length) * 10) / 10 : 0;
   const riskCount = nets.filter(n => n < 30).length;
 
-  const { data: recentExams } = await supabase.from('exams').select('id, name, exam_date, exam_type, grade_level').eq('organization_id', orgId).order('exam_date', { ascending: false }).limit(5);
+  const recentExamsQuery =
+    grade && grade !== 'all'
+      ? supabase.from('exams').select('id, name, exam_date, exam_type, grade_level').eq('organization_id', orgId).eq('grade_level', grade)
+      : supabase.from('exams').select('id, name, exam_date, exam_type, grade_level').eq('organization_id', orgId);
+  const { data: recentExams } = await recentExamsQuery.order('exam_date', { ascending: false }).limit(5);
 
   // Sınıf performansı
   const classStats: Record<string, { total: number; count: number }> = {};
@@ -43,8 +59,9 @@ export async function GET(request: NextRequest) {
   const classPerformance = Object.entries(classStats).map(([name, s]) => ({ name, avgNet: Math.round((s.total / s.count) * 10) / 10, studentCount: s.count })).sort((a, b) => b.avgNet - a.avgNet);
 
   // Top 10 öğrenci
-  const topStudents = [...results].sort((a, b) => (Number(b.total_net) || 0) - (Number(a.total_net) || 0)).slice(0, 10).map((s, i) => ({
+  const topStudents = [...results].sort((a, b) => (Number(b.total_net) || 0) - (Number(a.total_net) || 0)).slice(0, 10).map((s: any, i) => ({
     rank: i + 1,
+    studentId: s.student_id || null,
     name: s.student_name || 'Bilinmiyor',
     class: s.class_name || '-',
     net: Number(s.total_net) || 0,
