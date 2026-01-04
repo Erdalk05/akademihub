@@ -77,6 +77,12 @@ export async function POST(req: NextRequest) {
   try {
     const body: WizardPayload = await req.json();
     const { sinavBilgisi, cevapAnahtari, ogrenciSonuclari, organizationId, academicYearId } = body;
+
+    // ✅ KRİTİK: organizationId olmadan sınav kaydetme (organization_id = null) olmasın
+    // Bu durum Exam Intelligence tarafında sınavların listelenmemesine sebep olur.
+    if (!organizationId || typeof organizationId !== 'string' || organizationId.trim().length === 0) {
+      return NextResponse.json({ error: 'organizationId gerekli' }, { status: 400 });
+    }
     
     console.log('[Wizard API] Kayıt başladı:', {
       sinav: sinavBilgisi.ad,
@@ -106,7 +112,7 @@ export async function POST(req: NextRequest) {
       name: sinavBilgisi.ad,
       exam_date: sinavBilgisi.tarih,
       exam_type_id: examTypeId,
-      organization_id: organizationId || null,
+      organization_id: organizationId.trim(),
       academic_year_id: isValidUUID ? academicYearId : null,
       total_questions: cevapAnahtari.length || sinavBilgisi.toplamSoru || 0,
       grade_level: sinavBilgisi.sinifSeviyesi || '8',
