@@ -266,7 +266,7 @@ export default function ExamsPage() {
             <Wrench className="w-4 h-4 text-[#075E54]" />
             Kayıp Sınavları Onar
           </button>
-          <Link href="/admin/akademik-analiz/sihirbaz" className="px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold">
+          <Link href="/admin/exam-intelligence/wizard" className="px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold">
             Yeni Sınav
           </Link>
         </div>
