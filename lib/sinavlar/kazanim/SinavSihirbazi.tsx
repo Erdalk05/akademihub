@@ -963,6 +963,7 @@ export default function SinavSihirbazi({
               {sablonModu === 'ozel' && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                   <OptikSablonEditor
+                    organizationId={organizationId}
                     initialSablon={selectedSablon || undefined}
                     cevapAnahtari={cevapAnahtari}
                     onSave={(sablon) => {

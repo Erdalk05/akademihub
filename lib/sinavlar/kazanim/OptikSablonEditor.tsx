@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Save,
@@ -100,7 +100,8 @@ const VARSAYILAN_SABLONLAR: OptikFormSablon[] = [
   },
 ];
 
-const LS_TEMPLATES_KEY = 'akademihub_optik_editor_templates_v1';
+// ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+// const LS_TEMPLATES_KEY = 'akademihub_optik_editor_templates_v1';
 
 function normalizeLabelForMatch(label: string): string {
   return (label || '')
@@ -145,6 +146,7 @@ function getToplamSoruFromType(sinifTipi: string): number {
 // PROPS
 // ═══════════════════════════════════════════════════════════════════════════
 interface OptikSablonEditorProps {
+  organizationId: string; // ✅ ZORUNLU - Supabase API için
   onSave?: (sablon: Omit<OptikSablon, 'id'>) => void;
   onLoad?: () => Promise<OptikSablon[]>;
   initialSablon?: OptikSablon;
@@ -156,6 +158,7 @@ interface OptikSablonEditorProps {
 // ANA COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 export default function OptikSablonEditor({
+  organizationId,
   onSave,
   cevapAnahtari = []
 }: OptikSablonEditorProps) {
@@ -163,7 +166,8 @@ export default function OptikSablonEditor({
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE
   // ═══════════════════════════════════════════════════════════════════════════
-  const [sablonlar, setSablonlar] = useState<OptikFormSablon[]>(VARSAYILAN_SABLONLAR);
+  const [sablonlar, setSablonlar] = useState<OptikFormSablon[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [seciliSablonId, setSeciliSablonId] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
   const [yeniAlanModalAcik, setYeniAlanModalAcik] = useState(false);
@@ -172,7 +176,7 @@ export default function OptikSablonEditor({
   const [kaydetAd, setKaydetAd] = useState('');
   const [kaydetHata, setKaydetHata] = useState<string | null>(null);
   const [lastSavedSigById, setLastSavedSigById] = useState<Record<string, string>>({});
-  const lastLoadedRef = useRef(false);
+  // lastLoadedRef kaldırıldı - API useEffect'i organizationId değişiminde tetikleniyor
   
   // Yeni şablon formu
   const [yeniSablonAdi, setYeniSablonAdi] = useState('');
@@ -212,45 +216,52 @@ export default function OptikSablonEditor({
     return dersler;
   }, [cevapAnahtari]);
 
-  // LocalStorage'dan kullanıcı şablonlarını yükle
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ TEK VERİ KAYNAĞI: Supabase API
+  // localStorage KALDIRILDI - Artık tüm bilgisayarlarda aynı şablonlar görünür
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (lastLoadedRef.current) return;
-    lastLoadedRef.current = true;
-    try {
-      const raw = window.localStorage.getItem(LS_TEMPLATES_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as OptikFormSablon[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
-
-      // Varsayılanlarla çakışmayı engelle
-      const defaultsById = new Set(VARSAYILAN_SABLONLAR.map(s => s.id));
-      const customOnly = parsed.filter(s => s?.id && !defaultsById.has(s.id) && Array.isArray(s.alanlar));
-
-      if (customOnly.length > 0) {
-        setSablonlar(prev => {
-          const prevIds = new Set(prev.map(p => p.id));
-          const merged = [...prev];
-          for (const s of customOnly) {
-            if (!prevIds.has(s.id)) merged.push(s);
-          }
-          return merged;
-        });
-
-        // Kaydedildi imzalarını doldur (Güncelle butonu için)
-        const sigs: Record<string, string> = {};
-        for (const s of customOnly) {
-          sigs[s.id] = JSON.stringify({
-            ad: s.ad,
-            sinifTipi: s.sinifTipi,
-            alanlar: (s.alanlar || []).map(a => ({ label: a.label, baslangic: a.baslangic, bitis: a.bitis })),
-          });
-        }
-        setLastSavedSigById(prev => ({ ...sigs, ...prev }));
-      }
-    } catch {
-      // ignore
+    if (!organizationId) {
+      setLoadingTemplates(false);
+      return;
     }
-  }, []);
+    
+    const fetchTemplates = async () => {
+      setLoadingTemplates(true);
+      try {
+        const res = await fetch(`/api/exam-intelligence/optic-templates?organizationId=${organizationId}`);
+        const json = await res.json();
+        if (json.ok && json.data?.opticTemplates) {
+          console.log('✅ [OptikSablonEditor] Şablonlar API\'den yüklendi:', json.data.opticTemplates.length);
+          // API'den gelen şablonları OptikFormSablon formatına dönüştür
+          const converted: OptikFormSablon[] = json.data.opticTemplates
+            .filter((s: any) => s.is_active === true)
+            .map((s: any) => ({
+              id: s.id,
+              ad: s.sablon_adi,
+              sinifTipi: s.toplam_soru >= 100 ? 'TYT' : 'LGS',
+              alanlar: (s.alan_tanimlari || []).map((a: any, idx: number) => ({
+                id: String(idx + 1),
+                label: a.label || a.alan?.toUpperCase() || 'ALAN',
+                baslangic: a.baslangic,
+                bitis: a.bitis,
+              })),
+            }));
+          setSablonlar(converted);
+        } else {
+          console.warn('⚠️ [OptikSablonEditor] API hatası:', json.error);
+          setSablonlar([]); // Boş göster - fallback YOK
+        }
+      } catch (e) {
+        console.error('❌ [OptikSablonEditor] Şablon yükleme hatası:', e);
+        setSablonlar([]); // Boş göster - fallback YOK
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+    
+    fetchTemplates();
+  }, [organizationId]);
 
   const seciliSig = useMemo(() => {
     if (!seciliSablon) return '';
@@ -449,15 +460,12 @@ export default function OptikSablonEditor({
     setYeniAlanModalAcik(true);
   };
 
-  const persistTemplatesToLocalStorage = (templates: OptikFormSablon[]) => {
-    try {
-      // Sadece kullanıcı şablonlarını sakla (varsayılanları değil)
-      const defaultsById = new Set(VARSAYILAN_SABLONLAR.map(s => s.id));
-      const customOnly = templates.filter(t => t?.id && !defaultsById.has(t.id));
-      window.localStorage.setItem(LS_TEMPLATES_KEY, JSON.stringify(customOnly));
-    } catch {
-      // ignore
-    }
+  // ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+  // Şablon değişiklikleri için TODO: API POST/PUT endpoint gerekli
+  const persistTemplatesToLocalStorage = (_templates: OptikFormSablon[]) => {
+    // localStorage KULLANILMIYOR - sadece UI state güncelleniyor
+    // Gerçek kayıt için API endpoint gerekli
+    console.log('⚠️ [OptikSablonEditor] Şablon kaydetme: API endpoint henüz yok, sadece session\'da geçerli');
   };
 
   const openKaydetModal = () => {
@@ -475,9 +483,9 @@ export default function OptikSablonEditor({
       return;
     }
 
-    // Varsayılan şablon güncellenmesin: kopya olarak kaydet
-    const isDefault = VARSAYILAN_SABLONLAR.some(s => s.id === seciliSablon.id);
-    const targetId = isDefault ? `sablon-${Date.now()}` : seciliSablon.id;
+    // ✅ API'den gelen tüm şablonlar güncellenebilir
+    // Varsayılan kontrol artık API'de yapılıyor (is_default flag)
+    const targetId = seciliSablon.id;
 
     const updated: OptikFormSablon = {
       ...seciliSablon,
@@ -486,12 +494,7 @@ export default function OptikSablonEditor({
     };
 
     setSablonlar(prev => {
-      let next = prev;
-      if (isDefault) {
-        next = [...prev, updated];
-      } else {
-        next = prev.map(s => (s.id === seciliSablon.id ? updated : s));
-      }
+      const next = prev.map(s => (s.id === seciliSablon.id ? updated : s));
       persistTemplatesToLocalStorage(next);
       return next;
     });
