@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -119,6 +119,19 @@ export default function SinavSihirbazi({
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ Supabase-first anahtar için wizard boyunca stabil "draft examId"
+  const draftExamIdRef = useRef<string>(
+    (() => {
+      try {
+        // browser
+        // @ts-ignore
+        return (globalThis.crypto?.randomUUID?.() as string) || `${Date.now()}`
+      } catch {
+        return `${Date.now()}`
+      }
+    })(),
+  );
 
   // Form Data
   const [sinavBilgisi, setSinavBilgisi] = useState<SinavBilgisi>({
@@ -856,6 +869,8 @@ export default function SinavSihirbazi({
               {/* Manuel Cevap Girişi */}
               {cevapGirisYontemi === 'manuel' && (
                 <ManuelCevapAnahtari
+                  organizationId={organizationId}
+                  examId={draftExamIdRef.current}
                   examType={sinavBilgisi.tip}
                   onSave={(payload) => {
                     // ═══════════════════════════════════════════════════════════════════════

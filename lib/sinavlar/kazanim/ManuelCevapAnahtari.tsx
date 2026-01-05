@@ -22,21 +22,26 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// LGS DERS YAPISI (90 Soru)
-// ═══════════════════════════════════════════════════════════════════════════
-const LGS_DERSLER = [
-  { kod: 'TUR', ad: 'Türkçe', soruSayisi: 20, renk: '#EF4444', icon: '📚' },
-  { kod: 'INK', ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', soruSayisi: 10, renk: '#F59E0B', icon: '🏛️' },
-  { kod: 'DIN', ad: 'Din Kültürü ve Ahlak Bilgisi', soruSayisi: 10, renk: '#8B5CF6', icon: '🕌' },
-  { kod: 'ING', ad: 'Yabancı Dil (İngilizce)', soruSayisi: 10, renk: '#3B82F6', icon: '🌍' },
-  { kod: 'MAT', ad: 'Matematik', soruSayisi: 20, renk: '#10B981', icon: '📐' },
-  { kod: 'FEN', ad: 'Fen Bilimleri', soruSayisi: 20, renk: '#06B6D4', icon: '🔬' },
-];
+import { SINAV_KONFIGURASYONLARI, type SinavTuru } from './sinavKonfigurasyonlari';
 
-const KITAPCIK_TURLERI = ['A', 'B', 'C', 'D'] as const;
-type KitapcikTuru = typeof KITAPCIK_TURLERI[number];
+type KitapcikTuru = 'A' | 'B' | 'C' | 'D';
 type CevapSecenegi = 'A' | 'B' | 'C' | 'D' | 'E' | null;
+
+function hashToHue(input: string) {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function dersColor(code: string) {
+  const hue = hashToHue(code);
+  return `hsl(${hue} 70% 45%)`;
+}
+
+function getKonfig(examType?: string) {
+  const key = String(examType || 'LGS').toUpperCase() as SinavTuru;
+  return (SINAV_KONFIGURASYONLARI as any)[key] || (SINAV_KONFIGURASYONLARI as any).LGS;
+}
 
 interface SoruCevap {
   soruNo: number;
@@ -69,6 +74,8 @@ export interface CevapAnahtariWithOrder {
 }
 
 interface ManuelCevapAnahtariProps {
+  organizationId: string;
+  examId: string;
   examType?: string; // LGS, TYT, AYT, DENEME, AYT_SAY, AYT_SOS vb.
   /** Cevap anahtarı + ders sırası birlikte kaydedilir */
   onSave?: (data: CevapAnahtariWithOrder) => void;
@@ -81,54 +88,73 @@ interface ManuelCevapAnahtariProps {
 
 type GirisYontemi = 'yapistir' | 'surukle' | 'yukle';
 
-export default function ManuelCevapAnahtari({ onSave, onClear, initialData, initialDersSirasi }: ManuelCevapAnahtariProps) {
+export default function ManuelCevapAnahtari({
+  organizationId,
+  examId,
+  examType,
+  onSave,
+  onClear,
+  initialData,
+  initialDersSirasi,
+}: ManuelCevapAnahtariProps) {
+  const konfig = getKonfig(examType);
+  const dersler = (konfig?.dersDagilimi || []).map((d: any) => ({
+    kod: String(d.dersKodu || d.code || '').toUpperCase(),
+    ad: String(d.dersAdi || d.name || d.dersKodu || ''),
+    soruSayisi: Number(d.soruSayisi || d.question_count || 0) || 0,
+    renk: dersColor(String(d.dersKodu || d.code || 'DERS')),
+  })).filter((d: any) => d.kod && d.soruSayisi > 0);
+
+  const kitapcikTurleri = (Array.isArray(konfig?.kitapcikTurleri) ? konfig.kitapcikTurleri : [])
+    .map((x: any) => String(x).toUpperCase())
+    .filter((x: string) => x === 'A' || x === 'B' || x === 'C' || x === 'D') as KitapcikTuru[];
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE YÖNETİMİ
   // ═══════════════════════════════════════════════════════════════════════════
-  const [aktifKitapcik, setAktifKitapcik] = useState<KitapcikTuru>('A');
+  const kitapcikTurleriSafe = (kitapcikTurleri.length ? kitapcikTurleri : (['A'] as KitapcikTuru[]));
+  const [aktifKitapcik, setAktifKitapcik] = useState<KitapcikTuru>(kitapcikTurleriSafe[0] || 'A');
   const [girisYontemi, setGirisYontemi] = useState<GirisYontemi>('yapistir');
-  const [acikDersler, setAcikDersler] = useState<string[]>(['TUR']);
+  const [acikDersler, setAcikDersler] = useState<string[]>(dersler[0]?.kod ? [dersler[0].kod] : []);
   const [yapistirMetni, setYapistirMetni] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uiPersistKey = 'akademihub_manuel_cevap_anahtari_ui_v1';
   const lastSentSigRef = useRef<string>('');
   const unlockedWarnedRef = useRef<Set<string>>(new Set());
   
   // 🔀 DERS SIRALAMASI - Sürükle-Bırak için
-  // ✅ KRİTİK: initialDersSirasi varsa onu kullan, yoksa varsayılan sıra
+  // ✅ initialDersSirasi varsa onu kullan, yoksa sınav konfigürasyonundan türet
   const [dersSirasi, setDersSirasi] = useState<string[]>(
     initialDersSirasi && initialDersSirasi.length > 0 
       ? initialDersSirasi 
-      : ['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']
+      : dersler.map((d) => d.kod)
   );
   const [draggedDers, setDraggedDers] = useState<string | null>(null);
   const [dragOverDers, setDragOverDers] = useState<string | null>(null);
   
   // Sıralanmış dersler
-  const siraliDersler = dersSirasi.map(kod => LGS_DERSLER.find(d => d.kod === kod)!).filter(Boolean);
+  const siraliDersler = dersSirasi.map(kod => dersler.find(d => d.kod === kod)!).filter(Boolean);
 
   // Tüm kitapçıklar için veri
   const [kitapcikVerileri, setKitapcikVerileri] = useState<Record<KitapcikTuru, SoruCevap[]>>(() => {
-    const initial: Record<KitapcikTuru, SoruCevap[]> = { A: [], B: [], C: [], D: [] };
-    
-    KITAPCIK_TURLERI.forEach(kit => {
+    const initial = {} as Record<KitapcikTuru, SoruCevap[]>;
+    kitapcikTurleriSafe.forEach((kit) => {
       let globalNo = 0;
-      LGS_DERSLER.forEach(ders => {
+      const sorular: SoruCevap[] = [];
+      dersler.forEach((ders) => {
         for (let i = 1; i <= ders.soruSayisi; i++) {
           globalNo++;
-          initial[kit].push({
+          sorular.push({
             soruNo: i,
             globalSoruNo: globalNo,
             dersKodu: ders.kod,
             cevap: null,
             kazanimKodu: '',
-            kazanimMetni: ''
+            kazanimMetni: '',
           });
         }
       });
+      initial[kit] = sorular;
     });
-    
     return initial;
   });
 
@@ -149,85 +175,100 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     setDersSirasi(initialDersSirasi);
   }, [initialDersSirasi]);
 
-  // ✅ INITIAL DATA (wizard state) → manuel ekranı geri doldur
-  // Kritik: Step değişip geri gelince ekran boş görünüyordu (veri kayboldu sanılıyordu).
-  useEffect(() => {
-    if (!initialData || initialData.length === 0) return;
+  const baseKit = (kitapcikTurleriSafe[0] || 'A') as KitapcikTuru;
 
-    setKitapcikVerileri(prev => {
-      const next: Record<KitapcikTuru, SoruCevap[]> = {
-        A: prev.A.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
-        B: prev.B.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
-        C: prev.C.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
-        D: prev.D.map(s => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' })),
-      };
+  const applyAnswerKeyRows = useCallback(
+    (rows: CevapAnahtariSatir[]) => {
+      if (!Array.isArray(rows) || rows.length === 0) return;
 
-      // ═══════════════════════════════════════════════════════════════════════
-      // KRİTİK: initialData’yı dersKodu bazlı yerleştir
-      // ───────────────────────────────────────────────────────────────────────
-      // Geçmişte soruNo “renumber” edildiği için (ders sırası değişince),
-      // idx = soruNo-1 ile yazmak cevapları kaydırıp “dans ettiriyor”.
-      //
-      // Bu yüzden:
-      // - Öncelik: dersKodu + ders içi sıra (row’ları soruNo’ya göre sıralayıp)
-      // - Fallback: dersKodu yoksa veya eşleşmezse eski idx = soruNo-1
-      // ═══════════════════════════════════════════════════════════════════════
-      const ensureArray = <T,>(v: T[] | undefined) => (Array.isArray(v) ? v : []);
+      setKitapcikVerileri((prev) => {
+        const next = {} as Record<KitapcikTuru, SoruCevap[]>;
+        kitapcikTurleriSafe.forEach((k) => {
+          next[k] = (prev[k] || []).map((s) => ({ ...s, cevap: null, kazanimKodu: '', kazanimMetni: '' }));
+        });
 
-      const internalIndicesByDers: Record<string, number[]> = {};
-      next.A.forEach((s, idx) => {
-        const k = String(s.dersKodu || '').toUpperCase();
-        if (!k) return;
-        if (!internalIndicesByDers[k]) internalIndicesByDers[k] = [];
-        internalIndicesByDers[k].push(idx);
-      });
+        // globalSoruNo -> idx map (base kit üzerinden)
+        const base = next[baseKit] || [];
+        const idxByGlobalNo = new Map<number, number>();
+        base.forEach((s, idx) => idxByGlobalNo.set(Number(s.globalSoruNo), idx));
 
-      const rowsByDers: Record<string, CevapAnahtariSatir[]> = {};
-      initialData.forEach(row => {
-        const k = String(row.dersKodu || '').toUpperCase();
-        if (!k) return;
-        if (!rowsByDers[k]) rowsByDers[k] = [];
-        rowsByDers[k].push(row);
-      });
+        for (const row of rows) {
+          const gNo = Number(row?.soruNo) || 0;
+          const idx = idxByGlobalNo.get(gNo);
+          if (idx == null) continue;
 
-      const writeRowToIdx = (row: CevapAnahtariSatir, idx: number) => {
-        if (idx < 0 || idx >= 90) return;
-        // Kazanım bilgisi A'ya yazılıyor (ortak bilgi)
-        next.A[idx] = {
-          ...next.A[idx],
-          cevap: row.kitapcikCevaplari?.A || next.A[idx].cevap,
-          kazanimKodu: row.kazanimKodu || next.A[idx].kazanimKodu,
-          kazanimMetni: row.kazanimMetni || next.A[idx].kazanimMetni,
-        };
-        next.B[idx] = { ...next.B[idx], cevap: row.kitapcikCevaplari?.B || next.B[idx].cevap };
-        next.C[idx] = { ...next.C[idx], cevap: row.kitapcikCevaplari?.C || next.C[idx].cevap };
-        next.D[idx] = { ...next.D[idx], cevap: row.kitapcikCevaplari?.D || next.D[idx].cevap };
-      };
+          // Kazanım bilgisi base kit'e yazılır (ortak bilgi)
+          const baseRow = next[baseKit]?.[idx];
+          if (baseRow) {
+            next[baseKit][idx] = {
+              ...baseRow,
+              cevap: (row.kitapcikCevaplari as any)?.[baseKit] || baseRow.cevap,
+              kazanimKodu: row.kazanimKodu || baseRow.kazanimKodu,
+              kazanimMetni: row.kazanimMetni || baseRow.kazanimMetni,
+            };
+          }
 
-      // 1) Ders bazlı yaz
-      Object.entries(rowsByDers).forEach(([dersKodu, rows]) => {
-        const targetIdxs = ensureArray(internalIndicesByDers[dersKodu]);
-        if (targetIdxs.length === 0) return;
-
-        const sorted = [...rows].sort((a, b) => (a.soruNo ?? 0) - (b.soruNo ?? 0));
-        for (let i = 0; i < Math.min(sorted.length, targetIdxs.length); i++) {
-          writeRowToIdx(sorted[i], targetIdxs[i]);
+          // Kitapçık cevapları
+          for (const k of kitapcikTurleriSafe) {
+            const target = next[k]?.[idx];
+            if (!target) continue;
+            const c = (row.kitapcikCevaplari as any)?.[k];
+            next[k][idx] = { ...target, cevap: c || target.cevap };
+          }
         }
+
+        return next;
       });
+    },
+    [baseKit, kitapcikTurleriSafe],
+  );
 
-      // 2) Fallback: dersKodu olmayan / eşleşmeyen satırlar için eski idx = soruNo-1
-      initialData.forEach(row => {
-        const k = String(row.dersKodu || '').toUpperCase();
-        const hasTarget = k && Array.isArray(internalIndicesByDers[k]) && internalIndicesByDers[k].length > 0;
-        if (hasTarget) return; // zaten ders bazlı yazıldı
+  const [apiLoaded, setApiLoaded] = useState(false);
+  const [hasApiData, setHasApiData] = useState(false);
 
-        const idx = (row.soruNo || 0) - 1;
-        writeRowToIdx(row, idx);
-      });
+  // ✅ Supabase-first: cevap anahtarını API'den yükle
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setApiLoaded(false);
+      setHasApiData(false);
+      try {
+        const res = await fetch(
+          `/api/exam-intelligence/answer-keys?organizationId=${encodeURIComponent(organizationId)}&examId=${encodeURIComponent(examId)}`,
+          { cache: 'no-store' },
+        );
+        const json = await res.json().catch(() => null);
+        const rows = json?.ok ? json?.data?.answerKey : null;
+        const order = json?.ok ? json?.data?.dersSirasi : null;
+        if (cancelled) return;
 
-      return next;
-    });
-  }, [initialData]);
+        if (Array.isArray(order) && order.length > 0) setDersSirasi(order.map((x: any) => String(x)));
+        if (Array.isArray(rows) && rows.length > 0) {
+          setHasApiData(true);
+          applyAnswerKeyRows(rows as CevapAnahtariSatir[]);
+        }
+      } catch (e) {
+        // ignore (UI fallback devreye girebilir)
+      } finally {
+        if (!cancelled) setApiLoaded(true);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, examId, applyAnswerKeyRows]);
+
+  // ✅ initialData sadece ilk render fallback'i (API boşsa)
+  const initialFallbackAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!apiLoaded) return;
+    if (hasApiData) return;
+    if (initialFallbackAppliedRef.current) return;
+    if (!initialData || initialData.length === 0) return;
+    initialFallbackAppliedRef.current = true;
+    applyAnswerKeyRows(initialData);
+  }, [apiLoaded, hasApiData, initialData, applyAnswerKeyRows]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // YARDIMCI FONKSİYONLAR
@@ -349,18 +390,11 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     setDersCevaplari(prev => ({ ...prev, [aktifKitapcik]: { ...emptyDersDraft } }));
     setHizli90Metin(prev => ({ ...prev, [aktifKitapcik]: '' }));
 
-    try {
-      const raw = sessionStorage.getItem(uiPersistKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.kilitliDersler) {
-          parsed.kilitliDersler[aktifKitapcik] = [];
-          sessionStorage.setItem(uiPersistKey, JSON.stringify(parsed));
-        }
-      }
-    } catch {
-      // ignore
-    }
+    // ✅ Supabase-first: cevap anahtarını DB'den sil
+    void fetch(
+      `/api/exam-intelligence/answer-keys?organizationId=${encodeURIComponent(organizationId)}&examId=${encodeURIComponent(examId)}`,
+      { method: 'DELETE', cache: 'no-store' },
+    );
 
     // ✅ Wizard state'i sadece kullanıcı "Temizle" dediğinde temizle
     lastSentSigRef.current = '';
@@ -370,7 +404,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
       // Geriye dönük uyumluluk: onClear yoksa yine de wizard'ı sıfırla
       onSave?.({ cevapAnahtari: [], dersSirasi: dersSirasi });
     }
-  }, [aktifKitapcik, onClear, onSave, dersSirasi]);
+  }, [aktifKitapcik, onClear, onSave, dersSirasi, organizationId, examId, emptyDersDraft]);
 
   // Dosya yükleme
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,41 +436,48 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
   }, []);
 
   // İstatistikler
+  const toplamSoru = dersler.reduce((s, d) => s + (Number(d.soruSayisi) || 0), 0);
   const stats = {
     doluSoru: kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length,
-    toplamSoru: 90,
+    toplamSoru: toplamSoru,
     kazanimli: kitapcikVerileri[aktifKitapcik].filter(s => s.kazanimKodu).length
   };
 
   // Ders bazlı cevap taslağı (kitapçık bazlı)
-  const emptyDersDraft = { TUR: '', INK: '', DIN: '', ING: '', MAT: '', FEN: '' };
-  const [dersCevaplari, setDersCevaplari] = useState<Record<KitapcikTuru, Record<string, string>>>(() => ({
-    A: { ...emptyDersDraft },
-    B: { ...emptyDersDraft },
-    C: { ...emptyDersDraft },
-    D: { ...emptyDersDraft },
-  }));
+  const emptyDersDraft = Object.fromEntries(dersler.map((d) => [d.kod, ''])) as Record<string, string>;
+  const [dersCevaplari, setDersCevaplari] = useState<Record<KitapcikTuru, Record<string, string>>>(() => {
+    const out = {} as Record<KitapcikTuru, Record<string, string>>;
+    kitapcikTurleriSafe.forEach((k) => {
+      out[k] = { ...emptyDersDraft };
+    });
+    return out;
+  });
 
   // 90 soru hızlı yapıştır (kitapçık bazlı)
-  const [hizli90Metin, setHizli90Metin] = useState<Record<KitapcikTuru, string>>({ A: '', B: '', C: '', D: '' });
+  const [hizli90Metin, setHizli90Metin] = useState<Record<KitapcikTuru, string>>(() => {
+    const out = {} as Record<KitapcikTuru, string>;
+    kitapcikTurleriSafe.forEach((k) => (out[k] = ''));
+    return out;
+  });
   
   // 🔒 KİLİT SİSTEMİ (KİTAPÇIK BAZLI)
   // Kritik: Kilit tek Set olursa A'da kilitlenen dersler B'de de kilitli görünür
   // ve B cevap anahtarı girilemez → B öğrencileri A anahtarıyla değerlendirilir (YANLIŞ).
-  const [kilitliDersler, setKilitliDersler] = useState<Record<KitapcikTuru, Set<string>>>(() => ({
-    A: new Set(),
-    B: new Set(),
-    C: new Set(),
-    D: new Set(),
-  }));
+  const [kilitliDersler, setKilitliDersler] = useState<Record<KitapcikTuru, Set<string>>>(() => {
+    const out = {} as Record<KitapcikTuru, Set<string>>;
+    kitapcikTurleriSafe.forEach((k) => (out[k] = new Set()));
+    return out;
+  });
 
   // ✅ Tek yerden cevap anahtarı üret (wizard'a kaydetmek için)
   const buildCevapAnahtari = useCallback((state?: Record<KitapcikTuru, SoruCevap[]>): CevapAnahtariSatir[] => {
     const src = state || kitapcikVerileri;
-    const sorularA = src['A'];
-    const sorularB = src['B'];
-    const sorularC = src['C'];
-    const sorularD = src['D'];
+    const baseKit = (kitapcikTurleriSafe[0] || 'A') as KitapcikTuru;
+    const baseSorular = src[baseKit] || [];
+    const byKit = (kitapcikTurleriSafe || []).reduce((acc, k) => {
+      acc[k] = src[k] || [];
+      return acc;
+    }, {} as Record<KitapcikTuru, SoruCevap[]>);
 
     const validCevap = (c: string | null): 'A' | 'B' | 'C' | 'D' | 'E' | undefined => {
       if (c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E') return c;
@@ -450,27 +491,34 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     // Eski hata: A boşsa B de atlanıyordu!
     // Yeni: A, B, C, D'den herhangi birinde cevap varsa kaydet
     // ═══════════════════════════════════════════════════════════════════════════
-    sorularA.forEach((soru, originalIdx) => {
-      const cevapA = validCevap(soru.cevap);
-      const cevapB = validCevap(sorularB[originalIdx]?.cevap || null);
-      const cevapC = validCevap(sorularC[originalIdx]?.cevap || null);
-      const cevapD = validCevap(sorularD[originalIdx]?.cevap || null);
-      
+    baseSorular.forEach((soru, originalIdx) => {
+      const cevapByKit: Partial<Record<KitapcikTuru, 'A' | 'B' | 'C' | 'D' | 'E'>> = {};
+      for (const k of kitapcikTurleriSafe) {
+        const c = validCevap(byKit[k]?.[originalIdx]?.cevap || null);
+        if (c) cevapByKit[k] = c;
+      }
+
       // Herhangi bir kitapçıkta cevap varsa kaydet
-      const hasCevap = cevapA || cevapB || cevapC || cevapD;
+      const hasCevap = Object.values(cevapByKit).find(Boolean);
       if (!hasCevap) return;
       
-      const ders = LGS_DERSLER.find(d => d.kod === soru.dersKodu);
+      const ders = dersler.find(d => d.kod === soru.dersKodu);
+      const dogru = (cevapByKit['A'] || cevapByKit['B'] || cevapByKit['C'] || cevapByKit['D'] || hasCevap || 'A') as any;
 
       cevapAnahtari.push({
         // KRİTİK: soruNo sabit/global olmalı. Dersleri sürükle-bırak yapmak soru numarasını ASLA değiştirmemeli.
         soruNo: soru.globalSoruNo,
-        dogruCevap: cevapA || cevapB || cevapC || cevapD || 'A', // İlk bulunan cevabı varsayılan yap
+        dogruCevap: dogru, // ilk bulunan cevabı varsayılan yap
         dersKodu: soru.dersKodu,
         dersAdi: ders?.ad || soru.dersKodu,
         kazanimKodu: soru.kazanimKodu || undefined,
         kazanimMetni: soru.kazanimMetni || undefined,
-        kitapcikCevaplari: { A: cevapA, B: cevapB, C: cevapC, D: cevapD },
+        kitapcikCevaplari: {
+          A: cevapByKit['A'],
+          B: cevapByKit['B'],
+          C: cevapByKit['C'],
+          D: cevapByKit['D'],
+        },
       });
     });
 
@@ -508,6 +556,29 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     return `k:${data.length}-h:${hash >>> 0}`;
   }, []);
 
+  const persistAnswerKeyToApi = useCallback(
+    async (data: CevapAnahtariSatir[], reason: string) => {
+      try {
+        await fetch('/api/exam-intelligence/answer-keys', {
+          method: 'PUT',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({
+            organizationId,
+            examId,
+            examType: examType || null,
+            answerKey: data,
+            dersSirasi,
+            reason,
+          }),
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [organizationId, examId, examType, dersSirasi],
+  );
+
   const sendToWizard = useCallback(
     (data: CevapAnahtariSatir[], reason: string) => {
       if (!onSave) {
@@ -538,9 +609,10 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
       };
       
       onSave(payload);
+      void persistAnswerKeyToApi(data, reason);
       console.log(`✅ onSave çağrıldı: ${data.length} soru | dersSirasi=${dersSirasi.join(',')} | reason=${reason} | sig=${sig}`);
     },
-    [computeSig, onSave, dersSirasi],
+    [computeSig, onSave, dersSirasi, persistAnswerKeyToApi],
   );
 
   // ✅ Ders sırası değişince wizard state'e de yaz (butona basmadan adım değişince kaybolmasın)
@@ -570,16 +642,16 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
   const dersBaslangicIndex = useCallback((dersKodu: string) => {
     let baslangicIndex = 0;
-    for (const d of LGS_DERSLER) {
+    for (const d of dersler) {
       if (d.kod === dersKodu) break;
       baslangicIndex += d.soruSayisi;
     }
     return baslangicIndex;
-  }, []);
+  }, [dersler]);
 
   const getDersCevapString = useCallback(
     (kit: KitapcikTuru, dersKodu: string) => {
-      const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+      const ders = dersler.find(d => d.kod === dersKodu);
       if (!ders) return '';
       const start = dersBaslangicIndex(dersKodu);
       return (kitapcikVerileri[kit] || [])
@@ -587,92 +659,22 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
         .map(s => (s.cevap ? String(s.cevap) : ''))
         .join('');
     },
-    [dersBaslangicIndex, kitapcikVerileri],
+    [dersBaslangicIndex, kitapcikVerileri, dersler],
   );
 
   const syncDraftFromStateForKitapcik = useCallback(
     (kit: KitapcikTuru) => {
       setDersCevaplari(prev => ({
         ...prev,
-        [kit]: {
-          TUR: getDersCevapString(kit, 'TUR'),
-          INK: getDersCevapString(kit, 'INK'),
-          DIN: getDersCevapString(kit, 'DIN'),
-          ING: getDersCevapString(kit, 'ING'),
-          MAT: getDersCevapString(kit, 'MAT'),
-          FEN: getDersCevapString(kit, 'FEN'),
-        },
+        [kit]: Object.fromEntries(
+          dersler.map((d) => [d.kod, getDersCevapString(kit, d.kod)])
+        ) as Record<string, string>,
       }));
     },
-    [getDersCevapString],
+    [getDersCevapString, dersler],
   );
 
-  // UI state (kilit + ders sırası) ileri-geri adımda kaybolmasın
-  useEffect(() => {
-    try {
-      // ✅ İSTENEN DAVRANIŞ:
-      // - Adım ileri/geri yapınca kilitler KALSIN (sessionStorage)
-      // - Sayfa yenilenince (F5/Ctrl+R) kilitler SIFIRLANSIN
-      //
-      // sessionStorage normalde reload'da da korunur; bu yüzden reload tespit edip temizliyoruz.
-      let isReload = false;
-      try {
-        const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
-        if (nav?.type === 'reload') isReload = true;
-      } catch {
-        // ignore
-      }
-      // Eski API fallback (deprecated ama bazı ortamlarda)
-      if (!isReload && typeof performance !== 'undefined' && (performance as any).navigation?.type === 1) {
-        isReload = true;
-      }
-
-      if (isReload) {
-        sessionStorage.removeItem(uiPersistKey);
-        // Varsayılanlara dön (component mount'ta zaten default, ama güvenli)
-        setDersSirasi(['TUR', 'INK', 'DIN', 'ING', 'MAT', 'FEN']);
-        setKilitliDersler({ A: new Set(), B: new Set(), C: new Set(), D: new Set() });
-        return;
-      }
-
-      const raw = sessionStorage.getItem(uiPersistKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed?.dersSirasi)) {
-        setDersSirasi(parsed.dersSirasi);
-      }
-      if (parsed?.kilitliDersler) {
-        setKilitliDersler({
-          A: new Set(parsed.kilitliDersler.A || []),
-          B: new Set(parsed.kilitliDersler.B || []),
-          C: new Set(parsed.kilitliDersler.C || []),
-          D: new Set(parsed.kilitliDersler.D || []),
-        });
-      }
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        uiPersistKey,
-        JSON.stringify({
-          dersSirasi,
-          kilitliDersler: {
-            A: Array.from(kilitliDersler.A),
-            B: Array.from(kilitliDersler.B),
-            C: Array.from(kilitliDersler.C),
-            D: Array.from(kilitliDersler.D),
-          },
-        }),
-      );
-    } catch {
-      // ignore
-    }
-  }, [dersSirasi, kilitliDersler]);
+  // ❌ sessionStorage kaldırıldı (Supabase-first)
 
   // Kitapçık değişince ders satırı inputlarını mevcut cevaplardan doldur (boş görünmesin)
   useEffect(() => {
@@ -687,7 +689,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
     const toUnlock: string[] = [];
     for (const dersKodu of Array.from(locked)) {
-      const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+      const ders = dersler.find(d => d.kod === dersKodu);
       if (!ders) continue;
       const count = (getDersCevapString(aktifKitapcik, dersKodu) || '').replace(/[^ABCDE]/g, '').length;
       if (count < ders.soruSayisi) {
@@ -708,7 +710,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
       const key = `${aktifKitapcik}:${k}`;
       if (unlockedWarnedRef.current.has(key)) return;
       unlockedWarnedRef.current.add(key);
-      const ders = LGS_DERSLER.find(d => d.kod === k);
+      const ders = dersler.find(d => d.kod === k);
       toast(`${ders?.ad?.split(' ')?.[0] || k}: Eksik olduğu için kilit kaldırıldı.`, { icon: '⚠️', duration: 2500 });
     });
   }, [aktifKitapcik, getDersCevapString, kilitliDersler]);
@@ -745,7 +747,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
-    const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+    const ders = dersler.find(d => d.kod === dersKodu);
     if (!ders) return;
 
     // Cevapları temizle ve büyük harfe çevir
@@ -845,11 +847,11 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
   // Ders için girilen cevap sayısı
   const getDersCevapSayisi = useCallback((dersKodu: string) => {
-    const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+    const ders = dersler.find(d => d.kod === dersKodu);
     if (!ders) return 0;
     
     let baslangicIndex = 0;
-    for (const d of LGS_DERSLER) {
+    for (const d of dersler) {
       if (d.kod === dersKodu) break;
       baslangicIndex += d.soruSayisi;
     }
@@ -905,7 +907,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
   // TOPLU KAZANIM YAPIŞTIRMA (Excel gibi)
   // ═══════════════════════════════════════════════════════════════════════════
   const handleTopluKazanimYapistir = useCallback((dersKodu: string, yapistrilanMetin: string) => {
-    const ders = LGS_DERSLER.find(d => d.kod === dersKodu);
+    const ders = dersler.find(d => d.kod === dersKodu);
     if (!ders) return;
 
     // Satırları ayır
@@ -913,7 +915,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
     
     // Dersin başlangıç index'ini bul
     let baslangicIndex = 0;
-    for (const d of LGS_DERSLER) {
+    for (const d of dersler) {
       if (d.kod === dersKodu) break;
       baslangicIndex += d.soruSayisi;
     }
@@ -984,7 +986,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-600 mr-2">Kitapçık:</span>
-            {KITAPCIK_TURLERI.map(kit => (
+            {kitapcikTurleriSafe.map(kit => (
               <button
                 key={kit}
                 onClick={() => setAktifKitapcik(kit)}
@@ -1179,7 +1181,7 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-indigo-700">📚 Kitapçık Seç:</span>
             <div className="flex items-center gap-1">
-              {KITAPCIK_TURLERI.map(kit => {
+              {kitapcikTurleriSafe.map(kit => {
                 const kitDoluluk = kitapcikVerileri[kit].filter(s => s.cevap).length;
                 const isTam = kitDoluluk === 90;
                 
@@ -1662,27 +1664,18 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
 
       {/* FOOTER - KİTAPÇIK KAYDET + DEVAM ET BUTONLARI */}
       {(() => {
-        // Tüm kitapçıkların doluluk durumları
-        const kitapcikDoluluklari = {
-          A: kitapcikVerileri['A'].filter(s => s.cevap).length,
-          B: kitapcikVerileri['B'].filter(s => s.cevap).length,
-          C: kitapcikVerileri['C'].filter(s => s.cevap).length,
-          D: kitapcikVerileri['D'].filter(s => s.cevap).length,
-        };
-        
-        const mevcutKitapcikTam = kitapcikDoluluklari[aktifKitapcik] === 90;
-        const tumKitapciklerTam = kitapcikDoluluklari.A === 90 && kitapcikDoluluklari.B === 90 && 
-                                   kitapcikDoluluklari.C === 90 && kitapcikDoluluklari.D === 90;
-        
-        // Sonraki kitapçık
-        const sonrakiKitapcikMap: Record<KitapcikTuru, KitapcikTuru | null> = {
-          'A': 'B', 'B': 'C', 'C': 'D', 'D': null
-        };
-        const sonrakiKitapcik = sonrakiKitapcikMap[aktifKitapcik];
-        
-        // En az bir kitapçık tam mı?
-        const enAzBirKitapcikTam = kitapcikDoluluklari.A === 90 || kitapcikDoluluklari.B === 90 || 
-                                    kitapcikDoluluklari.C === 90 || kitapcikDoluluklari.D === 90;
+        const kitapcikDoluluklari = Object.fromEntries(
+          kitapcikTurleriSafe.map((kit) => [kit, (kitapcikVerileri[kit] || []).filter((s) => s.cevap).length]),
+        ) as Record<KitapcikTuru, number>;
+
+        const mevcutKitapcikTam = (kitapcikDoluluklari[aktifKitapcik] || 0) === toplamSoru;
+        const tumKitapciklerTam = kitapcikTurleriSafe.every((k) => (kitapcikDoluluklari[k] || 0) === toplamSoru);
+
+        // Sonraki kitapçık (konfig sırası)
+        const idx = kitapcikTurleriSafe.indexOf(aktifKitapcik);
+        const sonrakiKitapcik = idx >= 0 && idx < kitapcikTurleriSafe.length - 1 ? kitapcikTurleriSafe[idx + 1] : null;
+
+        const enAzBirKitapcikTam = kitapcikTurleriSafe.some((k) => (kitapcikDoluluklari[k] || 0) === toplamSoru);
 
         // Kaydet fonksiyonu (tek yerden)
         const handleKaydet = () => {
@@ -1695,11 +1688,11 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
             {/* Kitapçık Durumları */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                {KITAPCIK_TURLERI.map(kit => (
+                {kitapcikTurleriSafe.map(kit => (
                   <div 
                     key={kit}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
-                      kitapcikDoluluklari[kit] === 90
+                      kitapcikDoluluklari[kit] === toplamSoru
                         ? 'bg-green-100 text-green-700 ring-2 ring-green-300'
                         : kitapcikDoluluklari[kit] > 0
                           ? 'bg-amber-100 text-amber-700'
@@ -1707,10 +1700,10 @@ export default function ManuelCevapAnahtari({ onSave, onClear, initialData, init
                     }`}
                   >
                     <span className="font-bold">{kit}</span>
-                    {kitapcikDoluluklari[kit] === 90 ? (
+                    {kitapcikDoluluklari[kit] === toplamSoru ? (
                       <Check size={14} className="text-green-600" />
                     ) : (
-                      <span className="text-xs">{kitapcikDoluluklari[kit]}/90</span>
+                      <span className="text-xs">{kitapcikDoluluklari[kit]}/{toplamSoru}</span>
                     )}
                   </div>
                 ))}
