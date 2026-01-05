@@ -21,13 +21,13 @@ import {
 } from 'lucide-react';
 
 import {
-  OPTIK_FORM_SABLONLARI,
   SINAV_KONFIGURASYONLARI,
   SINIF_BILGILERI,
   OptikFormSablonu,
   SinavTuru,
   SinifSeviyesi,
 } from './sinavKonfigurasyonlari';
+// ✅ OPTIK_FORM_SABLONLARI kaldırıldı - Artık sadece Supabase API kullanılıyor
 import { OptikSablon, OptikAlanTanimi, ALAN_RENKLERI } from './types';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -428,18 +428,20 @@ export default function SablonKutuphanesi({
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Tüm şablonlar: Supabase API'den gelenler + hazır şablonlar (fallback)
+  // ✅ TEK VERİ KAYNAĞI: Sadece Supabase API
+  // Hardcoded fallback YOK - localStorage YOK
+  // Aynı kurumda her bilgisayarda aynı şablonlar görünür
   // ═══════════════════════════════════════════════════════════════════════════
   const allSablonlar = useMemo(() => {
-    // API'den şablonlar geldiyse onları kullan
-    if (dbSablonlar.length > 0) {
-      // DB şablonlarını OptikFormSablonu formatına dönüştür
-      const converted = dbSablonlar.map((s: any) => ({
+    // API'den şablonları OptikFormSablonu formatına dönüştür
+    const converted = dbSablonlar
+      .filter((s: any) => s.is_active === true) // Sadece aktif olanlar
+      .map((s: any) => ({
         id: s.id,
         ad: s.sablon_adi,
-        yayinevi: s.is_default ? 'Sistem' : 'Kurum',
+        yayinevi: s.organization_id ? 'Kurum' : 'Sistem',
         aciklama: s.aciklama || '',
-        sinifSeviyeleri: ['8'] as SinifSeviyesi[], // Varsayılan
+        sinifSeviyeleri: ['8'] as SinifSeviyesi[],
         sinavTurleri: ['LGS', 'DENEME'] as SinavTuru[],
         toplamSoru: s.toplam_soru,
         satirUzunlugu: s.alan_tanimlari?.length > 0 
@@ -457,19 +459,12 @@ export default function SablonKutuphanesi({
             : undefined,
           cevaplar: { baslangic: s.cevap_baslangic, bitis: s.cevap_baslangic + s.toplam_soru - 1 },
         },
-        onerilenIcon: s.is_default ? '📋' : '🏢',
-        renk: s.is_default ? '#6366F1' : '#10B981',
+        onerilenIcon: s.organization_id ? '🏢' : '📋',
+        renk: s.organization_id ? '#10B981' : '#6366F1',
       }));
-      
-      // Gizlileri filtrele
-      return showHidden ? converted : converted.filter(s => !hiddenSablonlar.includes(s.id));
-    }
     
-    // API'den veri gelmediyse hazır şablonları kullan (fallback)
-    const hazirlar = showHidden 
-      ? OPTIK_FORM_SABLONLARI 
-      : OPTIK_FORM_SABLONLARI.filter(s => !hiddenSablonlar.includes(s.id));
-    return hazirlar;
+    // Gizlileri filtrele (sadece UI session için)
+    return showHidden ? converted : converted.filter(s => !hiddenSablonlar.includes(s.id));
   }, [dbSablonlar, hiddenSablonlar, showHidden]);
 
   // Filtrelenmiş şablonlar
@@ -745,7 +740,34 @@ export default function SablonKutuphanesi({
         )}
       </AnimatePresence>
 
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* LOADING STATE */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {loadingTemplates && (
+        <div className="text-center py-8">
+          <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">Şablonlar yükleniyor...</p>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* EMPTY STATE - API boş döndüyse */}
+      {/* ═══════════════════════════════════════════════════════════════════════════ */}
+      {!loadingTemplates && dbSablonlar.length === 0 && (
+        <div className="text-center py-8 bg-amber-50 border border-amber-200 rounded-xl">
+          <div className="text-4xl mb-3">📋</div>
+          <p className="text-amber-800 font-medium">Şablon bulunamadı</p>
+          <p className="text-amber-600 text-sm mt-1">
+            Veritabanında bu kurum için tanımlı optik şablon yok.
+          </p>
+          <p className="text-amber-500 text-xs mt-2">
+            Yönetici panelinden şablon ekleyebilirsiniz.
+          </p>
+        </div>
+      )}
+
       {/* KOMPAKT Şablon Kartları - Liste Görünümü */}
+      {!loadingTemplates && dbSablonlar.length > 0 && (
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
         {filteredSablonlar.map((sablon) => (
           <motion.div
@@ -889,17 +911,18 @@ export default function SablonKutuphanesi({
           </motion.div>
         ))}
       </div>
+      )}
 
-      {/* Sonuç bulunamadı */}
-      {filteredSablonlar.length === 0 && (
+      {/* Sonuç bulunamadı - arama/filtre sonucu */}
+      {!loadingTemplates && dbSablonlar.length > 0 && filteredSablonlar.length === 0 && (
         <div className="text-center py-8">
           <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Şablon bulunamadı</p>
+          <p className="text-slate-500 text-sm">Arama kriterlerine uygun şablon bulunamadı</p>
           <button
-            onClick={() => setShowAddForm(true)}
-            className="mt-3 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
+            onClick={() => { setSearchTerm(''); setFilterSinif('all'); setFilterSinav('all'); }}
+            className="mt-3 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm"
           >
-            Yeni Şablon Oluştur
+            Filtreleri Temizle
           </button>
         </div>
       )}
