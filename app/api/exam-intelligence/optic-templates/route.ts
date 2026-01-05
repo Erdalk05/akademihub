@@ -79,10 +79,12 @@ export async function GET(request: NextRequest) {
     }
 
     // DB boşsa varsayılan şablonları döndür
-    const finalTemplates = templates && templates.length > 0 ? templates : DEFAULT_TEMPLATES;
+    const source = templates && templates.length > 0 ? 'supabase' : 'fallback';
+    const finalTemplates = source === 'supabase' ? templates : DEFAULT_TEMPLATES;
 
     return NextResponse.json({
       ok: true,
+      source,
       data: { opticTemplates: finalTemplates },
       meta: {
         organizationId,
