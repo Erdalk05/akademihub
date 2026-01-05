@@ -2,24 +2,53 @@ import { getServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { buildStudentIndex, classifyStudent } from '../_utils/studentMatch'
 
+// ✅ Cache tamamen kapalı
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient()
   const url = new URL(request.url)
+  // ✅ Sadece query param'dan al, başka yerden override yok
   const organizationId = url.searchParams.get('organizationId')
 
+  // 🔍 DEBUG: gelen organizationId
+  console.log('[exam-intelligence/exams] organizationId:', organizationId)
+
   if (!organizationId) {
-    return NextResponse.json({ exams: [] })
+    console.log('[exam-intelligence/exams] organizationId yok, boş dönülüyor')
+    return NextResponse.json({ exams: [], _debug: { organizationId: null } })
   }
 
   try {
-    const { data: exams } = await supabase
+    // ✅ TÜM FİLTRELER KALDIRILDI - Sadece organization_id eşleşmesi
+    // status, is_published, is_deleted, academic_year vs. YOK
+    const { data: exams, error: examsError } = await supabase
       .from('exams')
-      .select('id, name, exam_date, exam_type, grade_level, is_published')
+      .select('*')  // Tüm kolonları al (debug için)
       .eq('organization_id', organizationId)
-      .order('exam_date', { ascending: false })
+      .order('created_at', { ascending: false })
 
+    // 🔍 DEBUG: sorgu sonucu
+    console.log('[exam-intelligence/exams] exams count:', exams?.length ?? 0)
+    if (examsError) {
+      console.error('[exam-intelligence/exams] exams query error:', examsError)
+      return NextResponse.json({ 
+        exams: [], 
+        _debug: { organizationId, error: examsError.message } 
+      })
+    }
+
+    // Erken dönüş: sınav yoksa
+    if (!exams || exams.length === 0) {
+      console.log('[exam-intelligence/exams] Sınav bulunamadı, boş dönülüyor')
+      return NextResponse.json({ 
+        exams: [], 
+        _debug: { organizationId, examsCount: 0 } 
+      })
+    }
+
+    // Öğrenci listesi (asil/misafir sınıflandırması için)
     const { data: students } = await supabase
       .from('students')
       .select('*')
@@ -28,11 +57,7 @@ export async function GET(request: NextRequest) {
       .limit(2000)
     const studentIndex = buildStudentIndex(students || [])
 
-    const examIds = (exams || []).map((e: { id: string }) => e.id)
-
-    if (examIds.length === 0) {
-      return NextResponse.json({ exams: [] })
-    }
+    const examIds = exams.map((e: { id: string }) => e.id)
 
     const { data: results } = await supabase
       .from('student_exam_results')
@@ -63,7 +88,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const payload = (exams || []).map((e: any) => {
+    const payload = exams.map((e: any) => {
       const a = agg[e.id] || { sum: 0, count: 0, students: new Set<string>() }
       const avg = a.count > 0 ? Math.round((a.sum / a.count) * 10) / 10 : 0
       const asilCount = (aggAsil[e.id]?.students.size || 0)
@@ -82,9 +107,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ exams: payload })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ exams: [] })
+    console.log('[exam-intelligence/exams] Sonuç:', payload.length, 'sınav')
+
+    return NextResponse.json({ 
+      exams: payload,
+      _debug: { organizationId, examsCount: payload.length }
+    })
+  } catch (e: any) {
+    console.error('[exam-intelligence/exams] HATA:', e)
+    return NextResponse.json({ 
+      exams: [], 
+      _debug: { organizationId, error: e?.message || 'Beklenmeyen hata' } 
+    })
   }
 }
