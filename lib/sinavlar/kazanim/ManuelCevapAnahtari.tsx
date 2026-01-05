@@ -444,7 +444,10 @@ export default function ManuelCevapAnahtari({
   };
 
   // Ders bazlı cevap taslağı (kitapçık bazlı)
+  // ⚠️ TDZ fix: emptyDersDraft tanımı, dependency array’lerde kullanılmadan önce gelmeli
   const emptyDersDraft = Object.fromEntries(dersler.map((d) => [d.kod, ''])) as Record<string, string>;
+
+  // Ders bazlı cevap taslağı (kitapçık bazlı)
   const [dersCevaplari, setDersCevaplari] = useState<Record<KitapcikTuru, Record<string, string>>>(() => {
     const out = {} as Record<KitapcikTuru, Record<string, string>>;
     kitapcikTurleriSafe.forEach((k) => {
