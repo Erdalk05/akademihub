@@ -12,6 +12,13 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(req.url);
     const orgId = searchParams.get('organization_id');
+
+    if (!orgId) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
     
     const today = new Date().toISOString().slice(0, 10);
     const thisMonth = new Date().toISOString().slice(0, 7);
@@ -25,12 +32,14 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       // 1. Taksit özeti - SQL agregasyonu
       supabase.rpc('get_installment_summary', { 
+        p_organization_id: orgId,
         p_today: today,
         p_this_month: thisMonth
       }).maybeSingle(),
       
       // 2. Gider özeti - SQL agregasyonu
       supabase.rpc('get_expense_summary', {
+        p_organization_id: orgId,
         p_this_month: thisMonth
       }).maybeSingle(),
       
@@ -38,15 +47,16 @@ export async function GET(req: NextRequest) {
       supabase
         .from('students')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'active'),
+        .eq('status', 'active')
+        .eq('organization_id', orgId),
       
       // 4. Sınıf bazında veriler - SQL agregasyonu
-      supabase.rpc('get_class_finance_data')
+      supabase.rpc('get_class_finance_data', { p_organization_id: orgId })
     ]);
 
     // Fallback: RPC yoksa eski yöntemi kullan
     if (summaryRes.error?.code === '42883' || expenseSummaryRes.error?.code === '42883') {
-      return await fallbackMethod(supabase, today, thisMonth, startTime);
+      return await fallbackMethod(supabase, orgId, today, thisMonth, startTime);
     }
 
     const installmentSummary = summaryRes.data || {
@@ -113,19 +123,22 @@ export async function GET(req: NextRequest) {
 }
 
 // Fallback: RPC fonksiyonları yoksa bu metodu kullan
-async function fallbackMethod(supabase: any, today: string, thisMonth: string, startTime: number) {
+async function fallbackMethod(supabase: any, orgId: string, today: string, thisMonth: string, startTime: number) {
   // Minimal veri çekimi - sadece gerekli alanlar
   const [installmentsRes, expensesRes, studentsRes] = await Promise.all([
     supabase
       .from('finance_installments')
-      .select('student_id, amount, is_paid, due_date, paid_at'),
+      .select('student_id, amount, is_paid, due_date, paid_at')
+      .eq('organization_id', orgId),
     supabase
       .from('expenses')
-      .select('amount, date'),
+      .select('amount, date')
+      .eq('organization_id', orgId),
     supabase
       .from('students')
       .select('id, class')
       .eq('status', 'active')
+      .eq('organization_id', orgId)
   ]);
 
   const installments = installmentsRes.data || [];

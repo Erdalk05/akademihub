@@ -25,14 +25,20 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(req.url);
 
+    const organizationId = searchParams.get('organization_id');
     const category = searchParams.get('category');
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate') || searchParams.get('minDate');
     const endDate = searchParams.get('endDate') || searchParams.get('maxDate');
 
-    log('Incoming stats request', { category, status, startDate, endDate });
+    log('Incoming stats request', { organizationId, category, status, startDate, endDate });
+
+    if (!organizationId) {
+      return response.fail('organization_id zorunludur.', 400);
+    }
 
     let base = supabase.from('expenses').select('*');
+    base = base.eq('organization_id', organizationId);
 
     if (category && category !== 'all') base = base.eq('category', category);
     if (status && status !== 'all') base = base.eq('status', status);

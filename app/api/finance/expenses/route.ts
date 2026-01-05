@@ -86,6 +86,11 @@ export async function GET(req: NextRequest) {
       sortOrder,
     });
 
+    if (!organizationId) {
+      log('GET', 'organization_id missing');
+      return response.fail('organization_id zorunludur.', 400);
+    }
+
     let query = supabase.from('expenses').select('*');
 
     if (id) {
@@ -93,9 +98,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Organization filtresi (çoklu kurum desteği)
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId);
-    }
+    query = query.eq('organization_id', organizationId);
 
     // Apply filters
     if (category && category !== 'all') query = query.eq('category', category);
@@ -144,6 +147,11 @@ export async function POST(req: NextRequest) {
 
     log('POST', 'Incoming request', body);
 
+    if (!body?.organization_id) {
+      log('POST', 'organization_id missing');
+      return response.fail('organization_id zorunludur.', 400);
+    }
+
     // Validate
     const validationError = validateExpenseBody(body);
     if (validationError) {
@@ -162,7 +170,7 @@ export async function POST(req: NextRequest) {
       date: expenseDate,
       expense_date: expenseDate, // Veritabanı expense_date bekliyor
       description: body.description || null,
-      organization_id: body.organization_id || null,
+      organization_id: body.organization_id,
     };
 
     const { data, error } = await supabase
@@ -197,21 +205,38 @@ export async function PATCH(req: NextRequest) {
 
     log('PATCH', 'Incoming request', body);
 
-    const { id, ...updates } = body;
+    const { id, organization_id: organizationId, ...updates } = body;
 
     if (!id) {
       log('PATCH', 'ID missing');
       return response.fail('id zorunludur.', 400);
     }
 
+    if (!organizationId) {
+      log('PATCH', 'organization_id missing');
+      return response.fail('organization_id zorunludur.', 400);
+    }
+
     if (Object.keys(updates).length === 0) {
       return response.fail('Güncellenecek alan bulunamadı.', 400);
+    }
+
+    // tenant taşıma/bozma engeli
+    if ('organization_id' in updates) {
+      if (!updates.organization_id) {
+        return response.fail('organization_id null olamaz.', 400);
+      }
+      if (updates.organization_id !== organizationId) {
+        return response.fail('organization_id değiştirilemez.', 400);
+      }
+      delete updates.organization_id;
     }
 
     const { data, error } = await supabase
       .from('expenses')
       .update(updates)
       .eq('id', id)
+      .eq('organization_id', organizationId)
       .select('*')
       .single();
 
@@ -239,15 +264,25 @@ export async function DELETE(req: NextRequest) {
     const supabase = getServiceRoleClient();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const organizationId = searchParams.get('organization_id');
 
-    log('DELETE', 'Incoming request', { id });
+    log('DELETE', 'Incoming request', { id, organizationId });
 
     if (!id) {
       log('DELETE', 'ID missing');
       return response.fail('id zorunludur.', 400);
     }
 
-    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (!organizationId) {
+      log('DELETE', 'organization_id missing');
+      return response.fail('organization_id zorunludur.', 400);
+    }
+
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', organizationId);
 
     if (error) {
       log('DELETE', 'Supabase delete error', error);

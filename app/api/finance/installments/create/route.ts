@@ -21,9 +21,17 @@ export async function POST(req: NextRequest) {
     const saleId = body.sale_id as string | undefined;
     const studentId = body.student_id as string | undefined;
     const agreementId = body.agreement_id as string | undefined | null;
+    const organizationId = body.organization_id as string | undefined;
     const installments = Array.isArray(body.installments)
       ? (body.installments as IncomingInstallment[])
       : [];
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
 
     if (!studentId || installments.length === 0) {
       return NextResponse.json(
@@ -36,7 +44,8 @@ export async function POST(req: NextRequest) {
     const { data: existing, error: existingErr } = await supabase
       .from('finance_installments')
       .select('installment_no')
-      .eq('student_id', studentId);
+      .eq('student_id', studentId)
+      .eq('organization_id', organizationId);
 
     if (existingErr) {
       return NextResponse.json(
@@ -68,6 +77,7 @@ export async function POST(req: NextRequest) {
 
       return {
         student_id: studentId,
+        organization_id: organizationId,
         source,
         sale_id: saleId || null,
         agreement_id: agreementId || saleId || null,

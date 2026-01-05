@@ -15,6 +15,13 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('student_id');
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
     
     let query = supabase
       .from('other_income')
@@ -26,9 +33,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
     
     // Organization filtresi (çoklu kurum desteği)
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId);
-    }
+    query = query.eq('organization_id', organizationId);
     
     // Kategori filtresi
     if (category && category !== 'all') {
@@ -79,6 +84,13 @@ export async function POST(request: NextRequest) {
       created_by,
       organization_id
     } = body;
+
+    if (!organization_id) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
     
     // Validasyon
     if (!title || !amount) {
@@ -107,7 +119,7 @@ export async function POST(request: NextRequest) {
         date: date || new Date().toISOString(),
         notes: notes || null,
         created_by: created_by || null,
-        organization_id: organization_id || null,
+        organization_id,
         is_paid: body.is_paid ?? false,
         paid_amount: body.paid_amount ?? 0,
         paid_at: body.paid_at || null,
@@ -138,10 +150,18 @@ export async function DELETE(request: NextRequest) {
     const studentId = searchParams.get('student_id');
     const category = searchParams.get('category');
     const deleteAll = searchParams.get('delete_all') === 'true';
+    const organizationId = searchParams.get('organization_id');
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
     
     // Grup silme (öğrenci + kategori bazında)
     if (deleteAll && (studentId || category)) {
-      let query = supabase.from('other_income').delete();
+      let query = supabase.from('other_income').delete().eq('organization_id', organizationId);
       
       if (studentId) {
         query = query.eq('student_id', studentId);
@@ -175,7 +195,8 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase
       .from('other_income')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('organization_id', organizationId);
     
     if (error) {
       console.error('Other income delete error:', error);
@@ -194,7 +215,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getServiceRoleClient();
     const body = await request.json();
-    const { id, ...updates } = body;
+    const { id, organization_id: organizationId, ...updates } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -202,11 +223,35 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: 'organization_id zorunludur' },
+        { status: 400 },
+      );
+    }
+
+    if ('organization_id' in updates) {
+      if (!updates.organization_id) {
+        return NextResponse.json(
+          { success: false, error: 'organization_id null olamaz' },
+          { status: 400 },
+        );
+      }
+      if (updates.organization_id !== organizationId) {
+        return NextResponse.json(
+          { success: false, error: 'organization_id değiştirilemez' },
+          { status: 400 },
+        );
+      }
+      delete updates.organization_id;
+    }
     
     const { data, error } = await supabase
       .from('other_income')
       .update(updates)
       .eq('id', id)
+      .eq('organization_id', organizationId)
       .select()
       .single();
     
