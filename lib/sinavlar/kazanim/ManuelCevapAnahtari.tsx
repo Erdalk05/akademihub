@@ -105,6 +105,10 @@ export default function ManuelCevapAnahtari({
     renk: dersColor(String(d.dersKodu || d.code || 'DERS')),
   })).filter((d: any) => d.kod && d.soruSayisi > 0);
 
+  // Ders bazlı cevap taslağı (kitapçık bazlı)
+  // ✅ TDZ fix: dependency array’lerde kullanılmadan önce tanımlı olmalı
+  const emptyDersDraft = Object.fromEntries(dersler.map((d: any) => [d.kod, ''])) as Record<string, string>;
+
   const kitapcikTurleri = (Array.isArray(konfig?.kitapcikTurleri) ? konfig.kitapcikTurleri : [])
     .map((x: any) => String(x).toUpperCase())
     .filter((x: string) => x === 'A' || x === 'B' || x === 'C' || x === 'D') as KitapcikTuru[];
@@ -442,10 +446,6 @@ export default function ManuelCevapAnahtari({
     toplamSoru: toplamSoru,
     kazanimli: kitapcikVerileri[aktifKitapcik].filter(s => s.kazanimKodu).length
   };
-
-  // Ders bazlı cevap taslağı (kitapçık bazlı)
-  // ⚠️ TDZ fix: emptyDersDraft tanımı, dependency array’lerde kullanılmadan önce gelmeli
-  const emptyDersDraft = Object.fromEntries(dersler.map((d) => [d.kod, ''])) as Record<string, string>;
 
   // Ders bazlı cevap taslağı (kitapçık bazlı)
   const [dersCevaplari, setDersCevaplari] = useState<Record<KitapcikTuru, Record<string, string>>>(() => {
