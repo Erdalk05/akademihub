@@ -946,6 +946,7 @@ export default function SinavSihirbazi({
                   <SablonKutuphanesi
                     sinifSeviyesi={sinavBilgisi.sinifSeviyesi}
                     sinavTuru={sinavBilgisi.tip}
+                    organizationId={organizationId}
                     onSelect={(sablon) => {
                       console.log('📦 Kütüphaneden şablon seçildi:', sablon.sablonAdi);
                       setSelectedSablon(sablon);

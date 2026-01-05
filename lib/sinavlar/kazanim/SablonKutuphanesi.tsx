@@ -336,6 +336,7 @@ function SimpleSablonForm({ onSave, onCancel }: SimpleSablonFormProps) {
 interface SablonKutuphanesiProps {
   sinifSeviyesi?: SinifSeviyesi;
   sinavTuru?: SinavTuru;
+  organizationId?: string;  // Supabase'den şablon çekmek için
   onSelect: (sablon: OptikSablon) => void;
   onCustom?: () => void;
 }
@@ -343,6 +344,7 @@ interface SablonKutuphanesiProps {
 export default function SablonKutuphanesi({
   sinifSeviyesi,
   sinavTuru,
+  organizationId,
   onSelect,
   onCustom
 }: SablonKutuphanesiProps) {
@@ -352,55 +354,43 @@ export default function SablonKutuphanesi({
   const [selectedSablon, setSelectedSablon] = useState<OptikFormSablonu | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   
-  // LocalStorage'dan özel şablonları yükle
-  const [customSablonlar, setCustomSablonlar] = useState<OptikFormSablonu[]>(() => {
-    if (typeof window !== 'undefined') {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ TEK VERİ KAYNAĞI: Supabase API
+  // localStorage KALDIRILDI - Artık tüm bilgisayarlarda aynı şablonlar görünür
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [dbSablonlar, setDbSablonlar] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  
+  // API'den şablonları yükle
+  React.useEffect(() => {
+    if (!organizationId) {
+      setLoadingTemplates(false);
+      return;
+    }
+    
+    const fetchTemplates = async () => {
+      setLoadingTemplates(true);
       try {
-        const saved = localStorage.getItem('akademihub_optik_sablonlar');
-        if (saved) {
-          return JSON.parse(saved);
+        const res = await fetch(`/api/exam-intelligence/optic-templates?organizationId=${organizationId}`);
+        const json = await res.json();
+        if (json.ok && json.data?.opticTemplates) {
+          console.log('✅ Optik şablonlar API\'den yüklendi:', json.data.opticTemplates.length);
+          setDbSablonlar(json.data.opticTemplates);
+        } else {
+          console.warn('⚠️ Optik şablon API hatası:', json.error);
         }
       } catch (e) {
-        console.warn('Şablon yükleme hatası:', e);
+        console.error('❌ Şablon yükleme hatası:', e);
+      } finally {
+        setLoadingTemplates(false);
       }
-    }
-    return [];
-  });
+    };
+    
+    fetchTemplates();
+  }, [organizationId]);
   
-  // Gizli (silinen hazır) şablonlar
-  const [hiddenSablonlar, setHiddenSablonlar] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('akademihub_hidden_sablonlar');
-        if (saved) return JSON.parse(saved);
-      } catch (e) { console.warn('Gizli şablon yükleme hatası:', e); }
-    }
-    return [];
-  });
-  
-  // Özel şablonları localStorage'a kaydet - HER DEĞİŞİKLİKTE
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        // Her zaman kaydet (boş array dahil - silme işlemi için)
-        localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(customSablonlar));
-        console.log('✅ Özel şablonlar kaydedildi:', customSablonlar.length);
-      } catch (e) {
-        console.error('Şablon kaydetme hatası:', e);
-      }
-    }
-  }, [customSablonlar]);
-  
-  // Gizli şablonları localStorage'a kaydet
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('akademihub_hidden_sablonlar', JSON.stringify(hiddenSablonlar));
-      } catch (e) {
-        console.error('Gizli şablon kaydetme hatası:', e);
-      }
-    }
-  }, [hiddenSablonlar]);
+  // Gizli şablonlar (sadece UI state - kalıcı değil)
+  const [hiddenSablonlar, setHiddenSablonlar] = useState<string[]>([]);
   
   // Yeni şablon formu - GENİŞLETİLMİŞ (Kurum Kodu ve Cinsiyet eklendi)
   const [newSablon, setNewSablon] = useState({
@@ -434,19 +424,53 @@ export default function SablonKutuphanesi({
   // Gizli şablonları temizle
   const clearHiddenSablonlar = () => {
     setHiddenSablonlar([]);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('akademihub_hidden_sablonlar');
-    }
-    alert('✅ Tüm gizli şablonlar gösterildi!');
+    alert('✅ Tüm şablonlar tekrar gösteriliyor!');
   };
 
-  // Tüm şablonlar (hazır + özel) - gizlenenler hariç (veya showHidden ise hepsi)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tüm şablonlar: Supabase API'den gelenler + hazır şablonlar (fallback)
+  // ═══════════════════════════════════════════════════════════════════════════
   const allSablonlar = useMemo(() => {
+    // API'den şablonlar geldiyse onları kullan
+    if (dbSablonlar.length > 0) {
+      // DB şablonlarını OptikFormSablonu formatına dönüştür
+      const converted = dbSablonlar.map((s: any) => ({
+        id: s.id,
+        ad: s.sablon_adi,
+        yayinevi: s.is_default ? 'Sistem' : 'Kurum',
+        aciklama: s.aciklama || '',
+        sinifSeviyeleri: ['8'] as SinifSeviyesi[], // Varsayılan
+        sinavTurleri: ['LGS', 'DENEME'] as SinavTuru[],
+        toplamSoru: s.toplam_soru,
+        satirUzunlugu: s.alan_tanimlari?.length > 0 
+          ? Math.max(...s.alan_tanimlari.map((a: any) => a.bitis || 0)) 
+          : 200,
+        alanlar: {
+          ogrenciNo: s.alan_tanimlari?.find((a: any) => a.alan === 'ogrenci_no') 
+            ? { baslangic: s.alan_tanimlari.find((a: any) => a.alan === 'ogrenci_no').baslangic, bitis: s.alan_tanimlari.find((a: any) => a.alan === 'ogrenci_no').bitis }
+            : { baslangic: 1, bitis: 10 },
+          ogrenciAdi: s.alan_tanimlari?.find((a: any) => a.alan === 'ogrenci_adi')
+            ? { baslangic: s.alan_tanimlari.find((a: any) => a.alan === 'ogrenci_adi').baslangic, bitis: s.alan_tanimlari.find((a: any) => a.alan === 'ogrenci_adi').bitis }
+            : { baslangic: 11, bitis: 40 },
+          kitapcik: s.kitapcik_pozisyon 
+            ? { baslangic: s.kitapcik_pozisyon, bitis: s.kitapcik_pozisyon }
+            : undefined,
+          cevaplar: { baslangic: s.cevap_baslangic, bitis: s.cevap_baslangic + s.toplam_soru - 1 },
+        },
+        onerilenIcon: s.is_default ? '📋' : '🏢',
+        renk: s.is_default ? '#6366F1' : '#10B981',
+      }));
+      
+      // Gizlileri filtrele
+      return showHidden ? converted : converted.filter(s => !hiddenSablonlar.includes(s.id));
+    }
+    
+    // API'den veri gelmediyse hazır şablonları kullan (fallback)
     const hazirlar = showHidden 
       ? OPTIK_FORM_SABLONLARI 
       : OPTIK_FORM_SABLONLARI.filter(s => !hiddenSablonlar.includes(s.id));
-    return [...hazirlar, ...customSablonlar];
-  }, [customSablonlar, hiddenSablonlar, showHidden]);
+    return hazirlar;
+  }, [dbSablonlar, hiddenSablonlar, showHidden]);
 
   // Filtrelenmiş şablonlar
   const filteredSablonlar = useMemo(() => {
@@ -581,37 +605,13 @@ export default function SablonKutuphanesi({
     onSelect(optikSablon);
   };
 
-  // Şablon sil - HEM ÖZEL HEM HAZIR ŞABLONLAR İÇİN ÇALIŞIR
+  // Şablon sil/gizle - Sadece UI'dan gizleme (DB silme için ayrı API gerekir)
   const handleDeleteSablon = (sablonId: string) => {
-    console.log('🗑️ Şablon siliniyor:', sablonId);
+    console.log('🗑️ Şablon gizleniyor:', sablonId);
     
-    if (sablonId.startsWith('custom-')) {
-      // Özel şablon - kalıcı olarak sil
-      const yeniListe = customSablonlar.filter(s => s.id !== sablonId);
-      setCustomSablonlar(yeniListe);
-      
-      // localStorage'a direkt kaydet
-      try {
-        localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
-        console.log('✅ Özel şablon silindi ve kaydedildi, kalan:', yeniListe.length);
-        alert(`✅ Şablon silindi! Kalan: ${yeniListe.length} özel şablon`);
-      } catch (e) {
-        console.error('❌ Silme kaydetme hatası:', e);
-      }
-    } else {
-      // Hazır şablon - gizle (silinmiş gibi göster)
-      const yeniHiddenListe = [...hiddenSablonlar, sablonId];
-      setHiddenSablonlar(yeniHiddenListe);
-      
-      // localStorage'a direkt kaydet
-      try {
-        localStorage.setItem('akademihub_hidden_sablonlar', JSON.stringify(yeniHiddenListe));
-        console.log('✅ Hazır şablon gizlendi ve kaydedildi:', sablonId);
-        alert(`✅ Şablon gizlendi! (Hazır şablonlar kalıcı olarak silinemez, sadece gizlenir)`);
-      } catch (e) {
-        console.error('❌ Gizleme kaydetme hatası:', e);
-      }
-    }
+    // Şablonu UI'dan gizle (session içinde geçerli)
+    setHiddenSablonlar(prev => [...prev, sablonId]);
+    alert('✅ Şablon bu oturum için gizlendi.');
     
     setDeleteConfirm(null);
     if (selectedSablon?.id === sablonId) {
@@ -641,78 +641,11 @@ export default function SablonKutuphanesi({
     }));
   };
 
-  // Yeni şablon ekle
+  // Yeni şablon ekle - Artık API üzerinden yapılmalı (TODO: POST endpoint ekle)
   const handleAddSablon = () => {
-    console.log('➕ Yeni şablon ekleniyor...', newSablon);
-    
-    if (!newSablon.ad.trim()) {
-      alert('Şablon adı gerekli!');
-      return;
-    }
-    
-    const yeniSablon: OptikFormSablonu = {
-      id: `custom-${Date.now()}`,
-      ad: newSablon.ad,
-      yayinevi: newSablon.yayinevi,
-      aciklama: `${newSablon.toplamSoru} soru, özel oluşturulmuş şablon`,
-      sinifSeviyeleri: newSablon.sinifSeviyeleri,
-      sinavTurleri: newSablon.sinavTurleri,
-      toplamSoru: newSablon.toplamSoru,
-      satirUzunlugu: newSablon.satirUzunlugu,
-      alanlar: {
-        kurumKodu: newSablon.kurumKodu.baslangic > 0 ? newSablon.kurumKodu : undefined, // YENİ
-        ogrenciNo: newSablon.ogrenciNo,
-        tcKimlik: newSablon.tcKimlik.baslangic > 0 ? newSablon.tcKimlik : undefined,
-        sinif: newSablon.sinif.baslangic > 0 ? newSablon.sinif : undefined,
-        kitapcik: newSablon.kitapcik.baslangic > 0 ? newSablon.kitapcik : undefined,
-        cinsiyet: newSablon.cinsiyet.baslangic > 0 ? newSablon.cinsiyet : undefined, // YENİ
-        ogrenciAdi: newSablon.ogrenciAdi,
-        cevaplar: newSablon.cevaplar,
-        // Özel alanları da ekle
-        ...(newSablon.ozelAlanlar.length > 0 && {
-          ozelAlanlar: newSablon.ozelAlanlar
-        })
-      },
-      onerilenIcon: '📋',
-      renk: '#6366F1'
-    };
-    
-    // Önce localStorage'dan mevcut şablonları al
-    const mevcutSablonlar = [...customSablonlar];
-    const yeniListe = [...mevcutSablonlar, yeniSablon];
-    
-    // State'i güncelle
-    setCustomSablonlar(yeniListe);
-    
-    // localStorage'a direkt kaydet (useEffect'i beklemeden)
-    try {
-      localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
-      console.log('✅ Yeni şablon eklendi ve kaydedildi:', yeniSablon.ad, '| Toplam:', yeniListe.length);
-    } catch (e) {
-      console.error('❌ Şablon kaydetme hatası:', e);
-    }
-    
+    console.log('➕ Yeni şablon ekleme - Supabase API gerekli');
+    alert('⚠️ Yeni şablon eklemek için yönetici panelini kullanın.\n\nŞablonlar artık veritabanında tutulmaktadır.');
     setShowAddForm(false);
-    
-    // Başarı bildirimi
-    alert(`✅ "${yeniSablon.ad}" şablonu başarıyla eklendi!\n\nToplam ${yeniListe.length} özel şablon var.`);
-    setNewSablon({
-      ad: '',
-      yayinevi: 'Özel',
-      toplamSoru: 90,
-      satirUzunlugu: 150,
-      sinifSeviyeleri: ['8'],
-      sinavTurleri: ['DENEME'],
-      kurumKodu: { baslangic: 0, bitis: 0 },
-      ogrenciNo: { baslangic: 1, bitis: 8 },
-      ogrenciAdi: { baslangic: 9, bitis: 28 },
-      tcKimlik: { baslangic: 0, bitis: 0 },
-      sinif: { baslangic: 0, bitis: 0 },
-      kitapcik: { baslangic: 0, bitis: 0 },
-      cinsiyet: { baslangic: 0, bitis: 0 },
-      cevaplar: { baslangic: 50, bitis: 139 },
-      ozelAlanlar: []
-    });
   };
 
   return (
@@ -802,16 +735,10 @@ export default function SablonKutuphanesi({
         {showAddForm && (
           <SimpleSablonForm
             onSave={(sablon) => {
-              const yeniListe = [...customSablonlar, sablon];
-              setCustomSablonlar(yeniListe);
-              try {
-                localStorage.setItem('akademihub_optik_sablonlar', JSON.stringify(yeniListe));
-                console.log('✅ Yeni şablon eklendi:', sablon.ad);
-              } catch (e) {
-                console.error('❌ Şablon kaydetme hatası:', e);
-              }
+              // TODO: API POST endpoint ile Supabase'e kaydet
+              console.log('📋 Yeni şablon (API kaydı gerekli):', sablon);
+              alert('⚠️ Şablon oluşturma şu an için devre dışı.\nŞablonlar veritabanında yönetilmektedir.');
               setShowAddForm(false);
-              alert(`✅ "${sablon.ad}" şablonu başarıyla eklendi!`);
             }}
             onCancel={() => setShowAddForm(false)}
           />
