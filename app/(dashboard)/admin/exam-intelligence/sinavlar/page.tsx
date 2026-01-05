@@ -93,12 +93,25 @@ export default function ExamsPage() {
     const ok = window.confirm(`\"${examName}\" sınavı kalıcı olarak silinecek. Emin misiniz?`)
     if (!ok) return
     try {
-      const res = await fetch(`/api/admin/exams/${examId}`, { method: 'DELETE' })
-      const json = await res.json().catch(() => ({}))
-      if (!json?.ok) {
-        alert(json?.error || 'Silme başarısız.')
+      const res = await fetch(`/api/admin/exams/${examId}?_ts=${Date.now()}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+
+      const json = await res.json().catch(() => ({} as any))
+
+      if (!res.ok || !json?.ok) {
+        alert(json?.error || `Silme başarısız. (HTTP ${res.status})`)
         return
       }
+
+      // ✅ Anında UI güncelle (optimistic)
+      setData((prev) => prev.filter((x) => x.id !== examId))
+
+      // ✅ Gerçeği doğrula (cache'e takılmasın diye ts + no-store)
       await refreshList()
     } catch (e) {
       console.error(e)

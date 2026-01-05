@@ -13,6 +13,22 @@ const withPWA = require('next-pwa')({
         cacheName: 'api-no-cache-exam-intelligence',
       },
     },
+    // ✅ KRİTİK: Admin API'leri cache'lenmesin (silme/onarım işlemleri anlık yansısın)
+    {
+      urlPattern: /\/api\/admin\/.*/i,
+      handler: 'NetworkOnly',
+      options: {
+        cacheName: 'api-no-cache-admin',
+      },
+    },
+    // ✅ KRİTİK: Akademik analiz sihirbazı API'leri cache'lenmesin (yeni sınav kaydı anlık yansısın)
+    {
+      urlPattern: /\/api\/akademik-analiz\/.*/i,
+      handler: 'NetworkOnly',
+      options: {
+        cacheName: 'api-no-cache-akademik-analiz',
+      },
+    },
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
       handler: 'NetworkFirst',
@@ -96,4 +112,4 @@ const nextConfig = {
 };
 
 module.exports = withPWA(nextConfig);
-// Build trigger: 1765692689
+// Build trigger: 1767590000
