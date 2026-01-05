@@ -1,6 +1,9 @@
 /**
  * Exam Intelligence - Optik Şablon API
  * Supabase'den optik şablonlarını getirir (tek veri kaynağı)
+ * 
+ * ✅ YIL BAĞIMSIZ: Optik şablonlar akademik yıla bağlı DEĞİL
+ * Aynı kurum = her yıl aynı şablonlar (uzun yıllar kullanılabilir)
  */
 
 import { getServiceRoleClient } from '@/lib/supabase/server';
@@ -50,14 +53,18 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
   const url = new URL(request.url);
   const organizationId = url.searchParams.get('organizationId');
-  const academicYearId = url.searchParams.get('academicYearId');
+  // ✅ academicYearId KULLANILMIYOR - Optik şablonlar yıl bağımsız
 
   if (!organizationId) {
     return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 });
   }
 
   try {
-    // Organizasyona özel + genel (organization_id = null) şablonları getir
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ✅ YIL BAĞIMSIZ SORGULAMA
+    // Optik şablonlar akademik yıla bağlı değil - uzun yıllar kullanılabilir
+    // Sadece organizationId ile filtreleniyor
+    // ═══════════════════════════════════════════════════════════════════════════
     const { data: templates, error } = await supabase
       .from('optik_sablonlari')
       .select('*')
@@ -79,8 +86,8 @@ export async function GET(request: NextRequest) {
       data: { opticTemplates: finalTemplates },
       meta: {
         organizationId,
-        academicYearId: academicYearId || undefined,
         count: finalTemplates.length,
+        // ✅ Yıl bilgisi yok - şablonlar her yıl geçerli
       },
     });
   } catch (e: any) {
