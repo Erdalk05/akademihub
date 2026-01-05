@@ -45,8 +45,10 @@ export default function ExamDetailPage({ params }: { params: { examId: string } 
 
       try {
         const res = await fetch(`/api/exam-intelligence/exams/${params.examId}?organizationId=${currentOrganization.id}`)
-        const json = (await res.json()) as ApiResp
-        setData(json)
+        const json = await res.json()
+        // Yeni standard (ok:true, data) veya eski format desteklenir
+        const payload = json.data ?? json
+        setData(payload as ApiResp)
       } catch (e) {
         console.error(e)
         setError('Sınav detayı alınamadı.')

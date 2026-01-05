@@ -11,17 +11,17 @@ export async function GET(request: NextRequest) {
   const orgId = url.searchParams.get('organizationId');
   const grade = url.searchParams.get('grade'); // '4'..'12' | 'mezun' | 'all' | null
 
-  const empty = {
+  const emptyData = {
     stats: { totalExams: 0, totalStudents: 0, asilStudents: 0, misafirStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0, riskCount: 0 },
     recentExams: [],
-    // 5 sınavın ders bazlı ortalamaları (grafik için)
     examSubjectTimeline: [],
-    // kurum genel ders ortalamaları
     subjectAverages: {},
     classPerformance: [],
     topStudents: [],
   };
-  if (!orgId) return NextResponse.json(empty);
+  if (!orgId) {
+    return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 });
+  }
 
   // Supabase'de filter metodları select sonrası gelir; bu yüzden select(...).eq(...) patterni kullanıyoruz.
   const countQuery =
@@ -37,7 +37,13 @@ export async function GET(request: NextRequest) {
   const { data: exams } = await examsQuery;
   const examIds = (exams || []).map((e: { id: string }) => e.id);
 
-  if (examIds.length === 0) return NextResponse.json(empty);
+  if (examIds.length === 0) {
+    return NextResponse.json({ 
+      ok: true, 
+      data: emptyData,
+      meta: { organizationId: orgId, count: 0 }
+    });
+  }
 
   // Kurumdaki kayıtlı öğrenciler (asil eşleştirme için)
   const { data: students } = await supabase
@@ -162,12 +168,16 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({
-    stats: { totalExams: totalExams || 0, totalStudents, asilStudents, misafirStudents, avgNet, maxNet, stdDev, riskCount },
-    subjects,
-    subjectAverages,
-    recentExams: recentExams || [],
-    examSubjectTimeline,
-    classPerformance,
-    topStudents,
+    ok: true,
+    data: {
+      stats: { totalExams: totalExams || 0, totalStudents, asilStudents, misafirStudents, avgNet, maxNet, stdDev, riskCount },
+      subjects,
+      subjectAverages,
+      recentExams: recentExams || [],
+      examSubjectTimeline,
+      classPerformance,
+      topStudents,
+    },
+    meta: { organizationId: orgId }
   });
 }

@@ -75,12 +75,14 @@ function DashboardV2Content() {
         params.set('organizationId', currentOrganization.id);
         params.set('limit', '50');
 
-        const response = await fetch(`/api/akademik-analiz/exams?${params.toString()}`);
+        const response = await fetch(`/api/exam-intelligence/exams?${params.toString()}`);
         const result = await response.json();
 
-        if (response.ok && result.exams) {
+        // ok:true/data formatı veya eski exams formatı desteklenir (geçiş için)
+        const examsData = result.data?.exams ?? result.exams ?? [];
+        if (response.ok && examsData.length > 0) {
           setAvailableExams(
-            result.exams.map((e: any) => ({
+            examsData.map((e: any) => ({
               id: e.id,
               name: e.name,
               date: e.exam_date || '',

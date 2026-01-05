@@ -109,8 +109,10 @@ export default function ExamIntelligenceDashboard() {
     try {
       const gradeParam = selectedGrade !== 'all' ? `&grade=${encodeURIComponent(selectedGrade)}` : ''
       const res = await fetch(`/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}${gradeParam}`)
-      const json = (await res.json()) as DashboardData
-      setData(json)
+      const json = await res.json()
+      // Yeni standard (ok:true, data) veya eski format desteklenir
+      const payload = json.data ?? json
+      setData(payload as DashboardData)
     } catch (e) {
       console.error(e)
       setError('Veriler alınamadı. Lütfen tekrar deneyin.')

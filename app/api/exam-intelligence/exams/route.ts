@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
   console.log('[exam-intelligence/exams] organizationId:', organizationId)
 
   if (!organizationId) {
-    console.log('[exam-intelligence/exams] organizationId yok, boş dönülüyor')
-    return NextResponse.json({ exams: [], _debug: { organizationId: null } })
+    console.log('[exam-intelligence/exams] organizationId yok')
+    return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 })
   }
 
   try {
@@ -29,22 +29,19 @@ export async function GET(request: NextRequest) {
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
-    // 🔍 DEBUG: sorgu sonucu
     console.log('[exam-intelligence/exams] exams count:', exams?.length ?? 0)
     if (examsError) {
       console.error('[exam-intelligence/exams] exams query error:', examsError)
-      return NextResponse.json({ 
-        exams: [], 
-        _debug: { organizationId, error: examsError.message } 
-      })
+      return NextResponse.json({ ok: false, error: examsError.message }, { status: 500 })
     }
 
     // Erken dönüş: sınav yoksa
     if (!exams || exams.length === 0) {
-      console.log('[exam-intelligence/exams] Sınav bulunamadı, boş dönülüyor')
+      console.log('[exam-intelligence/exams] Sınav bulunamadı')
       return NextResponse.json({ 
-        exams: [], 
-        _debug: { organizationId, examsCount: 0 } 
+        ok: true, 
+        data: { exams: [] }, 
+        meta: { organizationId, count: 0 } 
       })
     }
 
@@ -110,14 +107,12 @@ export async function GET(request: NextRequest) {
     console.log('[exam-intelligence/exams] Sonuç:', payload.length, 'sınav')
 
     return NextResponse.json({ 
-      exams: payload,
-      _debug: { organizationId, examsCount: payload.length }
+      ok: true,
+      data: { exams: payload },
+      meta: { organizationId, count: payload.length }
     })
   } catch (e: any) {
     console.error('[exam-intelligence/exams] HATA:', e)
-    return NextResponse.json({ 
-      exams: [], 
-      _debug: { organizationId, error: e?.message || 'Beklenmeyen hata' } 
-    })
+    return NextResponse.json({ ok: false, error: e?.message || 'Beklenmeyen hata' }, { status: 500 })
   }
 }

@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     // ✅ KRİTİK: organizationId olmadan sınav kaydetme (organization_id = null) olmasın
     // Bu durum Exam Intelligence tarafında sınavların listelenmemesine sebep olur.
     if (!organizationId || typeof organizationId !== 'string' || organizationId.trim().length === 0) {
-      return NextResponse.json({ error: 'organizationId gerekli' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 });
     }
     
     console.log('[Wizard API] Kayıt başladı:', {
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     
     if (examError) {
       console.error('[Wizard API] Sınav oluşturma hatası:', examError);
-      return NextResponse.json({ error: examError.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: examError.message }, { status: 500 });
     }
     
     console.log('[Wizard API] Sınav oluşturuldu:', exam.id);
@@ -314,22 +314,25 @@ export async function POST(req: NextRequest) {
     
     // Başarılı yanıt
     return NextResponse.json({
-      success: true,
-      exam: {
-        id: exam.id,
-        name: exam.name,
-        examDate: exam.exam_date,
-        totalQuestions: exam.total_questions,
-        totalStudents: ogrenciSonuclari.length,
-        averageNet: ogrenciSonuclari.length > 0
-          ? (ogrenciSonuclari.reduce((s, o) => s + o.toplamNet, 0) / ogrenciSonuclari.length).toFixed(2)
-          : 0
-      }
+      ok: true,
+      data: {
+        exam: {
+          id: exam.id,
+          name: exam.name,
+          examDate: exam.exam_date,
+          totalQuestions: exam.total_questions,
+          totalStudents: ogrenciSonuclari.length,
+          averageNet: ogrenciSonuclari.length > 0
+            ? (ogrenciSonuclari.reduce((s, o) => s + o.toplamNet, 0) / ogrenciSonuclari.length).toFixed(2)
+            : 0
+        }
+      },
+      meta: { organizationId }
     }, { status: 201 });
     
   } catch (error: any) {
     console.error('[Wizard API] Beklenmeyen hata:', error);
-    return NextResponse.json({ error: error.message || 'Sunucu hatası' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error.message || 'Sunucu hatası' }, { status: 500 });
   }
 }
 
@@ -365,7 +368,7 @@ export async function GET(req: NextRequest) {
     
     if (error) {
       console.error('[Wizard API] Sınav listesi hatası:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
     
     // Her sınav için öğrenci sayısını ve ortalama neti getir
@@ -400,11 +403,15 @@ export async function GET(req: NextRequest) {
       };
     }));
     
-    return NextResponse.json({ exams: examsWithStats });
+    return NextResponse.json({ 
+      ok: true, 
+      data: { exams: examsWithStats },
+      meta: { organizationId: organizationId || undefined, count: examsWithStats.length }
+    });
     
   } catch (error: any) {
     console.error('[Wizard API] Beklenmeyen hata:', error);
-    return NextResponse.json({ error: error.message || 'Sunucu hatası' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error.message || 'Sunucu hatası' }, { status: 500 });
   }
 }
 

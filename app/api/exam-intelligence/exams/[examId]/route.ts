@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
   const organizationId = url.searchParams.get('organizationId')
   const examId = params.examId
 
-  const empty = {
+  const emptyData = {
     exam: null,
     stats: { totalStudents: 0, avgNet: 0, maxNet: 0, stdDev: 0 },
     subjects: [],
@@ -27,7 +27,9 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
     topStudents: [],
   }
 
-  if (!organizationId) return NextResponse.json(empty)
+  if (!organizationId) {
+    return NextResponse.json({ ok: false, error: 'organizationId gerekli' }, { status: 400 })
+  }
 
   try {
     const { data: exam } = await supabase
@@ -37,7 +39,9 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
       .eq('id', examId)
       .single()
 
-    if (!exam) return NextResponse.json(empty)
+    if (!exam) {
+      return NextResponse.json({ ok: false, error: 'Sınav bulunamadı' }, { status: 404 })
+    }
 
     const { data: results } = await supabase
       .from('student_exam_results')
@@ -105,15 +109,19 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
     }
 
     return NextResponse.json({
-      exam,
-      stats: { totalStudents: unique.size, avgNet, maxNet, stdDev: stdDev(nets) },
-      subjects,
-      subjectAverages,
-      classComparison,
-      topStudents,
+      ok: true,
+      data: {
+        exam,
+        stats: { totalStudents: unique.size, avgNet, maxNet, stdDev: stdDev(nets) },
+        subjects,
+        subjectAverages,
+        classComparison,
+        topStudents,
+      },
+      meta: { organizationId, examId }
     })
-  } catch (e) {
+  } catch (e: any) {
     console.error(e)
-    return NextResponse.json(empty)
+    return NextResponse.json({ ok: false, error: e?.message || 'Beklenmeyen hata' }, { status: 500 })
   }
 }

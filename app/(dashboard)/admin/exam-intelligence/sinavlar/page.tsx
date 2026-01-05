@@ -20,7 +20,7 @@ type ExamRow = {
   is_published: boolean
 }
 
-type ApiResp = { exams: ExamRow[] }
+type ApiResp = { ok?: boolean; data?: { exams: ExamRow[] }; exams?: ExamRow[] }
 
 type ExamTypeFilter = 'all' | 'MEB' | 'TYT' | 'AYT' | 'DIL'
 
@@ -62,7 +62,8 @@ export default function ExamsPage() {
           { cache: 'no-store' }
         )
         const json = (await res.json()) as ApiResp
-        setData(json.exams || [])
+        // Yeni standard (ok:true, data) veya eski format (exams) desteklenir
+        setData(json.data?.exams ?? json.exams ?? [])
       } catch (e) {
         console.error(e)
         setError('Sınavlar alınamadı.')
@@ -83,7 +84,8 @@ export default function ExamsPage() {
         { cache: 'no-store' }
       )
       const json = (await res.json()) as ApiResp
-      setData(json.exams || [])
+      // Yeni standard (ok:true, data) veya eski format (exams) desteklenir
+      setData(json.data?.exams ?? json.exams ?? [])
     } catch (e) {
       console.error(e)
     }

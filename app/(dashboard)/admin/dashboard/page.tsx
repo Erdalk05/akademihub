@@ -56,7 +56,9 @@ export default function AdminDashboardPage() {
     setLoading(true);
     fetch(`/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}`)
       .then(res => res.json())
-      .then(d => {
+      .then(json => {
+        // Yeni standard (ok:true, data) veya eski format desteklenir
+        const d = json.data ?? json;
         setData(d);
         if (d.recentExams?.length > 0 && !selectedExam) {
           setSelectedExam(d.recentExams[0].id);
