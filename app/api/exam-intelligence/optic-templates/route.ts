@@ -79,8 +79,22 @@ export async function GET(request: NextRequest) {
     }
 
     // DB boşsa varsayılan şablonları döndür
-    const source = templates && templates.length > 0 ? 'supabase' : 'fallback';
-    const finalTemplates = source === 'supabase' ? templates : DEFAULT_TEMPLATES;
+    // ✅ Supabase-first (Production): fallback YASAK → hata döndür
+    const hasDbTemplates = Boolean(templates && templates.length > 0);
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!hasDbTemplates && isProduction) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Optik şablon bulunamadı: Supabase optik_sablonlari tablosu boş. Production ortamında DEFAULT_TEMPLATES fallback kapalıdır.',
+        },
+        { status: 404 },
+      );
+    }
+
+    const source = hasDbTemplates ? 'supabase' : 'fallback';
+    const finalTemplates = hasDbTemplates ? templates : DEFAULT_TEMPLATES;
 
     return NextResponse.json({
       ok: true,
