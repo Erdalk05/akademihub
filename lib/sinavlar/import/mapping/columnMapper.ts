@@ -346,51 +346,44 @@ export function setAnswerRange(
 }
 
 // ==================== PRESET YÖNETİMİ ====================
-
-const PRESET_STORAGE_KEY = 'akademihub_import_presets';
+// ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+// const PRESET_STORAGE_KEY = 'akademihub_import_presets';
 
 /**
  * Preset kaydeder
  */
+// ═══════════════════════════════════════════════════════════════════════════
+// ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+// Preset'ler artık optik_sablonlari tablosundan yönetilecek
+// ═══════════════════════════════════════════════════════════════════════════
+
+// In-memory cache (session-only, kalıcı değil)
+let _presetCache: ColumnMappingPreset[] = [];
+
 export function savePreset(preset: ColumnMappingPreset): void {
-  const presets = loadPresets();
-  
-  // Aynı ID varsa güncelle
-  const existingIndex = presets.findIndex(p => p.id === preset.id);
+  // localStorage kullanılmıyor - sadece session cache
+  const existingIndex = _presetCache.findIndex(p => p.id === preset.id);
   if (existingIndex >= 0) {
-    presets[existingIndex] = preset;
+    _presetCache[existingIndex] = preset;
   } else {
-    presets.push(preset);
+    _presetCache.push(preset);
   }
-  
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
-  }
+  console.log('⚠️ [columnMapper] Preset kaydedildi (sadece session):', preset.name);
 }
 
 /**
- * Preset'leri yükler
+ * Preset'leri yükler (session-only)
  */
 export function loadPresets(): ColumnMappingPreset[] {
-  if (typeof localStorage === 'undefined') return [];
-  
-  try {
-    const data = localStorage.getItem(PRESET_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+  // localStorage kullanılmıyor - session cache döndür
+  return _presetCache;
 }
 
 /**
- * Preset siler
+ * Preset siler (session-only)
  */
 export function deletePreset(presetId: string): void {
-  const presets = loadPresets().filter(p => p.id !== presetId);
-  
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
-  }
+  _presetCache = _presetCache.filter(p => p.id !== presetId);
 }
 
 /**

@@ -597,7 +597,8 @@ const PRESET_TEMPLATES: FormTemplate[] = [
   },
 ];
 
-const STORAGE_KEY = 'akademihub_form_templates_v2';
+// ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+// const STORAGE_KEY = 'akademihub_form_templates_v2';
 
 // ==================== MAIN COMPONENT ====================
 
@@ -717,16 +718,18 @@ export function FixedWidthMapper({ rawLines, onComplete, onBack, onFileDropped }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selection, undo, redo]);
   
-  // LocalStorage
+  // ❌ localStorage KALDIRILDI - Tek veri kaynağı Supabase API
+  // Şablonlar artık API üzerinden yükleniyor (optik_sablonlari tablosu)
+  // TODO: API endpoint hazır olduğunda buraya fetch eklenecek
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setSavedTemplates(JSON.parse(saved));
-    } catch (e) { console.error(e); }
+    // localStorage kullanılmıyor - session-only state
+    console.log('⚠️ [FixedWidthMapper] Şablonlar: API entegrasyonu bekleniyor');
   }, []);
   
   const saveTemplates = useCallback((t: FormTemplate[]) => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); setSavedTemplates(t); } catch (e) { console.error(e); }
+    // localStorage kullanılmıyor - sadece session state
+    setSavedTemplates(t);
+    console.log('⚠️ [FixedWidthMapper] Şablon kaydetme: API endpoint henüz yok');
   }, []);
   
   // 3 satır önizleme
