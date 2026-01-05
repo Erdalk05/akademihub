@@ -106,7 +106,7 @@ export default function SihirbazPage() {
     setIsSaving(true);
 
     try {
-      const response = await fetch('/api/akademik-analiz/wizard', {
+      const response = await fetch('/api/exam-intelligence/wizard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
