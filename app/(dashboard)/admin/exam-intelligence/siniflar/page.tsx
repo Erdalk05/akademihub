@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ExportBar } from '@/components/exam-intelligence/ExportBar'
+import { ReportHeader } from '@/components/exam-intelligence/ReportHeader'
 
 type SubjectDef = { key: string; code: string; label: string }
 type ExamRow = {
@@ -121,12 +122,48 @@ export default function ClassesPage() {
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen" id="ei-class-analytics">
-      {/* Export */}
-      <ExportBar
-        data={classSorted}
-        filename={`sinif-analizleri_${currentOrganization?.name || 'kurum'}`}
-        sheetName="Sınıflar"
-        elementIdToPrint="ei-class-analytics"
+      <div className="print:hidden">
+        <ExportBar
+          title="Sınıf Analizleri (Tüm Sayfa)"
+          mode="server"
+          report={{
+            organizationId: currentOrganization?.id || '',
+            entityType: 'class_list',
+            entityId: null,
+            section: 'full_page',
+          }}
+          pdf={{ filename: `Sinif_Analizleri_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: 'ei-class-analytics' }}
+          excel={{
+            filename: `sinif-analizleri_${currentOrganization?.name || 'kurum'}`,
+            sheetName: 'Sınıflar',
+            rows: (classSorted || []).map((c: any, i: number) => ({
+              sira: i + 1,
+              sinif: c.className,
+              ogrenci: c.student_count,
+              asil: c.asil_count,
+              misafir: c.misafir_count,
+              ort_net: c.avg_net,
+              ort_puan: c.avg_score,
+              ...(c.subjects || {}),
+            })),
+            headers: {
+              sira: 'Sıra',
+              sinif: 'Sınıf',
+              ogrenci: 'Öğrenci',
+              asil: 'Asil',
+              misafir: 'Misafir',
+              ort_net: 'Ort. Net',
+              ort_puan: 'Ort. Puan',
+            },
+          }}
+        />
+      </div>
+
+      <ReportHeader
+        organizationName={currentOrganization?.name || 'Kurum'}
+        organizationLogoUrl={currentOrganization?.logo_url}
+        title="Sınıf Analizleri"
+        subtitle={`${classSorted.length} sınıf • ${exams.length} sınav`}
       />
 
       <div className="flex items-end justify-between gap-4 flex-wrap">

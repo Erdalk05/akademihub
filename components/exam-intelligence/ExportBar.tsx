@@ -7,6 +7,13 @@ import { downloadPDF } from '@/lib/utils/pdfGenerator'
 
 type ExportBarProps = {
   title: string
+  mode?: 'client' | 'server'
+  report?: {
+    organizationId: string
+    entityType: string
+    entityId?: string | null
+    section?: string
+  }
   excel?: {
     filename: string
     sheetName?: string
@@ -19,14 +26,76 @@ type ExportBarProps = {
   }
 }
 
-export function ExportBar({ title, excel, pdf }: ExportBarProps) {
+export function ExportBar({ title, excel, pdf, report, mode = 'client' }: ExportBarProps) {
   const [busy, setBusy] = useState<'excel' | 'pdf' | null>(null)
+
+  const serverGenerate = async (format: 'pdf' | 'excel') => {
+    if (!report?.organizationId) throw new Error('report.organizationId yok')
+    if (!excel) throw new Error('Server export için excel.rows + headers gerekli')
+
+    const res = await fetch('/api/exam-intelligence/reports/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        report,
+        title,
+        filename: format === 'pdf' ? (pdf?.filename || excel.filename) : excel.filename,
+        format,
+        sheetName: excel.sheetName,
+        headers: excel.headers,
+        rows: excel.rows,
+      }),
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.ok) throw new Error(json?.error || `Server export başarısız (HTTP ${res.status})`)
+    const fileUrl = json?.data?.fileUrl as string | null
+    const reportId = json?.data?.reportId as string | null
+
+    if (fileUrl) {
+      window.open(fileUrl, '_blank')
+      return
+    }
+
+    // public URL yoksa signed download
+    if (reportId) {
+      const d = await fetch(`/api/exam-intelligence/reports/${encodeURIComponent(reportId)}/download`, { cache: 'no-store' })
+      const dj = await d.json().catch(() => null)
+      const signed = dj?.data?.signedUrl as string | null
+      if (signed) window.open(signed, '_blank')
+    }
+  }
 
   const onExcel = async () => {
     if (!excel) return
     setBusy('excel')
     try {
-      await exportToExcel(excel.rows, excel.headers, { filename: excel.filename, sheetName: excel.sheetName || title, includeTimestamp: true })
+      if (mode === 'server' && report?.organizationId) {
+        await serverGenerate('excel')
+        return
+      }
+
+      if (report?.organizationId) {
+        // generated_reports log (best-effort) — client mode
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        fetch('/api/exam-intelligence/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            section: report.section || title,
+            format: 'excel',
+            filename: excel.filename,
+            report,
+            meta: { rowCount: excel.rows?.length ?? 0 },
+          }),
+        }).catch(() => {})
+      }
+
+      await exportToExcel(excel.rows, excel.headers, {
+        filename: excel.filename,
+        sheetName: excel.sheetName || title,
+        includeTimestamp: true,
+      })
     } finally {
       setBusy(null)
     }
@@ -34,10 +103,31 @@ export function ExportBar({ title, excel, pdf }: ExportBarProps) {
 
   const onPdf = async () => {
     if (!pdf) return
-    const el = document.getElementById(pdf.elementId)
-    if (!el) return
     setBusy('pdf')
     try {
+      if (mode === 'server' && report?.organizationId) {
+        await serverGenerate('pdf')
+        return
+      }
+
+      const el = document.getElementById(pdf.elementId)
+      if (!el) return
+
+      if (report?.organizationId) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        fetch('/api/exam-intelligence/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            section: report.section || title,
+            format: 'pdf',
+            filename: pdf.filename,
+            report,
+          }),
+        }).catch(() => {})
+      }
+
       await downloadPDF(el, { filename: pdf.filename, format: 'a4', orientation: 'portrait', margin: 10, scale: 2 })
     } finally {
       setBusy(null)

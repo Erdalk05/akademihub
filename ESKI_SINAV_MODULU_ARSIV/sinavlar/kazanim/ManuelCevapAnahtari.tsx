@@ -22,7 +22,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-import { SINAV_KONFIGURASYONLARI, type SinavTuru } from './sinavKonfigurasyonlari';
+import { SINAV_KONFIGURASYONLARI, type SinavTuru, type DersDagilimi, type SinavTuruKonfigurasyonu } from './sinavKonfigurasyonlari';
 
 type KitapcikTuru = 'A' | 'B' | 'C' | 'D';
 type CevapSecenegi = 'A' | 'B' | 'C' | 'D' | 'E' | null;
@@ -38,9 +38,9 @@ function dersColor(code: string) {
   return `hsl(${hue} 70% 45%)`;
 }
 
-function getKonfig(examType?: string) {
+function getKonfig(examType?: string): SinavTuruKonfigurasyonu {
   const key = String(examType || 'LGS').toUpperCase() as SinavTuru;
-  return (SINAV_KONFIGURASYONLARI as any)[key] || (SINAV_KONFIGURASYONLARI as any).LGS;
+  return SINAV_KONFIGURASYONLARI[key] ?? SINAV_KONFIGURASYONLARI.LGS;
 }
 
 interface SoruCevap {
@@ -88,6 +88,29 @@ interface ManuelCevapAnahtariProps {
 
 type GirisYontemi = 'yapistir' | 'surukle' | 'yukle';
 
+type DersUI = {
+  kod: string;
+  ad: string;
+  soruSayisi: number;
+  renk: string;
+  icon?: string;
+};
+
+const DERS_ICON: Record<string, string> = {
+  TUR: '📘',
+  MAT: '🧮',
+  FEN: '🧪',
+  SOS: '🌍',
+  INK: '🏛️',
+  DIN: '🕌',
+  ING: '🌐',
+  TAR: '📜',
+  COG: '🗺️',
+  FIZ: '⚛️',
+  KIM: '🧫',
+  BIO: '🧬',
+};
+
 export default function ManuelCevapAnahtari({
   organizationId,
   examId,
@@ -98,16 +121,38 @@ export default function ManuelCevapAnahtari({
   initialDersSirasi,
 }: ManuelCevapAnahtariProps) {
   const konfig = getKonfig(examType);
-  const dersler = (konfig?.dersDagilimi || []).map((d: any) => ({
-    kod: String(d.dersKodu || d.code || '').toUpperCase(),
-    ad: String(d.dersAdi || d.name || d.dersKodu || ''),
-    soruSayisi: Number(d.soruSayisi || d.question_count || 0) || 0,
-    renk: dersColor(String(d.dersKodu || d.code || 'DERS')),
-  })).filter((d: any) => d.kod && d.soruSayisi > 0);
+  const dersler: DersUI[] = (konfig?.dersDagilimi || [])
+    .map((d: DersDagilimi) => ({
+      kod: String(d.dersKodu || '').toUpperCase(),
+      ad: String(d.dersAdi || d.dersKodu || ''),
+      soruSayisi: Number(d.soruSayisi || 0) || 0,
+      renk: dersColor(String(d.dersKodu || 'DERS')),
+      icon: DERS_ICON[String(d.dersKodu || '').toUpperCase()] || undefined,
+    }))
+    .filter((d: DersUI) => Boolean(d.kod) && d.soruSayisi > 0);
 
   // Ders bazlı cevap taslağı (kitapçık bazlı)
   // ✅ TDZ fix: dependency array’lerde kullanılmadan önce tanımlı olmalı
-  const emptyDersDraft = Object.fromEntries(dersler.map((d: any) => [d.kod, ''])) as Record<string, string>;
+  const emptyDersDraft = Object.fromEntries(dersler.map((d: DersUI) => [d.kod, ''])) as Record<string, string>;
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'pre-fix',
+        hypothesisId: 'A',
+        location: 'ManuelCevapAnahtari.tsx:mount',
+        message: 'component mount',
+        data: { organizationId: Boolean(organizationId), examId: Boolean(examId), examType: examType || null, dersKodlari: dersler.map((d) => d.kod) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // #endregion
 
   const kitapcikTurleri = (Array.isArray(konfig?.kitapcikTurleri) ? konfig.kitapcikTurleri : [])
     .map((x: any) => String(x).toUpperCase())
@@ -130,13 +175,15 @@ export default function ManuelCevapAnahtari({
   const [dersSirasi, setDersSirasi] = useState<string[]>(
     initialDersSirasi && initialDersSirasi.length > 0 
       ? initialDersSirasi 
-      : dersler.map((d) => d.kod)
+      : dersler.map((d: DersUI) => d.kod)
   );
   const [draggedDers, setDraggedDers] = useState<string | null>(null);
   const [dragOverDers, setDragOverDers] = useState<string | null>(null);
   
   // Sıralanmış dersler
-  const siraliDersler = dersSirasi.map(kod => dersler.find(d => d.kod === kod)!).filter(Boolean);
+  const siraliDersler = dersSirasi
+    .map((kod) => dersler.find((d: DersUI) => d.kod === kod))
+    .filter((d): d is DersUI => Boolean(d));
 
   // Tüm kitapçıklar için veri
   const [kitapcikVerileri, setKitapcikVerileri] = useState<Record<KitapcikTuru, SoruCevap[]>>(() => {
@@ -251,6 +298,21 @@ export default function ManuelCevapAnahtari({
           setHasApiData(true);
           applyAnswerKeyRows(rows as CevapAnahtariSatir[]);
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'pre-fix',
+            hypothesisId: 'B',
+            location: 'ManuelCevapAnahtari.tsx:apiLoad',
+            message: 'answer-keys GET completed',
+            data: { ok: Boolean(json?.ok), status: res.status, hasRows: Array.isArray(rows) ? rows.length : 0, hasOrder: Array.isArray(order) ? order.length : 0 },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
       } catch (e) {
         // ignore (UI fallback devreye girebilir)
       } finally {
@@ -440,7 +502,7 @@ export default function ManuelCevapAnahtari({
   }, []);
 
   // İstatistikler
-  const toplamSoru = dersler.reduce((s, d) => s + (Number(d.soruSayisi) || 0), 0);
+  const toplamSoru = dersler.reduce((s: number, d: DersUI) => s + (Number(d.soruSayisi) || 0), 0);
   const stats = {
     doluSoru: kitapcikVerileri[aktifKitapcik].filter(s => s.cevap).length,
     toplamSoru: toplamSoru,
@@ -500,12 +562,12 @@ export default function ManuelCevapAnahtari({
         const c = validCevap(byKit[k]?.[originalIdx]?.cevap || null);
         if (c) cevapByKit[k] = c;
       }
-
+      
       // Herhangi bir kitapçıkta cevap varsa kaydet
       const hasCevap = Object.values(cevapByKit).find(Boolean);
       if (!hasCevap) return;
       
-      const ders = dersler.find(d => d.kod === soru.dersKodu);
+      const ders = dersler.find((d: DersUI) => d.kod === soru.dersKodu);
       const dogru = (cevapByKit['A'] || cevapByKit['B'] || cevapByKit['C'] || cevapByKit['D'] || hasCevap || 'A') as any;
 
       cevapAnahtari.push({
@@ -562,7 +624,23 @@ export default function ManuelCevapAnahtari({
   const persistAnswerKeyToApi = useCallback(
     async (data: CevapAnahtariSatir[], reason: string) => {
       try {
-        await fetch('/api/exam-intelligence/answer-keys', {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'pre-fix',
+            hypothesisId: 'C',
+            location: 'ManuelCevapAnahtari.tsx:persist',
+            message: 'answer-keys PUT start',
+            data: { reason, answerKeyLen: data.length, dersSirasiLen: dersSirasi.length },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+
+        const res = await fetch('/api/exam-intelligence/answer-keys', {
           method: 'PUT',
           cache: 'no-store',
           headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -575,6 +653,21 @@ export default function ManuelCevapAnahtari({
             reason,
           }),
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'pre-fix',
+            hypothesisId: 'C',
+            location: 'ManuelCevapAnahtari.tsx:persist',
+            message: 'answer-keys PUT end',
+            data: { status: res.status, ok: res.ok },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
       } catch {
         // ignore
       }
@@ -613,6 +706,21 @@ export default function ManuelCevapAnahtari({
       
       onSave(payload);
       void persistAnswerKeyToApi(data, reason);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'D',
+          location: 'ManuelCevapAnahtari.tsx:sendToWizard',
+          message: 'onSave called',
+          data: { reason, answerKeyLen: data.length, sig },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       console.log(`✅ onSave çağrıldı: ${data.length} soru | dersSirasi=${dersSirasi.join(',')} | reason=${reason} | sig=${sig}`);
     },
     [computeSig, onSave, dersSirasi, persistAnswerKeyToApi],
@@ -654,7 +762,7 @@ export default function ManuelCevapAnahtari({
 
   const getDersCevapString = useCallback(
     (kit: KitapcikTuru, dersKodu: string) => {
-      const ders = dersler.find(d => d.kod === dersKodu);
+      const ders = dersler.find((d: DersUI) => d.kod === dersKodu);
       if (!ders) return '';
       const start = dersBaslangicIndex(dersKodu);
       return (kitapcikVerileri[kit] || [])
@@ -670,7 +778,7 @@ export default function ManuelCevapAnahtari({
       setDersCevaplari(prev => ({
         ...prev,
         [kit]: Object.fromEntries(
-          dersler.map((d) => [d.kod, getDersCevapString(kit, d.kod)])
+          dersler.map((d: DersUI) => [d.kod, getDersCevapString(kit, d.kod)])
         ) as Record<string, string>,
       }));
     },
@@ -692,7 +800,7 @@ export default function ManuelCevapAnahtari({
 
     const toUnlock: string[] = [];
     for (const dersKodu of Array.from(locked)) {
-      const ders = dersler.find(d => d.kod === dersKodu);
+      const ders = dersler.find((d: DersUI) => d.kod === dersKodu);
       if (!ders) continue;
       const count = (getDersCevapString(aktifKitapcik, dersKodu) || '').replace(/[^ABCDE]/g, '').length;
       if (count < ders.soruSayisi) {
@@ -713,7 +821,7 @@ export default function ManuelCevapAnahtari({
       const key = `${aktifKitapcik}:${k}`;
       if (unlockedWarnedRef.current.has(key)) return;
       unlockedWarnedRef.current.add(key);
-      const ders = dersler.find(d => d.kod === k);
+      const ders = dersler.find((d: DersUI) => d.kod === k);
       toast(`${ders?.ad?.split(' ')?.[0] || k}: Eksik olduğu için kilit kaldırıldı.`, { icon: '⚠️', duration: 2500 });
     });
   }, [aktifKitapcik, getDersCevapString, kilitliDersler]);
@@ -750,7 +858,7 @@ export default function ManuelCevapAnahtari({
 
   // Ders bazlı cevap yapıştır
   const handleDersCevapYapistir = useCallback((dersKodu: string, cevaplar: string) => {
-    const ders = dersler.find(d => d.kod === dersKodu);
+    const ders = dersler.find((d: DersUI) => d.kod === dersKodu);
     if (!ders) return;
 
     // Cevapları temizle ve büyük harfe çevir
@@ -850,7 +958,7 @@ export default function ManuelCevapAnahtari({
 
   // Ders için girilen cevap sayısı
   const getDersCevapSayisi = useCallback((dersKodu: string) => {
-    const ders = dersler.find(d => d.kod === dersKodu);
+    const ders = dersler.find((d: DersUI) => d.kod === dersKodu);
     if (!ders) return 0;
     
     let baslangicIndex = 0;
@@ -910,7 +1018,7 @@ export default function ManuelCevapAnahtari({
   // TOPLU KAZANIM YAPIŞTIRMA (Excel gibi)
   // ═══════════════════════════════════════════════════════════════════════════
   const handleTopluKazanimYapistir = useCallback((dersKodu: string, yapistrilanMetin: string) => {
-    const ders = dersler.find(d => d.kod === dersKodu);
+    const ders = dersler.find((d: DersUI) => d.kod === dersKodu);
     if (!ders) return;
 
     // Satırları ayır

@@ -87,7 +87,7 @@ flowchart TD
 
 ## Aşama 3 — Exam Dashboard UI: “Ders + Trend” Odaklı Stabilizasyon (Cursor: Agent)
 
-- Hedef dosya: [app/(dashboard)/admin/akademik-analiz/exam-dashboard/page.tsx](app/\(dashboard)/admin/akademik-analiz/exam-dashboard/page.tsx)
+- Hedef dosya: [app/(dashboard)/admin/akademik-analiz/exam-dashboard/page.tsx](app/\\(dashboard)/admin/akademik-analiz/exam-dashboard/page.tsx)
 - MVP gereksinimi (seçiminize göre):
 - Ders grafikleri **`statistics.bySubject`** üzerinden
 - Trend grafiği **`statistics.trends`** üzerinden
@@ -127,4 +127,3 @@ flowchart TD
 ## Uygulama Notları (Sınav Okuma Modülü Korunur)
 
 - “Yeni Sınav” modülü **silinmez**.
-- Exam Intelligence, **yalnızca** `student_exam_results`’tan okur (senin seçimin).

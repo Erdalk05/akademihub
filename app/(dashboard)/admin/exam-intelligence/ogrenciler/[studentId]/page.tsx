@@ -15,6 +15,13 @@ type ApiResp = {
     sinif_sira: number
     sinif_toplam: number
     genel_toplam: number
+    finans?: {
+      totalAmount: number
+      paidAmount: number
+      balance: number
+      overdueCount: number
+      pendingCount: number
+    }
     sinavlar: Array<{ exam_id: string; sinav_adi: string; tarih: string | null; net: number }>
   } | null
 }
@@ -104,6 +111,35 @@ export default function StudentDetailPage({ params }: { params: { studentId: str
           </div>
         </div>
       </div>
+
+      {/* Finans */}
+      {data?.finans ? (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border">
+          <h3 className="text-lg font-bold text-gray-900">Finans Özeti</h3>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="rounded-xl border p-3 bg-gray-50">
+              <div className="text-xs text-gray-500 font-semibold">Toplam</div>
+              <div className="text-lg font-black text-gray-900">₺{Number(data.finans.totalAmount || 0).toLocaleString('tr-TR')}</div>
+            </div>
+            <div className="rounded-xl border p-3 bg-gray-50">
+              <div className="text-xs text-gray-500 font-semibold">Ödenen</div>
+              <div className="text-lg font-black text-emerald-700">₺{Number(data.finans.paidAmount || 0).toLocaleString('tr-TR')}</div>
+            </div>
+            <div className="rounded-xl border p-3 bg-gray-50">
+              <div className="text-xs text-gray-500 font-semibold">Kalan</div>
+              <div className="text-lg font-black text-red-700">₺{Number(data.finans.balance || 0).toLocaleString('tr-TR')}</div>
+            </div>
+            <div className="rounded-xl border p-3 bg-gray-50">
+              <div className="text-xs text-gray-500 font-semibold">Vadesi Geçen</div>
+              <div className="text-lg font-black text-amber-700">{Number(data.finans.overdueCount || 0)}</div>
+            </div>
+            <div className="rounded-xl border p-3 bg-gray-50">
+              <div className="text-xs text-gray-500 font-semibold">Bekleyen</div>
+              <div className="text-lg font-black text-gray-900">{Number(data.finans.pendingCount || 0)}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 text-gray-600 font-semibold flex items-center gap-2">

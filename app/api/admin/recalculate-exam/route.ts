@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 import { calculateFullExamResults } from '@/lib/exam/calculationEngine';
+import { writeExamAuditLog } from '@/lib/audit/examAudit';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,8 +189,35 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', examId);
 
+    // 7.1) Analytics job enqueue (best-effort)
+    try {
+      await supabase.from('exam_analytics_queue').insert({
+        job_type: 'exam_analytics',
+        exam_id: examId,
+        status: 'pending',
+        priority: 3,
+        params: { reason: 'recalc' },
+        organization_id: (exam as any).organization_id ?? null,
+        created_by: null,
+        scheduled_at: now,
+      } as any);
+    } catch {
+      // queue tablosu yoksa / policy varsa ana akışı bozma
+    }
+
     const durationMs = Date.now() - startedAt;
     console.log(`✅ [RECALC] DONE examId=${examId} students=${insertRows.length} durationMs=${durationMs}`);
+
+    // 8) Audit (best-effort)
+    writeExamAuditLog({
+      action: 'RECALC',
+      entityType: 'exam',
+      entityId: examId,
+      description: `Sınav yeniden hesaplandı (exam_student_results): öğrenci=${insertRows.length}, süre=${durationMs}ms`,
+      organizationId: (exam as any).organization_id ?? null,
+      examId,
+      metadata: { students: insertRows.length, durationMs },
+    });
 
     return NextResponse.json({ ok: true, count: insertRows.length, durationMs });
   } catch (e: any) {

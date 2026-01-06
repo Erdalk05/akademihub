@@ -26,6 +26,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ExportBar } from '@/components/exam-intelligence/ExportBar'
+import { ReportHeader } from '@/components/exam-intelligence/ReportHeader'
 
 type GradeValue = 'all' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | 'mezun'
 
@@ -196,30 +197,46 @@ export default function ExamIntelligenceDashboard() {
 
   return (
     <div id={exportId} className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      <ExportBar
-        title="Dashboard"
-        pdf={{ filename: `Exam_Intelligence_Dashboard_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: exportId }}
-        excel={{
-          filename: 'Exam_Intelligence_Dashboard',
-          sheetName: 'Dashboard',
-          rows: (data?.examSubjectTimeline || []).map((e) => ({
-            sinav: e.name,
-            tarih: e.exam_date,
-            tur: e.exam_type,
-            kademe: e.grade_level,
-            ogrenci: e.total_students,
-            ortalama_net: e.total_avg_net,
-            ...(e.subjects || {}),
-          })),
-          headers: {
-            sinav: 'Sınav',
-            tarih: 'Tarih',
-            tur: 'Tür',
-            kademe: 'Kademe',
-            ogrenci: 'Öğrenci',
-            ortalama_net: 'Ort. Net',
-          },
-        }}
+      <div className="print:hidden">
+        <ExportBar
+          title="Dashboard (Tüm Sayfa)"
+          mode="server"
+          report={{
+            organizationId: currentOrganization?.id || '',
+            entityType: 'dashboard',
+            entityId: null,
+            section: 'full_page',
+          }}
+          pdf={{ filename: `Exam_Intelligence_Dashboard_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: exportId }}
+          excel={{
+            filename: 'Exam_Intelligence_Dashboard',
+            sheetName: 'Dashboard',
+            rows: (data?.examSubjectTimeline || []).map((e) => ({
+              sinav: e.name,
+              tarih: e.exam_date,
+              tur: e.exam_type,
+              kademe: e.grade_level,
+              ogrenci: e.total_students,
+              ortalama_net: e.total_avg_net,
+              ...(e.subjects || {}),
+            })),
+            headers: {
+              sinav: 'Sınav',
+              tarih: 'Tarih',
+              tur: 'Tür',
+              kademe: 'Kademe',
+              ogrenci: 'Öğrenci',
+              ortalama_net: 'Ort. Net',
+            },
+          }}
+        />
+      </div>
+
+      <ReportHeader
+        organizationName={currentOrganization?.name || 'Kurum'}
+        organizationLogoUrl={currentOrganization?.logo_url}
+        title="Sınav Sonuçları Merkezi"
+        subtitle={`Kademe: ${selectedGrade === 'all' ? 'Tümü' : selectedGrade}`}
       />
 
       {/* Header */}

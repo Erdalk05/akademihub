@@ -936,6 +936,21 @@ export default function KazanimCevapAnahtari({
   // ============ KAYDET ============
   const handleSave = useCallback(() => {
     console.log('🔵 handleSave çağrıldı, parsedData:', parsedData.length);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'pre-fix',
+        hypothesisId: 'E',
+        location: 'KazanimCevapAnahtari.tsx:handleSave',
+        message: 'handleSave invoked',
+        data: { parsedLen: parsedData.length, hasOnSave: Boolean(onSave), examType },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     
     if (parsedData.length === 0) {
       setError('Kaydedilecek veri yok');

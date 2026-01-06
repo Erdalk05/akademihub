@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ExportBar } from '@/components/exam-intelligence/ExportBar'
+import { ReportHeader } from '@/components/exam-intelligence/ReportHeader'
 
 type StudentRow = {
   student_id: string
@@ -213,11 +214,48 @@ export default function ClassDetailPage({ params }: { params: { classId: string 
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen" id="ei-class-detail">
-      <ExportBar
-        data={overview?.timeline || []}
-        filename={`sinif_${decodeURIComponent(params.classId)}_analiz`}
-        sheetName="Sınavlar"
-        elementIdToPrint="ei-class-detail"
+      <div className="print:hidden">
+        <ExportBar
+          title="Sınıf Detay (Tüm Sayfa)"
+          mode="server"
+          report={{
+            organizationId: currentOrganization?.id || '',
+            entityType: 'class',
+            entityId: params.classId,
+            section: 'full_page',
+          }}
+          pdf={{ filename: `Sinif_${decodeURIComponent(params.classId)}_${new Date().toISOString().slice(0, 10)}.pdf`, elementId: 'ei-class-detail' }}
+          excel={{
+            filename: `sinif_${decodeURIComponent(params.classId)}_analiz`,
+            sheetName: 'Sınavlar',
+            rows: (overview?.timeline || []).map((t: any) => ({
+              sinav: t.name,
+              tarih: t.exam_date,
+              tur: t.exam_type,
+              kademe: t.grade_level,
+              ort_net: t.avg_net,
+              ort_puan: t.avg_score,
+              ogrenci: t.student_count,
+              ...(t.subjects || {}),
+            })),
+            headers: {
+              sinav: 'Sınav',
+              tarih: 'Tarih',
+              tur: 'Tür',
+              kademe: 'Kademe',
+              ort_net: 'Ort. Net',
+              ort_puan: 'Ort. Puan',
+              ogrenci: 'Öğrenci',
+            },
+          }}
+        />
+      </div>
+
+      <ReportHeader
+        organizationName={currentOrganization?.name || 'Kurum'}
+        organizationLogoUrl={currentOrganization?.logo_url}
+        title={`Sınıf: ${overview?.className || studentsData?.sinif || decodeURIComponent(params.classId)}`}
+        subtitle={`Ort. Net: ${Number(overview?.avg_net || studentsData?.ortalama_net || 0).toFixed(1)} • ${studentsData?.ogrenci_sayisi || 0} öğrenci`}
       />
 
       <div className="flex items-center justify-between flex-wrap gap-3">

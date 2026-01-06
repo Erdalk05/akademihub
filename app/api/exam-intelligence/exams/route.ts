@@ -1,13 +1,13 @@
-import { getServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { buildStudentIndex, classifyStudent } from '../_utils/studentMatch'
+import { getSupabaseRls } from '../_utils/supabaseRls'
 
 // ✅ Cache tamamen kapalı
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET(request: NextRequest) {
-  const supabase = getServiceRoleClient()
+  const supabase = getSupabaseRls()
   const url = new URL(request.url)
   // ✅ Sadece query param'dan al, başka yerden override yok
   const organizationId = url.searchParams.get('organizationId')
@@ -90,12 +90,19 @@ export async function GET(request: NextRequest) {
       const avg = a.count > 0 ? Math.round((a.sum / a.count) * 10) / 10 : 0
       const asilCount = (aggAsil[e.id]?.students.size || 0)
       const misafirCount = (aggMisafir[e.id]?.students.size || 0)
+
+      const bookletsRaw = Array.isArray(e.booklets) ? e.booklets : []
+      const booklets = bookletsRaw
+        .map((b: any) => String(b).toUpperCase())
+        .filter((b: string) => b === 'A' || b === 'B' || b === 'C' || b === 'D')
+
       return {
         id: e.id,
         name: e.name,
         exam_date: e.exam_date,
         exam_type: e.exam_type,
         grade_level: e.grade_level,
+        booklets,
         total_students: a.students.size,
         asil_students: asilCount,
         misafir_students: misafirCount,

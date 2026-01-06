@@ -1,12 +1,12 @@
-import { getServiceRoleClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildStudentIndex, classifyStudent } from '../_utils/studentMatch';
 import { inferSubjectsFromKeys, pickSubjectNetKeys } from '../_utils/subjects';
+import { getSupabaseRls } from '../_utils/supabaseRls';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const supabase = getServiceRoleClient();
+  const supabase = getSupabaseRls();
   const url = new URL(request.url);
   const orgId = url.searchParams.get('organizationId');
   const grade = url.searchParams.get('grade'); // '4'..'12' | 'mezun' | 'all' | null

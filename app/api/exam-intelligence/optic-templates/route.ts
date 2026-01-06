@@ -6,8 +6,8 @@
  * Aynı kurum = her yıl aynı şablonlar (uzun yıllar kullanılabilir)
  */
 
-import { getServiceRoleClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseRls } from '../_utils/supabaseRls';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +50,7 @@ const DEFAULT_TEMPLATES = [
 ];
 
 export async function GET(request: NextRequest) {
-  const supabase = getServiceRoleClient();
+  const supabase = getSupabaseRls();
   const url = new URL(request.url);
   const organizationId = url.searchParams.get('organizationId');
   // ✅ academicYearId KULLANILMIYOR - Optik şablonlar yıl bağımsız
