@@ -9,13 +9,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { recomputeStaleSnapshots } from '@/lib/sinavlar/analytics/orchestrator';
+import { recomputeStaleSnapshots } from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/analytics/orchestrator';
 import { 
   getPendingJobs, 
   markJobCompleted, 
   markJobFailed 
-} from '@/lib/sinavlar/analytics/orchestrator/cachePolicy';
-import { getStudentAnalytics } from '@/lib/sinavlar/analytics/orchestrator';
+} from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/analytics/orchestrator/cachePolicy';
+import { getStudentAnalytics } from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/analytics/orchestrator';
 
 // ==================== POST: Stale Recompute ====================
 

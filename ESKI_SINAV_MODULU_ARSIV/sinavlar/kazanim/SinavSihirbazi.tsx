@@ -43,8 +43,8 @@ import {
   deleteCevapAnahtariSablon,
   updateCevapAnahtariSablon,
   type CevapAnahtariSablonDB,
-} from '@/lib/sinavlar/services/cevapAnahtariSablonService';
-import type { ReportStudentResult, TxtImportKind } from '@/lib/sinavlar/import/txt';
+} from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/services/cevapAnahtariSablonService';
+import type { ReportStudentResult, TxtImportKind } from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/import/txt';
 
 interface SinavSihirbaziProps {
   organizationId: string;

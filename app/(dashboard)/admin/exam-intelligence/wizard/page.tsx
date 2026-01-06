@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import SinavSihirbazi from '@/lib/sinavlar/kazanim/SinavSihirbazi';
+import SinavSihirbazi from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/kazanim/SinavSihirbazi';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { useAcademicYearStore } from '@/lib/store/academicYearStore';
 import { getBrowserClient } from '@/lib/supabase/client';

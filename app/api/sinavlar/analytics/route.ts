@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStudentAnalytics } from '@/lib/sinavlar/analytics/orchestrator';
+import { getStudentAnalytics } from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/analytics/orchestrator';
 
 // ==================== GET: Öğrenci Analytics ====================
 

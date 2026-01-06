@@ -3,7 +3,7 @@
  * Supabase'den cevap anahtarı şablonlarını (kütüphane) yönetir.
  */
 
-import type { CevapAnahtariSatir } from '@/lib/sinavlar/kazanim/types';
+import type { CevapAnahtariSatir } from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/kazanim/types';
 
 export interface CevapAnahtariSablonDB {
   id: string;
