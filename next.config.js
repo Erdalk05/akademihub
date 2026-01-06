@@ -3,6 +3,11 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
+  // ✅ PWA cache'ten dolayı eski build'in ekranda kalmasını azaltır:
+  // - Yeni SW aktif olur olmaz sayfaları kontrol altına alır
+  // - Eski/atıl cache'leri temizler
+  clientsClaim: true,
+  cleanupOutdatedCaches: true,
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
     // ✅ KRİTİK: Exam Intelligence API'leri cache'lenmesin (aksi halde yeni sınavlar 5 dk görünmeyebilir)
