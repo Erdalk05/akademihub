@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import React from 'react';
 import { getSupabaseRls } from '../../_utils/supabaseRls';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 import { buildExcelBuffer } from '@/lib/reporting/serverExcel';
@@ -100,13 +101,13 @@ export async function POST(req: NextRequest) {
       const { pdf } = await import('@react-pdf/renderer');
       const orientation = Object.keys(body.headers || {}).length > 8 ? 'landscape' : 'portrait';
       const instance = pdf(
-        <ReportTablePdf
-          title={title}
-          subtitle={body.subtitle || null}
-          headers={body.headers || {}}
-          rows={body.rows || []}
-          orientation={orientation as any}
-        />,
+        React.createElement(ReportTablePdf, {
+          title,
+          subtitle: body.subtitle || null,
+          headers: body.headers || {},
+          rows: body.rows || [],
+          orientation: orientation as any,
+        }),
       );
       const buf = await instance.toBuffer();
       bytes = Buffer.from(buf);
