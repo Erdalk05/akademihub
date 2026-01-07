@@ -174,31 +174,34 @@ function DashboardV2Content() {
     );
   }
 
+  // Type assertion - data is now guaranteed to be non-null after the early return above
+  const safeData = data!;
+
   // ========================================================================
   // DATA TRANSFORMATIONS FOR CHARTS
   // ========================================================================
-  const classChartData = data.classByClass.map(cls => ({
+  const classChartData = safeData.classByClass.map(cls => ({
     name: cls.className,
     net: cls.averageNet,
     score: cls.averageScore,
   }));
 
-  const subjectRadarData = data.subjectBySubject.map(subj => ({
+  const subjectRadarData = safeData.subjectBySubject.map(subj => ({
     subject: subj.subjectName,
     value: subj.successRate,
   }));
 
-  const trendChartData = data.trends?.lastExams.map(point => ({
+  const trendChartData = safeData.trends?.lastExams.map(point => ({
     name: point.examName.length > 15 ? point.examName.slice(0, 15) + '...' : point.examName,
     net: point.averageNet,
     date: new Date(point.examDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
   })) || [];
 
-  const segmentCounts = data.studentSegments
+  const segmentCounts = safeData.studentSegments
     ? {
-        LOW: data.studentSegments.filter(s => s.segment === 'LOW').length,
-        MID: data.studentSegments.filter(s => s.segment === 'MID').length,
-        HIGH: data.studentSegments.filter(s => s.segment === 'HIGH').length,
+        LOW: safeData.studentSegments.filter(s => s.segment === 'LOW').length,
+        MID: safeData.studentSegments.filter(s => s.segment === 'MID').length,
+        HIGH: safeData.studentSegments.filter(s => s.segment === 'HIGH').length,
       }
     : null;
 
@@ -273,7 +276,7 @@ function DashboardV2Content() {
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* BLOCK 0 - SMART INSIGHTS (V2.3) */}
-        {data.insights && data.insights.length > 0 && (
+        {safeData.insights && safeData.insights.length > 0 && (
           <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <Lightbulb className="w-5 h-5 text-blue-600" />
@@ -281,7 +284,7 @@ function DashboardV2Content() {
             </div>
             
             <div className="space-y-3">
-              {data.insights.map((insight, idx) => {
+              {safeData.insights.map((insight, idx) => {
                 const levelConfig = {
                   WARNING: { icon: AlertCircle, bgColor: 'bg-amber-50', borderColor: 'border-amber-200', textColor: 'text-amber-800', iconColor: 'text-amber-600' },
                   POSITIVE: { icon: CheckCircle, bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', textColor: 'text-emerald-800', iconColor: 'text-emerald-600' },
@@ -307,7 +310,7 @@ function DashboardV2Content() {
           </div>
         )}
 
-        {data.insights && data.insights.length === 0 && (
+        {safeData.insights && safeData.insights.length === 0 && (
           <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="w-5 h-5 text-slate-400" />
@@ -318,7 +321,7 @@ function DashboardV2Content() {
         )}
 
         {/* BLOCK 0.1 - STUDENT INTERVENTIONS (V3) */}
-        {data.studentInterventions && data.studentInterventions.length > 0 && (
+        {safeData.studentInterventions && safeData.studentInterventions.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <AlertOctagon className="w-5 h-5 text-red-600" />
@@ -336,7 +339,7 @@ function DashboardV2Content() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.studentInterventions.map((intervention, idx) => {
+                  {safeData.studentInterventions.map((intervention, idx) => {
                     const priorityConfig = {
                       HIGH: { label: 'Yüksek', bgColor: 'bg-red-100', textColor: 'text-red-700', borderColor: 'border-red-300' },
                       MEDIUM: { label: 'Orta', bgColor: 'bg-amber-100', textColor: 'text-amber-700', borderColor: 'border-amber-300' },
@@ -368,7 +371,7 @@ function DashboardV2Content() {
           </div>
         )}
 
-        {data.studentInterventions && data.studentInterventions.length === 0 && (
+        {safeData.studentInterventions && safeData.studentInterventions.length === 0 && (
           <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -379,7 +382,7 @@ function DashboardV2Content() {
         )}
 
         {/* BLOCK 0.2 - CLASS INTERVENTIONS (V3) */}
-        {data.classInterventions && data.classInterventions.length > 0 && (
+        {safeData.classInterventions && safeData.classInterventions.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <TriangleAlert className="w-5 h-5 text-amber-600" />
@@ -387,7 +390,7 @@ function DashboardV2Content() {
             </div>
             
             <div className="space-y-3">
-              {data.classInterventions.map((intervention, idx) => {
+              {safeData.classInterventions.map((intervention, idx) => {
                 const priorityConfig = {
                   HIGH: { bgColor: 'bg-red-50', borderColor: 'border-red-300', textColor: 'text-red-800', badgeBg: 'bg-red-100', badgeText: 'text-red-700' },
                   MEDIUM: { bgColor: 'bg-amber-50', borderColor: 'border-amber-300', textColor: 'text-amber-800', badgeBg: 'bg-amber-100', badgeText: 'text-amber-700' },
@@ -421,7 +424,7 @@ function DashboardV2Content() {
           </div>
         )}
 
-        {data.classInterventions && data.classInterventions.length === 0 && (
+        {safeData.classInterventions && safeData.classInterventions.length === 0 && (
           <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -440,10 +443,10 @@ function DashboardV2Content() {
               </div>
               <span className="text-sm font-medium text-slate-600">Katılımcı</span>
             </div>
-            <p className="text-3xl font-bold text-slate-800">{data.summary.totalParticipants}</p>
-            {data.summary.deltaParticipants !== null && (
+            <p className="text-3xl font-bold text-slate-800">{safeData.summary.totalParticipants}</p>
+            {safeData.summary.deltaParticipants !== null && (
               <p className="text-sm text-slate-500 mt-1">
-                {data.summary.deltaParticipants > 0 ? '+' : ''}{data.summary.deltaParticipants} fark
+                {safeData.summary.deltaParticipants > 0 ? '+' : ''}{safeData.summary.deltaParticipants} fark
               </p>
             )}
           </div>
@@ -455,16 +458,16 @@ function DashboardV2Content() {
               </div>
               <span className="text-sm font-medium text-slate-600">Ortalama Net</span>
             </div>
-            <p className="text-3xl font-bold text-slate-800">{data.summary.averageNet}</p>
-            {data.summary.deltaAverageNet !== null && (
+            <p className="text-3xl font-bold text-slate-800">{safeData.summary.averageNet}</p>
+            {safeData.summary.deltaAverageNet !== null && (
               <div className="flex items-center gap-1 mt-1">
-                {data.summary.deltaAverageNet > 0 ? (
+                {safeData.summary.deltaAverageNet > 0 ? (
                   <TrendingUp className="w-4 h-4 text-emerald-600" />
                 ) : (
                   <TrendingDown className="w-4 h-4 text-red-600" />
                 )}
-                <span className={`text-sm font-medium ${data.summary.deltaAverageNet > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {data.summary.deltaAverageNet > 0 ? '+' : ''}{data.summary.deltaAverageNet}
+                <span className={`text-sm font-medium ${safeData.summary.deltaAverageNet > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {safeData.summary.deltaAverageNet > 0 ? '+' : ''}{safeData.summary.deltaAverageNet}
                 </span>
               </div>
             )}
@@ -477,10 +480,10 @@ function DashboardV2Content() {
               </div>
               <span className="text-sm font-medium text-slate-600">En Güçlü</span>
             </div>
-            {data.summary.strongestSubject ? (
+            {safeData.summary.strongestSubject ? (
               <>
-                <p className="text-lg font-bold text-slate-800">{data.summary.strongestSubject.name}</p>
-                <p className="text-sm text-slate-500">{data.summary.strongestSubject.average} net</p>
+                <p className="text-lg font-bold text-slate-800">{safeData.summary.strongestSubject.name}</p>
+                <p className="text-sm text-slate-500">{safeData.summary.strongestSubject.average} net</p>
               </>
             ) : (
               <p className="text-sm text-slate-400">Veri yok</p>
@@ -494,10 +497,10 @@ function DashboardV2Content() {
               </div>
               <span className="text-sm font-medium text-slate-600">En Zayıf</span>
             </div>
-            {data.summary.weakestSubject ? (
+            {safeData.summary.weakestSubject ? (
               <>
-                <p className="text-lg font-bold text-slate-800">{data.summary.weakestSubject.name}</p>
-                <p className="text-sm text-slate-500">{data.summary.weakestSubject.average} net</p>
+                <p className="text-lg font-bold text-slate-800">{safeData.summary.weakestSubject.name}</p>
+                <p className="text-sm text-slate-500">{safeData.summary.weakestSubject.average} net</p>
               </>
             ) : (
               <p className="text-sm text-slate-400">Veri yok</p>
@@ -637,9 +640,9 @@ function DashboardV2Content() {
             <h3 className="font-bold text-slate-800">Sınıf İçi Dağılım</h3>
           </div>
           
-          {data.classDistributions && data.classDistributions.length > 0 ? (
+          {safeData.classDistributions && safeData.classDistributions.length > 0 ? (
             <div className="space-y-6">
-              {data.classDistributions.map((cls) => (
+              {safeData.classDistributions.map((cls) => (
                 <div key={cls.className} className="border border-slate-200 rounded-xl p-4">
                   <h4 className="font-semibold text-slate-700 mb-3">{cls.className}</h4>
                   
@@ -713,8 +716,8 @@ function DashboardV2Content() {
 
         {/* METADATA */}
         <div className="text-center text-xs text-slate-400">
-          <p>Son hesaplama: {new Date(data.meta.calculatedAt).toLocaleString('tr-TR')}</p>
-          <p>Veri kaynağı: {data.meta.dataSource}</p>
+          <p>Son hesaplama: {new Date(safeData.meta.calculatedAt).toLocaleString('tr-TR')}</p>
+          <p>Veri kaynağı: {safeData.meta.dataSource}</p>
         </div>
       </div>
     </div>

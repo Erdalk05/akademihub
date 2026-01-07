@@ -61,25 +61,3 @@ export interface DashboardStats {
     trend: number;
   }>;
 }
-```
-
-## 🔗 SİSTEM BAĞLANTISI
-
-Bu 5 dosya ile sistem şöyle çalışacak:
-
-1. **Kullanıcı Flow:**
-   - Sidebar'dan "Sınav Listesi" tıklanır
-   - Tüm sınavlar listelenir (filtreleme, arama özelliği)
-   - "Analiz" butonu → Exam Dashboard'a gider
-   - "Karne" butonu → Karne sayfasına gider
-   - "Sil" butonu → API call yaparak sınavı siler
-
-2. **Veri Akışı:**
-```
-   Sihirbaz (Mevcut) → Supabase'e kayıt
-   ↓
-   Sonuçlar Sayfası → GET /api/akademik-analiz/wizard
-   ↓
-   Seçim yapıldığında → examId parametresi ile yönlendirme
-   ↓
-   Dashboard/Karne → examId ile veri çeker
