@@ -127,19 +127,6 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       ],
     },
     {
-      label: 'Exam Intelligence',
-      href: '/admin/exam-intelligence',
-      icon: <Brain size={20} />,
-      hideForSuperAdmin: true,
-      submenu: [
-        { label: 'Dashboard', href: '/admin/exam-intelligence', icon: <BarChart3 size={16} /> },
-        { label: 'Sınavlar', href: '/admin/exam-intelligence/sinavlar', icon: <FileText size={16} /> },
-        { label: 'Sınıflar', href: '/admin/exam-intelligence/siniflar', icon: <GraduationCap size={16} /> },
-        { label: 'Öğrenciler', href: '/admin/exam-intelligence/ogrenciler', icon: <Users size={16} /> },
-        { label: 'Yeni Sınav', href: '/admin/akademik-analiz/sihirbaz', icon: <FileSpreadsheet size={16} /> },
-      ],
-    },
-    {
       label: 'Ayarlar',
       href: '/settings',
       icon: <Settings size={20} />,
@@ -177,10 +164,6 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       return item;
     });
     const getActiveMenu = () => {
-      if (pathname.startsWith('/admin/exam-intelligence') || pathname.startsWith('/admin/akademik-analiz/sihirbaz')) {
-        return 'Exam Intelligence';
-      }
-    
       if (pathname.startsWith('/finance/reports')) return 'Raporlar';
       if (pathname.startsWith('/finance')) return 'Finans';
       if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';

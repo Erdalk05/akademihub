@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -43,6 +44,13 @@ interface DashboardData {
 }
 
 export default function AdminDashboardPage() {
+  // Exam Intelligence kaldırıldı; bu sayfayı yeni modül gelene kadar ana dashboard'a yönlendiriyoruz.
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/dashboard');
+  }, [router]);
+  return null;
+
   const { currentOrganization } = useOrganizationStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +62,7 @@ export default function AdminDashboardPage() {
       return;
     }
     setLoading(true);
-    fetch(`/api/exam-intelligence/dashboard?organizationId=${currentOrganization.id}`)
+    fetch(`/api/dashboard/stats?organization_id=${currentOrganization.id}`)
       .then(res => res.json())
       .then(json => {
         // Yeni standard (ok:true, data) veya eski format desteklenir

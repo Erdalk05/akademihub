@@ -10,14 +10,6 @@ const withPWA = require('next-pwa')({
   cleanupOutdatedCaches: true,
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
-    // ✅ KRİTİK: Exam Intelligence API'leri cache'lenmesin (aksi halde yeni sınavlar 5 dk görünmeyebilir)
-    {
-      urlPattern: /\/api\/exam-intelligence\/.*/i,
-      handler: 'NetworkOnly',
-      options: {
-        cacheName: 'api-no-cache-exam-intelligence',
-      },
-    },
     // ✅ KRİTİK: Admin API'leri cache'lenmesin (silme/onarım işlemleri anlık yansısın)
     {
       urlPattern: /\/api\/admin\/.*/i,

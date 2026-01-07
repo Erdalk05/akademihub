@@ -19,8 +19,7 @@ export function middleware(request: NextRequest) {
   // ✅ Guard/Redirect: Bazı kullanıcılar yanlışlıkla "dosya yolu" (app/(dashboard)/...)
   // veya "page.tsx" gibi route olmayan URL'leri açabiliyor.
   // Bu durumda en yakın gerçek route'a yönlendiriyoruz.
-  // Örn: /admin/app/(dashboard)/admin/exam-intelligence/sinavlar/[examId]/page.tsx
-  //   -> /admin/exam-intelligence/sinavlar
+  // Örn: /admin/app/(dashboard)/admin/.../page.tsx
   // ---------------------------------------------------------------------------
   if (pathname.includes('/app/(dashboard)/admin/')) {
     let fixed = pathname;
@@ -33,7 +32,7 @@ export function middleware(request: NextRequest) {
 
     if (fixed !== pathname) {
       const url = request.nextUrl.clone();
-      url.pathname = fixed || '/admin/exam-intelligence';
+      url.pathname = fixed || '/admin/dashboard';
       return NextResponse.redirect(url, 308);
     }
   }

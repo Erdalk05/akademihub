@@ -52,6 +52,12 @@ function DashboardV2Content() {
   const searchParams = useSearchParams();
   const { currentOrganization } = useOrganizationStore();
 
+  // Exam Intelligence kaldırıldı; yeni modül kurulana kadar bu sayfayı ana dashboard'a yönlendir.
+  useEffect(() => {
+    router.replace('/dashboard');
+  }, [router]);
+  return null;
+
   const [data, setData] = useState<ExamDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +81,8 @@ function DashboardV2Content() {
         params.set('organizationId', currentOrganization.id);
         params.set('limit', '50');
 
-        const response = await fetch(`/api/exam-intelligence/exams?${params.toString()}`);
+        // Eski bağımlılık kaldırıldı; yeni modül gelene kadar bu ekran devre dışı.
+        const response = await fetch(`/api/health?${params.toString()}`);
         const result = await response.json();
 
         // ok:true/data formatı veya eski exams formatı desteklenir (geçiş için)
