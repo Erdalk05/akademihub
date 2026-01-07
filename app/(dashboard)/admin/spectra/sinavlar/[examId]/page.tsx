@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ import {
   StudentRankingTable,
   ClassComparison,
 } from '@/components/spectra-detail';
+import { exportToExcel, exportToPDF } from '@/lib/spectra-detail';
 
 // ============================================================================
 // SPECTRA - SINAV DETAY SAYFASI
@@ -87,6 +88,40 @@ export default function SpectraExamDetailPage() {
     setIsRefreshing(false);
   };
 
+  // Excel export handler
+  const handleExportExcel = useCallback(async () => {
+    if (!data) return;
+    try {
+      await exportToExcel({
+        exam: data.exam,
+        sections: data.sections,
+        rows: data.tableRows,
+        statistics: data.statistics,
+        organizationName: currentOrganization?.name || 'AkademiHub',
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      alert('Excel export sırasında bir hata oluştu.');
+    }
+  }, [data, currentOrganization?.name]);
+
+  // PDF export handler
+  const handleExportPDF = useCallback(async () => {
+    if (!data) return;
+    try {
+      await exportToPDF({
+        exam: data.exam,
+        sections: data.sections,
+        rows: data.tableRows,
+        statistics: data.statistics,
+        organizationName: currentOrganization?.name || 'AkademiHub',
+      });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('PDF export sırasında bir hata oluştu.');
+    }
+  }, [data, currentOrganization?.name]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -122,14 +157,8 @@ export default function SpectraExamDetailPage() {
         exam={data.exam}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        onExportExcel={() => {
-          // TODO: Excel export
-          alert('Excel export - yakında!');
-        }}
-        onExportPDF={() => {
-          // TODO: PDF export
-          alert('PDF export - yakında!');
-        }}
+        onExportExcel={handleExportExcel}
+        onExportPDF={handleExportPDF}
       />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
