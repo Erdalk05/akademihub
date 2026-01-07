@@ -137,6 +137,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         { label: 'Sınavlar', href: '/admin/spectra/sinavlar', icon: <FileText size={16} /> },
         { label: 'Öğrenciler', href: '/admin/spectra/ogrenciler', icon: <Users size={16} /> },
         { label: 'Karneler', href: '/admin/spectra/karneler', icon: <FileSignature size={16} /> },
+        { label: 'Yeni Sınav Ekle', href: '/admin/spectra/sihirbaz', icon: <FileSpreadsheet size={16} /> },
       ],
     },
     {
