@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { getBrowserClient } from '@/lib/supabase/client';
 import {
   Loader2,
   Search,
@@ -13,10 +14,7 @@ import {
   BarChart3,
   ChevronRight,
   FileText,
-  MoreHorizontal,
-  Eye,
-  Download,
-  Trash2,
+  RefreshCw,
 } from 'lucide-react';
 
 // ============================================
@@ -42,66 +40,71 @@ export default function SpectraSinavlarPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
 
-  useEffect(() => {
+  const fetchExams = useCallback(async () => {
     if (!currentOrganization?.id) {
       setLoading(false);
       return;
     }
 
-    // TODO: Gerçek API bağlantısı yapılacak
-    // Şimdilik mock data
-    const mockExams: Exam[] = [
-      {
-        id: '1',
-        name: 'LGS Deneme #5',
-        exam_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        exam_type: 'LGS',
-        grade_level: '8',
-        total_questions: 90,
-        participant_count: 156,
-        avg_net: 68.4,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: '2',
-        name: 'TYT Deneme #3',
-        exam_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        exam_type: 'TYT',
-        grade_level: '12',
-        total_questions: 120,
-        participant_count: 89,
-        avg_net: 54.2,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: '3',
-        name: 'LGS Deneme #4',
-        exam_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        exam_type: 'LGS',
-        grade_level: '8',
-        total_questions: 90,
-        participant_count: 142,
-        avg_net: 65.1,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: '4',
-        name: 'AYT Deneme #2',
-        exam_date: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
-        exam_type: 'AYT',
-        grade_level: '12',
-        total_questions: 160,
-        participant_count: 67,
-        avg_net: 42.8,
-        created_at: new Date().toISOString(),
-      },
-    ];
+    setLoading(true);
+    const supabase = getBrowserClient();
 
-    setTimeout(() => {
-      setExams(mockExams);
+    try {
+      // Sınavları çek
+      const { data: examsData, error: examsError } = await supabase
+        .from('exams')
+        .select('*')
+        .eq('organization_id', currentOrganization.id)
+        .order('exam_date', { ascending: false });
+
+      if (examsError) {
+        console.error('Sınav çekme hatası:', examsError);
+        setExams([]);
+        setLoading(false);
+        return;
+      }
+
+      // Her sınav için katılımcı sayısını ve ortalama neti hesapla
+      const examsWithStats = await Promise.all(
+        (examsData || []).map(async (exam: any) => {
+          // Katılımcı istatistikleri
+          const { data: participantStats } = await supabase
+            .from('exam_participants')
+            .select('net')
+            .eq('exam_id', exam.id);
+
+          const participants = participantStats || [];
+          const participantCount = participants.length;
+          const avgNet = participantCount > 0
+            ? participants.reduce((sum: number, p: any) => sum + (p.net || 0), 0) / participantCount
+            : 0;
+
+          return {
+            id: exam.id,
+            name: exam.name || 'İsimsiz Sınav',
+            exam_date: exam.exam_date || exam.created_at,
+            exam_type: exam.exam_type || 'Deneme',
+            grade_level: exam.grade_level || '-',
+            total_questions: exam.total_questions || 0,
+            participant_count: participantCount,
+            avg_net: Math.round(avgNet * 10) / 10,
+            created_at: exam.created_at,
+          };
+        })
+      );
+
+      setExams(examsWithStats);
+    } catch (err) {
+      console.error('Sınav listesi hatası:', err);
+      setExams([]);
+    } finally {
       setLoading(false);
-    }, 300);
+    }
   }, [currentOrganization?.id]);
+
+  useEffect(() => {
+    fetchExams();
+  }, [fetchExams]);
 
   const filteredExams = exams.filter((exam) => {
     const matchesSearch = exam.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -177,8 +180,17 @@ export default function SpectraSinavlarPage() {
               <option value="TYT">TYT</option>
               <option value="AYT">AYT</option>
               <option value="YKS">YKS</option>
+              <option value="Deneme">Deneme</option>
             </select>
           </div>
+          <button
+            onClick={fetchExams}
+            disabled={loading}
+            className="p-2.5 border border-slate-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            title="Yenile"
+          >
+            <RefreshCw className={`w-5 h-5 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Exam List */}
