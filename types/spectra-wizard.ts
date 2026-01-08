@@ -618,9 +618,52 @@ export interface PuanSimulasyonOutput {
 // 🎯 WIZARD STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type CevapGirisYontemi = 'manuel' | 'yapistir' | 'dosya' | 'kutuphane';
+export type CevapGirisYontemi = 'manuel' | 'yapistir' | 'toplu' | 'dosya' | 'foto' | 'kutuphane';
 export type VeriYuklemeYontemi = 'txt' | 'dat' | 'excel' | 'csv' | 'manuel';
 export type SablonKaynagi = 'sistem' | 'kutuphane' | 'ozel';
+export type CevapKaynagi = 'manual' | 'paste' | 'excel' | 'photo' | 'library';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXCEL PREVIEW TİPLERİ
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Excel önizleme satırı */
+export interface ExcelPreviewRow {
+  rowIndex: number;
+  soruNo: number;
+  dersKodu?: string;
+  dersAdi?: string;
+  dogruCevap?: string;
+  kitapcik?: KitapcikTuru;
+  kazanimKodu?: string;
+  kazanimMetni?: string;
+  hasError: boolean;
+  errorMessage?: string;
+  isEditing?: boolean;
+}
+
+/** Excel önizleme verisi */
+export interface ExcelPreviewData {
+  fileName: string;
+  rows: ExcelPreviewRow[];
+  columns: string[];
+  mappedColumns: Record<string, string>;
+  isValid: boolean;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+}
+
+/** Toplu yapıştırma parse sonucu */
+export interface TopluYapistirResult {
+  cevaplar: CevapSecenegi[];
+  hatalar: string[];
+  uyarilar: string[];
+  girilmisSayi: number;
+  beklenenSayi: number;
+  isValid: boolean;
+  formatTipi: 'continuous' | 'spaced' | 'numbered' | 'multiline' | 'mixed';
+}
 
 export interface WizardStep1Data {
   sinavAdi: string;
@@ -641,10 +684,17 @@ export interface WizardStep1Data {
 
 export interface WizardStep2Data {
   cevapAnahtari: CevapAnahtari;
-  girisYontemi: CevapGirisYontemi | 'manuel' | 'yapistir' | 'dosya' | 'kutuphane';
+  girisYontemi: CevapGirisYontemi;
+  source?: CevapKaynagi; // Opsiyonel - backward compatibility için
+  rawInput?: string;
+  excelPreview?: ExcelPreviewData;
+  previewErrors?: string[];
+  previewWarnings?: string[];
   kayitliSablonId?: string;
   yeniSablonOlarakKaydet?: boolean;
   yeniSablonAdi?: string;
+  selectedRows?: number[];
+  lastModified?: ISODate;
 }
 
 export interface WizardStep3Data {

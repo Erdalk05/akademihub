@@ -1,6 +1,6 @@
 // ============================================================================
-// SPECTRA CEVAP ANAHTARI PARSER v2.0
-// Manuel giriş, yapıştırma, dosya yükleme, kazanım entegrasyonu
+// SPECTRA CEVAP ANAHTARI PARSER v3.0
+// Manuel giriş, toplu yapıştırma, Excel/CSV, kazanım entegrasyonu
 // ============================================================================
 
 import type {
@@ -13,6 +13,9 @@ import type {
   SinifSeviyesi,
   Kazanim,
   IptalSoruMantigi,
+  ExcelPreviewRow,
+  ExcelPreviewData,
+  TopluYapistirResult,
 } from '@/types/spectra-wizard';
 import { getSoruDersBilgisi, DERS_BILGILERI } from './exam-configs';
 
@@ -693,4 +696,505 @@ export function copyCevaplarOnly(
   });
 
   return { ...hedef, items: newItems };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOPLU YAPIŞTIRMA (GELİŞMİŞ)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Format tipini otomatik algıla
+ */
+export function detectCevapFormat(input: string): 'continuous' | 'spaced' | 'numbered' | 'multiline' | 'mixed' {
+  const lines = input.trim().split('\n').filter(l => l.trim());
+  
+  // Çok satırlı mı?
+  if (lines.length > 5) {
+    // Her satırda tek cevap var mı?
+    const singleCharPerLine = lines.every(l => /^[ABCDE12345]$/i.test(l.trim()));
+    if (singleCharPerLine) return 'multiline';
+  }
+  
+  // Tek satır analizi
+  const singleLine = input.replace(/\n/g, ' ').trim();
+  
+  // Sayılı format: 1 2 3 4 veya 1,2,3,4
+  if (/^[\d\s,\-]+$/.test(singleLine) && /[12345]/.test(singleLine)) {
+    return 'numbered';
+  }
+  
+  // Boşluklu format: A B C D
+  if (/^[ABCDE\s]+$/i.test(singleLine) && singleLine.includes(' ')) {
+    return 'spaced';
+  }
+  
+  // Sürekli format: ABCDABCD
+  if (/^[ABCDE]+$/i.test(singleLine.replace(/\s/g, ''))) {
+    return 'continuous';
+  }
+  
+  return 'mixed';
+}
+
+/**
+ * Gelişmiş toplu cevap parse
+ * Farklı formatları otomatik algılar ve parse eder
+ */
+export function parseTopluCevap(
+  input: string,
+  toplamSoru: number
+): TopluYapistirResult {
+  const hatalar: string[] = [];
+  const uyarilar: string[] = [];
+  
+  if (!input || !input.trim()) {
+    return {
+      cevaplar: [],
+      hatalar: ['Boş giriş'],
+      uyarilar: [],
+      girilmisSayi: 0,
+      beklenenSayi: toplamSoru,
+      isValid: false,
+      formatTipi: 'continuous',
+    };
+  }
+  
+  const formatTipi = detectCevapFormat(input);
+  let cleaned = '';
+  
+  switch (formatTipi) {
+    case 'multiline':
+      // Her satır bir cevap
+      cleaned = input
+        .split('\n')
+        .map(l => l.trim().toUpperCase())
+        .filter(l => /^[ABCDE12345]$/.test(l))
+        .join('');
+      break;
+      
+    case 'numbered':
+      // Sayıları harflere çevir
+      cleaned = input
+        .replace(/[,\-\s]+/g, '')
+        .replace(/1/g, 'A')
+        .replace(/2/g, 'B')
+        .replace(/3/g, 'C')
+        .replace(/4/g, 'D')
+        .replace(/5/g, 'E');
+      break;
+      
+    case 'spaced':
+    case 'continuous':
+    case 'mixed':
+    default:
+      // Standart temizleme
+      cleaned = input
+        .toUpperCase()
+        .replace(/[,\-\s\n\r]+/g, '')
+        .replace(/1/g, 'A')
+        .replace(/2/g, 'B')
+        .replace(/3/g, 'C')
+        .replace(/4/g, 'D')
+        .replace(/5/g, 'E')
+        .replace(/[^ABCDE]/g, '');
+      break;
+  }
+  
+  const cevaplar: CevapSecenegi[] = [];
+  
+  for (let i = 0; i < toplamSoru; i++) {
+    if (i < cleaned.length) {
+      const char = cleaned[i];
+      if (char && ['A', 'B', 'C', 'D', 'E'].includes(char)) {
+        cevaplar.push(char as CevapSecenegi);
+      } else {
+        cevaplar.push(null);
+        hatalar.push(`Soru ${i + 1}: Geçersiz karakter`);
+      }
+    } else {
+      cevaplar.push(null);
+    }
+  }
+  
+  const girilmisSayi = cleaned.length;
+  
+  if (girilmisSayi < toplamSoru) {
+    uyarilar.push(`${toplamSoru - girilmisSayi} soru eksik`);
+  }
+  if (girilmisSayi > toplamSoru) {
+    uyarilar.push(`${girilmisSayi - toplamSoru} fazla cevap (kesildi)`);
+  }
+  
+  return {
+    cevaplar,
+    hatalar,
+    uyarilar,
+    girilmisSayi: Math.min(girilmisSayi, toplamSoru),
+    beklenenSayi: toplamSoru,
+    isValid: hatalar.length === 0 && girilmisSayi >= toplamSoru,
+    formatTipi,
+  };
+}
+
+/**
+ * Hatalı karakterleri vurgula (UI için)
+ */
+export function highlightInvalidChars(input: string): { text: string; isValid: boolean }[] {
+  const result: { text: string; isValid: boolean }[] = [];
+  const validChars = /[ABCDE12345\s,\-\n\r]/i;
+  
+  let currentText = '';
+  let currentValid = true;
+  
+  for (const char of input) {
+    const isValid = validChars.test(char);
+    
+    if (isValid === currentValid) {
+      currentText += char;
+    } else {
+      if (currentText) {
+        result.push({ text: currentText, isValid: currentValid });
+      }
+      currentText = char;
+      currentValid = isValid;
+    }
+  }
+  
+  if (currentText) {
+    result.push({ text: currentText, isValid: currentValid });
+  }
+  
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXCEL/CSV PARSE (GELİŞMİŞ)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Kolon adını otomatik eşleştir
+ */
+export function autoMapColumn(columnName: string): string | null {
+  const normalized = columnName.toLowerCase().trim();
+  
+  const mappings: Record<string, string[]> = {
+    'soruNo': ['soru no', 'soru', 'no', 'numara', 'soru numarası', 'question', 'q'],
+    'dogruCevap': ['doğru cevap', 'dogru cevap', 'cevap', 'answer', 'doğru', 'correct'],
+    'dersKodu': ['ders kodu', 'ders', 'derskodu', 'subject', 'kod'],
+    'dersAdi': ['ders adı', 'ders adi', 'subject name'],
+    'kazanimKodu': ['kazanım kodu', 'kazanim kodu', 'kazanım', 'kazanim', 'objective', 'learning outcome'],
+    'kazanimMetni': ['kazanım metni', 'kazanim metni', 'kazanım açıklaması', 'description'],
+    'kitapcik': ['kitapçık', 'kitapcik', 'booklet', 'form'],
+  };
+  
+  for (const [field, aliases] of Object.entries(mappings)) {
+    if (aliases.some(alias => normalized.includes(alias))) {
+      return field;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Excel/CSV verilerini önizleme formatına çevir
+ */
+export function parseExcelToPreview(
+  data: Record<string, any>[],
+  columnMapping: Record<string, string>,
+  dersDagilimi: DersDagilimi[]
+): ExcelPreviewData {
+  const rows: ExcelPreviewRow[] = [];
+  let validRows = 0;
+  let errorRows = 0;
+  
+  const columns = Object.keys(data[0] || {});
+  
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const errors: string[] = [];
+    
+    // Soru No
+    const soruNoField = Object.keys(columnMapping).find(k => columnMapping[k] === 'soruNo');
+    const soruNo = soruNoField ? parseInt(row[soruNoField], 10) : i + 1;
+    
+    if (isNaN(soruNo) || soruNo < 1) {
+      errors.push('Geçersiz soru numarası');
+    }
+    
+    // Doğru Cevap
+    const cevapField = Object.keys(columnMapping).find(k => columnMapping[k] === 'dogruCevap');
+    const dogruCevap = cevapField ? String(row[cevapField] || '').toUpperCase().trim() : '';
+    
+    if (dogruCevap && !['A', 'B', 'C', 'D', 'E'].includes(dogruCevap)) {
+      errors.push(`Geçersiz cevap: ${dogruCevap}`);
+    }
+    
+    // Ders bilgisi
+    const dersKoduField = Object.keys(columnMapping).find(k => columnMapping[k] === 'dersKodu');
+    let dersKodu = dersKoduField ? String(row[dersKoduField] || '').toUpperCase().trim() : '';
+    let dersAdi = '';
+    
+    // Ders bilgisi yoksa, soru numarasından bul
+    if (!dersKodu && dersDagilimi.length > 0) {
+      const ders = getSoruDersBilgisi(soruNo, dersDagilimi);
+      if (ders) {
+        dersKodu = ders.dersKodu;
+        dersAdi = ders.dersAdi;
+      }
+    }
+    
+    // Kazanım
+    const kazanimKoduField = Object.keys(columnMapping).find(k => columnMapping[k] === 'kazanimKodu');
+    const kazanimKodu = kazanimKoduField ? String(row[kazanimKoduField] || '').trim() : undefined;
+    
+    const kazanimMetniField = Object.keys(columnMapping).find(k => columnMapping[k] === 'kazanimMetni');
+    const kazanimMetni = kazanimMetniField ? String(row[kazanimMetniField] || '').trim() : undefined;
+    
+    // Kazanım format kontrolü
+    if (kazanimKodu && !validateKazanimKodu(kazanimKodu).valid) {
+      errors.push('Geçersiz kazanım formatı');
+    }
+    
+    // Kitapçık
+    const kitapcikField = Object.keys(columnMapping).find(k => columnMapping[k] === 'kitapcik');
+    const kitapcikRaw = kitapcikField ? String(row[kitapcikField] || '').toUpperCase().trim() : undefined;
+    const kitapcik = kitapcikRaw && ['A', 'B', 'C', 'D'].includes(kitapcikRaw) 
+      ? kitapcikRaw as KitapcikTuru 
+      : undefined;
+    
+    const hasError = errors.length > 0;
+    if (hasError) {
+      errorRows++;
+    } else {
+      validRows++;
+    }
+    
+    rows.push({
+      rowIndex: i,
+      soruNo,
+      dersKodu,
+      dersAdi,
+      dogruCevap: dogruCevap || undefined,
+      kitapcik,
+      kazanimKodu,
+      kazanimMetni,
+      hasError,
+      errorMessage: errors.join(', '),
+    });
+  }
+  
+  return {
+    fileName: '',
+    rows,
+    columns,
+    mappedColumns: columnMapping,
+    isValid: errorRows === 0,
+    totalRows: rows.length,
+    validRows,
+    errorRows,
+  };
+}
+
+/**
+ * Önizleme satırlarını CevapAnahtariItem'a çevir
+ */
+export function convertPreviewToItems(
+  preview: ExcelPreviewData,
+  dersDagilimi: DersDagilimi[]
+): { items: CevapAnahtariItem[]; hatalar: string[] } {
+  const items: CevapAnahtariItem[] = [];
+  const hatalar: string[] = [];
+  
+  // Soru numarasına göre sırala
+  const sortedRows = [...preview.rows].sort((a, b) => a.soruNo - b.soruNo);
+  
+  for (const row of sortedRows) {
+    if (row.hasError) {
+      hatalar.push(`Soru ${row.soruNo}: ${row.errorMessage}`);
+    }
+    
+    // Ders bilgisini bul veya önizlemeden al
+    let dersKodu = row.dersKodu || '';
+    let dersAdi = row.dersAdi || '';
+    
+    if (!dersKodu && dersDagilimi.length > 0) {
+      const ders = getSoruDersBilgisi(row.soruNo, dersDagilimi);
+      if (ders) {
+        dersKodu = ders.dersKodu;
+        dersAdi = ders.dersAdi;
+      }
+    }
+    
+    items.push({
+      soruNo: row.soruNo,
+      dogruCevap: (row.dogruCevap as CevapSecenegi) || null,
+      dersKodu,
+      dersAdi,
+      kazanimKodu: row.kazanimKodu,
+      kazanimAciklamasi: row.kazanimMetni,
+      iptal: false,
+    });
+  }
+  
+  return { items, hatalar };
+}
+
+/**
+ * Excel önizleme satırını güncelle
+ */
+export function updatePreviewRow(
+  preview: ExcelPreviewData,
+  rowIndex: number,
+  updates: Partial<ExcelPreviewRow>
+): ExcelPreviewData {
+  const newRows = preview.rows.map(row => {
+    if (row.rowIndex === rowIndex) {
+      const updatedRow = { ...row, ...updates };
+      
+      // Hata durumunu yeniden hesapla
+      const errors: string[] = [];
+      if (updatedRow.dogruCevap && !['A', 'B', 'C', 'D', 'E'].includes(updatedRow.dogruCevap)) {
+        errors.push('Geçersiz cevap');
+      }
+      if (updatedRow.kazanimKodu && !validateKazanimKodu(updatedRow.kazanimKodu).valid) {
+        errors.push('Geçersiz kazanım formatı');
+      }
+      
+      updatedRow.hasError = errors.length > 0;
+      updatedRow.errorMessage = errors.join(', ');
+      
+      return updatedRow;
+    }
+    return row;
+  });
+  
+  const errorRows = newRows.filter(r => r.hasError).length;
+  const validRows = newRows.length - errorRows;
+  
+  return {
+    ...preview,
+    rows: newRows,
+    isValid: errorRows === 0,
+    errorRows,
+    validRows,
+  };
+}
+
+/**
+ * Önizlemeden satır sil
+ */
+export function deletePreviewRow(
+  preview: ExcelPreviewData,
+  rowIndex: number
+): ExcelPreviewData {
+  const newRows = preview.rows.filter(row => row.rowIndex !== rowIndex);
+  const errorRows = newRows.filter(r => r.hasError).length;
+  
+  return {
+    ...preview,
+    rows: newRows,
+    totalRows: newRows.length,
+    errorRows,
+    validRows: newRows.length - errorRows,
+    isValid: errorRows === 0,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOPLU İŞLEMLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Seçili soruları sil
+ */
+export function deleteSelectedItems(
+  cevapAnahtari: CevapAnahtari,
+  soruNolar: number[]
+): CevapAnahtari {
+  const newItems = cevapAnahtari.items.filter(item => !soruNolar.includes(item.soruNo));
+  
+  // Soru numaralarını yeniden düzenle
+  const reorderedItems = newItems.map((item, index) => ({
+    ...item,
+    soruNo: index + 1,
+  }));
+  
+  return {
+    ...cevapAnahtari,
+    items: reorderedItems,
+    toplamSoru: reorderedItems.length,
+  };
+}
+
+/**
+ * Seçili sorulara toplu ders ata
+ */
+export function bulkUpdateDers(
+  cevapAnahtari: CevapAnahtari,
+  soruNolar: number[],
+  dersKodu: string,
+  dersAdi: string
+): CevapAnahtari {
+  const newItems = cevapAnahtari.items.map(item => {
+    if (soruNolar.includes(item.soruNo)) {
+      return { ...item, dersKodu, dersAdi };
+    }
+    return item;
+  });
+  
+  return { ...cevapAnahtari, items: newItems };
+}
+
+/**
+ * Seçili sorulara toplu kazanım ata
+ */
+export function bulkUpdateKazanim(
+  cevapAnahtari: CevapAnahtari,
+  soruNolar: number[],
+  kazanimKodu: string,
+  kazanimAciklamasi?: string
+): CevapAnahtari {
+  const newItems = cevapAnahtari.items.map(item => {
+    if (soruNolar.includes(item.soruNo)) {
+      return { ...item, kazanimKodu, kazanimAciklamasi };
+    }
+    return item;
+  });
+  
+  return { ...cevapAnahtari, items: newItems };
+}
+
+/**
+ * Tüm cevapları temizle
+ */
+export function clearAllAnswers(cevapAnahtari: CevapAnahtari): CevapAnahtari {
+  const newItems = cevapAnahtari.items.map(item => ({
+    ...item,
+    dogruCevap: null,
+    kitapcikCevaplari: undefined,
+  }));
+  
+  return { ...cevapAnahtari, items: newItems, tamamlanmaOrani: 0 };
+}
+
+/**
+ * Soru sırasını değiştir
+ */
+export function reorderItems(
+  cevapAnahtari: CevapAnahtari,
+  fromIndex: number,
+  toIndex: number
+): CevapAnahtari {
+  const items = [...cevapAnahtari.items];
+  const [removed] = items.splice(fromIndex, 1);
+  items.splice(toIndex, 0, removed);
+  
+  // Soru numaralarını yeniden düzenle
+  const reorderedItems = items.map((item, index) => ({
+    ...item,
+    soruNo: index + 1,
+  }));
+  
+  return { ...cevapAnahtari, items: reorderedItems };
 }

@@ -50,6 +50,20 @@ export {
   validateCevapAnahtari,
   cloneCevapAnahtari,
   copyCevaplarOnly,
+  // v3.0 - Yeni fonksiyonlar
+  detectCevapFormat,
+  parseTopluCevap,
+  highlightInvalidChars,
+  autoMapColumn,
+  parseExcelToPreview,
+  convertPreviewToItems,
+  updatePreviewRow,
+  deletePreviewRow,
+  deleteSelectedItems,
+  bulkUpdateDers,
+  bulkUpdateKazanim,
+  clearAllAnswers,
+  reorderItems,
 } from './answer-key-parser';
 
 export type { ExcelCevapAnahtariRow, CevapAnahtariValidation } from './answer-key-parser';
