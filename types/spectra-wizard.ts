@@ -1,7 +1,23 @@
 // ============================================================================
-// SPECTRA SINAV SİHİRBAZI - TYPE DEFINITIONS
-// Tüm sınav türleri, cevap anahtarı, optik form ve puanlama için tipler
+// SPECTRA SINAV SİHİRBAZI - TYPE DEFINITIONS v2.0 FINAL
+// Production-ready, MEB/ÖSYM uyumlu, tam özellikli sınav motoru
 // ============================================================================
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMEL TİPLER VE UTILITY
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** ISO 8601 tarih formatı */
+export type ISODate = string;
+
+/** UUID formatı */
+export type UUID = string;
+
+/** Özel ders kodu (kurum tanımlı) */
+export type CustomDersKodu = string;
+
+/** Versiyon formatı (semver) */
+export type SemVer = `${number}.${number}.${number}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SINIF SEVİYELERİ
@@ -9,17 +25,19 @@
 
 export type SinifSeviyesi = '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | 'mezun';
 
+export type Kademe = 'ilkokul' | 'ortaokul' | 'lise' | 'mezun';
+
 export interface SinifBilgisi {
   seviye: SinifSeviyesi;
   ad: string;
-  kademe: 'ilkokul' | 'ortaokul' | 'lise' | 'mezun';
+  kademe: Kademe;
   varsayilanSoruSayisi: number;
   minSoruSayisi: number;
   maxSoruSayisi: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SINAV TÜRLERİ
+// SINAV TÜRLERİ VE KAYNAK
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SinavTuru = 
@@ -30,83 +48,262 @@ export type SinavTuru =
   | 'AYT_SOZ'       // Alan Yeterlilik - Sözel
   | 'AYT_DIL'       // Alan Yeterlilik - Yabancı Dil (YDT)
   | 'DENEME'        // Kurum Denemesi (özelleştirilebilir)
-  | 'YAZILI';       // Dönem Sonu Yazılı (tek ders)
+  | 'YAZILI'        // Dönem Sonu Yazılı (tek ders)
+  | 'KONU_TEST'     // Konu Tarama Testi
+  | 'KAZANIM_TEST'; // Kazanım Değerlendirme Testi
+
+/** Sınav kaynağı - Resmi vs Kurum ayrımı için kritik */
+export type SinavKaynakTuru = 
+  | 'MEB'           // Milli Eğitim Bakanlığı (resmi)
+  | 'OSYM'          // ÖSYM (resmi)
+  | 'KURUM'         // Kurum kendi denemesi
+  | 'YAYINEVI';     // Yayınevi denemesi (Özdebir, FEM, vb.)
+
+/** Kilitlenebilir alanlar - Resmi sınavlarda değiştirilemez */
+export type KilitliAlan = 
+  | 'toplamSoru'
+  | 'dersDagilimi'
+  | 'yanlisKatsayisi'
+  | 'tabanPuan'
+  | 'tavanPuan'
+  | 'dersKatsayilari'
+  | 'sure';
 
 export type KitapcikTuru = 'A' | 'B' | 'C' | 'D';
 export type CevapSecenegi = 'A' | 'B' | 'C' | 'D' | 'E' | '' | null;
+export type Cinsiyet = 'E' | 'K';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DERS YAPISI
+// DERS KODLARI (Kapsamlı)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type DersKodu = 
-  | 'TUR'    // Türkçe
-  | 'MAT'    // Matematik
-  | 'FEN'    // Fen Bilimleri
-  | 'SOS'    // Sosyal Bilgiler / T.C. İnkılap Tarihi
-  | 'DIN'    // Din Kültürü ve Ahlak Bilgisi
-  | 'ING'    // İngilizce
-  | 'EDEB'   // Türk Dili ve Edebiyatı
-  | 'TAR1'   // Tarih-1
-  | 'TAR2'   // Tarih-2
-  | 'COG1'   // Coğrafya-1
-  | 'COG2'   // Coğrafya-2
-  | 'FIZ'    // Fizik
-  | 'KIM'    // Kimya
-  | 'BIY'    // Biyoloji
-  | 'FEL';   // Felsefe Grubu
+  // ORTAOKUL (LGS)
+  | 'TUR' | 'MAT' | 'FEN' | 'SOS' | 'INK' | 'DIN' | 'ING'
+  // TYT
+  | 'TYT_TUR' | 'TYT_SOS' | 'TYT_MAT' | 'TYT_FEN'
+  // AYT SAYISAL
+  | 'AYT_MAT' | 'AYT_FIZ' | 'AYT_KIM' | 'AYT_BIY'
+  // AYT SÖZEL
+  | 'AYT_EDE' | 'AYT_TAR1' | 'AYT_COG1' | 'AYT_TAR2' | 'AYT_COG2' | 'AYT_FEL' | 'AYT_DIN'
+  // FELSEFE GRUBU ALT
+  | 'FEL_MANT' | 'FEL_PSI' | 'FEL_SOS' | 'FEL_FEL'
+  // AYT EŞİT AĞIRLIK
+  | 'AYT_EA_MAT' | 'AYT_EA_EDE' | 'AYT_EA_TAR' | 'AYT_EA_COG'
+  // YDT
+  | 'YDT_ING' | 'YDT_ALM' | 'YDT_FRA' | 'YDT_ARA' | 'YDT_RUS'
+  // Legacy uyumluluk
+  | 'EDEB' | 'TAR1' | 'TAR2' | 'COG1' | 'COG2' | 'FIZ' | 'KIM' | 'BIY' | 'FEL';
+
+export interface DersBilgisi {
+  kod: DersKodu;
+  ad: string;
+  kisaAd: string;
+  renk: string;
+  icon: string;
+  varsayilanSoruSayisi: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DERS DAĞILIMI
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface DersDagilimi {
-  dersKodu: DersKodu | string;
+  dersKodu: DersKodu | CustomDersKodu;
   dersAdi: string;
   soruSayisi: number;
-  baslangicSoru: number;  // 1-indexed
-  bitisSoru: number;      // 1-indexed
-  ppiKatsayisi?: number;  // TYT/AYT puanlama katsayısı
-  renk?: string;          // UI rengi
-  icon?: string;          // Emoji/icon
+  baslangicSoru: number;    // 1-indexed
+  bitisSoru: number;        // 1-indexed
+  sira?: number;
+  ppiKatsayisi?: number;    // TYT/AYT puanlama katsayısı
+  renk?: string;
+  icon?: string;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 PUANLAMA KURALLARI - SCORING RULE ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Net hesaplama yöntemi */
+export type NetHesaplamaYontemi = 
+  | 'standart_4'     // dogru - (yanlis / 4) → TYT/AYT
+  | 'standart_3'     // dogru - (yanlis / 3) → LGS Deneme
+  | 'yok'            // dogru (yanlış götürmez) → Resmi LGS
+  | 'ozel';          // Özel formül
+
+/** Puan hesaplama formülü */
+export type PuanFormuluTipi = 
+  | 'lgs'            // LGS: 100 + (net * 4.444)
+  | 'tyt'            // TYT: Ağırlıklı standart puan
+  | 'ayt_say'        // AYT Sayısal
+  | 'ayt_soz'        // AYT Sözel
+  | 'ayt_ea'         // AYT Eşit Ağırlık
+  | 'ydt'            // Yabancı Dil
+  | 'linear'         // Doğrusal: (net/toplam) * 100
+  | 'ozel';          // Özel formül
+
+/** Normalizasyon yöntemi (ÖSYM tipi hesaplamalar için) */
+export type NormalizasyonYontemi = 
+  | 'yok'            // Normalizasyon yok
+  | 'linear'         // Doğrusal normalizasyon
+  | 'standart_sapma' // Standart sapma bazlı (ÖSYM)
+  | 'percentile';    // Yüzdelik dilim
+
+/** Ders bazlı katsayı */
+export interface DersKatsayisi {
+  dersKodu: DersKodu | CustomDersKodu;
+  dersAdi: string;
+  katsayi: number;
+  ozelAgirlik?: number;
+}
+
+/** 
+ * 🎯 PUANLAMA FORMÜLÜ
+ * Tüm puanlama kurallarını tek bir yerde toplar
+ */
+export interface PuanlamaFormulu {
+  netHesaplama: NetHesaplamaYontemi;
+  yanlisKatsayisi: number;
+  tabanPuan: number;
+  tavanPuan: number;
+  formulTipi: PuanFormuluTipi;
+  dersKatsayilari: DersKatsayisi[];
+  normalizasyon: NormalizasyonYontemi;
+  standartSapmaDahil: boolean;
+  ozelFormul?: string;
+  isDuzenlenebilir: boolean;
+}
+
+/** İptal edilen soru için puan dağıtım mantığı */
+export type IptalSoruMantigi = 
+  | 'herkese_dogru'        // Herkes için doğru kabul edilir (ÖSYM)
+  | 'puani_dagit'          // Puan diğer sorulara dağıtılır (MEB)
+  | 'cevaplayana_dogru'    // Sadece cevap verenler için doğru
+  | 'gecersiz_say';        // Puanlamaya dahil edilmez
+
+/**
+ * 🔒 PUANLAMA KURALI SNAPSHOT
+ * Sınav oluşturulduğunda TÜM kuralların değişmez kopyası
+ */
+export interface ScoringRuleSnapshot {
+  id: UUID;
+  version: SemVer;
+  sinavTuru: SinavTuru;
+  puanlamaFormulu: PuanlamaFormulu;
+  dersDagilimi: DersDagilimi[];
+  iptalSoruMantigi: IptalSoruMantigi;
+  createdAt: ISODate;
+  createdBy?: UUID;
+  configHash: string;
+}
+
+/**
+ * 📊 PUAN HESAPLAMA ADIMI
+ */
+export interface PuanHesaplamaAdimi {
+  adim: number;
+  aciklama: string;
+  islem: string;
+  oncekiDeger?: number;
+  sonrakiDeger: number;
+  birim?: string;
+}
+
+/**
+ * 📈 PUAN HESAPLAMA DETAYI
+ */
+export interface PuanHesaplamaDetayi {
+  adimlar: PuanHesaplamaAdimi[];
+  hamNet: number;
+  agirlikliNet?: number;
+  hamPuan: number;
+  normalizePuan?: number;
+  finalPuan: number;
+  kullanilanFormul: string;
+  hesaplamaTarihi: ISODate;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 SINAV KONFİGÜRASYONU
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface SinavKonfigurasyonu {
   kod: SinavTuru;
   ad: string;
+  kisaAd?: string;
   aciklama: string;
   toplamSoru: number;
-  sure: number;           // Dakika
-  yanlisKatsayisi: number; // 3 = 3 yanlış 1 doğruyu götürür, 4 = 4 yanlış, 0 = götürmez
+  sure: number;
   kitapcikTurleri: KitapcikTuru[];
   uygunSiniflar: SinifSeviyesi[];
   dersDagilimi: DersDagilimi[];
+  puanlamaFormulu?: PuanlamaFormulu;
+  iptalSoruMantigi?: IptalSoruMantigi;
+  kaynakTuru?: SinavKaynakTuru;
+  isResmi?: boolean;
+  kilitliAlanlar?: KilitliAlan[];
+  kazanimZorunlu?: boolean;
   renk: string;
   icon: string;
-  tabanPuan?: number;     // LGS: 100, TYT: 0
-  tavanPuan?: number;     // LGS: 500, TYT: 500
+  tabanPuan?: number;
+  tavanPuan?: number;
+  yanlisKatsayisi?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CEVAP ANAHTARI
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 EXAM ENTITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type ExamDurum = 
+  | 'taslak'
+  | 'hazir'
+  | 'yayinda'
+  | 'arsiv';
+
+export interface Exam {
+  id: UUID;
+  organizationId: UUID;
+  academicYearId: UUID;
+  ad: string;
+  sinavTuru: SinavTuru;
+  sinifSeviyesi: SinifSeviyesi;
+  sinavTarihi: ISODate;
+  aciklama?: string;
+  konfigurasyonKodu: SinavTuru;
+  scoringSnapshot?: ScoringRuleSnapshot;
+  cevapAnahtariId?: UUID;
+  toplamKatilimci?: number;
+  durum: ExamDurum;
+  createdBy: UUID;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+  publishedAt?: ISODate;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 CEVAP ANAHTARI
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface CevapAnahtariItem {
   soruNo: number;
   dogruCevap: CevapSecenegi;
-  dersKodu: DersKodu | string;
+  dersKodu: DersKodu | CustomDersKodu;
   dersAdi: string;
-  kazanimKodu?: string;       // MEB Kazanım Kodu (örn: T.8.3.5)
-  kazanimAciklamasi?: string; // Kazanım metni
-  kitapcikCevaplari?: {       // Kitapçık bazlı cevaplar
-    A: CevapSecenegi;
-    B?: CevapSecenegi;
-    C?: CevapSecenegi;
-    D?: CevapSecenegi;
-  };
-  iptal?: boolean;            // İptal edilen soru
-  zorlukDerecesi?: 1 | 2 | 3 | 4 | 5; // 1: Kolay, 5: Çok Zor
+  kazanimKodu?: string;
+  kazanimAciklamasi?: string;
+  konuAdi?: string;
+  altKonuAdi?: string;
+  kitapcikCevaplari?: Record<KitapcikTuru, CevapSecenegi>;
+  iptal?: boolean;
+  iptalNedeni?: string;
+  iptalPuanDagitimi?: IptalSoruMantigi;
+  zorlukDerecesi?: 1 | 2 | 3 | 4 | 5;
+  cozumVideoUrl?: string;
 }
 
 export interface CevapAnahtari {
-  id?: string;
-  examId?: string;
+  id?: UUID;
+  examId?: UUID;
   organizationId: string;
   sinavTuru: SinavTuru;
   sinifSeviyesi: SinifSeviyesi;
@@ -114,54 +311,70 @@ export interface CevapAnahtari {
   kitapcikSayisi: number;
   aktifKitapcik: KitapcikTuru;
   items: CevapAnahtariItem[];
-  dersSirasi: (DersKodu | string)[];  // Kullanıcının sürükle-bırak sırası
+  dersSirasi: (DersKodu | CustomDersKodu)[];
+  tamamlanmaOrani?: number;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// Cevap Anahtarı Şablonu (Kütüphane için)
 export interface CevapAnahtariSablon {
   id: string;
   organizationId: string;
-  ad: string;                 // "ÖZDEBİR LGS DENEME 1"
+  ad: string;
   sinavTuru: SinavTuru;
   sinifSeviyesi: SinifSeviyesi;
   toplamSoru: number;
   dersDagilimi: DersDagilimi[];
   cevaplar: CevapAnahtariItem[];
+  kullanimSayisi?: number;
+  sonKullanimTarihi?: ISODate;
+  etiketler?: string[];
+  aciklama?: string;
+  createdBy?: UUID;
   createdAt: string;
   updatedAt: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KAZANIM SİSTEMİ (MEB Müfredatı)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// MEB Kazanım Kodu Formatı: T.8.3.5
-// T = Ders Kodu (Türkçe)
-// 8 = Sınıf Seviyesi
-// 3 = Ünite Numarası
-// 5 = Kazanım Numarası
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 KAZANIM SİSTEMİ
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface Kazanim {
   id: string;
-  kod: string;                // T.8.3.5
-  dersKodu: DersKodu | string;
+  kod: string;
+  dersKodu: DersKodu | CustomDersKodu;
   sinifSeviyesi: SinifSeviyesi;
   uniteNo: number;
   kazanimNo: number;
-  aciklama: string;           // Kazanım metni
-  uniteBesligi?: string;      // Ünite başlığı
-  altKazanimlar?: string[];   // Alt kazanımlar
+  aciklama: string;
+  kisaAciklama?: string;
+  uniteBasligi?: string;
+  konuBasligi?: string;
+  altKazanimlar?: string[];
+  zorlukDerecesi?: 1 | 2 | 3 | 4 | 5;
+  mufredatYili?: number;
+  createdAt?: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OPTİK FORM ŞABLONU
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 OPTİK FORM
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type OptikEncoding = 'utf-8' | 'windows-1254' | 'iso-8859-9';
+export type SatirSonu = 'LF' | 'CRLF';
 
 export interface OptikAlanTanimi {
-  baslangic: number;  // Karakter pozisyonu (1-indexed)
+  baslangic: number;
   bitis: number;
+  uzunluk?: number;
+}
+
+export interface OptikDersDagilimi {
+  dersKodu: DersKodu | CustomDersKodu;
+  dersAdi: string;
+  baslangic: number;
+  bitis: number;
+  soruSayisi: number;
 }
 
 export interface OptikFormSablonu {
@@ -169,128 +382,192 @@ export interface OptikFormSablonu {
   organizationId?: string;
   ad: string;
   yayinevi: string;
-  aciklama: string;
+  aciklama?: string;
   sinifSeviyeleri: SinifSeviyesi[];
   sinavTurleri: SinavTuru[];
   toplamSoru: number;
-  satirUzunlugu: number;      // TXT satır karakter sayısı
+  secenekSayisi?: number;
+  satirUzunlugu: number;
+  encoding?: OptikEncoding;
+  satirSonu?: SatirSonu;
   alanlar: {
     kurumKodu?: OptikAlanTanimi;
     ogrenciNo: OptikAlanTanimi;
-    ogrenciAdi: OptikAlanTanimi;
+    ogrenciAdi?: OptikAlanTanimi;
     tcKimlik?: OptikAlanTanimi;
     sinif?: OptikAlanTanimi;
     kitapcik?: OptikAlanTanimi;
     cinsiyet?: OptikAlanTanimi;
     cevaplar: OptikAlanTanimi;
   };
-  dersDagilimi?: {
-    dersKodu: string;
-    dersAdi: string;
-    baslangic: number;        // Cevap dizisindeki index
-    bitis: number;
-    soruSayisi: number;
-  }[];
-  kitapcikDonusum?: {
-    A: number[];
-    B: number[];
-    C?: number[];
-    D?: number[];
-  };
-  isDefault?: boolean;        // Sistem şablonu
+  dersDagilimi?: OptikDersDagilimi[];
+  kitapcikDonusum?: Record<KitapcikTuru, number[]>;
+  isDefault?: boolean;
+  isActive?: boolean;
+  createdBy?: UUID;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OPTİK VERİ PARSE
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 OPTİK PARSE - TİPLİ HATALAR
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type OptikHataTuru = 
+  | 'FORMAT'
+  | 'UZUNLUK'
+  | 'KITAPCIK'
+  | 'CEVAP'
+  | 'OGRENCI_NO'
+  | 'OGRENCI_ESLESME'
+  | 'KARAKTER'
+  | 'EKSIK_ALAN';
+
+export type HataSeviyesi = 'error' | 'warning' | 'info';
+
+export interface OptikHata {
+  tur: OptikHataTuru;
+  seviye: HataSeviyesi;
+  mesaj: string;
+  satirNo?: number;
+  alan?: string;
+  ogrenciNo?: string;
+  rawData?: string;
+  oneri?: string;
+}
+
+export type EslesmeDurumu = 'matched' | 'pending' | 'guest' | 'conflict' | 'error';
 
 export interface ParsedOptikSatir {
   satirNo: number;
   rawData: string;
   kurumKodu?: string;
   ogrenciNo: string;
-  ogrenciAdi: string;
+  ogrenciAdi?: string;
   tcKimlik?: string;
   sinif?: string;
   kitapcik: KitapcikTuru;
-  cinsiyet?: 'E' | 'K';
+  cinsiyet?: Cinsiyet;
   cevaplar: CevapSecenegi[];
-  hatalar: string[];
-  eslesmeDurumu?: 'matched' | 'pending' | 'guest' | 'conflict';
+  hatalar: (string | OptikHata)[];
+  eslesmeDurumu?: EslesmeDurumu;
   eslesmiStudentId?: string;
+  eslesmiStudentAdi?: string;
 }
 
 export interface OptikParseResult {
   basarili: boolean;
+  dosyaAdi?: string;
+  sablonAdi?: string;
   toplamSatir: number;
   basariliSatir: number;
   hataliSatir: number;
+  uyariSatir?: number;
   satirlar: ParsedOptikSatir[];
-  hatalar: string[];
-  uyarilar: string[];
+  hatalar: (string | OptikHata)[];
+  uyarilar: (string | OptikHata)[];
+  parseBaslangic?: ISODate;
+  parseBitis?: ISODate;
+  sureMilisaniye?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUANLAMA MOTORU
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 SONUÇLAR VE İSTATİSTİKLER
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface DersSonuc {
-  dersKodu: DersKodu | string;
+  dersKodu: DersKodu | CustomDersKodu;
   dersAdi: string;
   soruSayisi: number;
   dogru: number;
   yanlis: number;
   bos: number;
-  net: number;              // dogru - (yanlis / yanlisKatsayisi)
-  yuzde: number;            // (net / soruSayisi) * 100
+  net: number;
+  yuzde: number;
+  sinifOrtalamasi?: number;
+  kurumOrtalamasi?: number;
+  fark?: number;
   ppiKatsayisi?: number;
-  agirlikliPuan?: number;   // TYT/AYT için
+  agirlikliPuan?: number;
 }
 
 export interface OgrenciSonuc {
   id?: string;
   examId: string;
   participantId?: string;
-  studentId?: string;       // Kayıtlı öğrenci ise
+  studentId?: string;
   ogrenciNo: string;
   ogrenciAdi: string;
   sinif?: string;
   kitapcik: KitapcikTuru;
   tcKimlik?: string;
   
-  // Toplamlar
   toplamDogru: number;
   toplamYanlis: number;
   toplamBos: number;
   toplamNet: number;
   
-  // Ders bazlı
   dersSonuclari: DersSonuc[];
   
-  // Sıralama
   kurumSirasi?: number;
+  kurumToplamKatilimci?: number;
   sinifSirasi?: number;
+  sinifToplamKatilimci?: number;
   yuzdelikDilim?: number;
   
-  // Puan dönüşümü
-  hamPuan?: number;         // Net'ten hesaplanan ham puan
-  tahminiPuan?: number;     // LGS/TYT/AYT tahmini puan
+  hamPuan?: number;
+  tahminiPuan?: number;
+  hedefPuan?: number;
+  hedefFark?: number;
   
-  // Durum
-  eslesmeDurumu: 'matched' | 'pending' | 'guest' | 'conflict';
+  puanDetaylari?: PuanHesaplamaDetayi;
+  scoringSnapshotId?: UUID;
+  
+  eslesmeDurumu: EslesmeDurumu | 'matched' | 'pending' | 'guest' | 'conflict';
   isMisafir: boolean;
   
-  // Ham veriler
   cevaplar?: CevapSecenegi[];
   rawData?: string;
+  
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface NetDagilimi {
+  aralik: string;
+  minNet?: number;
+  maxNet?: number;
+  sayi: number;
+  yuzde?: number;
+}
+
+export interface DersBazliOrtalama {
+  dersKodu: DersKodu | CustomDersKodu;
+  dersAdi: string;
+  ortalamaDogru?: number;
+  ortalamaYanlis?: number;
+  ortalamaBos?: number;
+  ortalama: number;
+  enYuksekNet?: number;
+  enDusukNet?: number;
+}
+
+export interface SinifBazliOrtalama {
+  sinif: string;
+  ogrenciSayisi: number;
+  ortalamaDogru?: number;
+  ortalamaYanlis?: number;
+  ortalamaBos?: number;
+  ortalama: number;
+  enYuksekNet?: number;
+  enDusukNet?: number;
 }
 
 export interface SinavIstatistikleri {
   toplamKatilimci: number;
   asilKatilimci: number;
   misafirKatilimci: number;
+  bekleyenEslestirme?: number;
   ortalamaDogru: number;
   ortalamaYanlis: number;
   ortalamaBos: number;
@@ -299,14 +576,51 @@ export interface SinavIstatistikleri {
   enDusukNet: number;
   medyan: number;
   standartSapma: number;
-  dersBazliOrtalamalar: { dersKodu: string; dersAdi: string; ortalama: number }[];
-  sinifBazliOrtalamalar: { sinif: string; ortalama: number; ogrenciSayisi: number }[];
-  netDagilimi: { aralik: string; sayi: number }[];
+  enBasarili?: { ogrenciNo: string; ogrenciAdi: string; net: number };
+  enBasarisiz?: { ogrenciNo: string; ogrenciAdi: string; net: number };
+  dersBazliOrtalamalar: (DersBazliOrtalama | { dersKodu: string; dersAdi: string; ortalama: number })[];
+  sinifBazliOrtalamalar: (SinifBazliOrtalama | { sinif: string; ortalama: number; ogrenciSayisi: number })[];
+  netDagilimi: NetDagilimi[];
+  cevapDagilimi?: {
+    toplamDogru: number;
+    toplamYanlis: number;
+    toplamBos: number;
+    dogruYuzde: number;
+    yanlisYuzde: number;
+    bosYuzde: number;
+  };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SİHİRBAZ ADIM STATE
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 PUAN SİMÜLASYONU (What-If Analysis)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PuanSimulasyonInput {
+  dersNetleri: {
+    dersKodu: DersKodu | CustomDersKodu;
+    net: number;
+  }[];
+  kuralOverride?: Partial<PuanlamaFormulu>;
+  sinavTuru: SinavTuru;
+}
+
+export interface PuanSimulasyonOutput {
+  tahminiPuan: number;
+  hesaplamaDetayi: PuanHesaplamaDetayi;
+  karsilastirma?: {
+    varsayilanKuralPuan: number;
+    fark: number;
+    farkYuzde: number;
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 WIZARD STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type CevapGirisYontemi = 'manuel' | 'yapistir' | 'dosya' | 'kutuphane';
+export type VeriYuklemeYontemi = 'txt' | 'dat' | 'excel' | 'csv' | 'manuel';
+export type SablonKaynagi = 'sistem' | 'kutuphane' | 'ozel';
 
 export interface WizardStep1Data {
   sinavAdi: string;
@@ -314,42 +628,65 @@ export interface WizardStep1Data {
   sinavTuru: SinavTuru;
   sinifSeviyesi: SinifSeviyesi;
   aciklama?: string;
+  academicYearId?: UUID;
+  branchId?: UUID;
   kitapcikTurleri: KitapcikTuru[];
   yanlisKatsayisi: number;
-  ozelDersDagilimi?: DersDagilimi[]; // DENEME için özelleştirme
+  sure?: number;
+  ozelDersDagilimi?: DersDagilimi[];
+  ozelPuanlama?: boolean;
+  puanlamaAyarlari?: PuanlamaFormulu;
+  iptalSoruMantigi?: IptalSoruMantigi;
 }
 
 export interface WizardStep2Data {
   cevapAnahtari: CevapAnahtari;
-  girisYontemi: 'manuel' | 'yapistir' | 'dosya' | 'kutuphane';
+  girisYontemi: CevapGirisYontemi | 'manuel' | 'yapistir' | 'dosya' | 'kutuphane';
   kayitliSablonId?: string;
+  yeniSablonOlarakKaydet?: boolean;
+  yeniSablonAdi?: string;
 }
 
 export interface WizardStep3Data {
   optikSablon: OptikFormSablonu;
-  sablonKaynagi: 'kutuphane' | 'ozel';
+  sablonKaynagi: SablonKaynagi | 'kutuphane' | 'ozel';
+  sablonId?: string;
   ozelSablonId?: string;
+  ozelEslestirme?: OptikDersDagilimi[];
 }
 
 export interface WizardStep4Data {
-  yuklemeTuru: 'txt' | 'dat' | 'excel' | 'manuel';
+  yuklemeTuru: VeriYuklemeYontemi | 'txt' | 'dat' | 'excel' | 'manuel';
   parseResult?: OptikParseResult;
   dosyaAdi?: string;
   eslestirmeler: {
+    satirNo?: number;
     optikOgrenciNo: string;
+    optikOgrenciAdi?: string;
     dbStudentId: string | null;
+    dbStudentAdi?: string;
     isMisafir: boolean;
+    eslesmeDurumu?: EslesmeDurumu;
   }[];
+  otomatikEslestirmeYapildi?: boolean;
 }
 
 export interface WizardStep5Data {
   sonuclar: OgrenciSonuc[];
   istatistikler: SinavIstatistikleri;
+  uyarilar?: string[];
   onayDurumu: 'bekliyor' | 'onaylandi' | 'reddedildi';
+  kayitSecenekleri?: {
+    hemenHesapla: boolean;
+    taslakKaydet: boolean;
+    portaldeGoster: boolean;
+  };
+  scoringSnapshot?: ScoringRuleSnapshot;
 }
 
 export interface WizardState {
   currentStep: 1 | 2 | 3 | 4 | 5;
+  maxReachedStep?: 1 | 2 | 3 | 4 | 5;
   draftExamId: string;
   step1: WizardStep1Data | null;
   step2: WizardStep2Data | null;
@@ -357,12 +694,32 @@ export interface WizardState {
   step4: WizardStep4Data | null;
   step5: WizardStep5Data | null;
   isLoading: boolean;
+  isSaving?: boolean;
   error: string | null;
+  lastSavedAt?: ISODate;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// API REQUEST/RESPONSE
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 WIZARD ACTIONS (Reducer)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type WizardAction =
+  | { type: 'SET_STEP'; payload: 1 | 2 | 3 | 4 | 5 }
+  | { type: 'SET_STEP1_DATA'; payload: WizardStep1Data }
+  | { type: 'SET_STEP2_DATA'; payload: WizardStep2Data }
+  | { type: 'SET_STEP3_DATA'; payload: WizardStep3Data }
+  | { type: 'SET_STEP4_DATA'; payload: WizardStep4Data }
+  | { type: 'SET_STEP5_DATA'; payload: WizardStep5Data }
+  | { type: 'UPDATE_PUANLAMA_FORMULU'; payload: Partial<PuanlamaFormulu> }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_SAVING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_DRAFT_EXAM_ID'; payload: string }
+  | { type: 'RESET_WIZARD' };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 API REQUEST/RESPONSE
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface WizardSaveRequest {
   organizationId: string;
@@ -371,7 +728,9 @@ export interface WizardSaveRequest {
   step2: WizardStep2Data;
   step3?: WizardStep3Data;
   step4: WizardStep4Data;
-  sonuclar: OgrenciSonuc[];
+  sonuclar?: OgrenciSonuc[];
+  cevapAnahtariSnapshot?: CevapAnahtariItem[];
+  scoringRuleSnapshot?: ScoringRuleSnapshot;
 }
 
 export interface WizardSaveResponse {
@@ -379,32 +738,105 @@ export interface WizardSaveResponse {
   examId?: string;
   message?: string;
   errors?: string[];
+  warnings?: string[];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KİTAPÇIK DÖNÜŞÜM
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type ExportFormat = 'pdf' | 'excel' | 'csv' | 'json';
+
+export interface ExportSecenekleri {
+  format: ExportFormat;
+  icerik: {
+    ozetBilgiler: boolean;
+    ogrenciListesi: boolean;
+    dersBazliAnaliz: boolean;
+    sinifKarsilastirma: boolean;
+    grafikler: boolean;
+    puanHesaplamaDetayi: boolean;
+  };
+  siralama: 'net' | 'isim' | 'numara' | 'sinif';
+  filtreler?: {
+    siniflar?: string[];
+    minNet?: number;
+    maxNet?: number;
+    sadeceMisafir?: boolean;
+    sadeceAsil?: boolean;
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 COMPLIANCE CHECK (Uyumluluk Kontrolü)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type ComplianceStatus = 'uyumlu' | 'uyari' | 'uyumsuz';
+
+export interface ComplianceCheckResult {
+  status: ComplianceStatus;
+  sinavTuru: SinavTuru;
+  kontroller: {
+    alan: string;
+    beklenen: string | number;
+    mevcut: string | number;
+    durum: ComplianceStatus;
+    mesaj: string;
+  }[];
+  genelMesaj: string;
+  standartDisiEtiketi: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 KİTAPÇIK DÖNÜŞÜM
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface KitapcikDonusumTablosu {
   sinavTuru: SinavTuru;
   toplamSoru: number;
-  A: number[];  // A kendi sırası (referans)
-  B: number[];  // B -> A dönüşümü
-  C?: number[]; // C -> A dönüşümü
-  D?: number[]; // D -> A dönüşümü
+  A: number[];
+  B: number[];
+  C?: number[];
+  D?: number[];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EXCEL IMPORT ŞABLONLARI
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 EXCEL IMPORT ŞABLONLARI
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface ExcelImportSablonu {
   tip: 'cevap_anahtari' | 'ogrenci_sonuc' | 'kazanim';
   kolonlar: {
-    excel: string;        // Excel kolon adı
-    veritabani: string;   // DB alan adı
+    excel: string;
+    veritabani: string;
     zorunlu: boolean;
     varsayilan?: any;
   }[];
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 HELPER FUNCTION TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type NetHesaplamaFn = (
+  dogru: number,
+  yanlis: number,
+  yanlisKatsayisi: number
+) => number;
+
+export type PuanHesaplamaFn = (
+  dersNetleri: Record<string, number>,
+  puanlamaFormulu: PuanlamaFormulu
+) => PuanHesaplamaDetayi;
+
+export type ComplianceCheckFn = (
+  konfigurasyon: SinavKonfigurasyonu,
+  ozelAyarlar: Partial<WizardStep1Data>
+) => ComplianceCheckResult;
+
+export type CreateScoringSnapshotFn = (
+  sinavTuru: SinavTuru,
+  puanlamaFormulu: PuanlamaFormulu,
+  dersDagilimi: DersDagilimi[],
+  iptalMantigi: IptalSoruMantigi
+) => ScoringRuleSnapshot;
