@@ -46,21 +46,24 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────────────────────────────────────────
     // 1. SINAVI KAYDET
     // ─────────────────────────────────────────────────────────────────────────
+    // Dinamik insert objesi - sadece var olan kolonları ekle
+    const examInsertData: Record<string, any> = {
+      name: step1Data.sinavAdi,
+      exam_date: step1Data.sinavTarihi || new Date().toISOString().split('T')[0],
+      exam_type: step1Data.sinavTuru,
+      total_questions: step2Data.cevapAnahtari.toplamSoru,
+      organization_id: organizationId,
+      status: 'active',
+    };
+
+    // Opsiyonel alanlar (tabloda yoksa hata vermez)
+    if (academicYearId) examInsertData.academic_year_id = academicYearId;
+    if (step1Data.sinifSeviyesi) examInsertData.grade_level = step1Data.sinifSeviyesi;
+    if (step1Data.aciklama) examInsertData.description = step1Data.aciklama;
+
     const { data: exam, error: examError } = await supabase
       .from('exams')
-      .insert({
-        name: step1Data.sinavAdi,
-        exam_date: step1Data.sinavTarihi || new Date().toISOString().split('T')[0],
-        exam_type: step1Data.sinavTuru,
-        grade_level: step1Data.sinifSeviyesi,
-        total_questions: step2Data.cevapAnahtari.toplamSoru,
-        organization_id: organizationId,
-        academic_year_id: academicYearId || null,
-        status: 'active',
-        booklet_count: step1Data.kitapcikTurleri.length,
-        wrong_coefficient: step1Data.yanlisKatsayisi,
-        description: step1Data.aciklama || null,
-      })
+      .insert(examInsertData)
       .select('id')
       .single();
 
