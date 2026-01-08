@@ -232,5 +232,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ============================================================================
+-- SYSTEM RULE DELETE TRIGGER - is_system = true kayıtların silinmesini engelle
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION prevent_system_rule_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.is_system = true THEN
+    RAISE EXCEPTION 'Sistem puanlama kuralları silinemez (is_system = true)';
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_prevent_system_rule_delete ON scoring_rules;
+CREATE TRIGGER trigger_prevent_system_rule_delete
+  BEFORE DELETE ON scoring_rules
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_system_rule_delete();
+
 -- Yorum: Bu fonksiyonu yeni kurum oluşturulduğunda çağırın:
 -- SELECT create_default_scoring_rules('kurum-uuid-buraya');

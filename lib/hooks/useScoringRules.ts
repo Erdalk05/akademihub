@@ -42,6 +42,7 @@ export interface UseScoringRulesReturn {
   loading: boolean;
   error: string | null;
   getDefaultRule: (sinavTuru: SinavTuru) => ScoringRuleDB | null;
+  getDefaultRuleWithFallback: (sinavTuru: SinavTuru) => PuanlamaFormulu;
   getRuleById: (id: string) => ScoringRuleDB | null;
   getRulesForType: (sinavTuru: SinavTuru) => ScoringRuleDB[];
   toPuanlamaFormulu: (rule: ScoringRuleDB) => PuanlamaFormulu;
@@ -118,11 +119,19 @@ export function useScoringRules(): UseScoringRulesReturn {
     };
   }, []);
 
+  // Fallback ile birlikte kural getir (NULL döndürmez)
+  const getDefaultRuleWithFallback = useCallback((sinavTuru: SinavTuru): PuanlamaFormulu => {
+    const rule = getDefaultRule(sinavTuru);
+    if (rule) return toPuanlamaFormulu(rule);
+    return getHardcodedScoringRule(sinavTuru);
+  }, [getDefaultRule, toPuanlamaFormulu]);
+
   return {
     rules,
     loading,
     error,
     getDefaultRule,
+    getDefaultRuleWithFallback,
     getRuleById,
     getRulesForType,
     toPuanlamaFormulu,

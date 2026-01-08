@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { BarChart3, Users, Trophy, TrendingUp, Download, Save, AlertCircle, CheckCircle } from 'lucide-react';
-import type { WizardStep1Data, WizardStep2Data, WizardStep4Data, OgrenciSonuc, SinavIstatistikleri } from '@/types/spectra-wizard';
-import { hesaplaTopluSonuclar, hesaplaIstatistikler, ekleTohminiPuanlar } from '@/lib/spectra-wizard/scoring-engine';
-import { SINAV_KONFIGURASYONLARI } from '@/lib/spectra-wizard/exam-configs';
+import { BarChart3, Users, Trophy, TrendingUp, Save, AlertCircle } from 'lucide-react';
+import type { WizardStep1Data, WizardStep2Data, WizardStep4Data, WizardStep5Data, ScoringRuleSnapshot } from '@/types/spectra-wizard';
+import { hesaplaTopluSonuclar, hesaplaIstatistikler, ekleTohminiPuanlar, createScoringSnapshot } from '@/lib/spectra-wizard/scoring-engine';
+import { SINAV_KONFIGURASYONLARI, getDersDagilimi } from '@/lib/spectra-wizard/exam-configs';
 import { cn } from '@/lib/utils';
 
 interface Step5Props {
@@ -12,34 +12,73 @@ interface Step5Props {
   step2Data: WizardStep2Data;
   step4Data: WizardStep4Data;
   examId: string;
-  onSave: () => void;
+  onSave: (step5Data: WizardStep5Data) => void;
   isSaving: boolean;
 }
 
 export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave, isSaving }: Step5Props) {
   // Sınav konfigürasyonu
   const sinavKonfig = SINAV_KONFIGURASYONLARI[step1Data.sinavTuru];
+  
+  // Ders dağılımı
+  const dersDagilimi = useMemo(() => {
+    return step1Data.ozelDersDagilimi || getDersDagilimi(step1Data.sinavTuru, step1Data.sinifSeviyesi);
+  }, [step1Data]);
 
   // Sonuçları hesapla
-  const { sonuclar, istatistikler } = useMemo(() => {
+  const { sonuclar, istatistikler, scoringSnapshot } = useMemo(() => {
     if (!step4Data.parseResult?.satirlar) {
-      return { sonuclar: [], istatistikler: null };
+      return { sonuclar: [], istatistikler: null, scoringSnapshot: null };
     }
+
+    // Puanlama kuralını al (step1'den veya fallback)
+    const puanlamaFormulu = step1Data.puanlamaAyarlari || sinavKonfig.puanlamaFormulu;
 
     const hesaplananSonuclar = hesaplaTopluSonuclar(
       step4Data.parseResult.satirlar,
       step2Data.cevapAnahtari,
       sinavKonfig,
-      examId
+      examId,
+      step1Data.iptalSoruMantigi || 'herkese_dogru'
     );
 
     // Tahmini puanları ekle
-    const sonuclarWithPuan = ekleTohminiPuanlar(hesaplananSonuclar, step1Data.sinavTuru);
+    const sonuclarWithPuan = ekleTohminiPuanlar(hesaplananSonuclar, step1Data.sinavTuru, puanlamaFormulu);
 
     const stats = hesaplaIstatistikler(sonuclarWithPuan);
 
-    return { sonuclar: sonuclarWithPuan, istatistikler: stats };
-  }, [step4Data.parseResult, step2Data.cevapAnahtari, sinavKonfig, examId, step1Data.sinavTuru]);
+    // Scoring snapshot oluştur (değişmez kural kaydı)
+    let snapshot: ScoringRuleSnapshot | null = null;
+    if (puanlamaFormulu) {
+      snapshot = createScoringSnapshot(
+        step1Data.sinavTuru,
+        puanlamaFormulu,
+        dersDagilimi,
+        step1Data.iptalSoruMantigi || 'herkese_dogru'
+      );
+    }
+
+    return { sonuclar: sonuclarWithPuan, istatistikler: stats, scoringSnapshot: snapshot };
+  }, [step4Data.parseResult, step2Data.cevapAnahtari, sinavKonfig, examId, step1Data, dersDagilimi]);
+
+  // Kaydet butonuna tıklandığında
+  const handleSave = () => {
+    if (!istatistikler || sonuclar.length === 0) return;
+
+    const step5Data: WizardStep5Data = {
+      sonuclar,
+      istatistikler,
+      onayDurumu: 'onaylandi',
+      scoringSnapshot: scoringSnapshot || undefined,
+      kayitSecenekleri: {
+        hemenHesapla: true,
+        taslakKaydet: false,
+        portaldeGoster: true,
+      },
+    };
+
+    onSave(step5Data);
+  };
 
   if (!istatistikler || sonuclar.length === 0) {
     return (
@@ -103,10 +142,21 @@ export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave,
         </div>
       </div>
 
+      {/* Puanlama Kuralı Bilgisi */}
+      {step1Data.puanlamaAyarlari && (
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm">
+          <span className="font-medium text-blue-800">📊 Kurum Puanlama Kuralı: </span>
+          <span className="text-blue-700">
+            1/{step1Data.puanlamaAyarlari.yanlisKatsayisi} yanlış, 
+            {step1Data.puanlamaAyarlari.tabanPuan}-{step1Data.puanlamaAyarlari.tavanPuan} puan
+          </span>
+        </div>
+      )}
+
       {/* D/Y/B Özet */}
       <div className="p-4 bg-gray-50 rounded-xl">
         <h4 className="font-semibold text-gray-700 mb-3">Genel Dağılım</h4>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-emerald-500"></div>
             <span className="text-sm text-gray-600">Doğru: <strong>{istatistikler.ortalamaDogru}</strong></span>
@@ -175,9 +225,7 @@ export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave,
                 <th className="text-center px-4 py-2 font-medium text-gray-600">Y</th>
                 <th className="text-center px-4 py-2 font-medium text-gray-600">B</th>
                 <th className="text-center px-4 py-2 font-medium text-gray-600">Net</th>
-                {step1Data.sinavTuru === 'LGS' && (
-                  <th className="text-center px-4 py-2 font-medium text-gray-600">Puan</th>
-                )}
+                <th className="text-center px-4 py-2 font-medium text-gray-600">Puan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -195,9 +243,7 @@ export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave,
                   <td className="px-4 py-2 text-center text-red-500 font-medium">{sonuc.toplamYanlis}</td>
                   <td className="px-4 py-2 text-center text-gray-400">{sonuc.toplamBos}</td>
                   <td className="px-4 py-2 text-center font-bold text-gray-900">{sonuc.toplamNet}</td>
-                  {step1Data.sinavTuru === 'LGS' && (
-                    <td className="px-4 py-2 text-center font-bold text-blue-600">{sonuc.tahminiPuan || '-'}</td>
-                  )}
+                  <td className="px-4 py-2 text-center font-bold text-blue-600">{sonuc.tahminiPuan || '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -214,7 +260,7 @@ export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave,
           </p>
         </div>
         <button
-          onClick={onSave}
+          onClick={handleSave}
           disabled={isSaving}
           className={cn(
             'px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all',
@@ -241,4 +287,3 @@ export function Step5Onizleme({ step1Data, step2Data, step4Data, examId, onSave,
 }
 
 export default Step5Onizleme;
-

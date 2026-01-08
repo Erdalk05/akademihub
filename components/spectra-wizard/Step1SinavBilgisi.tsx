@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { Calendar, FileText, GraduationCap, Settings2, BookOpen } from 'lucide-react';
-import type { SinavTuru, SinifSeviyesi, WizardStep1Data, DersDagilimi } from '@/types/spectra-wizard';
+import React, { useMemo, useEffect, useRef } from 'react';
+import { Calendar, FileText, GraduationCap, Settings2, BookOpen, Loader2 } from 'lucide-react';
+import type { SinavTuru, SinifSeviyesi, WizardStep1Data } from '@/types/spectra-wizard';
 import { SINIF_BILGILERI, SINAV_KONFIGURASYONLARI, getUygunSinavTurleri, getDersDagilimi, DERS_RENKLERI } from '@/lib/spectra-wizard';
+import { useScoringRules } from '@/lib/hooks/useScoringRules';
 
 interface Step1Props {
   data: WizardStep1Data | null;
@@ -11,6 +12,10 @@ interface Step1Props {
 }
 
 export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
+  // DB'den kurum puanlama kurallarını çek
+  const { loading: rulesLoading, getDefaultRuleWithFallback } = useScoringRules();
+  const prevSinavTuru = useRef<SinavTuru | null>(null);
+
   // Varsayılan değerler
   const formData: WizardStep1Data = data || {
     sinavAdi: '',
@@ -31,8 +36,25 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
     return getDersDagilimi(formData.sinavTuru, formData.sinifSeviyesi);
   }, [formData.sinavTuru, formData.sinifSeviyesi]);
 
-  // Sınav konfigürasyonu
+  // Sınav konfigürasyonu (sadece UI bilgileri için)
   const sinavKonfig = SINAV_KONFIGURASYONLARI[formData.sinavTuru];
+
+  // Kurum puanlama kuralı (DB'den veya fallback)
+  const kurumPuanlamaKurali = useMemo(() => {
+    return getDefaultRuleWithFallback(formData.sinavTuru);
+  }, [formData.sinavTuru, getDefaultRuleWithFallback]);
+
+  // Sınav türü değiştiğinde kurum kuralını uygula
+  useEffect(() => {
+    if (prevSinavTuru.current !== formData.sinavTuru && kurumPuanlamaKurali) {
+      prevSinavTuru.current = formData.sinavTuru;
+      onChange({
+        ...formData,
+        yanlisKatsayisi: kurumPuanlamaKurali.yanlisKatsayisi,
+        puanlamaAyarlari: kurumPuanlamaKurali,
+      });
+    }
+  }, [formData.sinavTuru, kurumPuanlamaKurali]);
 
   // Input değişikliği
   const handleChange = (field: keyof WizardStep1Data, value: any) => {
@@ -47,15 +69,24 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
       }
     }
 
-    // Sınav türü değişince yanlış katsayısını güncelle
+    // Sınav türü değişince kitapçık türlerini güncelle
     if (field === 'sinavTuru') {
       const yeniKonfig = SINAV_KONFIGURASYONLARI[value as SinavTuru];
-      newData.yanlisKatsayisi = yeniKonfig?.yanlisKatsayisi || 4;
       newData.kitapcikTurleri = yeniKonfig?.kitapcikTurleri || ['A'];
+      // yanlisKatsayisi useEffect'te kurumPuanlamaKurali'ndan alınacak
     }
 
     onChange(newData);
   };
+
+  if (rulesLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+        <span className="ml-2 text-slate-600">Puanlama kuralları yükleniyor...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -158,10 +189,11 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
               );
             })}
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+          <div className="mt-3 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
             <span>Toplam: <strong>{dersDagilimi.reduce((s, d) => s + d.soruSayisi, 0)} soru</strong></span>
             <span>Süre: <strong>{sinavKonfig?.sure || 0} dk</strong></span>
-            <span>Yanlış Katsayısı: <strong>{sinavKonfig?.yanlisKatsayisi || 4}</strong></span>
+            <span>Yanlış: <strong>1/{kurumPuanlamaKurali.yanlisKatsayisi}</strong></span>
+            <span>Puan: <strong>{kurumPuanlamaKurali.tabanPuan}-{kurumPuanlamaKurali.tavanPuan}</strong></span>
           </div>
         </div>
       )}
@@ -216,4 +248,3 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
 }
 
 export default Step1SinavBilgisi;
-
