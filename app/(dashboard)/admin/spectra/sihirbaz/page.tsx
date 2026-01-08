@@ -1,224 +1,336 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import SinavSihirbazi from '@/ESKI_SINAV_MODULU_ARSIV/sinavlar/kazanim/SinavSihirbazi';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Wand2, X, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { useAcademicYearStore } from '@/lib/store/academicYearStore';
-import { getBrowserClient } from '@/lib/supabase/client';
-import { Loader2, AlertTriangle, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
-// ============================================================================
-// TYPES
-// ============================================================================
+// Wizard Components
+import {
+  WizardSteps,
+  Step1SinavBilgisi,
+  Step2CevapAnahtari,
+  Step3OptikSablon,
+  Step4VeriYukle,
+  Step5Onizleme,
+} from '@/components/spectra-wizard';
 
-interface Student {
-  id: string;
-  ogrenciNo: string;
-  ad: string;
-  soyad: string;
-  sinif: string;
-}
+// Types
+import type {
+  WizardStep1Data,
+  WizardStep2Data,
+  WizardStep3Data,
+  WizardStep4Data,
+} from '@/types/spectra-wizard';
 
-// ============================================================================
-// SPECTRA - YENİ SINAV EKLEME (WIZARD)
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function SpectraSihirbazPage() {
   const router = useRouter();
+  const { currentOrganization, currentAcademicYear } = useOrganizationStore();
+  const supabase = createClient();
 
-  // Global Stores
-  const { currentOrganization } = useOrganizationStore();
-  const { selectedYear } = useAcademicYearStore();
-
-  // Local State
-  const [isClient, setIsClient] = useState(false);
+  // Wizard State
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [ogrenciListesi, setOgrenciListesi] = useState<Student[]>([]);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
 
-  // ==========================================================================
-  // CLIENT CHECK
-  // ==========================================================================
+  // Step Data
+  const [step1Data, setStep1Data] = useState<WizardStep1Data | null>(null);
+  const [step2Data, setStep2Data] = useState<WizardStep2Data | null>(null);
+  const [step3Data, setStep3Data] = useState<WizardStep3Data | null>(null);
+  const [step4Data, setStep4Data] = useState<WizardStep4Data | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
+  // Draft Exam ID
+  const draftExamId = useMemo(() => {
+    if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+    return `draft-${Date.now()}`;
   }, []);
 
-  // ==========================================================================
-  // LOAD STUDENTS
-  // ==========================================================================
+  // Öğrenci listesi
+  const [ogrenciListesi, setOgrenciListesi] = useState<any[]>([]);
 
+  // Öğrenci listesini yükle
   useEffect(() => {
-    if (!isClient) return;
-
-    if (!currentOrganization?.id) {
-      console.warn('⚠️ Organization yok, öğrenci yüklenmedi');
-      setIsLoadingStudents(false);
-      return;
-    }
+    if (!currentOrganization?.id) return;
 
     const loadStudents = async () => {
-      setIsLoadingStudents(true);
-      const supabase = getBrowserClient();
-
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('students')
-        .select('id, student_no, first_name, last_name, class')
+        .select('id, student_no, persons(first_name, last_name), classes(name)')
         .eq('organization_id', currentOrganization.id)
-        .eq('status', 'active')
-        .order('first_name');
+        .eq('status', 'active');
 
-      if (error) {
-        console.error('❌ Öğrenci yükleme hatası:', error);
-        setOgrenciListesi([]);
-      } else {
+      if (data) {
         setOgrenciListesi(
-          (data || []).map((s: any) => ({
+          data.map((s: any) => ({
             id: s.id,
-            ogrenciNo: s.student_no ?? '',
-            ad: s.first_name ?? '',
-            soyad: s.last_name ?? '',
-            sinif: s.class ?? '',
+            ogrenciNo: s.student_no,
+            ad: s.persons?.first_name || '',
+            soyad: s.persons?.last_name || '',
+            sinif: s.classes?.name || '',
           }))
         );
       }
-
-      setIsLoadingStudents(false);
     };
 
     loadStudents();
-  }, [isClient, currentOrganization?.id]);
+  }, [currentOrganization?.id, supabase]);
 
-  // ==========================================================================
-  // SAVE EXAM - Spectra API'sine kaydet
-  // ==========================================================================
+  // Adım doğrulama
+  const canProceed = useCallback((step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!step1Data?.sinavAdi && !!step1Data?.sinavTarihi;
+      case 2:
+        return !!step2Data?.cevapAnahtari?.items?.some(i => i.dogruCevap);
+      case 3:
+        return !!step3Data?.optikSablon;
+      case 4:
+        return !!step4Data?.parseResult?.basariliSatir && step4Data.parseResult.basariliSatir > 0;
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  }, [step1Data, step2Data, step3Data, step4Data]);
 
-  const handleComplete = async (data: {
-    sinavBilgisi: any;
-    cevapAnahtari: any[];
-    ogrenciSonuclari: any[];
-  }) => {
-    if (!currentOrganization?.id) {
-      alert('Kurum bilgisi bulunamadı. Lütfen sayfayı yenileyin.');
+  // İleri git
+  const handleNext = () => {
+    if (!canProceed(currentStep)) {
+      toast.error('Lütfen tüm zorunlu alanları doldurun');
+      return;
+    }
+
+    if (!completedSteps.includes(currentStep)) {
+      setCompletedSteps([...completedSteps, currentStep]);
+    }
+
+    if (currentStep < 5) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  // Geri git
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Adıma git
+  const handleStepClick = (step: number) => {
+    if (step <= currentStep || completedSteps.includes(step - 1)) {
+      setCurrentStep(step);
+    }
+  };
+
+  // Kaydet
+  const handleSave = async () => {
+    if (!currentOrganization?.id || !currentAcademicYear?.id) {
+      toast.error('Kurum veya dönem bilgisi bulunamadı');
+      return;
+    }
+
+    if (!step1Data || !step2Data || !step4Data?.parseResult) {
+      toast.error('Eksik veri');
       return;
     }
 
     setIsSaving(true);
 
     try {
-      // Spectra Wizard API'sine kaydet
       const response = await fetch('/api/spectra/wizard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sinavBilgisi: data.sinavBilgisi,
-          cevapAnahtari: data.cevapAnahtari,
-          ogrenciSonuclari: data.ogrenciSonuclari,
           organizationId: currentOrganization.id,
-          academicYearId: selectedYear || null,
+          academicYearId: currentAcademicYear.id,
+          draftExamId,
+          step1Data,
+          step2Data,
+          step3Data,
+          step4Data,
         }),
       });
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Kayıt başarısız');
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Kayıt başarısız');
       }
 
-      alert('✅ Sınav başarıyla kaydedildi');
-      router.push('/admin/spectra/sinavlar');
-
+      toast.success('✅ Sınav başarıyla kaydedildi!');
+      router.push(`/admin/spectra/sinavlar/${result.examId}`);
     } catch (error: any) {
-      console.error('❌ Kayıt hatası:', error);
-      alert(error.message || 'Bir hata oluştu');
+      console.error('Save error:', error);
+      toast.error(error.message || 'Kayıt sırasında hata oluştu');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // ==========================================================================
-  // RENDER
-  // ==========================================================================
+  // İptal
+  const handleCancel = () => {
+    if (confirm('Değişiklikler kaydedilmedi. Çıkmak istediğinize emin misiniz?')) {
+      router.push('/admin/spectra');
+    }
+  };
 
-  // SSR guard
-  if (!isClient) {
-    return null;
-  }
-
-  // Organization yoksa uyarı
-  if (!currentOrganization?.id) {
+  if (!currentOrganization) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-2xl shadow-lg max-w-md">
-          <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Kurum Seçilmedi</h2>
-          <p className="text-gray-500 mb-4">
-            Sınav eklemek için önce bir kurum seçmeniz gerekiyor.
-          </p>
-          <Link
-            href="/admin/spectra"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Spectra'ya Dön
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Öğrenci yükleniyorsa
-  if (isLoadingStudents) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mx-auto mb-4" />
-          <p className="text-gray-500">Öğrenci listesi yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Kayıt yapılıyorsa
-  if (isSaving) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mx-auto mb-4" />
-          <p className="text-gray-500">Sınav kaydediliyor...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/30">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 py-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <Link
-            href="/admin/spectra"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Yeni Sınav Ekle</h1>
-            <p className="text-sm text-gray-500">{currentOrganization?.name}</p>
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} className="text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Wand2 className="text-emerald-500" size={24} />
+                  Yeni Sınav Ekle
+                </h1>
+                <p className="text-sm text-gray-500">{currentOrganization.name}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancel}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Wizard Component */}
-      <div className="p-4 md:p-6">
-        <SinavSihirbazi
-          ogrenciListesi={ogrenciListesi}
-          onComplete={handleComplete}
-        />
+      {/* Steps Progress */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <WizardSteps
+            currentStep={currentStep}
+            completedSteps={completedSteps}
+            onStepClick={handleStepClick}
+          />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+          >
+            {/* Step 1: Sınav Bilgisi */}
+            {currentStep === 1 && (
+              <Step1SinavBilgisi
+                data={step1Data}
+                onChange={setStep1Data}
+              />
+            )}
+
+            {/* Step 2: Cevap Anahtarı */}
+            {currentStep === 2 && step1Data && (
+              <Step2CevapAnahtari
+                step1Data={step1Data}
+                data={step2Data}
+                organizationId={currentOrganization.id}
+                onChange={setStep2Data}
+              />
+            )}
+
+            {/* Step 3: Optik Şablon */}
+            {currentStep === 3 && step1Data && (
+              <Step3OptikSablon
+                step1Data={step1Data}
+                data={step3Data}
+                onChange={setStep3Data}
+              />
+            )}
+
+            {/* Step 4: Veri Yükle */}
+            {currentStep === 4 && step3Data && (
+              <Step4VeriYukle
+                step3Data={step3Data}
+                data={step4Data}
+                ogrenciListesi={ogrenciListesi}
+                onChange={setStep4Data}
+              />
+            )}
+
+            {/* Step 5: Önizleme */}
+            {currentStep === 5 && step1Data && step2Data && step4Data && (
+              <Step5Onizleme
+                step1Data={step1Data}
+                step2Data={step2Data}
+                step4Data={step4Data}
+                examId={draftExamId}
+                onSave={handleSave}
+                isSaving={isSaving}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between mt-6">
+          <button
+            onClick={handleBack}
+            disabled={currentStep === 1}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all ${
+              currentStep === 1
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-600 hover:bg-white hover:shadow-sm'
+            }`}
+          >
+            <ArrowLeft size={18} />
+            Geri
+          </button>
+
+          {currentStep < 5 ? (
+            <button
+              onClick={handleNext}
+              disabled={!canProceed(currentStep)}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
+                canProceed(currentStep)
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Devam Et
+              <ArrowRight size={18} />
+            </button>
+          ) : (
+            <div /> // Boş div - kaydet butonu Step5'te
+          )}
+        </div>
       </div>
     </div>
   );
 }
-

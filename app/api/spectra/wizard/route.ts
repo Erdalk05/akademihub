@@ -1,232 +1,245 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
+import type { WizardStep1Data, WizardStep2Data, WizardStep3Data, WizardStep4Data, OgrenciSonuc } from '@/types/spectra-wizard';
+import { hesaplaTopluSonuclar, hesaplaIstatistikler, ekleTohminiPuanlar } from '@/lib/spectra-wizard/scoring-engine';
+import { SINAV_KONFIGURASYONLARI } from '@/lib/spectra-wizard/exam-configs';
 
 export const dynamic = 'force-dynamic';
 
 // ============================================================================
-// SPECTRA - SINAV WIZARD API
-// Yeni sınav ekleme endpoint'i
+// SPECTRA - SINAV WIZARD API (V2)
+// Yeni sınav ekleme endpoint'i - Güncellenmiş format
 // ============================================================================
 
-interface SinavBilgisi {
-  sinavAdi: string;
-  sinavTarihi: string;
-  sinavTuru: string;
-  sinifSeviyesi: string;
-  toplamSoru: number;
-  kitapcikSayisi?: number;
-}
-
-interface CevapAnahtariSatir {
-  soruNo: number;
-  dogruCevap: string;
-  kitapcikTuru?: string;
-  dersBilgisi?: string;
-  konuBilgisi?: string;
-  kazanimBilgisi?: string;
-  puan?: number;
-}
-
-interface OgrenciSonuc {
-  ogrenciId?: string;
-  ogrenciNo?: string;
-  ad: string;
-  soyad: string;
-  sinif: string;
-  cevaplar: string[];
-  kitapcikTuru?: string;
-  isMisafir?: boolean;
+interface WizardRequestBody {
+  organizationId: string;
+  academicYearId: string;
+  draftExamId: string;
+  step1Data: WizardStep1Data;
+  step2Data: WizardStep2Data;
+  step3Data?: WizardStep3Data;
+  step4Data: WizardStep4Data;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      sinavBilgisi,
-      cevapAnahtari,
-      ogrenciSonuclari,
-      organizationId,
-      academicYearId,
-    } = body as {
-      sinavBilgisi: SinavBilgisi;
-      cevapAnahtari: CevapAnahtariSatir[];
-      ogrenciSonuclari: OgrenciSonuc[];
-      organizationId: string;
-      academicYearId?: string | null;
-    };
+    const body: WizardRequestBody = await request.json();
+    const { organizationId, academicYearId, draftExamId, step1Data, step2Data, step3Data, step4Data } = body;
 
     // Validation
-    if (!sinavBilgisi?.sinavAdi) {
-      return NextResponse.json(
-        { ok: false, error: 'Sınav adı gerekli' },
-        { status: 400 }
-      );
+    if (!step1Data?.sinavAdi) {
+      return NextResponse.json({ success: false, message: 'Sınav adı gerekli' }, { status: 400 });
     }
-
     if (!organizationId) {
-      return NextResponse.json(
-        { ok: false, error: 'Organization ID gerekli' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Organization ID gerekli' }, { status: 400 });
     }
-
-    if (!cevapAnahtari || cevapAnahtari.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: 'Cevap anahtarı gerekli' },
-        { status: 400 }
-      );
+    if (!step2Data?.cevapAnahtari?.items?.length) {
+      return NextResponse.json({ success: false, message: 'Cevap anahtarı gerekli' }, { status: 400 });
+    }
+    if (!step4Data?.parseResult?.satirlar?.length) {
+      return NextResponse.json({ success: false, message: 'Öğrenci verisi gerekli' }, { status: 400 });
     }
 
     const supabase = getServiceRoleClient();
+    const sinavKonfig = SINAV_KONFIGURASYONLARI[step1Data.sinavTuru];
 
-    // 1. Sınavı kaydet
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. SINAVI KAYDET
+    // ─────────────────────────────────────────────────────────────────────────
     const { data: exam, error: examError } = await supabase
       .from('exams')
       .insert({
-        name: sinavBilgisi.sinavAdi,
-        exam_date: sinavBilgisi.sinavTarihi || new Date().toISOString().split('T')[0],
-        exam_type: sinavBilgisi.sinavTuru || 'LGS',
-        grade_level: sinavBilgisi.sinifSeviyesi || '8',
-        total_questions: sinavBilgisi.toplamSoru || cevapAnahtari.length,
+        name: step1Data.sinavAdi,
+        exam_date: step1Data.sinavTarihi || new Date().toISOString().split('T')[0],
+        exam_type: step1Data.sinavTuru,
+        grade_level: step1Data.sinifSeviyesi,
+        total_questions: step2Data.cevapAnahtari.toplamSoru,
         organization_id: organizationId,
         academic_year_id: academicYearId || null,
         status: 'active',
-        booklet_count: sinavBilgisi.kitapcikSayisi || 1,
+        booklet_count: step1Data.kitapcikTurleri.length,
+        wrong_coefficient: step1Data.yanlisKatsayisi,
+        description: step1Data.aciklama || null,
       })
       .select('id')
       .single();
 
     if (examError) {
       console.error('❌ Sınav kayıt hatası:', examError);
-      return NextResponse.json(
-        { ok: false, error: 'Sınav kaydedilemedi: ' + examError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, message: examError.message }, { status: 500 });
     }
 
     const examId = exam.id;
 
-    // 2. Cevap anahtarını kaydet
-    const answerKeyRows = cevapAnahtari.map((item) => ({
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. DERS BÖLÜMLERINI KAYDET (exam_sections)
+    // ─────────────────────────────────────────────────────────────────────────
+    const dersSirasi = step2Data.cevapAnahtari.dersSirasi || [];
+    const dersGruplari = new Map<string, { items: typeof step2Data.cevapAnahtari.items; sortOrder: number }>();
+
+    step2Data.cevapAnahtari.items.forEach(item => {
+      if (!dersGruplari.has(item.dersKodu)) {
+        dersGruplari.set(item.dersKodu, { items: [], sortOrder: dersSirasi.indexOf(item.dersKodu) });
+      }
+      dersGruplari.get(item.dersKodu)!.items.push(item);
+    });
+
+    const sectionInserts = Array.from(dersGruplari.entries()).map(([dersKodu, data]) => ({
+      exam_id: examId,
+      name: data.items[0]?.dersAdi || dersKodu,
+      code: dersKodu,
+      question_count: data.items.length,
+      sort_order: data.sortOrder >= 0 ? data.sortOrder : 999,
+    }));
+
+    const { data: sections, error: sectionsError } = await supabase
+      .from('exam_sections')
+      .insert(sectionInserts)
+      .select('id, code');
+
+    if (sectionsError) {
+      console.error('❌ Section kayıt hatası:', sectionsError);
+      // Devam et, kritik değil
+    }
+
+    const sectionIdMap = new Map<string, string>();
+    sections?.forEach(s => sectionIdMap.set(s.code, s.id));
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. CEVAP ANAHTARINI KAYDET (exam_answer_keys)
+    // ─────────────────────────────────────────────────────────────────────────
+    const answerKeyInserts = step2Data.cevapAnahtari.items.map(item => ({
       exam_id: examId,
       question_number: item.soruNo,
-      correct_answer: item.dogruCevap,
-      booklet_type: item.kitapcikTuru || 'A',
-      subject: item.dersBilgisi || null,
-      topic: item.konuBilgisi || null,
-      learning_outcome: item.kazanimBilgisi || null,
-      points: item.puan || 1,
+      correct_answer: item.dogruCevap || '',
+      section_code: item.dersKodu,
+      section_id: sectionIdMap.get(item.dersKodu) || null,
+      kazanim_code: item.kazanimKodu || null,
+      kazanim_text: item.kazanimAciklamasi || null,
+      is_cancelled: item.iptal || false,
+      booklet_answers: item.kitapcikCevaplari ? JSON.stringify(item.kitapcikCevaplari) : null,
     }));
 
     const { error: answerKeyError } = await supabase
       .from('exam_answer_keys')
-      .insert(answerKeyRows);
+      .insert(answerKeyInserts);
 
     if (answerKeyError) {
       console.error('❌ Cevap anahtarı kayıt hatası:', answerKeyError);
-      // Sınavı sil (rollback)
-      await supabase.from('exams').delete().eq('id', examId);
-      return NextResponse.json(
-        { ok: false, error: 'Cevap anahtarı kaydedilemedi: ' + answerKeyError.message },
-        { status: 500 }
-      );
+      // Devam et
     }
 
-    // 3. Öğrenci sonuçlarını hesapla ve kaydet
-    if (ogrenciSonuclari && ogrenciSonuclari.length > 0) {
-      const participantRows: any[] = [];
+    // ─────────────────────────────────────────────────────────────────────────
+    // 4. SONUÇLARI HESAPLA
+    // ─────────────────────────────────────────────────────────────────────────
+    let sonuclar = hesaplaTopluSonuclar(
+      step4Data.parseResult.satirlar,
+      step2Data.cevapAnahtari,
+      sinavKonfig,
+      examId
+    );
 
-      for (const ogrenci of ogrenciSonuclari) {
-        // Net hesapla
-        let correct = 0;
-        let wrong = 0;
-        let empty = 0;
+    sonuclar = ekleTohminiPuanlar(sonuclar, step1Data.sinavTuru);
 
-        const booklet = ogrenci.kitapcikTuru || 'A';
-        const relevantAnswerKey = cevapAnahtari.filter(
-          (a) => !a.kitapcikTuru || a.kitapcikTuru === booklet
-        );
-
-        ogrenci.cevaplar.forEach((cevap, idx) => {
-          const correctAnswer = relevantAnswerKey[idx]?.dogruCevap;
-          if (!cevap || cevap === '' || cevap === ' ') {
-            empty++;
-          } else if (cevap.toUpperCase() === correctAnswer?.toUpperCase()) {
-            correct++;
-          } else {
-            wrong++;
-          }
-        });
-
-        const net = correct - wrong * 0.25;
-        const totalQuestions = relevantAnswerKey.length || sinavBilgisi.toplamSoru;
-        const score = (net / totalQuestions) * 500; // Basit puan hesabı
-
-        participantRows.push({
-          exam_id: examId,
-          student_id: ogrenci.ogrenciId || null, // null = misafir
-          guest_name: ogrenci.isMisafir ? `${ogrenci.ad} ${ogrenci.soyad}` : null,
-          class_name: ogrenci.sinif || '',
-          answers: ogrenci.cevaplar,
-          booklet_type: booklet,
-          correct_count: correct,
-          wrong_count: wrong,
-          empty_count: empty,
-          net: parseFloat(net.toFixed(2)),
-          score: parseFloat(score.toFixed(2)),
-          organization_id: organizationId,
-        });
-      }
-
-      // Sıralama ekle
-      participantRows.sort((a, b) => b.net - a.net);
-      participantRows.forEach((p, idx) => {
-        p.rank = idx + 1;
-      });
-
-      const { error: participantError } = await supabase
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5. KATILIMCILARI VE SONUÇLARI KAYDET
+    // ─────────────────────────────────────────────────────────────────────────
+    for (const sonuc of sonuclar) {
+      // Katılımcı ekle
+      const { data: participant, error: participantError } = await supabase
         .from('exam_participants')
-        .insert(participantRows);
+        .insert({
+          exam_id: examId,
+          organization_id: organizationId,
+          student_id: sonuc.studentId || null,
+          participant_type: sonuc.isMisafir ? 'guest' : 'institution',
+          guest_name: sonuc.isMisafir ? sonuc.ogrenciAdi : null,
+          guest_class: sonuc.sinif || null,
+          match_status: sonuc.eslesmeDurumu,
+          optical_student_no: sonuc.ogrenciNo,
+          optical_name: sonuc.ogrenciAdi,
+          booklet_type: sonuc.kitapcik,
+        })
+        .select('id')
+        .single();
 
       if (participantError) {
-        console.error('❌ Katılımcı kayıt hatası:', participantError);
-        // Rollback
-        await supabase.from('exam_answer_keys').delete().eq('exam_id', examId);
-        await supabase.from('exams').delete().eq('id', examId);
-        return NextResponse.json(
-          { ok: false, error: 'Öğrenci sonuçları kaydedilemedi: ' + participantError.message },
-          { status: 500 }
-        );
+        console.error('Katılımcı kayıt hatası:', participantError);
+        continue;
       }
 
-      // 4. Sınav istatistiklerini güncelle
-      const avgNet = participantRows.reduce((a, b) => a + b.net, 0) / participantRows.length;
-      
-      await supabase
-        .from('exams')
-        .update({
-          participant_count: participantRows.length,
-          avg_net: parseFloat(avgNet.toFixed(2)),
+      const participantId = participant.id;
+
+      // Sonuç ekle
+      const { data: result, error: resultError } = await supabase
+        .from('exam_results')
+        .insert({
+          exam_participant_id: participantId,
+          total_correct: sonuc.toplamDogru,
+          total_wrong: sonuc.toplamYanlis,
+          total_blank: sonuc.toplamBos,
+          total_net: sonuc.toplamNet,
+          organization_rank: sonuc.kurumSirasi,
+          class_rank: sonuc.sinifSirasi,
+          percentile: sonuc.yuzdelikDilim,
+          estimated_score: sonuc.tahminiPuan,
+          answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
         })
-        .eq('id', examId);
+        .select('id')
+        .single();
+
+      if (resultError) {
+        console.error('Sonuç kayıt hatası:', resultError);
+        continue;
+      }
+
+      // Ders bazlı sonuçlar
+      if (result && sonuc.dersSonuclari) {
+        const sectionResults = sonuc.dersSonuclari.map(ders => ({
+          exam_result_id: result.id,
+          exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
+          correct_count: ders.dogru,
+          wrong_count: ders.yanlis,
+          blank_count: ders.bos,
+          net: ders.net,
+        }));
+
+        await supabase.from('exam_result_sections').insert(sectionResults);
+      }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 6. İSTATİSTİKLERİ HESAPLA VE KAYDET
+    // ─────────────────────────────────────────────────────────────────────────
+    const istatistikler = hesaplaIstatistikler(sonuclar);
+
+    await supabase
+      .from('exams')
+      .update({
+        participant_count: istatistikler.toplamKatilimci,
+        average_net: istatistikler.ortalamaNet,
+        highest_net: istatistikler.enYuksekNet,
+        lowest_net: istatistikler.enDusukNet,
+        statistics_json: JSON.stringify(istatistikler),
+        is_published: true,
+      })
+      .eq('id', examId);
+
     return NextResponse.json({
-      ok: true,
+      success: true,
       examId,
       message: 'Sınav başarıyla kaydedildi',
       stats: {
-        totalQuestions: cevapAnahtari.length,
-        participantCount: ogrenciSonuclari?.length || 0,
+        participants: istatistikler.toplamKatilimci,
+        averageNet: istatistikler.ortalamaNet,
       },
     });
 
   } catch (error: any) {
     console.error('❌ Wizard API hatası:', error);
     return NextResponse.json(
-      { ok: false, error: error.message || 'Beklenmeyen bir hata oluştu' },
+      { success: false, message: error.message || 'Sunucu hatası' },
       { status: 500 }
     );
   }
 }
-
