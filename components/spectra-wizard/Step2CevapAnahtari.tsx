@@ -303,27 +303,50 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     toast.success(`${dersAdi} yüklendi (Kitapçık ${aktifKitapcik})`);
   }, [aktifKitapcik, dersYapistirResults, cevapAnahtari, updateCevapAnahtari]);
 
-  // Kayıtlı anahtarları yükle
+  // Kayıtlı anahtarları yükle (Supabase + localStorage)
   const loadKayitliAnahtarlar = useCallback(async () => {
     setIsLoadingKutuphane(true);
     try {
-      const { data, error } = await supabase
-        .from('answer_key_templates')
-        .select('id, name, exam_type, total_questions, created_at')
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+      let anahtarlar: KayitliAnahtar[] = [];
 
-      if (error) throw error;
+      // 1. Supabase'den yükle
+      try {
+        const { data, error } = await supabase
+          .from('answer_key_templates')
+          .select('id, name, exam_type, total_questions, created_at')
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false });
 
-      setKayitliAnahtarlar(
-        (data || []).map((row: any) => ({
+        if (!error && data) {
+          anahtarlar = data.map((row: any) => ({
+            id: row.id,
+            ad: row.name,
+            sinavTuru: row.exam_type,
+            toplamSoru: row.total_questions,
+            olusturulmaTarihi: row.created_at,
+          }));
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase yüklenemedi:', supabaseError);
+      }
+
+      // 2. localStorage'dan da yükle (varsa)
+      try {
+        const localKey = `answer_key_${organizationId}`;
+        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const localAnahtarlar = localData.map((row: any) => ({
           id: row.id,
-          ad: row.name,
+          ad: row.name + ' (Yerel)',
           sinavTuru: row.exam_type,
           toplamSoru: row.total_questions,
           olusturulmaTarihi: row.created_at,
-        }))
-      );
+        }));
+        anahtarlar = [...anahtarlar, ...localAnahtarlar];
+      } catch (localError) {
+        console.warn('localStorage yüklenemedi:', localError);
+      }
+
+      setKayitliAnahtarlar(anahtarlar);
     } catch (error) {
       console.error('Kütüphane yükleme hatası:', error);
     } finally {
@@ -345,6 +368,22 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
 
     setIsLoadingKutuphane(true);
     try {
+      // localStorage'dan mı?
+      if (seciliSablonId.startsWith('local-')) {
+        const localKey = `answer_key_${organizationId}`;
+        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const found = localData.find((item: any) => item.id === seciliSablonId);
+        if (found?.answer_data) {
+          const loadedAnahtar = found.answer_data as CevapAnahtari;
+          updateCevapAnahtari(loadedAnahtar, 'library');
+          toast.success('Şablon yüklendi (Yerel).');
+        } else {
+          toast.error('Şablon bulunamadı.');
+        }
+        return;
+      }
+
+      // Supabase'den yükle
       const { data, error } = await supabase
         .from('answer_key_templates')
         .select('answer_data')
@@ -364,7 +403,7 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     } finally {
       setIsLoadingKutuphane(false);
     }
-  }, [seciliSablonId, supabase, updateCevapAnahtari]);
+  }, [seciliSablonId, supabase, organizationId, updateCevapAnahtari]);
 
   // KÜTÜPHANE - Kaydet
   const handleKutuphaneKaydet = useCallback(async () => {
@@ -380,6 +419,7 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
 
     setIsSaving(true);
     try {
+      // Önce Supabase'e kaydetmeyi dene
       const { error } = await supabase.from('answer_key_templates').insert({
         organization_id: organizationId,
         name: yeniSablonAdi.trim(),
@@ -389,14 +429,57 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
         answer_data: cevapAnahtari,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tablo yoksa veya hata varsa localStorage'a kaydet
+        console.warn('Supabase hatası, localStorage kullanılıyor:', error);
+        const localKey = `answer_key_${organizationId}`;
+        const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const newTemplate = {
+          id: `local-${Date.now()}`,
+          name: yeniSablonAdi.trim(),
+          exam_type: step1Data.sinavTuru,
+          class_level: step1Data.sinifSeviyesi,
+          total_questions: toplamSoru,
+          answer_data: cevapAnahtari,
+          created_at: new Date().toISOString(),
+        };
+        existing.push(newTemplate);
+        localStorage.setItem(localKey, JSON.stringify(existing));
+        
+        toast.success(`"${yeniSablonAdi}" yerel olarak kaydedildi.`);
+        setYeniSablonAdi('');
+        loadKayitliAnahtarlar();
+        return;
+      }
 
       toast.success(`"${yeniSablonAdi}" olarak kaydedildi.`);
       setYeniSablonAdi('');
       loadKayitliAnahtarlar(); // Listeyi yenile
-    } catch (error) {
+    } catch (error: any) {
       console.error('Kaydetme hatası:', error);
-      toast.error('Kaydetme başarısız.');
+      
+      // Fallback: localStorage'a kaydet
+      try {
+        const localKey = `answer_key_${organizationId}`;
+        const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const newTemplate = {
+          id: `local-${Date.now()}`,
+          name: yeniSablonAdi.trim(),
+          exam_type: step1Data.sinavTuru,
+          class_level: step1Data.sinifSeviyesi,
+          total_questions: toplamSoru,
+          answer_data: cevapAnahtari,
+          created_at: new Date().toISOString(),
+        };
+        existing.push(newTemplate);
+        localStorage.setItem(localKey, JSON.stringify(existing));
+        
+        toast.success(`"${yeniSablonAdi}" yerel olarak kaydedildi.`);
+        setYeniSablonAdi('');
+        loadKayitliAnahtarlar();
+      } catch (localError) {
+        toast.error('Kaydetme başarısız: ' + (error.message || 'Bilinmeyen hata'));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -412,6 +495,19 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     if (!confirm('Bu şablonu silmek istediğinize emin misiniz?')) return;
 
     try {
+      // localStorage'dan mı?
+      if (seciliSablonId.startsWith('local-')) {
+        const localKey = `answer_key_${organizationId}`;
+        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const filtered = localData.filter((item: any) => item.id !== seciliSablonId);
+        localStorage.setItem(localKey, JSON.stringify(filtered));
+        toast.success('Şablon silindi (Yerel).');
+        setSeciliSablonId('');
+        loadKayitliAnahtarlar();
+        return;
+      }
+
+      // Supabase'den sil
       const { error } = await supabase
         .from('answer_key_templates')
         .delete()
@@ -426,7 +522,7 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
       console.error('Silme hatası:', error);
       toast.error('Şablon silinemedi.');
     }
-  }, [seciliSablonId, supabase, loadKayitliAnahtarlar]);
+  }, [seciliSablonId, supabase, organizationId, loadKayitliAnahtarlar]);
 
   // Ders için girilen cevapları string olarak al (ABCD... formatında)
   const getDersCevapString = useCallback((dersKodu: string): string => {
