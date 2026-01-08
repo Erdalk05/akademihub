@@ -6,7 +6,7 @@ import {
   Settings, Building2, Users, Calendar, Mail, FileText, 
   CreditCard, Save, Plus, Trash2, Edit, Check, X, 
   ChevronRight, Shield, Eye, EyeOff,
-  Smartphone, Globe, Upload, Loader2, Database, Server, Keyboard
+  Smartphone, Globe, Upload, Loader2, Database, Server, Keyboard, Calculator
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/lib/hooks/usePermission';
@@ -18,9 +18,10 @@ import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import OrganizationSettings from '@/components/settings/OrganizationSettings';
 import DataMigrationSection from '@/components/settings/DataMigrationSection';
 import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
+import ScoringRulesSettings from '@/components/settings/ScoringRulesSettings';
 
 // Tab Types
-type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration';
+type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration' | 'scoring';
 
 // Interfaces
 interface SchoolInfo {
@@ -980,6 +981,7 @@ function SettingsPageContent() {
     { id: 'users', label: 'Kullanıcı Yönetimi', icon: Users, description: 'Kullanıcılar ve roller' },
     { id: 'permissions', label: 'Rol Yetkileri', icon: Shield, description: 'Rol bazlı erişim kontrolü' },
     { id: 'academic', label: 'Akademik Yıllar', icon: Calendar, description: 'Eğitim dönemleri' },
+    { id: 'scoring', label: 'Puanlama Kuralları', icon: Calculator, description: 'LGS/TYT/AYT katsayıları' },
     { id: 'communication', label: 'İletişim Ayarları', icon: Mail, description: 'SMS, Email, WhatsApp' },
     { id: 'contracts', label: 'Sözleşme Şablonları', icon: FileText, description: 'KVKK ve kayıt sözleşmesi' },
     { id: 'payments', label: 'Ödeme Şablonları', icon: CreditCard, description: 'Program ücretleri' },
@@ -2574,6 +2576,11 @@ function SettingsPageContent() {
                 {/* Yedekleme Sekmesi */}
                 {activeTab === 'backup' && (
                   <BackupRestore />
+                )}
+
+                {/* Puanlama Kuralları Sekmesi */}
+                {activeTab === 'scoring' && (
+                  <ScoringRulesSettings />
                 )}
 
                 {/* Veri Aktarımı Sekmesi */}
