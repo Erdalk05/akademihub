@@ -5,7 +5,7 @@
 // 4 Katmanlı: Kütüphane Bar + Toplu Yapıştır + Ders Bazlı + Editör
 // ============================================================================
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   Library,
   ChevronDown,
@@ -23,8 +23,11 @@ import {
   Zap,
   BookOpen,
   Download,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 import type {
   WizardStep1Data,
   WizardStep2Data,
@@ -83,6 +86,10 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
   const [yeniSablonAdi, setYeniSablonAdi] = useState<string>('');
   const [kayitliAnahtarlar, setKayitliAnahtarlar] = useState<KayitliAnahtar[]>([]);
   const [isLoadingKutuphane, setIsLoadingKutuphane] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Supabase client
+  const supabase = createClient();
   
   // Toplu yapıştır state
   const [topluCevapInput, setTopluCevapInput] = useState<string>('');
@@ -296,26 +303,139 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     toast.success(`${dersAdi} yüklendi (Kitapçık ${aktifKitapcik})`);
   }, [aktifKitapcik, dersYapistirResults, cevapAnahtari, updateCevapAnahtari]);
 
+  // Kayıtlı anahtarları yükle
+  const loadKayitliAnahtarlar = useCallback(async () => {
+    setIsLoadingKutuphane(true);
+    try {
+      const { data, error } = await supabase
+        .from('answer_key_templates')
+        .select('id, name, exam_type, total_questions, created_at')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setKayitliAnahtarlar(
+        (data || []).map((row: any) => ({
+          id: row.id,
+          ad: row.name,
+          sinavTuru: row.exam_type,
+          toplamSoru: row.total_questions,
+          olusturulmaTarihi: row.created_at,
+        }))
+      );
+    } catch (error) {
+      console.error('Kütüphane yükleme hatası:', error);
+    } finally {
+      setIsLoadingKutuphane(false);
+    }
+  }, [supabase, organizationId]);
+
+  // İlk yüklemede kütüphaneyi getir
+  useEffect(() => {
+    loadKayitliAnahtarlar();
+  }, [loadKayitliAnahtarlar]);
+
   // KÜTÜPHANE - Yükle
-  const handleKutuphaneYukle = useCallback(() => {
+  const handleKutuphaneYukle = useCallback(async () => {
     if (!seciliSablonId) {
       toast.error('Lütfen bir şablon seçin.');
       return;
     }
-    // TODO: API'den yükle
-    toast.success('Şablon yüklendi.');
-  }, [seciliSablonId]);
+
+    setIsLoadingKutuphane(true);
+    try {
+      const { data, error } = await supabase
+        .from('answer_key_templates')
+        .select('answer_data')
+        .eq('id', seciliSablonId)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.answer_data) {
+        const loadedAnahtar = data.answer_data as CevapAnahtari;
+        updateCevapAnahtari(loadedAnahtar, 'library');
+        toast.success('Şablon yüklendi.');
+      }
+    } catch (error) {
+      console.error('Şablon yükleme hatası:', error);
+      toast.error('Şablon yüklenemedi.');
+    } finally {
+      setIsLoadingKutuphane(false);
+    }
+  }, [seciliSablonId, supabase, updateCevapAnahtari]);
 
   // KÜTÜPHANE - Kaydet
-  const handleKutuphaneKaydet = useCallback(() => {
+  const handleKutuphaneKaydet = useCallback(async () => {
     if (!yeniSablonAdi.trim()) {
       toast.error('Lütfen şablon adı girin.');
       return;
     }
-    // TODO: API'ye kaydet
-    toast.success(`"${yeniSablonAdi}" olarak kaydedildi.`);
-    setYeniSablonAdi('');
-  }, [yeniSablonAdi]);
+
+    if (stats.doldurulanSoru === 0) {
+      toast.error('Kaydedilecek cevap yok. Önce cevapları girin.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('answer_key_templates').insert({
+        organization_id: organizationId,
+        name: yeniSablonAdi.trim(),
+        exam_type: step1Data.sinavTuru,
+        class_level: step1Data.sinifSeviyesi,
+        total_questions: toplamSoru,
+        answer_data: cevapAnahtari,
+      });
+
+      if (error) throw error;
+
+      toast.success(`"${yeniSablonAdi}" olarak kaydedildi.`);
+      setYeniSablonAdi('');
+      loadKayitliAnahtarlar(); // Listeyi yenile
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      toast.error('Kaydetme başarısız.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [yeniSablonAdi, stats.doldurulanSoru, supabase, organizationId, step1Data, toplamSoru, cevapAnahtari, loadKayitliAnahtarlar]);
+
+  // KÜTÜPHANE - Sil
+  const handleKutuphaneSil = useCallback(async () => {
+    if (!seciliSablonId) {
+      toast.error('Lütfen bir şablon seçin.');
+      return;
+    }
+
+    if (!confirm('Bu şablonu silmek istediğinize emin misiniz?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('answer_key_templates')
+        .delete()
+        .eq('id', seciliSablonId);
+
+      if (error) throw error;
+
+      toast.success('Şablon silindi.');
+      setSeciliSablonId('');
+      loadKayitliAnahtarlar();
+    } catch (error) {
+      console.error('Silme hatası:', error);
+      toast.error('Şablon silinemedi.');
+    }
+  }, [seciliSablonId, supabase, loadKayitliAnahtarlar]);
+
+  // Ders için girilen cevapları string olarak al (ABCD... formatında)
+  const getDersCevapString = useCallback((dersKodu: string): string => {
+    const dersItems = cevapAnahtari.items
+      .filter(i => i.dersKodu === dersKodu)
+      .sort((a, b) => a.soruNo - b.soruNo);
+    
+    return dersItems.map(item => getItemCevap(item, aktifKitapcik) || '-').join('');
+  }, [cevapAnahtari.items, aktifKitapcik, getItemCevap]);
 
   // EDİTÖR - Ders genişlet/daralt
   const toggleDers = useCallback((dersKodu: string) => {
@@ -394,10 +514,11 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             <span className="text-xs text-gray-400">Tekrar tekrar girmeyin</span>
           </div>
           <button
-            onClick={() => setKayitliAnahtarlar([])}
+            onClick={loadKayitliAnahtarlar}
+            disabled={isLoadingKutuphane}
             className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={isLoadingKutuphane ? 'animate-spin' : ''} />
             Yenile
           </button>
         </div>
@@ -418,21 +539,28 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             </select>
             <button
               onClick={handleKutuphaneYukle}
-              disabled={!seciliSablonId}
+              disabled={!seciliSablonId || isLoadingKutuphane}
               className={cn(
-                'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                seciliSablonId
+                'px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1',
+                seciliSablonId && !isLoadingKutuphane
                   ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               )}
             >
+              {isLoadingKutuphane ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               Yükle
             </button>
-            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+            <button
+              onClick={handleKutuphaneSil}
+              disabled={!seciliSablonId}
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                seciliSablonId
+                  ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              )}
+            >
               Sil
-            </button>
-            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-              Düzenle
             </button>
           </div>
 
@@ -448,9 +576,15 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             />
             <button
               onClick={handleKutuphaneKaydet}
-              className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 flex items-center gap-1"
+              disabled={isSaving || stats.doldurulanSoru === 0}
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors',
+                isSaving || stats.doldurulanSoru === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-slate-800 text-white hover:bg-slate-900'
+              )}
             >
-              <Save size={14} />
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Kaydet
             </button>
           </div>
@@ -591,11 +725,12 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
           <table className="w-full text-sm">
             <thead className="bg-sky-50">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700 w-8"></th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Ders</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700 w-16">Soru</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Cevapları Yapıştır (örn: ABCD...)</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700 w-32">Durum</th>
+                <th className="px-3 py-3 text-left font-semibold text-gray-700 w-8"></th>
+                <th className="px-3 py-3 text-left font-semibold text-gray-700">Ders</th>
+                <th className="px-3 py-3 text-center font-semibold text-gray-700 w-14">Soru</th>
+                <th className="px-3 py-3 text-left font-semibold text-gray-700 w-48">Yapıştır</th>
+                <th className="px-3 py-3 text-left font-semibold text-gray-700">Girilen Cevaplar</th>
+                <th className="px-3 py-3 text-center font-semibold text-gray-700 w-24">Durum</th>
               </tr>
             </thead>
             <tbody>
@@ -607,67 +742,91 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
                 const dersStatsItem = dersStats[ders.dersKodu];
                 const girilmisSayi = result?.cevaplar.filter(c => c !== null).length || 0;
                 const isComplete = dersStatsItem?.dolduruan === ders.soruSayisi;
+                const hasPartial = (dersStatsItem?.dolduruan || 0) > 0 && !isComplete;
+                const cevapString = getDersCevapString(ders.dersKodu);
+                const hasEmpty = cevapString.includes('-');
 
                 return (
-                  <tr key={ders.dersKodu} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-400">⋮⋮</td>
-                    <td className="px-4 py-3">
+                  <tr key={ders.dersKodu} className={cn(
+                    'border-t border-gray-100 transition-colors',
+                    isComplete ? 'bg-emerald-50/50' : hasPartial ? 'bg-amber-50/30' : 'hover:bg-gray-50'
+                  )}>
+                    <td className="px-3 py-3 text-gray-400">⋮⋮</td>
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{renkler.icon}</span>
                         <span className={cn('font-medium', renkler.text)}>{ders.dersAdi}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       <span className="font-bold text-sky-600">{ders.soruSayisi}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1">
                         <input
                           type="text"
                           value={inputValue}
                           onChange={(e) => handleDersInputChange(ders.dersKodu, ders.soruSayisi, e.target.value)}
-                          placeholder={`${ders.soruSayisi} cevap girin (A-E)...`}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                          placeholder={`${ders.soruSayisi} cevap...`}
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && result?.isValid) {
                               handleDersApply(ders.dersKodu, ders.dersAdi);
                             }
                           }}
                         />
-                        <span className={cn(
-                          'px-2 py-1 rounded text-xs font-bold min-w-[50px] text-center',
-                          girilmisSayi === ders.soruSayisi
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : girilmisSayi > 0
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-gray-100 text-gray-500'
+                        {result?.isValid && (
+                          <button
+                            onClick={() => handleDersApply(ders.dersKodu, ders.dersAdi)}
+                            className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 flex-shrink-0"
+                            title="Uygula"
+                          >
+                            <Check size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      {/* Girilen cevapları göster */}
+                      <div className="flex items-center gap-1">
+                        <div className={cn(
+                          'font-mono text-xs px-2 py-1 rounded max-w-[200px] overflow-hidden',
+                          isComplete ? 'bg-emerald-100 text-emerald-700' :
+                          hasPartial ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-400'
                         )}>
-                          {girilmisSayi}/{ders.soruSayisi}
+                          <span className="truncate block" title={cevapString}>
+                            {cevapString.length > 0 ? cevapString : '---'}
+                          </span>
+                        </div>
+                        <span className={cn(
+                          'text-xs font-bold px-1.5 py-0.5 rounded',
+                          isComplete ? 'bg-emerald-500 text-white' :
+                          hasPartial ? 'bg-amber-500 text-white' :
+                          'bg-gray-200 text-gray-500'
+                        )}>
+                          {dersStatsItem?.dolduruan || 0}/{ders.soruSayisi}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {result?.isValid ? (
-                          <button
-                            onClick={() => handleDersApply(ders.dersKodu, ders.dersAdi)}
-                            className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-                          >
-                            <Check size={16} />
-                          </button>
-                        ) : isComplete ? (
-                          <CheckCircle2 className="text-emerald-500" size={20} />
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex items-center justify-center">
+                        {isComplete ? (
+                          <div className="flex items-center gap-1 text-emerald-600">
+                            <CheckCircle2 size={18} />
+                            <span className="text-xs font-medium">Tamam</span>
+                          </div>
+                        ) : hasPartial ? (
+                          <div className="flex items-center gap-1 text-amber-600">
+                            <AlertCircle size={18} />
+                            <span className="text-xs font-medium">Eksik</span>
+                          </div>
                         ) : (
-                          <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-sky-500 transition-all"
-                              style={{ width: `${(dersStatsItem?.dolduruan || 0) / ders.soruSayisi * 100}%` }}
-                            />
+                          <div className="flex items-center gap-1 text-red-500">
+                            <XCircle size={18} />
+                            <span className="text-xs font-medium">Boş</span>
                           </div>
                         )}
-                        <span className="text-xs text-gray-400">
-                          {dersStatsItem?.dolduruan || 0}/{ders.soruSayisi}
-                        </span>
                       </div>
                     </td>
                   </tr>
