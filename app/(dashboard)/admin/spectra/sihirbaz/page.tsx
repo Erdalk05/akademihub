@@ -141,13 +141,13 @@ export default function SpectraSihirbazPage() {
 
   // Kaydet
   const handleSave = async () => {
-    if (!currentOrganization?.id || !currentAcademicYear?.id) {
-      toast.error('Kurum veya dönem bilgisi bulunamadı');
+    if (!currentOrganization?.id) {
+      toast.error('Kurum bilgisi bulunamadı. Lütfen sayfayı yenileyin.');
       return;
     }
 
     if (!step1Data || !step2Data || !step4Data?.parseResult) {
-      toast.error('Eksik veri');
+      toast.error('Eksik veri. Lütfen tüm adımları tamamlayın.');
       return;
     }
 
@@ -159,7 +159,7 @@ export default function SpectraSihirbazPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organizationId: currentOrganization.id,
-          academicYearId: currentAcademicYear.id,
+          academicYearId: currentAcademicYear?.id || null, // Opsiyonel
           draftExamId,
           step1Data,
           step2Data,
