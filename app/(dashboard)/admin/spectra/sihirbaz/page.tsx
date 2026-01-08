@@ -92,7 +92,12 @@ export default function SpectraSihirbazPage() {
       case 1:
         return !!step1Data?.sinavAdi && !!step1Data?.sinavTarihi;
       case 2:
-        return !!step2Data?.cevapAnahtari?.items?.some(i => i.dogruCevap);
+        return !!step2Data?.cevapAnahtari?.items?.some(i =>
+          !!i.dogruCevap ||
+          !!i.kitapcikCevaplari?.B ||
+          !!i.kitapcikCevaplari?.C ||
+          !!i.kitapcikCevaplari?.D
+        );
       case 3:
         return !!step3Data?.optikSablon;
       case 4:

@@ -75,6 +75,9 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
   // Manuel giriş state
   const [expandedDersler, setExpandedDersler] = useState<Set<string>>(new Set());
   const [aktifKitapcik, setAktifKitapcik] = useState<KitapcikTuru>('A');
+  // Ders bazlı manuel yapıştırma (kitapçık + ders bazında)
+  const [dersYapistirInputs, setDersYapistirInputs] = useState<Record<string, string>>({});
+  const [dersYapistirResults, setDersYapistirResults] = useState<Record<string, TopluYapistirResult | null>>({});
   
   // Toplu yapıştır state
   const [topluKitapcik, setTopluKitapcik] = useState<KitapcikTuru>('A');
@@ -120,6 +123,21 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     return validateCevapAnahtari(cevapAnahtari, toplamSoru);
   }, [cevapAnahtari, toplamSoru]);
 
+  // Aktif kitapçığa göre ekranda gösterilen cevap (A: dogruCevap, B/C/D: kitapcikCevaplari)
+  const getItemCevap = useCallback((item: CevapAnahtariItem, kitapcik: KitapcikTuru): CevapSecenegi => {
+    if (kitapcik === 'A') return item.dogruCevap ?? null;
+    return item.kitapcikCevaplari?.[kitapcik] ?? null;
+  }, []);
+
+  // UI istatistikleri (aktif kitapçığa göre)
+  const aktifKitapcikStats = useMemo(() => {
+    const doldurulanSoru = cevapAnahtari.items.filter(i => !!getItemCevap(i, aktifKitapcik) && !i.iptal).length;
+    const iptalSoru = cevapAnahtari.items.filter(i => !!i.iptal).length;
+    const bosKalanSoru = Math.max(0, toplamSoru - doldurulanSoru - iptalSoru);
+    const kazanimliSoru = cevapAnahtari.items.filter(i => !!i.kazanimKodu || !!i.kazanimAciklamasi).length;
+    return { doldurulanSoru, bosKalanSoru, iptalSoru, kazanimliSoru };
+  }, [cevapAnahtari.items, aktifKitapcik, toplamSoru, getItemCevap]);
+
   const filteredItems = useMemo(() => {
     if (!searchQuery) return cevapAnahtari.items;
     const query = searchQuery.toLowerCase();
@@ -151,6 +169,40 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     const newAnahtar = updateSoruCevap(cevapAnahtari, soruNo, cevap, aktifKitapcik);
     updateCevapAnahtari(newAnahtar, 'manual');
   }, [cevapAnahtari, aktifKitapcik, updateCevapAnahtari]);
+
+  // Manuel ders bazlı yapıştırma input değişikliği
+  const handleDersYapistirChange = useCallback((dersKodu: string, dersSoruSayisi: number, value: string) => {
+    const key = `${aktifKitapcik}:${dersKodu}`;
+    setDersYapistirInputs(prev => ({ ...prev, [key]: value.toUpperCase() }));
+    const result = parseTopluCevap(value, dersSoruSayisi);
+    setDersYapistirResults(prev => ({ ...prev, [key]: result }));
+  }, [aktifKitapcik]);
+
+  // Manuel ders bazlı yapıştırmayı uygula (sadece seçili ders aralığı)
+  const handleDersYapistirApply = useCallback((dersKodu: string, dersAdi: string) => {
+    const key = `${aktifKitapcik}:${dersKodu}`;
+    const result = dersYapistirResults[key];
+    if (!result || !result.isValid) {
+      toast.error(`${dersAdi} için cevaplar geçersiz veya eksik.`);
+      return;
+    }
+
+    const dersItems = cevapAnahtari.items
+      .filter(i => i.dersKodu === dersKodu)
+      .sort((a, b) => a.soruNo - b.soruNo);
+
+    let newAnahtar = cevapAnahtari;
+    for (let i = 0; i < dersItems.length; i++) {
+      const soruNo = dersItems[i]?.soruNo;
+      const cevap = result.cevaplar[i] ?? null;
+      if (soruNo) newAnahtar = updateSoruCevap(newAnahtar, soruNo, cevap, aktifKitapcik);
+    }
+
+    updateCevapAnahtari(newAnahtar, 'paste');
+    setDersYapistirInputs(prev => ({ ...prev, [key]: '' }));
+    setDersYapistirResults(prev => ({ ...prev, [key]: null }));
+    toast.success(`${dersAdi} cevapları yüklendi (Kitapçık ${aktifKitapcik}).`);
+  }, [aktifKitapcik, dersYapistirResults, cevapAnahtari, updateCevapAnahtari]);
 
   // Toplu yapıştırma input değişikliği
   const handleTopluInputChange = useCallback((value: string) => {
@@ -450,17 +502,17 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
       </div>
 
       {/* KITAPÇIK SEÇİMİ (Manuel ve Toplu için) */}
-      {(activeTab === 'manuel' || activeTab === 'toplu') && step1Data.kitapcikTurleri.length > 1 && (
+      {step1Data.kitapcikTurleri.length > 1 && (
         <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
           <span className="text-sm font-semibold text-amber-800">Kitapçık Seç:</span>
           <div className="flex gap-2">
             {(['A', 'B', 'C', 'D'] as KitapcikTuru[]).map((kit) => (
               <button
                 key={kit}
-                onClick={() => activeTab === 'manuel' ? setAktifKitapcik(kit) : setTopluKitapcik(kit)}
+                onClick={() => { setAktifKitapcik(kit); setTopluKitapcik(kit); }}
                 className={cn(
                   'w-10 h-10 rounded-lg font-bold text-lg transition-all',
-                  (activeTab === 'manuel' ? aktifKitapcik : topluKitapcik) === kit
+                  aktifKitapcik === kit
                     ? 'bg-emerald-500 text-white ring-2 ring-emerald-300'
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-300'
                 )}
@@ -470,7 +522,7 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             ))}
           </div>
           <span className="text-sm text-amber-700 ml-auto">
-            Aktif: Kitapçık {activeTab === 'manuel' ? aktifKitapcik : topluKitapcik} ({validation.stats.doldurulanSoru}/{toplamSoru})
+            Aktif: Kitapçık {aktifKitapcik} ({aktifKitapcikStats.doldurulanSoru}/{toplamSoru})
           </span>
         </div>
       )}
@@ -522,6 +574,65 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
 
                 {isExpanded && (
                   <div className="p-4 bg-gray-50 border-t border-gray-100">
+                    {/* Ders bazlı yapıştırma */}
+                    <div className="mb-4 p-3 bg-white rounded-xl border border-gray-200">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700">Bu dersin cevaplarını yapıştır</p>
+                          <p className="text-xs text-gray-500">
+                            {ders.soruSayisi} soru • Kitapçık {aktifKitapcik} • Desteklenen: ABCD... / A B C D / 1 2 3 4 / Satır satır
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            'px-2.5 py-1 rounded-full text-xs font-bold',
+                            (dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.isValid)
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : (dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.girilmisSayi ?? 0) > 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-500'
+                          )}>
+                            {dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.girilmisSayi || 0}/{ders.soruSayisi}
+                          </span>
+                          <button
+                            onClick={() => handleDersYapistirApply(ders.dersKodu, ders.dersAdi)}
+                            disabled={!dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.isValid}
+                            className={cn(
+                              'px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2',
+                              dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.isValid
+                                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            )}
+                          >
+                            <Upload size={16} />
+                            Yükle
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        value={dersYapistirInputs[`${aktifKitapcik}:${ders.dersKodu}`] || ''}
+                        onChange={(e) => handleDersYapistirChange(ders.dersKodu, ders.soruSayisi, e.target.value)}
+                        placeholder={`Örnek: ABCDABCD... (toplam ${ders.soruSayisi} cevap)`}
+                        className="w-full h-20 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-xs resize-none"
+                      />
+                      {dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`] &&
+                        (dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]?.hatalar.length || 0) > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]!.hatalar.slice(0, 2).map((hata, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs text-red-600">
+                                <AlertCircle size={12} />
+                                {hata}
+                              </div>
+                            ))}
+                            {dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]!.hatalar.length > 2 && (
+                              <div className="text-xs text-red-500">
+                                +{dersYapistirResults[`${aktifKitapcik}:${ders.dersKodu}`]!.hatalar.length - 2} hata daha...
+                              </div>
+                            )}
+                          </div>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
                       {dersItems.map((item) => (
                         <div key={item.soruNo} className="relative">
@@ -532,10 +643,13 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
                             {(['A', 'B', 'C', 'D', 'E'] as CevapSecenegi[]).map((secen) => (
                               <button
                                 key={secen}
-                                onClick={() => handleCevapChange(item.soruNo, item.dogruCevap === secen ? null : secen)}
+                                onClick={() => {
+                                  const current = getItemCevap(item, aktifKitapcik);
+                                  handleCevapChange(item.soruNo, current === secen ? null : secen);
+                                }}
                                 className={cn(
                                   'w-6 h-6 rounded text-xs font-bold transition-all',
-                                  item.dogruCevap === secen
+                                  getItemCevap(item, aktifKitapcik) === secen
                                     ? 'bg-emerald-500 text-white'
                                     : 'bg-white text-gray-400 border border-gray-200 hover:border-emerald-300'
                                 )}
@@ -1022,10 +1136,13 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
                           {(['A', 'B', 'C', 'D', 'E'] as CevapSecenegi[]).map((cevap) => (
                             <button
                               key={cevap}
-                              onClick={() => handleCevapChange(item.soruNo, item.dogruCevap === cevap ? null : cevap)}
+                              onClick={() => {
+                                const current = getItemCevap(item, aktifKitapcik);
+                                handleCevapChange(item.soruNo, current === cevap ? null : cevap);
+                              }}
                               className={cn(
                                 'w-7 h-7 rounded text-xs font-bold transition-all',
-                                item.dogruCevap === cevap
+                                getItemCevap(item, aktifKitapcik) === cevap
                                   ? 'bg-emerald-500 text-white'
                                   : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                               )}
@@ -1078,31 +1195,31 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
       <div className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-emerald-600">{validation.stats.doldurulanSoru}</p>
+            <p className="text-2xl font-bold text-emerald-600">{aktifKitapcikStats.doldurulanSoru}</p>
             <p className="text-xs text-gray-500">Girildi</p>
           </div>
           <div className="w-px h-10 bg-gray-200" />
           <div className="text-center">
-            <p className="text-2xl font-bold text-amber-500">{validation.stats.bosKalanSoru}</p>
+            <p className="text-2xl font-bold text-amber-500">{aktifKitapcikStats.bosKalanSoru}</p>
             <p className="text-xs text-gray-500">Boş</p>
           </div>
           <div className="w-px h-10 bg-gray-200" />
           <div className="text-center">
-            <p className="text-2xl font-bold text-purple-500">{validation.stats.kazanimliSoru}</p>
+            <p className="text-2xl font-bold text-purple-500">{aktifKitapcikStats.kazanimliSoru}</p>
             <p className="text-xs text-gray-500">Kazanımlı</p>
           </div>
           <div className="w-px h-10 bg-gray-200" />
           <div className="text-center">
-            <p className="text-2xl font-bold text-gray-400">{validation.stats.iptalSoru}</p>
+            <p className="text-2xl font-bold text-gray-400">{aktifKitapcikStats.iptalSoru}</p>
             <p className="text-xs text-gray-500">İptal</p>
           </div>
         </div>
         <div className="text-right">
           <p className={cn(
             'text-sm font-medium flex items-center gap-2',
-            validation.valid ? 'text-emerald-600' : 'text-amber-600'
+            aktifKitapcikStats.bosKalanSoru === 0 ? 'text-emerald-600' : 'text-amber-600'
           )}>
-            {validation.valid ? (
+            {aktifKitapcikStats.bosKalanSoru === 0 ? (
               <>
                 <CheckCircle2 size={18} />
                 Hazır
@@ -1110,7 +1227,7 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             ) : (
               <>
                 <AlertCircle size={18} />
-                {validation.stats.bosKalanSoru} soru eksik
+                {aktifKitapcikStats.bosKalanSoru} soru eksik
               </>
             )}
           </p>
