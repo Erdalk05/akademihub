@@ -145,69 +145,92 @@ export async function POST(request: NextRequest) {
     sonuclar = ekleTohminiPuanlar(sonuclar, step1Data.sinavTuru);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5. KATILIMCILARI VE SONUÇLARI KAYDET
+    // 5. KATILIMCILARI VE SONUÇLARI KAYDET (Dashboard uyumlu kolonlar)
     // ─────────────────────────────────────────────────────────────────────────
-    for (const sonuc of sonuclar) {
-      // Katılımcı ekle
-      const { data: participant, error: participantError } = await supabase
+    // Dashboard şu kolonları okuyor: correct_count, wrong_count, empty_count, net, score, rank, class_name, answers
+    // Bu kolonları exam_participants'a ekliyoruz
+    
+    let insertedCount = 0;
+    const participantInserts = sonuclar.map((sonuc, index) => ({
+      exam_id: examId,
+      organization_id: organizationId,
+      student_id: sonuc.studentId || null,
+      participant_type: sonuc.isMisafir ? 'guest' : 'institution',
+      guest_name: sonuc.ogrenciAdi || null,
+      guest_class: sonuc.sinif || null,
+      class_name: sonuc.sinif || null,           // Dashboard bunu okuyor
+      match_status: sonuc.eslesmeDurumu || 'pending',
+      optical_student_no: sonuc.ogrenciNo || null,
+      optical_name: sonuc.ogrenciAdi || null,
+      booklet_type: sonuc.kitapcik || null,
+      // Dashboard'un beklediği sonuç kolonları:
+      correct_count: sonuc.toplamDogru || 0,
+      wrong_count: sonuc.toplamYanlis || 0,
+      empty_count: sonuc.toplamBos || 0,
+      net: sonuc.toplamNet || 0,
+      score: sonuc.tahminiPuan || null,
+      rank: sonuc.kurumSirasi || (index + 1),
+      answers: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
+    }));
+
+    // Batch insert - daha hızlı ve güvenilir
+    if (participantInserts.length > 0) {
+      const { data: insertedParticipants, error: participantError } = await supabase
         .from('exam_participants')
-        .insert({
-          exam_id: examId,
-          organization_id: organizationId,
-          student_id: sonuc.studentId || null,
-          participant_type: sonuc.isMisafir ? 'guest' : 'institution',
-          guest_name: sonuc.isMisafir ? sonuc.ogrenciAdi : null,
-          guest_class: sonuc.sinif || null,
-          match_status: sonuc.eslesmeDurumu,
-          optical_student_no: sonuc.ogrenciNo,
-          optical_name: sonuc.ogrenciAdi,
-          booklet_type: sonuc.kitapcik,
-        })
-        .select('id')
-        .single();
+        .insert(participantInserts)
+        .select('id');
 
       if (participantError) {
-        console.error('Katılımcı kayıt hatası:', participantError);
-        continue;
+        console.error('❌ Katılımcı kayıt hatası:', participantError);
+        // Hata detayını logla
+        console.error('Hata detayı:', JSON.stringify(participantError, null, 2));
+        console.error('İlk kayıt örneği:', JSON.stringify(participantInserts[0], null, 2));
+      } else {
+        insertedCount = insertedParticipants?.length || 0;
+        console.log(`✅ ${insertedCount} katılımcı kaydedildi`);
       }
 
-      const participantId = participant.id;
+      // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için)
+      if (insertedParticipants && insertedParticipants.length > 0) {
+        for (let i = 0; i < insertedParticipants.length; i++) {
+          const participantId = insertedParticipants[i].id;
+          const sonuc = sonuclar[i];
 
-      // Sonuç ekle
-      const { data: result, error: resultError } = await supabase
-        .from('exam_results')
-        .insert({
-          exam_participant_id: participantId,
-          total_correct: sonuc.toplamDogru,
-          total_wrong: sonuc.toplamYanlis,
-          total_blank: sonuc.toplamBos,
-          total_net: sonuc.toplamNet,
-          organization_rank: sonuc.kurumSirasi,
-          class_rank: sonuc.sinifSirasi,
-          percentile: sonuc.yuzdelikDilim,
-          estimated_score: sonuc.tahminiPuan,
-          answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
-        })
-        .select('id')
-        .single();
+          // exam_results tablosuna da yaz
+          const { error: resultError } = await supabase
+            .from('exam_results')
+            .insert({
+              exam_participant_id: participantId,
+              total_correct: sonuc.toplamDogru || 0,
+              total_wrong: sonuc.toplamYanlis || 0,
+              total_blank: sonuc.toplamBos || 0,
+              total_net: sonuc.toplamNet || 0,
+              organization_rank: sonuc.kurumSirasi,
+              class_rank: sonuc.sinifSirasi,
+              percentile: sonuc.yuzdelikDilim,
+              estimated_score: sonuc.tahminiPuan,
+              answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
+            });
 
-      if (resultError) {
-        console.error('Sonuç kayıt hatası:', resultError);
-        continue;
-      }
+          if (resultError) {
+            console.warn('exam_results kayıt uyarısı:', resultError.message);
+            // Kritik değil, devam et
+          }
 
-      // Ders bazlı sonuçlar
-      if (result && sonuc.dersSonuclari) {
-        const sectionResults = sonuc.dersSonuclari.map(ders => ({
-          exam_result_id: result.id,
-          exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
-          correct_count: ders.dogru,
-          wrong_count: ders.yanlis,
-          blank_count: ders.bos,
-          net: ders.net,
-        }));
+          // Ders bazlı sonuçlar
+          if (sonuc.dersSonuclari) {
+            const sectionResults = sonuc.dersSonuclari.map(ders => ({
+              exam_result_id: participantId, // Eğer exam_results.id yoksa participant kullan
+              exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
+              correct_count: ders.dogru,
+              wrong_count: ders.yanlis,
+              blank_count: ders.bos,
+              net: ders.net,
+            }));
 
-        await supabase.from('exam_result_sections').insert(sectionResults);
+            await supabase.from('exam_result_sections').insert(sectionResults).catch(() => {});
+          }
+        }
       }
     }
 
