@@ -83,7 +83,6 @@ export function useSpectraDetail({
           guest_name,
           class_name,
           answers,
-          booklet_type,
           correct_count,
           wrong_count,
           empty_count,
