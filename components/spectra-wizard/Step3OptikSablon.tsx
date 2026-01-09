@@ -150,6 +150,9 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
   // Sınav türü preset seçimi (LGS/TYT/AYT)
   const [selectedPreset, setSelectedPreset] = useState<'LGS' | 'TYT' | 'AYT' | 'OZEL'>('OZEL');
 
+  // Akordiyon state
+  const [alanlarAcik, setAlanlarAcik] = useState(true);
+
   // ─────────────────────────────────────────────────────────────────────────
   // VALIDATION HELPER
   // ─────────────────────────────────────────────────────────────────────────
@@ -642,12 +645,25 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* ALAN TANIMLAMA TABLOSU */}
+          {/* ALAN TANIMLAMA TABLOSU - AKORDİYON */}
           {/* ═══════════════════════════════════════════════════════════════════ */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Akordiyon Başlık */}
+            <button
+              onClick={() => setAlanlarAcik(!alanlarAcik)}
+              className="w-full bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                Alan Tanımları ({alanlar.filter(a => a.aktif).length + 2} aktif)
+              </span>
+              <ChevronRight size={18} className={cn('text-gray-400 transition-transform', alanlarAcik && 'rotate-90')} />
+            </button>
+
             {/* Tablo Başlığı */}
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-600 uppercase">
+            {alanlarAcik && (
+            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase">
                 <div className="col-span-3">Alan Adı</div>
                 <div className="col-span-2 text-center">Başlangıç</div>
                 <div className="col-span-2 text-center">Bitiş</div>
@@ -656,8 +672,10 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                 <div className="col-span-1"></div>
               </div>
             </div>
+            )}
 
-            {/* Zorunlu Alanlar */}
+            {/* Zorunlu ve Opsiyonel Alanlar */}
+            {alanlarAcik && (
             <div className="divide-y divide-gray-100">
               {/* Öğrenci No - Zorunlu */}
               <div className="grid grid-cols-12 gap-2 px-4 py-3 items-center bg-emerald-50/50">
@@ -803,7 +821,31 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                       {alan.aktif ? 'Aktif' : 'Pasif'}
                     </button>
                   </div>
-                  <div className="col-span-1 text-right">
+                  <div className="col-span-1 flex items-center justify-end gap-0.5">
+                    <button
+                      onClick={() => {
+                        if (index === 0) return;
+                        const yeni = [...alanlar];
+                        [yeni[index - 1], yeni[index]] = [yeni[index], yeni[index - 1]];
+                        setAlanlar(yeni);
+                      }}
+                      disabled={index === 0}
+                      className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
+                    >
+                      <ArrowUp size={12} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (index === alanlar.length - 1) return;
+                        const yeni = [...alanlar];
+                        [yeni[index], yeni[index + 1]] = [yeni[index + 1], yeni[index]];
+                        setAlanlar(yeni);
+                      }}
+                      disabled={index === alanlar.length - 1}
+                      className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
+                    >
+                      <ArrowDown size={12} />
+                    </button>
                     {alan.aktif && (
                       <button
                         onClick={() => {
@@ -815,15 +857,17 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         }}
                         className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+            )}
 
             {/* Satır Ekle Butonu */}
+            {alanlarAcik && (
             <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => {
@@ -844,6 +888,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                 Satır Ekle
               </button>
             </div>
+            )}
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════ */}
