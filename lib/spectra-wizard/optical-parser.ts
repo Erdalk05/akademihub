@@ -285,6 +285,77 @@ export function detectEncoding(text: string): OptikEncoding {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TC KİMLİK DOĞRULAMA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Türkiye TC Kimlik numarası doğrulama (11 hane algoritması)
+ * @param tc TC Kimlik numarası (11 haneli string)
+ * @returns Geçerli ise true, değilse false
+ */
+export function validateTCKimlik(tc: string): boolean {
+  // 11 hane kontrolü
+  if (!tc || tc.length !== 11) return false;
+  
+  // Sadece rakam kontrolü
+  if (!/^\d{11}$/.test(tc)) return false;
+  
+  // İlk hane 0 olamaz
+  if (tc[0] === '0') return false;
+  
+  const digits = tc.split('').map(Number);
+  
+  // 10. hane kontrolü: (Tek haneler * 7 - Çift haneler) mod 10
+  const oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+  const evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+  const check10 = ((oddSum * 7) - evenSum) % 10;
+  // Negatif mod düzeltme
+  const check10Fixed = check10 < 0 ? check10 + 10 : check10;
+  if (check10Fixed !== digits[9]) return false;
+  
+  // 11. hane kontrolü: İlk 10 hanenin toplamı mod 10
+  const sum10 = digits.slice(0, 10).reduce((a, b) => a + b, 0);
+  if (sum10 % 10 !== digits[10]) return false;
+  
+  return true;
+}
+
+/**
+ * TC Kimlik doğrulama sonuç tipi
+ */
+export interface TCKimlikValidationResult {
+  isValid: boolean;
+  errorMessage?: string;
+}
+
+/**
+ * Detaylı TC Kimlik doğrulama
+ */
+export function validateTCKimlikDetailed(tc: string): TCKimlikValidationResult {
+  if (!tc || tc.length === 0) {
+    return { isValid: false, errorMessage: 'TC Kimlik numarası boş olamaz' };
+  }
+  
+  if (tc.length !== 11) {
+    return { isValid: false, errorMessage: `TC Kimlik 11 hane olmalı (girilen: ${tc.length})` };
+  }
+  
+  if (!/^\d{11}$/.test(tc)) {
+    return { isValid: false, errorMessage: 'TC Kimlik sadece rakam içermeli' };
+  }
+  
+  if (tc[0] === '0') {
+    return { isValid: false, errorMessage: 'TC Kimlik 0 ile başlayamaz' };
+  }
+  
+  if (!validateTCKimlik(tc)) {
+    return { isValid: false, errorMessage: 'TC Kimlik checksum doğrulaması başarısız' };
+  }
+  
+  return { isValid: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TİPLİ HATA OLUŞTURMA
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -592,7 +663,408 @@ function parseCevaplarFromString(raw: string, toplamSoru: number): CevapSecenegi
 
 export const OPTIK_SABLONLARI: OptikFormSablonu[] = [
   // ═══════════════════════════════════════════════════════════════════════════
-  // LGS ŞABLONLARI
+  // MEB STANDART ŞABLONLARI (4-12. SINIF)
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'meb-4-sinif-standart',
+    ad: 'MEB 4. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 4. sınıf standart optik formu',
+    sinifSeviyeleri: ['4'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 40,
+    satirUzunlugu: 120,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 50, bitis: 89 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 15, soruSayisi: 15 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 15, bitis: 30, soruSayisi: 15 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 30, bitis: 40, soruSayisi: 10 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-5-sinif-standart',
+    ad: 'MEB 5. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 5. sınıf standart optik formu',
+    sinifSeviyeleri: ['5'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 60,
+    satirUzunlugu: 140,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 50, bitis: 109 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 15, soruSayisi: 15 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 15, bitis: 30, soruSayisi: 15 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 30, bitis: 45, soruSayisi: 15 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 45, bitis: 55, soruSayisi: 10 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 55, bitis: 60, soruSayisi: 5 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-6-sinif-standart',
+    ad: 'MEB 6. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 6. sınıf standart optik formu',
+    sinifSeviyeleri: ['6'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 80,
+    satirUzunlugu: 160,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 50, bitis: 129 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 20, bitis: 40, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 40, bitis: 55, soruSayisi: 15 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 55, bitis: 70, soruSayisi: 15 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 70, bitis: 80, soruSayisi: 10 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-7-sinif-standart',
+    ad: 'MEB 7. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 7. sınıf standart optik formu',
+    sinifSeviyeleri: ['7'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 90,
+    satirUzunlugu: 171,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 52, bitis: 141 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 20, bitis: 40, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 40, bitis: 60, soruSayisi: 20 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilgiler', baslangic: 60, bitis: 75, soruSayisi: 15 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 75, bitis: 90, soruSayisi: 15 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-8-sinif-lgs',
+    ad: 'MEB 8. Sınıf LGS Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 8. sınıf LGS hazırlık standart optik formu',
+    sinifSeviyeleri: ['8'],
+    sinavTurleri: ['LGS', 'DENEME'],
+    toplamSoru: 90,
+    satirUzunlugu: 171,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciNo: { baslangic: 12, bitis: 21 },
+      ogrenciAdi: { baslangic: 22, bitis: 51 },
+      kurumKodu: { baslangic: 52, bitis: 59 },
+      sinif: { baslangic: 60, bitis: 63 },
+      kitapcik: { baslangic: 64, bitis: 64 },
+      cevaplar: { baslangic: 65, bitis: 154 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'INK', dersAdi: 'T.C. İnkılap Tarihi ve Atatürkçülük', baslangic: 20, bitis: 30, soruSayisi: 10 },
+      { dersKodu: 'DIN', dersAdi: 'Din Kültürü ve Ahlak Bilgisi', baslangic: 30, bitis: 40, soruSayisi: 10 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 40, bitis: 50, soruSayisi: 10 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 70, bitis: 90, soruSayisi: 20 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-9-sinif-standart',
+    ad: 'MEB 9. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 9. sınıf standart optik formu',
+    sinifSeviyeleri: ['9'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 100,
+    satirUzunlugu: 180,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 50, bitis: 149 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 25, soruSayisi: 25 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 25, bitis: 50, soruSayisi: 25 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilimler', baslangic: 70, bitis: 90, soruSayisi: 20 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 90, bitis: 100, soruSayisi: 10 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-10-sinif-standart',
+    ad: 'MEB 10. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 10. sınıf standart optik formu',
+    sinifSeviyeleri: ['10'],
+    sinavTurleri: ['DENEME', 'KONU_TEST'],
+    toplamSoru: 100,
+    satirUzunlugu: 180,
+    alanlar: {
+      ogrenciNo: { baslangic: 1, bitis: 10 },
+      ogrenciAdi: { baslangic: 11, bitis: 40 },
+      sinif: { baslangic: 41, bitis: 43 },
+      kitapcik: { baslangic: 44, bitis: 44 },
+      cevaplar: { baslangic: 50, bitis: 149 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 25, soruSayisi: 25 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 25, bitis: 50, soruSayisi: 25 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'SOS', dersAdi: 'Sosyal Bilimler', baslangic: 70, bitis: 90, soruSayisi: 20 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 90, bitis: 100, soruSayisi: 10 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-11-sinif-standart',
+    ad: 'MEB 11. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 11. sınıf TYT hazırlık standart optik formu',
+    sinifSeviyeleri: ['11'],
+    sinavTurleri: ['TYT', 'DENEME'],
+    toplamSoru: 120,
+    satirUzunlugu: 200,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciNo: { baslangic: 12, bitis: 21 },
+      ogrenciAdi: { baslangic: 22, bitis: 51 },
+      sinif: { baslangic: 52, bitis: 54 },
+      kitapcik: { baslangic: 55, bitis: 55 },
+      cevaplar: { baslangic: 60, bitis: 179 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 40, soruSayisi: 40 },
+      { dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', baslangic: 40, bitis: 60, soruSayisi: 20 },
+      { dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', baslangic: 60, bitis: 100, soruSayisi: 40 },
+      { dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', baslangic: 100, bitis: 120, soruSayisi: 20 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-12-sinif-standart',
+    ad: 'MEB 12. Sınıf Standart',
+    yayinevi: 'MEB',
+    aciklama: 'Milli Eğitim Bakanlığı 12. sınıf YKS hazırlık standart optik formu',
+    sinifSeviyeleri: ['12', 'mezun'],
+    sinavTurleri: ['TYT', 'AYT_SAY', 'AYT_EA', 'AYT_SOZ', 'DENEME'],
+    toplamSoru: 120,
+    satirUzunlugu: 200,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciNo: { baslangic: 12, bitis: 21 },
+      ogrenciAdi: { baslangic: 22, bitis: 51 },
+      sinif: { baslangic: 52, bitis: 54 },
+      kitapcik: { baslangic: 55, bitis: 55 },
+      cevaplar: { baslangic: 60, bitis: 179 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 40, soruSayisi: 40 },
+      { dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', baslangic: 40, bitis: 60, soruSayisi: 20 },
+      { dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', baslangic: 60, bitis: 100, soruSayisi: 40 },
+      { dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', baslangic: 100, bitis: 120, soruSayisi: 20 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MEB RESMİ SINAV ŞABLONLARI
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'meb-lgs-resmi',
+    ad: 'LGS - Resmi MEB Formatı',
+    yayinevi: 'MEB (Resmi)',
+    aciklama: 'Liselere Geçiş Sınavı resmi MEB optik form formatı',
+    sinifSeviyeleri: ['8'],
+    sinavTurleri: ['LGS'],
+    toplamSoru: 90,
+    satirUzunlugu: 171,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      kurumKodu: { baslangic: 42, bitis: 49 },
+      ogrenciNo: { baslangic: 50, bitis: 59 },
+      kitapcik: { baslangic: 60, bitis: 60 },
+      cevaplar: { baslangic: 61, bitis: 150 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 20, soruSayisi: 20 },
+      { dersKodu: 'INK', dersAdi: 'T.C. İnkılap Tarihi ve Atatürkçülük', baslangic: 20, bitis: 30, soruSayisi: 10 },
+      { dersKodu: 'DIN', dersAdi: 'Din Kültürü ve Ahlak Bilgisi', baslangic: 30, bitis: 40, soruSayisi: 10 },
+      { dersKodu: 'ING', dersAdi: 'İngilizce', baslangic: 40, bitis: 50, soruSayisi: 10 },
+      { dersKodu: 'MAT', dersAdi: 'Matematik', baslangic: 50, bitis: 70, soruSayisi: 20 },
+      { dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', baslangic: 70, bitis: 90, soruSayisi: 20 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-tyt-resmi',
+    ad: 'TYT - Resmi ÖSYM Formatı',
+    yayinevi: 'ÖSYM (Resmi)',
+    aciklama: 'Temel Yeterlilik Testi resmi ÖSYM optik form formatı',
+    sinifSeviyeleri: ['11', '12', 'mezun'],
+    sinavTurleri: ['TYT'],
+    toplamSoru: 120,
+    secenekSayisi: 5,
+    satirUzunlugu: 200,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      ogrenciNo: { baslangic: 42, bitis: 51 },
+      kitapcik: { baslangic: 52, bitis: 52 },
+      cevaplar: { baslangic: 60, bitis: 179 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', baslangic: 0, bitis: 40, soruSayisi: 40 },
+      { dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', baslangic: 40, bitis: 60, soruSayisi: 20 },
+      { dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', baslangic: 60, bitis: 100, soruSayisi: 40 },
+      { dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', baslangic: 100, bitis: 120, soruSayisi: 20 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-ayt-sayisal-resmi',
+    ad: 'AYT Sayısal - Resmi ÖSYM Formatı',
+    yayinevi: 'ÖSYM (Resmi)',
+    aciklama: 'Alan Yeterlilik Testi Sayısal resmi ÖSYM optik form formatı',
+    sinifSeviyeleri: ['11', '12', 'mezun'],
+    sinavTurleri: ['AYT_SAY'],
+    toplamSoru: 80,
+    secenekSayisi: 5,
+    satirUzunlugu: 165,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      ogrenciNo: { baslangic: 42, bitis: 51 },
+      kitapcik: { baslangic: 52, bitis: 52 },
+      cevaplar: { baslangic: 55, bitis: 134 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'AYT_MAT', dersAdi: 'Matematik', baslangic: 0, bitis: 40, soruSayisi: 40 },
+      { dersKodu: 'AYT_FIZ', dersAdi: 'Fizik', baslangic: 40, bitis: 54, soruSayisi: 14 },
+      { dersKodu: 'AYT_KIM', dersAdi: 'Kimya', baslangic: 54, bitis: 67, soruSayisi: 13 },
+      { dersKodu: 'AYT_BIY', dersAdi: 'Biyoloji', baslangic: 67, bitis: 80, soruSayisi: 13 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-ayt-sozel-resmi',
+    ad: 'AYT Sözel - Resmi ÖSYM Formatı',
+    yayinevi: 'ÖSYM (Resmi)',
+    aciklama: 'Alan Yeterlilik Testi Sözel resmi ÖSYM optik form formatı',
+    sinifSeviyeleri: ['11', '12', 'mezun'],
+    sinavTurleri: ['AYT_SOZ'],
+    toplamSoru: 80,
+    secenekSayisi: 5,
+    satirUzunlugu: 165,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      ogrenciNo: { baslangic: 42, bitis: 51 },
+      kitapcik: { baslangic: 52, bitis: 52 },
+      cevaplar: { baslangic: 55, bitis: 134 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'AYT_EDE', dersAdi: 'Türk Dili ve Edebiyatı', baslangic: 0, bitis: 24, soruSayisi: 24 },
+      { dersKodu: 'AYT_TAR1', dersAdi: 'Tarih-1', baslangic: 24, bitis: 34, soruSayisi: 10 },
+      { dersKodu: 'AYT_COG1', dersAdi: 'Coğrafya-1', baslangic: 34, bitis: 40, soruSayisi: 6 },
+      { dersKodu: 'AYT_TAR2', dersAdi: 'Tarih-2', baslangic: 40, bitis: 51, soruSayisi: 11 },
+      { dersKodu: 'AYT_COG2', dersAdi: 'Coğrafya-2', baslangic: 51, bitis: 62, soruSayisi: 11 },
+      { dersKodu: 'AYT_FEL', dersAdi: 'Felsefe Grubu', baslangic: 62, bitis: 74, soruSayisi: 12 },
+      { dersKodu: 'AYT_DIN', dersAdi: 'Din Kültürü', baslangic: 74, bitis: 80, soruSayisi: 6 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-ayt-ea-resmi',
+    ad: 'AYT Eşit Ağırlık - Resmi ÖSYM Formatı',
+    yayinevi: 'ÖSYM (Resmi)',
+    aciklama: 'Alan Yeterlilik Testi Eşit Ağırlık resmi ÖSYM optik form formatı',
+    sinifSeviyeleri: ['11', '12', 'mezun'],
+    sinavTurleri: ['AYT_EA'],
+    toplamSoru: 80,
+    secenekSayisi: 5,
+    satirUzunlugu: 165,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      ogrenciNo: { baslangic: 42, bitis: 51 },
+      kitapcik: { baslangic: 52, bitis: 52 },
+      cevaplar: { baslangic: 55, bitis: 134 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'AYT_EA_EDE', dersAdi: 'Türk Dili ve Edebiyatı', baslangic: 0, bitis: 24, soruSayisi: 24 },
+      { dersKodu: 'AYT_EA_TAR', dersAdi: 'Tarih', baslangic: 24, bitis: 34, soruSayisi: 10 },
+      { dersKodu: 'AYT_EA_COG', dersAdi: 'Coğrafya', baslangic: 34, bitis: 40, soruSayisi: 6 },
+      { dersKodu: 'AYT_EA_MAT', dersAdi: 'Matematik', baslangic: 40, bitis: 80, soruSayisi: 40 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: 'meb-ydt-resmi',
+    ad: 'YDT - Resmi ÖSYM Formatı',
+    yayinevi: 'ÖSYM (Resmi)',
+    aciklama: 'Yabancı Dil Testi resmi ÖSYM optik form formatı',
+    sinifSeviyeleri: ['11', '12', 'mezun'],
+    sinavTurleri: ['AYT_DIL'],
+    toplamSoru: 80,
+    secenekSayisi: 5,
+    satirUzunlugu: 160,
+    alanlar: {
+      tcKimlik: { baslangic: 1, bitis: 11 },
+      ogrenciAdi: { baslangic: 12, bitis: 41 },
+      ogrenciNo: { baslangic: 42, bitis: 51 },
+      kitapcik: { baslangic: 52, bitis: 52 },
+      cevaplar: { baslangic: 55, bitis: 134 },
+    },
+    dersDagilimi: [
+      { dersKodu: 'YDT_ING', dersAdi: 'Yabancı Dil (İngilizce)', baslangic: 0, bitis: 80, soruSayisi: 80 },
+    ],
+    isDefault: true,
+    isActive: true,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LGS ŞABLONLARI (Yayınevi)
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'ozdebir-lgs-90',

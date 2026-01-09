@@ -24,10 +24,17 @@ import {
   RefreshCw,
   Trash2,
   Download,
+  Plus,
+  Minus,
+  ArrowUp,
+  ArrowDown,
+  Ruler,
+  XCircle,
+  Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu } from '@/types/spectra-wizard';
-import { OPTIK_SABLONLARI, getSablonlariByTur } from '@/lib/spectra-wizard/optical-parser';
+import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu, OptikDersDagilimi } from '@/types/spectra-wizard';
+import { OPTIK_SABLONLARI, getSablonlariByTur, validateTCKimlik } from '@/lib/spectra-wizard/optical-parser';
 import { cn } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +76,33 @@ interface OCRResult {
   rawText: string;
 }
 
+// Ders tanımı (özel şablon için)
+interface DersTanimi {
+  id: string;
+  dersKodu: string;
+  dersAdi: string;
+  soruSayisi: number;
+  sira: number;
+}
+
+// Validation sonucu
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  usedChars: number;
+  availableChars: number;
+}
+
+// Karakter segment (ruler için)
+interface CharacterSegment {
+  name: string;
+  start: number;
+  end: number;
+  type: 'identity' | 'answers' | 'subject';
+  color: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,6 +141,131 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Ders yöneticisi state
+  const [dersler, setDersler] = useState<DersTanimi[]>([
+    { id: 'ders-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1 },
+    { id: 'ders-2', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 2 },
+  ]);
+
+  // Sınav türü preset seçimi (LGS/TYT/AYT)
+  const [selectedPreset, setSelectedPreset] = useState<'LGS' | 'TYT' | 'AYT' | 'OZEL'>('OZEL');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // VALIDATION HELPER
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const validateTemplate = useMemo((): ValidationResult => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const limit = ozelSablon.satirUzunlugu || 171;
+    
+    // Zorunlu alan kontrolleri
+    if (!ozelSablon.ad.trim()) {
+      errors.push('Şablon adı zorunludur');
+    }
+    
+    if (ozelSablon.ogrenciNo.baslangic <= 0 || ozelSablon.ogrenciNo.bitis <= 0) {
+      errors.push('Öğrenci No pozisyonları geçersiz');
+    }
+    
+    if (ozelSablon.cevaplar.baslangic <= 0 || ozelSablon.cevaplar.bitis <= 0) {
+      errors.push('Cevaplar pozisyonları geçersiz');
+    }
+
+    // Pozisyon çakışma kontrolü
+    const allFields: { name: string; start: number; end: number }[] = [
+      { name: 'Öğrenci No', start: ozelSablon.ogrenciNo.baslangic, end: ozelSablon.ogrenciNo.bitis },
+      { name: 'Cevaplar', start: ozelSablon.cevaplar.baslangic, end: ozelSablon.cevaplar.bitis },
+    ];
+    
+    alanlar.filter(a => a.aktif).forEach(alan => {
+      if (alan.baslangic > 0 && alan.bitis > 0) {
+        allFields.push({ name: alan.label, start: alan.baslangic, end: alan.bitis });
+      }
+    });
+
+    // Çakışma kontrolü
+    for (let i = 0; i < allFields.length; i++) {
+      for (let j = i + 1; j < allFields.length; j++) {
+        const f1 = allFields[i];
+        const f2 = allFields[j];
+        if (f1.start <= f2.end && f1.end >= f2.start) {
+          errors.push(`"${f1.name}" ve "${f2.name}" alanları çakışıyor`);
+        }
+      }
+    }
+
+    // Karakter limiti kontrolü
+    const maxEnd = Math.max(...allFields.map(f => f.end), 0);
+    const usedChars = maxEnd;
+    
+    if (usedChars > limit) {
+      errors.push(`Karakter limiti aşıldı: ${usedChars}/${limit} (${usedChars - limit} fazla)`);
+    }
+
+    // Uyarılar
+    const hasNameField = alanlar.some(a => a.id === 'adSoyad' && a.aktif);
+    if (!hasNameField) {
+      warnings.push('Ad Soyad alanı eklenmesi önerilir');
+    }
+
+    if (dersler.length === 0) {
+      warnings.push('En az bir ders tanımlanması önerilir');
+    }
+
+    const totalQuestions = dersler.reduce((sum, d) => sum + d.soruSayisi, 0);
+    const cevapUzunluk = ozelSablon.cevaplar.bitis - ozelSablon.cevaplar.baslangic + 1;
+    if (totalQuestions > cevapUzunluk) {
+      warnings.push(`Toplam soru (${totalQuestions}) cevap alanından (${cevapUzunluk}) fazla`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      usedChars,
+      availableChars: limit - usedChars,
+    };
+  }, [ozelSablon, alanlar, dersler]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // KARAKTER SEGMENT'LERİ (Visual Ruler için)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const characterSegments = useMemo((): CharacterSegment[] => {
+    const segments: CharacterSegment[] = [];
+    
+    // Zorunlu alanlar
+    segments.push({
+      name: 'Öğrenci No',
+      start: ozelSablon.ogrenciNo.baslangic,
+      end: ozelSablon.ogrenciNo.bitis,
+      type: 'identity',
+      color: 'bg-green-500',
+    });
+    
+    segments.push({
+      name: 'Cevaplar',
+      start: ozelSablon.cevaplar.baslangic,
+      end: ozelSablon.cevaplar.bitis,
+      type: 'answers',
+      color: 'bg-blue-500',
+    });
+
+    // Aktif opsiyonel alanlar
+    alanlar.filter(a => a.aktif && a.baslangic > 0 && a.bitis > 0).forEach(alan => {
+      segments.push({
+        name: alan.label,
+        start: alan.baslangic,
+        end: alan.bitis,
+        type: 'identity',
+        color: 'bg-emerald-400',
+      });
+    });
+
+    return segments.sort((a, b) => a.start - b.start);
+  }, [ozelSablon, alanlar]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // MEMOIZED VALUES
   // ─────────────────────────────────────────────────────────────────────────
@@ -118,6 +277,24 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
 
   // Seçili şablon
   const seciliSablon = data?.optikSablon || uygunSablonlar[0];
+
+  // Şablon filtre state
+  const [sablonFiltre, setSablonFiltre] = useState<'tumu' | 'meb' | 'yayinevi'>('tumu');
+
+  // Filtrelenmiş şablonlar
+  const filtreliSablonlar = useMemo(() => {
+    if (sablonFiltre === 'tumu') return uygunSablonlar;
+    if (sablonFiltre === 'meb') {
+      return uygunSablonlar.filter(s => 
+        s.yayinevi.toLowerCase().includes('meb') || 
+        s.yayinevi.toLowerCase().includes('ösym')
+      );
+    }
+    return uygunSablonlar.filter(s => 
+      !s.yayinevi.toLowerCase().includes('meb') && 
+      !s.yayinevi.toLowerCase().includes('ösym')
+    );
+  }, [uygunSablonlar, sablonFiltre]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // HANDLERS
@@ -215,6 +392,89 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // DERS YÖNETİMİ
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Ders ekle
+  const handleAddDers = useCallback(() => {
+    const newId = `ders-${Date.now()}`;
+    const newSira = dersler.length + 1;
+    setDersler(prev => [...prev, {
+      id: newId,
+      dersKodu: `DERS${newSira}`,
+      dersAdi: `Yeni Ders ${newSira}`,
+      soruSayisi: 10,
+      sira: newSira,
+    }]);
+  }, [dersler.length]);
+
+  // Ders sil
+  const handleDeleteDers = useCallback((id: string) => {
+    setDersler(prev => prev.filter(d => d.id !== id).map((d, i) => ({ ...d, sira: i + 1 })));
+  }, []);
+
+  // Ders yukarı taşı
+  const handleMoveDersUp = useCallback((id: string) => {
+    setDersler(prev => {
+      const index = prev.findIndex(d => d.id === id);
+      if (index <= 0) return prev;
+      const newList = [...prev];
+      [newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
+      return newList.map((d, i) => ({ ...d, sira: i + 1 }));
+    });
+  }, []);
+
+  // Ders aşağı taşı
+  const handleMoveDersDown = useCallback((id: string) => {
+    setDersler(prev => {
+      const index = prev.findIndex(d => d.id === id);
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const newList = [...prev];
+      [newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
+      return newList.map((d, i) => ({ ...d, sira: i + 1 }));
+    });
+  }, []);
+
+  // Ders güncelle
+  const handleUpdateDers = useCallback((id: string, field: keyof DersTanimi, value: string | number) => {
+    setDersler(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
+  }, []);
+
+  // Preset yükle
+  const handleLoadPreset = useCallback((preset: 'LGS' | 'TYT' | 'AYT' | 'OZEL') => {
+    setSelectedPreset(preset);
+    
+    if (preset === 'LGS') {
+      setDersler([
+        { id: 'lgs-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1 },
+        { id: 'lgs-2', dersKodu: 'INK', dersAdi: 'T.C. İnkılap Tarihi', soruSayisi: 10, sira: 2 },
+        { id: 'lgs-3', dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, sira: 3 },
+        { id: 'lgs-4', dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, sira: 4 },
+        { id: 'lgs-5', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 5 },
+        { id: 'lgs-6', dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 6 },
+      ]);
+    } else if (preset === 'TYT') {
+      setDersler([
+        { id: 'tyt-1', dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', soruSayisi: 40, sira: 1 },
+        { id: 'tyt-2', dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', soruSayisi: 20, sira: 2 },
+        { id: 'tyt-3', dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', soruSayisi: 40, sira: 3 },
+        { id: 'tyt-4', dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 4 },
+      ]);
+    } else if (preset === 'AYT') {
+      setDersler([
+        { id: 'ayt-1', dersKodu: 'AYT_MAT', dersAdi: 'Matematik', soruSayisi: 40, sira: 1 },
+        { id: 'ayt-2', dersKodu: 'AYT_FIZ', dersAdi: 'Fizik', soruSayisi: 14, sira: 2 },
+        { id: 'ayt-3', dersKodu: 'AYT_KIM', dersAdi: 'Kimya', soruSayisi: 13, sira: 3 },
+        { id: 'ayt-4', dersKodu: 'AYT_BIY', dersAdi: 'Biyoloji', soruSayisi: 13, sira: 4 },
+      ]);
+    } else {
+      // OZEL - mevcut dersleri koru
+    }
+    
+    toast.success(`${preset} ders dağılımı yüklendi`);
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -256,11 +516,38 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'kutuphane' && (
         <div className="space-y-4">
-          {uygunSablonlar.length === 0 ? (
+          {/* Filtre butonları */}
+          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
+            <span className="text-sm font-medium text-gray-600 mr-2">Filtre:</span>
+            {([
+              { key: 'tumu', label: 'Tümü', count: uygunSablonlar.length },
+              { key: 'meb', label: 'MEB/ÖSYM Resmi', count: uygunSablonlar.filter(s => s.yayinevi.toLowerCase().includes('meb') || s.yayinevi.toLowerCase().includes('ösym')).length },
+              { key: 'yayinevi', label: 'Yayınevi', count: uygunSablonlar.filter(s => !s.yayinevi.toLowerCase().includes('meb') && !s.yayinevi.toLowerCase().includes('ösym')).length },
+            ] as const).map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setSablonFiltre(key)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                  sablonFiltre === key
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-emerald-50 border border-gray-200'
+                )}
+              >
+                {label} ({count})
+              </button>
+            ))}
+          </div>
+
+          {filtreliSablonlar.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
               <Grid3X3 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-semibold text-gray-600 mb-2">Şablon Bulunamadı</h3>
-              <p className="text-gray-500 mb-4">Bu sınav türü için hazır şablon yok.</p>
+              <p className="text-gray-500 mb-4">
+                {sablonFiltre === 'tumu' 
+                  ? 'Bu sınav türü için hazır şablon yok.' 
+                  : `Seçili filtrede şablon bulunamadı.`}
+              </p>
               <button
                 onClick={() => handleTabChange('ozel')}
                 className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600"
@@ -270,7 +557,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             </div>
           ) : (
             <div className="grid gap-2 max-h-[400px] overflow-y-auto">
-              {uygunSablonlar.map((sablon) => {
+              {filtreliSablonlar.map((sablon) => {
                 const isSecili = seciliSablon?.id === sablon.id;
                 return (
                   <button
@@ -501,13 +788,266 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             </div>
           )}
 
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          {/* DERS YÖNETİCİSİ */}
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <FileText size={16} className="text-indigo-600" />
+                Ders Dağılımı
+              </h4>
+              <div className="flex items-center gap-2">
+                {/* Preset butonları */}
+                {(['LGS', 'TYT', 'AYT', 'OZEL'] as const).map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => handleLoadPreset(preset)}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-bold rounded-lg transition-all',
+                      selectedPreset === preset
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+                    )}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Ders listesi */}
+            <div className="space-y-2">
+              {dersler.map((ders, index) => (
+                <div
+                  key={ders.id}
+                  className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200"
+                >
+                  {/* Sıra numarası */}
+                  <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                    {ders.sira}
+                  </span>
+
+                  {/* Ders kodu */}
+                  <input
+                    type="text"
+                    value={ders.dersKodu}
+                    onChange={(e) => handleUpdateDers(ders.id, 'dersKodu', e.target.value)}
+                    placeholder="Kod"
+                    className="w-20 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+
+                  {/* Ders adı */}
+                  <input
+                    type="text"
+                    value={ders.dersAdi}
+                    onChange={(e) => handleUpdateDers(ders.id, 'dersAdi', e.target.value)}
+                    placeholder="Ders Adı"
+                    className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+
+                  {/* Soru sayısı */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleUpdateDers(ders.id, 'soruSayisi', Math.max(1, ders.soruSayisi - 1))}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <input
+                      type="number"
+                      value={ders.soruSayisi}
+                      onChange={(e) => handleUpdateDers(ders.id, 'soruSayisi', parseInt(e.target.value) || 0)}
+                      style={{ MozAppearance: 'textfield' }}
+                      className="w-12 px-1 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      onClick={() => handleUpdateDers(ders.id, 'soruSayisi', ders.soruSayisi + 1)}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <span className="text-xs text-gray-500 ml-1">soru</span>
+                  </div>
+
+                  {/* Yukarı/Aşağı/Sil */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleMoveDersUp(ders.id)}
+                      disabled={index === 0}
+                      className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleMoveDersDown(ders.id)}
+                      disabled={index === dersler.length - 1}
+                      className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDers(ders.id)}
+                      className="p-1 hover:bg-red-50 text-red-500 rounded"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Ders ekle butonu ve toplam */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleAddDers}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all"
+              >
+                <Plus size={16} />
+                Ders Ekle
+              </button>
+              <div className="text-sm text-gray-600">
+                Toplam: <span className="font-bold text-indigo-600">{dersler.reduce((sum, d) => sum + d.soruSayisi, 0)}</span> soru
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          {/* VISUAL RULER (Karakter Haritası) */}
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <Ruler size={16} className="text-purple-600" />
+              Karakter Haritası ({ozelSablon.satirUzunlugu} karakter limiti)
+            </h4>
+
+            {/* Visual bar */}
+            <div className="mb-4">
+              <div className="h-10 bg-gray-100 rounded-lg relative overflow-hidden border border-gray-200">
+                {characterSegments.map((seg, i) => {
+                  const limit = ozelSablon.satirUzunlugu || 171;
+                  const width = ((seg.end - seg.start + 1) / limit) * 100;
+                  const left = ((seg.start - 1) / limit) * 100;
+                  return (
+                    <div
+                      key={i}
+                      className={cn('absolute h-full opacity-80 border-r border-white flex items-center justify-center', seg.color)}
+                      style={{ left: `${left}%`, width: `${width}%` }}
+                      title={`${seg.name}: ${seg.start}-${seg.end} (${seg.end - seg.start + 1} kar.)`}
+                    >
+                      {width > 8 && (
+                        <span className="text-[10px] font-bold text-white truncate px-1">
+                          {seg.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0</span>
+                <span>{Math.floor((ozelSablon.satirUzunlugu || 171) / 2)}</span>
+                <span>{ozelSablon.satirUzunlugu || 171}</span>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 text-xs mb-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Kimlik Alanları</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <span>Cevaplar</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-emerald-400 rounded"></div>
+                <span>Opsiyonel Alanlar</span>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <p className="text-lg font-bold text-gray-800">{validateTemplate.usedChars}</p>
+                <p className="text-xs text-gray-500">Kullanılan</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <p className="text-lg font-bold text-gray-800">{ozelSablon.satirUzunlugu || 171}</p>
+                <p className="text-xs text-gray-500">Limit</p>
+              </div>
+              <div className={cn(
+                'p-3 rounded-lg text-center',
+                validateTemplate.availableChars < 0 ? 'bg-red-50' : 'bg-emerald-50'
+              )}>
+                <p className={cn(
+                  'text-lg font-bold',
+                  validateTemplate.availableChars < 0 ? 'text-red-600' : 'text-emerald-600'
+                )}>
+                  {validateTemplate.availableChars}
+                </p>
+                <p className="text-xs text-gray-500">{validateTemplate.availableChars < 0 ? 'Aşım!' : 'Boş'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          {/* VALIDATION PANELİ */}
+          {/* ═══════════════════════════════════════════════════════════════════ */}
+          {(validateTemplate.errors.length > 0 || validateTemplate.warnings.length > 0) && (
+            <div className="space-y-3">
+              {/* Hatalar */}
+              {validateTemplate.errors.length > 0 && (
+                <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                  <h5 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
+                    <XCircle size={16} />
+                    Hatalar ({validateTemplate.errors.length})
+                  </h5>
+                  <ul className="space-y-1">
+                    {validateTemplate.errors.map((error, i) => (
+                      <li key={i} className="text-sm text-red-600 flex items-start gap-2">
+                        <span className="text-red-400">•</span>
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Uyarılar */}
+              {validateTemplate.warnings.length > 0 && (
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                  <h5 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    Uyarılar ({validateTemplate.warnings.length})
+                  </h5>
+                  <ul className="space-y-1">
+                    {validateTemplate.warnings.map((warning, i) => (
+                      <li key={i} className="text-sm text-amber-600 flex items-start gap-2">
+                        <span className="text-amber-400">•</span>
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Kaydet Butonu */}
           <button
             onClick={handleOzelSablonKaydet}
-            className="w-full md:w-auto px-8 py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 shadow-lg hover:shadow-xl"
+            disabled={!validateTemplate.isValid}
+            className={cn(
+              'w-full md:w-auto px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg',
+              validateTemplate.isValid
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-xl'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            )}
           >
             <Save size={20} />
-            Şablonu Kaydet ve Kullan
+            {validateTemplate.isValid ? 'Şablonu Kaydet ve Kullan' : 'Hataları Düzeltin'}
           </button>
         </div>
       )}

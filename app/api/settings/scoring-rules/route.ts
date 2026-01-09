@@ -4,8 +4,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
 // TypeScript interfaces
 interface DersKatsayisi {
@@ -49,8 +48,7 @@ interface ScoringRule {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = getServiceRoleClient();
 
     // URL parametreleri
     const { searchParams } = new URL(request.url);
@@ -138,8 +136,7 @@ export async function GET(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = getServiceRoleClient();
     const body = await request.json();
 
     // Organization ID al
@@ -222,8 +219,7 @@ export async function POST(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = getServiceRoleClient();
     const body = await request.json();
 
     if (!body.id) {
@@ -327,8 +323,7 @@ export async function PUT(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = getServiceRoleClient();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
