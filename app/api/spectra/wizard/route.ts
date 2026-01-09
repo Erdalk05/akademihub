@@ -174,22 +174,44 @@ export async function POST(request: NextRequest) {
       answers: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
     }));
 
-    // Batch insert - daha hızlı ve güvenilir
-    if (participantInserts.length > 0) {
-      const { data: insertedParticipants, error: participantError } = await supabase
-        .from('exam_participants')
-        .insert(participantInserts)
-        .select('id');
+    // ⚠️ Boş kontrol - kritik debug
+    if (participantInserts.length === 0) {
+      console.error('❌ participantInserts BOŞ!', { sonuclarCount: sonuclar.length });
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Katılımcı verisi oluşturulamadı. Lütfen optik dosyayı kontrol edin.',
+        debug: { sonuclarCount: sonuclar.length }
+      }, { status: 400 });
+    }
 
-      if (participantError) {
-        console.error('❌ Katılımcı kayıt hatası:', participantError);
-        // Hata detayını logla
-        console.error('Hata detayı:', JSON.stringify(participantError, null, 2));
-        console.error('İlk kayıt örneği:', JSON.stringify(participantInserts[0], null, 2));
-      } else {
-        insertedCount = insertedParticipants?.length || 0;
-        console.log(`✅ ${insertedCount} katılımcı kaydedildi`);
-      }
+    // Batch insert
+    const { data: insertedParticipants, error: participantError } = await supabase
+      .from('exam_participants')
+      .insert(participantInserts)
+      .select('id');
+
+    if (participantError) {
+      console.error('❌ exam_participants INSERT hatası:', participantError.message);
+      console.error('Hata kodu:', participantError.code);
+      console.error('İlk kayıt:', JSON.stringify(participantInserts[0], null, 2));
+      
+      // KRİTİK: Hata durumunda HEMEN return yap
+      return NextResponse.json({ 
+        success: false, 
+        message: `Katılımcı kayıt hatası: ${participantError.message}`,
+        error: participantError.code
+      }, { status: 500 });
+    }
+
+    insertedCount = insertedParticipants?.length || 0;
+    console.log(`✅ ${insertedCount} katılımcı kaydedildi`);
+
+    if (insertedCount === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Katılımcı kaydedilemedi - boş sonuç',
+      }, { status: 500 });
+    }
 
       // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için)
       if (insertedParticipants && insertedParticipants.length > 0) {
