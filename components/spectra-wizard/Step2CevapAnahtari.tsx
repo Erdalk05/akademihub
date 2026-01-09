@@ -109,16 +109,6 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
   // Ders düzenleme state
   const [editingDersKodu, setEditingDersKodu] = useState<string | null>(null);
 
-  // Özel şablon state
-  const [ozelSablonForm, setOzelSablonForm] = useState({
-    kurumAdi: '',
-    sinif: '',
-    tcKimlik: false,
-    adSoyad: false,
-    cinsiyet: false,
-    kitapcikTuru: false,
-    dersler: [] as { dersKodu: string; dersAdi: string; soruSayisi: number }[]
-  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // MEMOIZED VALUES
