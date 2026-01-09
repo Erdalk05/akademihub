@@ -7,7 +7,7 @@ import { SINAV_KONFIGURASYONLARI } from '@/lib/spectra-wizard/exam-configs';
 export const dynamic = 'force-dynamic';
 
 // ============================================================================
-// SPECTRA - SINAV WIZARD API (V2)
+// SPECTRA - SINAV WIZARD API (V2.0)
 // Yeni sınav ekleme endpoint'i - Güncellenmiş format
 // ============================================================================
 
