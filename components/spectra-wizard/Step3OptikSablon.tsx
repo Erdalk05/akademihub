@@ -31,6 +31,7 @@ import {
   Ruler,
   XCircle,
   Info,
+  GripVertical,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu, OptikDersDagilimi } from '@/types/spectra-wizard';
@@ -749,14 +750,32 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                 <div className="col-span-1"></div>
               </div>
 
-              {/* Opsiyonel Alanlar */}
+              {/* Opsiyonel Alanlar - 2 sütunlu grid + drag-drop */}
+              <div className="grid grid-cols-2 gap-3 px-4 py-3">
               {alanlar.map((alan, index) => (
-                <div key={alan.id} className={cn(
-                  'grid grid-cols-12 gap-2 px-4 py-3 items-center transition-all',
-                  alan.aktif ? 'bg-sky-50/50' : 'bg-white hover:bg-gray-50'
-                )}>
-                  <div className="col-span-3 flex items-center gap-2">
-                    <span className={cn('w-2 h-2 rounded-full', alan.aktif ? 'bg-sky-500' : 'bg-gray-300')}></span>
+                <div
+                  key={alan.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('alanIndex', index.toString())}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const fromIndex = parseInt(e.dataTransfer.getData('alanIndex'));
+                    if (fromIndex === index) return;
+                    const yeni = [...alanlar];
+                    const [item] = yeni.splice(fromIndex, 1);
+                    yeni.splice(index, 0, item);
+                    setAlanlar(yeni);
+                  }}
+                  className={cn(
+                    'p-2.5 rounded-lg border cursor-grab active:cursor-grabbing transition-all',
+                    alan.aktif ? 'bg-sky-50 border-sky-200 hover:border-sky-300' : 'bg-white border-gray-200 hover:border-gray-300'
+                  )}
+                >
+                  {/* Üst: Grip + Ad + Toggle + Sil */}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className={cn('w-2 h-2 rounded-full flex-shrink-0', alan.aktif ? 'bg-sky-500' : 'bg-gray-300')}></span>
                     <input
                       type="text"
                       value={alan.label}
@@ -765,11 +784,35 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         yeni[index].label = e.target.value;
                         setAlanlar(yeni);
                       }}
-                      placeholder="Alan adı girin..."
-                      className="flex-1 text-sm font-medium text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-sky-500 focus:ring-0 px-0 py-0.5"
+                      placeholder="Alan adı..."
+                      className="flex-1 min-w-0 text-sm font-medium text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-sky-500 focus:ring-0 px-0 py-0"
                     />
+                    <button
+                      onClick={() => {
+                        const yeni = [...alanlar];
+                        yeni[index].aktif = !yeni[index].aktif;
+                        setAlanlar(yeni);
+                      }}
+                      className={cn(
+                        'px-1.5 py-0.5 text-xs font-medium rounded-full flex-shrink-0',
+                        alan.aktif ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'
+                      )}
+                    >
+                      {alan.aktif ? '✓' : '○'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const yeni = alanlar.filter((_, i) => i !== index);
+                        setAlanlar(yeni);
+                      }}
+                      className="p-0.5 text-red-400 hover:text-red-600 rounded flex-shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
-                  <div className="col-span-2">
+                  {/* Alt: Pozisyonlar */}
+                  <div className="flex items-center gap-1.5 pl-6 text-xs text-gray-500">
+                    <span>[</span>
                     <input
                       type="number"
                       value={alan.baslangic || ''}
@@ -779,18 +822,11 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         yeni[index].aktif = true;
                         setAlanlar(yeni);
                       }}
-                      disabled={!alan.aktif}
                       placeholder="—"
-                      className={cn(
-                        'w-full px-2 py-1.5 text-center text-sm font-mono border rounded-lg [&::-webkit-inner-spin-button]:appearance-none',
-                        alan.aktif 
-                          ? 'border-gray-200 bg-white focus:ring-2 focus:ring-sky-500' 
-                          : 'border-gray-100 bg-gray-50 text-gray-400'
-                      )}
                       style={{ MozAppearance: 'textfield' }}
+                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                  </div>
-                  <div className="col-span-2">
+                    <span>-</span>
                     <input
                       type="number"
                       value={alan.bitis || ''}
@@ -800,84 +836,18 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         yeni[index].aktif = true;
                         setAlanlar(yeni);
                       }}
-                      disabled={!alan.aktif}
                       placeholder="—"
-                      className={cn(
-                        'w-full px-2 py-1.5 text-center text-sm font-mono border rounded-lg [&::-webkit-inner-spin-button]:appearance-none',
-                        alan.aktif 
-                          ? 'border-gray-200 bg-white focus:ring-2 focus:ring-sky-500' 
-                          : 'border-gray-100 bg-gray-50 text-gray-400'
-                      )}
                       style={{ MozAppearance: 'textfield' }}
+                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                  </div>
-                  <div className="col-span-2 text-center">
-                    {alan.aktif && alan.bitis > alan.baslangic ? (
-                      <span className="text-sm font-mono text-sky-600">{alan.bitis - alan.baslangic + 1} kar.</span>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
-                  </div>
-                  <div className="col-span-2 text-center">
-                    <button
-                      onClick={() => {
-                        const yeni = [...alanlar];
-                        yeni[index].aktif = !yeni[index].aktif;
-                        setAlanlar(yeni);
-                      }}
-                      className={cn(
-                        'px-2 py-1 text-xs font-medium rounded-full transition-all',
-                        alan.aktif
-                          ? 'bg-sky-100 text-sky-700 hover:bg-sky-200'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      )}
-                    >
-                      {alan.aktif ? 'Aktif' : 'Pasif'}
-                    </button>
-                  </div>
-                  <div className="col-span-1 flex items-center justify-end gap-0.5">
-                    <button
-                      onClick={() => {
-                        if (index === 0) return;
-                        const yeni = [...alanlar];
-                        [yeni[index - 1], yeni[index]] = [yeni[index], yeni[index - 1]];
-                        setAlanlar(yeni);
-                      }}
-                      disabled={index === 0}
-                      className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
-                    >
-                      <ArrowUp size={12} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (index === alanlar.length - 1) return;
-                        const yeni = [...alanlar];
-                        [yeni[index], yeni[index + 1]] = [yeni[index + 1], yeni[index]];
-                        setAlanlar(yeni);
-                      }}
-                      disabled={index === alanlar.length - 1}
-                      className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
-                    >
-                      <ArrowDown size={12} />
-                    </button>
-                    {alan.aktif && (
-                      <button
-                        onClick={() => {
-                          const yeni = [...alanlar];
-                          yeni[index].aktif = false;
-                          yeni[index].baslangic = 0;
-                          yeni[index].bitis = 0;
-                          setAlanlar(yeni);
-                        }}
-                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                    <span>]</span>
+                    {alan.aktif && alan.bitis > alan.baslangic && (
+                      <span className="ml-auto text-sky-600 font-mono">{alan.bitis - alan.baslangic + 1} kar.</span>
                     )}
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
             )}
 
             {/* Satır Ekle Butonu */}
@@ -932,106 +902,83 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
               </div>
             </div>
 
-            {/* Ders Tablosu Başlığı */}
-            <div className="bg-gray-100 px-3 py-2 rounded-t-lg border border-gray-200 border-b-0">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase">
-                <div className="col-span-1">#</div>
-                <div className="col-span-1">Kod</div>
-                <div className="col-span-3">Ders Adı</div>
-                <div className="col-span-1 text-center">Başl.</div>
-                <div className="col-span-1 text-center">Bitiş</div>
-                <div className="col-span-2 text-center">Soru</div>
-                <div className="col-span-3"></div>
-              </div>
-            </div>
-
-            {/* Ders listesi */}
-            <div className="border border-gray-200 rounded-b-lg divide-y divide-gray-100">
+            {/* Ders listesi - 2 sütunlu grid + drag-drop */}
+            <div className="grid grid-cols-2 gap-3">
               {dersler.map((ders, index) => (
                 <div
                   key={ders.id}
-                  className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center bg-white hover:bg-gray-50"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('dersIndex', index.toString())}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const fromIndex = parseInt(e.dataTransfer.getData('dersIndex'));
+                    if (fromIndex === index) return;
+                    const yeni = [...dersler];
+                    const [item] = yeni.splice(fromIndex, 1);
+                    yeni.splice(index, 0, item);
+                    yeni.forEach((d, i) => d.sira = i + 1);
+                    setDersler(yeni);
+                  }}
+                  className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 cursor-grab active:cursor-grabbing"
                 >
-                  {/* Sıra */}
-                  <div className="col-span-1">
-                    <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                  {/* Üst: Grip + Sıra + Kod + Ad + Sil */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="w-5 h-5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0">
                       {ders.sira}
                     </span>
-                  </div>
-
-                  {/* Kod */}
-                  <div className="col-span-1">
                     <input
                       type="text"
                       value={ders.dersKodu}
                       onChange={(e) => handleUpdateDers(ders.id, 'dersKodu', e.target.value)}
-                      className="w-full px-1.5 py-1 text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                      placeholder="Kod"
+                      className="w-12 px-1 py-0.5 text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
                     />
-                  </div>
-
-                  {/* Ders Adı */}
-                  <div className="col-span-3">
                     <input
                       type="text"
                       value={ders.dersAdi}
                       onChange={(e) => handleUpdateDers(ders.id, 'dersAdi', e.target.value)}
-                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                      placeholder="Ders Adı"
+                      className="flex-1 min-w-0 px-1.5 py-0.5 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
                     />
+                    <button onClick={() => handleDeleteDers(ders.id)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded flex-shrink-0">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-
-                  {/* Başlangıç */}
-                  <div className="col-span-1">
+                  {/* Alt: Pozisyon + Soru */}
+                  <div className="flex items-center gap-2 pl-6 text-xs text-gray-500">
+                    <span>[</span>
                     <input
                       type="number"
                       value={ders.baslangic || ''}
                       onChange={(e) => handleUpdateDers(ders.id, 'baslangic', parseInt(e.target.value) || 0)}
                       placeholder="—"
                       style={{ MozAppearance: 'textfield' }}
-                      className="w-full px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                  </div>
-
-                  {/* Bitiş */}
-                  <div className="col-span-1">
+                    <span>-</span>
                     <input
                       type="number"
                       value={ders.bitis || ''}
                       onChange={(e) => handleUpdateDers(ders.id, 'bitis', parseInt(e.target.value) || 0)}
                       placeholder="—"
                       style={{ MozAppearance: 'textfield' }}
-                      className="w-full px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                  </div>
-
-                  {/* Soru Sayısı */}
-                  <div className="col-span-2 flex items-center justify-center gap-1">
-                    <button onClick={() => handleUpdateDers(ders.id, 'soruSayisi', Math.max(1, ders.soruSayisi - 1))} className="p-0.5 hover:bg-gray-200 rounded">
-                      <Minus size={12} />
-                    </button>
+                    <span>]</span>
+                    <span className="mx-1 text-gray-300">|</span>
                     <input
                       type="number"
                       value={ders.soruSayisi}
                       onChange={(e) => handleUpdateDers(ders.id, 'soruSayisi', parseInt(e.target.value) || 0)}
                       style={{ MozAppearance: 'textfield' }}
-                      className="w-10 px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-8 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <button onClick={() => handleUpdateDers(ders.id, 'soruSayisi', ders.soruSayisi + 1)} className="p-0.5 hover:bg-gray-200 rounded">
-                      <Plus size={12} />
-                    </button>
-                  </div>
-
-                  {/* Aksiyonlar */}
-                  <div className="col-span-3 flex items-center justify-end gap-1">
-                    <span className="text-xs text-gray-400 mr-2">{ders.bitis > ders.baslangic ? `${ders.bitis - ders.baslangic + 1} kar.` : ''}</span>
-                    <button onClick={() => handleMoveDersUp(ders.id)} disabled={index === 0} className="p-1 hover:bg-gray-200 rounded disabled:opacity-30">
-                      <ArrowUp size={12} />
-                    </button>
-                    <button onClick={() => handleMoveDersDown(ders.id)} disabled={index === dersler.length - 1} className="p-1 hover:bg-gray-200 rounded disabled:opacity-30">
-                      <ArrowDown size={12} />
-                    </button>
-                    <button onClick={() => handleDeleteDers(ders.id)} className="p-1 hover:bg-red-50 text-red-500 rounded">
-                      <Trash2 size={12} />
-                    </button>
+                    <span>soru</span>
+                    {ders.bitis > ders.baslangic && (
+                      <span className="ml-auto text-gray-400">{ders.bitis - ders.baslangic + 1} kar.</span>
+                    )}
                   </div>
                 </div>
               ))}
