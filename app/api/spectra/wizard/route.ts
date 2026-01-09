@@ -159,12 +159,9 @@ export async function POST(request: NextRequest) {
       participant_type: sonuc.isMisafir ? 'guest' : 'institution',
       guest_name: sonuc.ogrenciAdi || null,
       guest_class: sonuc.sinif || null,
-      class_name: sonuc.sinif || null,           // Dashboard bunu okuyor
+      class_name: sonuc.sinif || null,
       match_status: sonuc.eslesmeDurumu || 'pending',
-      optical_student_no: sonuc.ogrenciNo || null,
-      optical_name: sonuc.ogrenciAdi || null,
-      booklet_type: sonuc.kitapcik || null,
-      // Dashboard'un beklediği sonuç kolonları:
+      // Sonuç kolonları:
       correct_count: sonuc.toplamDogru || 0,
       wrong_count: sonuc.toplamYanlis || 0,
       empty_count: sonuc.toplamBos || 0,
