@@ -248,7 +248,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
               </button>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-2 max-h-[400px] overflow-y-auto">
               {uygunSablonlar.map((sablon) => {
                 const isSecili = seciliSablon?.id === sablon.id;
                 return (
@@ -256,65 +256,35 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                     key={sablon.id}
                     onClick={() => handleSablonSec(sablon)}
                     className={cn(
-                      'w-full p-5 rounded-xl border-2 transition-all text-left group',
+                      'w-full p-2 rounded-lg border transition-all text-left',
                       isSecili
-                        ? 'border-emerald-500 bg-emerald-50 shadow-md'
-                        : 'border-gray-200 hover:border-emerald-300 bg-white hover:shadow-sm'
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:border-emerald-300 bg-white'
                     )}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <FileText className={cn('w-5 h-5', isSecili ? 'text-emerald-600' : 'text-gray-400')} />
-                          <h4 className="font-semibold text-gray-900">{sablon.ad}</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText className={cn('w-4 h-4 flex-shrink-0', isSecili ? 'text-emerald-600' : 'text-gray-400')} />
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-semibold text-gray-900 truncate">{sablon.ad}</h4>
+                          <p className="text-xs text-gray-500">{sablon.yayinevi}</p>
                         </div>
-                        <p className="text-sm text-gray-500">{sablon.yayinevi}</p>
-                        {sablon.aciklama && (
-                          <p className="text-xs text-gray-400 mt-2">{sablon.aciklama}</p>
-                        )}
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        {isSecili ? (
-                          <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
-                            <Check size={18} className="text-white" />
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs font-mono text-gray-500">
+                          ÖğNo:{sablon.alanlar.ogrenciNo.baslangic}-{sablon.alanlar.ogrenciNo.bitis}
+                        </span>
+                        <span className="text-xs font-mono text-gray-500">
+                          Ad:{sablon.alanlar.ogrenciAdi.baslangic}-{sablon.alanlar.ogrenciAdi.bitis}
+                        </span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                          {sablon.toplamSoru}S
+                        </span>
+                        {isSecili && (
+                          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                            <Check size={12} className="text-white" />
                           </div>
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
                         )}
-                        <span className={cn(
-                          'text-sm font-bold px-2 py-1 rounded',
-                          isSecili ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                        )}>
-                          {sablon.toplamSoru} soru
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Alan Önizleme */}
-                    <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <span className="text-gray-400 block">Öğrenci No</span>
-                        <span className="font-mono font-bold text-gray-700">
-                          {sablon.alanlar.ogrenciNo.baslangic}-{sablon.alanlar.ogrenciNo.bitis}
-                        </span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <span className="text-gray-400 block">Öğrenci Adı</span>
-                        <span className="font-mono font-bold text-gray-700">
-                          {sablon.alanlar.ogrenciAdi.baslangic}-{sablon.alanlar.ogrenciAdi.bitis}
-                        </span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <span className="text-gray-400 block">Cevaplar</span>
-                        <span className="font-mono font-bold text-gray-700">
-                          {sablon.alanlar.cevaplar.baslangic}-{sablon.alanlar.cevaplar.bitis}
-                        </span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <span className="text-gray-400 block">Satır Uzunluğu</span>
-                        <span className="font-mono font-bold text-gray-700">
-                          {sablon.satirUzunlugu} kar.
-                        </span>
                       </div>
                     </div>
                   </button>
@@ -329,98 +299,88 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
       {/* TAB 2: ÖZEL ŞABLON */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'ozel' && (
-        <div className="space-y-5">
-          <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-            <p className="text-sm text-amber-700">
-              <strong>⚙️ Özel Şablon:</strong> Kendi optik okuyucu formatınızı tanımlayın. 
-              TXT/DAT dosyasındaki her alanın karakter pozisyonlarını girin.
+        <div className="space-y-4">
+          {/* Bilgi Banner */}
+          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-xs text-amber-700">
+              <strong>⚙️ Şablon Builder:</strong> TXT/DAT dosyanızdaki alanların karakter pozisyonlarını tanımlayın.
             </p>
           </div>
 
-          {/* Temel Bilgiler */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Temel Bilgiler - Kompakt */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Şablon Adı <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Şablon Adı *</label>
               <input
                 type="text"
                 value={ozelSablon.ad}
                 onChange={(e) => setOzelSablon(prev => ({ ...prev, ad: e.target.value }))}
-                placeholder="Örn: Kurum Özel Şablon"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                placeholder="Örn: Kurum Şablon"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Satır Uzunluğu (karakter) <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Satır Uzunluğu *</label>
               <input
                 type="number"
                 value={ozelSablon.satirUzunlugu}
                 onChange={(e) => setOzelSablon(prev => ({ ...prev, satirUzunlugu: parseInt(e.target.value) || 0 }))}
-                placeholder="Örn: 171"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                placeholder="171"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
 
-          {/* Alan Tanımları */}
-          <div className="p-5 bg-gray-50 rounded-xl">
-            <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <Settings size={18} />
-              Alan Tanımları (Karakter Pozisyonları)
+          {/* Alan Kartları - Modern Grid */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <Settings size={14} />
+              Karakter Pozisyonları
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {[
-                { id: 'ogrenciNo', label: 'Öğrenci No', zorunlu: true, desc: 'Öğrenci numarası alanı' },
-                { id: 'ogrenciAdi', label: 'Öğrenci Adı', zorunlu: true, desc: 'Ad soyad alanı' },
-                { id: 'cevaplar', label: 'Cevaplar', zorunlu: true, desc: 'ABCDE cevap alanı' },
-                { id: 'kitapcik', label: 'Kitapçık', zorunlu: false, desc: 'A/B/C/D kitapçık kodu' },
-                { id: 'sinif', label: 'Sınıf', zorunlu: false, desc: 'Sınıf bilgisi' },
+                { id: 'ogrenciNo', label: 'Öğrenci No', zorunlu: true },
+                { id: 'ogrenciAdi', label: 'Öğrenci Adı', zorunlu: true },
+                { id: 'cevaplar', label: 'Cevaplar', zorunlu: true },
+                { id: 'kitapcik', label: 'Kitapçık', zorunlu: false },
+                { id: 'sinif', label: 'Sınıf', zorunlu: false },
               ].map((alan) => {
                 const fieldKey = alan.id as keyof OzelSablonForm;
                 const fieldValue = ozelSablon[fieldKey] as { baslangic: number; bitis: number } | undefined;
                 
                 return (
-                  <div key={alan.id} className="bg-white p-4 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div key={alan.id} className="bg-white p-2 rounded-lg border border-gray-200">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       {alan.label} {alan.zorunlu && <span className="text-red-500">*</span>}
                     </label>
-                    <p className="text-xs text-gray-400 mb-2">{alan.desc}</p>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <span className="text-xs text-gray-500">Başlangıç</span>
-                        <input
-                          type="number"
-                          value={fieldValue?.baslangic || ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setOzelSablon(prev => ({
-                              ...prev,
-                              [alan.id]: { ...(prev[fieldKey as keyof OzelSablonForm] as any || {}), baslangic: val }
-                            }));
-                          }}
-                          placeholder="1"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs text-gray-500">Bitiş</span>
-                        <input
-                          type="number"
-                          value={fieldValue?.bitis || ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setOzelSablon(prev => ({
-                              ...prev,
-                              [alan.id]: { ...(prev[fieldKey as keyof OzelSablonForm] as any || {}), bitis: val }
-                            }));
-                          }}
-                          placeholder="10"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
-                        />
-                      </div>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        value={fieldValue?.baslangic || ''}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setOzelSablon(prev => ({
+                            ...prev,
+                            [alan.id]: { ...(prev[fieldKey as keyof OzelSablonForm] as any || {}), baslangic: val }
+                          }));
+                        }}
+                        placeholder="1"
+                        className="w-full px-2 py-1 border border-gray-200 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs text-gray-400 self-center">-</span>
+                      <input
+                        type="number"
+                        value={fieldValue?.bitis || ''}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setOzelSablon(prev => ({
+                            ...prev,
+                            [alan.id]: { ...(prev[fieldKey as keyof OzelSablonForm] as any || {}), bitis: val }
+                          }));
+                        }}
+                        placeholder="10"
+                        className="w-full px-2 py-1 border border-gray-200 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500"
+                      />
                     </div>
                   </div>
                 );
@@ -428,12 +388,12 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             </div>
           </div>
 
-          {/* Kaydet Butonu */}
+          {/* Kaydet Butonu - Kompakt */}
           <button
             onClick={handleOzelSablonKaydet}
-            className="w-full py-3.5 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 shadow-md"
+            className="w-full py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
           >
-            <Save size={18} />
+            <Save size={16} />
             Şablonu Kaydet ve Kullan
           </button>
         </div>
