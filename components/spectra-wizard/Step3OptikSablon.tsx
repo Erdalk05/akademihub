@@ -848,6 +848,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                 </div>
               ))}
               </div>
+            </div>
             )}
 
             {/* Satır Ekle Butonu */}
