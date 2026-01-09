@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
             net: ders.net,
           }));
 
-          await supabase.from('exam_result_sections').insert(sectionResults).catch(() => {});
+          await supabase.from('exam_result_sections').insert(sectionResults);
         }
       }
     }
