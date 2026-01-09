@@ -78,6 +78,13 @@ export function calculatePercentile(rank: number, total: number): number {
 // ============================================================================
 
 /**
+ * Katılımcının sınıf adını al
+ */
+function getParticipantClassName(participant: ExamParticipant): string {
+  return participant.student?.class?.name || participant.guest_class || 'Diğer';
+}
+
+/**
  * Tüm istatistikleri hesapla
  */
 export function calculateStatistics(
@@ -114,34 +121,52 @@ export function calculateStatistics(
   const medianNet = median(nets);
   const stdDeviation = standardDeviation(nets);
 
-  // En yüksek/düşük net öğrencileri
+  // Toplam soru sayısı
+  const totalQuestions = sections.reduce((sum, s) => sum + s.question_count, 0) || 90;
+
+  // Başarı oranı ve LGS tahmini
+  const successRate = totalQuestions > 0 ? parseFloat(((averageNet / totalQuestions) * 100).toFixed(1)) : 0;
+  const averageLGSScore = estimateLGSScore(averageNet);
+
+  // Sonuçları sırala (en yüksekten en düşüğe)
+  const sortedResults = [...resultsData].sort(
+    (a, b) => b.result.total_net - a.result.total_net
+  );
+
+  // En yüksek/düşük net öğrencileri (sınıf bilgisi ile)
   const maxNetStudent =
-    resultsData.length > 0
-      ? (() => {
-          const max = resultsData.reduce((prev, curr) =>
-            curr.result.total_net > prev.result.total_net ? curr : prev
-          );
-          return {
-            name: getParticipantName(max.participant),
-            net: max.result.total_net,
-          };
-        })()
+    sortedResults.length > 0
+      ? {
+          name: getParticipantName(sortedResults[0].participant),
+          net: sortedResults[0].result.total_net,
+          className: getParticipantClassName(sortedResults[0].participant),
+        }
       : null;
 
   const minNetStudent =
-    resultsData.length > 0
-      ? (() => {
-          const min = resultsData.reduce((prev, curr) =>
-            curr.result.total_net < prev.result.total_net ? curr : prev
-          );
-          return {
-            name: getParticipantName(min.participant),
-            net: min.result.total_net,
-          };
-        })()
+    sortedResults.length > 0
+      ? {
+          name: getParticipantName(sortedResults[sortedResults.length - 1].participant),
+          net: sortedResults[sortedResults.length - 1].result.total_net,
+          className: getParticipantClassName(sortedResults[sortedResults.length - 1].participant),
+        }
       : null;
 
-  // Ders bazlı ortalamalar
+  // En iyi 3 öğrenci
+  const topStudents = sortedResults.slice(0, 3).map((r) => ({
+    name: getParticipantName(r.participant),
+    net: r.result.total_net,
+    className: getParticipantClassName(r.participant),
+  }));
+
+  // En kötü 3 öğrenci
+  const bottomStudents = sortedResults.slice(-3).reverse().map((r) => ({
+    name: getParticipantName(r.participant),
+    net: r.result.total_net,
+    className: getParticipantClassName(r.participant),
+  }));
+
+  // Ders bazlı ortalamalar (genişletilmiş)
   const sectionAverages = sections.map((section) => {
     const sectionResults = resultsData
       .map((r) => {
@@ -152,45 +177,81 @@ export function calculateStatistics(
       })
       .filter(Boolean);
 
+    const sectionNets = sectionResults.map((s) => s!.net);
+    const avgNet = sectionResults.length > 0 ? average(sectionNets) : 0;
+    const avgCorrect = sectionResults.length > 0 ? average(sectionResults.map((s) => s!.correct_count)) : 0;
+    const avgWrong = sectionResults.length > 0 ? average(sectionResults.map((s) => s!.wrong_count)) : 0;
+    const avgBlank = sectionResults.length > 0 ? average(sectionResults.map((s) => s!.blank_count)) : 0;
+
     return {
       sectionId: section.id,
       sectionName: section.name,
       sectionCode: section.code,
-      averageNet:
-        sectionResults.length > 0
-          ? average(sectionResults.map((s) => s!.net))
-          : 0,
-      averageCorrect:
-        sectionResults.length > 0
-          ? average(sectionResults.map((s) => s!.correct_count))
-          : 0,
-      averageWrong:
-        sectionResults.length > 0
-          ? average(sectionResults.map((s) => s!.wrong_count))
-          : 0,
+      questionCount: section.question_count,
+      averageNet: parseFloat(avgNet.toFixed(2)),
+      averageCorrect: parseFloat(avgCorrect.toFixed(2)),
+      averageWrong: parseFloat(avgWrong.toFixed(2)),
+      averageBlank: parseFloat(avgBlank.toFixed(2)),
+      successRate: section.question_count > 0 
+        ? parseFloat(((avgNet / section.question_count) * 100).toFixed(1)) 
+        : 0,
+      maxNet: sectionNets.length > 0 ? Math.max(...sectionNets) : 0,
+      minNet: sectionNets.length > 0 ? Math.min(...sectionNets) : 0,
     };
   });
 
-  // Sınıf bazlı ortalamalar
-  const classMap = new Map<string, { id: string; name: string; nets: number[] }>();
+  // Sınıf bazlı ortalamalar (ders bazlı dahil)
+  const classMap = new Map<string, { 
+    id: string; 
+    name: string; 
+    nets: number[];
+    sectionNets: Map<string, number[]>;
+  }>();
+
   resultsData.forEach((r) => {
-    const className =
-      r.participant.student?.class?.name || r.participant.guest_class || 'Diğer';
+    const className = getParticipantClassName(r.participant);
     const classId = r.participant.student?.class?.id || 'other';
 
     if (!classMap.has(classId)) {
-      classMap.set(classId, { id: classId, name: className, nets: [] });
+      classMap.set(classId, { 
+        id: classId, 
+        name: className, 
+        nets: [],
+        sectionNets: new Map(),
+      });
     }
-    classMap.get(classId)!.nets.push(r.result.total_net);
+    
+    const classData = classMap.get(classId)!;
+    classData.nets.push(r.result.total_net);
+
+    // Ders bazlı netleri topla
+    r.result.exam_result_sections?.forEach((sectionResult) => {
+      if (!classData.sectionNets.has(sectionResult.exam_section_id)) {
+        classData.sectionNets.set(sectionResult.exam_section_id, []);
+      }
+      classData.sectionNets.get(sectionResult.exam_section_id)!.push(sectionResult.net);
+    });
   });
 
   const classAverages = Array.from(classMap.values())
-    .map((c) => ({
-      classId: c.id,
-      className: c.name,
-      studentCount: c.nets.length,
-      averageNet: average(c.nets),
-    }))
+    .map((c) => {
+      // Ders bazlı ortalamaları hesapla
+      const sectionAvgs: Record<string, number> = {};
+      sections.forEach((section) => {
+        const sectionNets = c.sectionNets.get(section.id) || [];
+        sectionAvgs[section.code] = sectionNets.length > 0 
+          ? parseFloat(average(sectionNets).toFixed(2)) 
+          : 0;
+      });
+
+      return {
+        classId: c.id,
+        className: c.name,
+        studentCount: c.nets.length,
+        averageNet: parseFloat(average(c.nets).toFixed(2)),
+        sectionAverages: sectionAvgs,
+      };
+    })
     .sort((a, b) => b.averageNet - a.averageNet);
 
   // Net dağılımı
@@ -217,8 +278,12 @@ export function calculateStatistics(
     minNet: parseFloat(minNet.toFixed(2)),
     medianNet: parseFloat(medianNet.toFixed(2)),
     stdDeviation: parseFloat(stdDeviation.toFixed(2)),
+    successRate,
+    averageLGSScore,
     maxNetStudent,
     minNetStudent,
+    topStudents,
+    bottomStudents,
     sectionAverages,
     classAverages,
     netDistribution,

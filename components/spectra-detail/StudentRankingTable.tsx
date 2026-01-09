@@ -135,25 +135,27 @@ export function StudentRankingTable({
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
+              {/* Sticky kolonlar - sol tarafta sabit kalır */}
               <th
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 sticky left-0 bg-gray-50 z-10 w-16"
                 onClick={() => toggleSort('rank')}
               >
                 <div className="flex items-center gap-1">
                   Sıra <SortIcon column="rank" />
                 </div>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase sticky left-16 bg-gray-50 z-10 w-20">
                 No
               </th>
               <th
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 sticky left-36 bg-gray-50 z-10 min-w-[180px]"
                 onClick={() => toggleSort('name')}
               >
                 <div className="flex items-center gap-1">
                   Öğrenci <SortIcon column="name" />
                 </div>
               </th>
+              {/* Normal kolonlar */}
               <th
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
                 onClick={() => toggleSort('class')}
@@ -195,7 +197,8 @@ export function StudentRankingTable({
                   }`}
                   onClick={() => toggleExpand(row.participantId)}
                 >
-                  <td className="px-4 py-3">
+                  {/* Sticky kolonlar - sol tarafta sabit kalır */}
+                  <td className={`px-4 py-3 sticky left-0 z-10 w-16 ${expandedId === row.participantId ? 'bg-emerald-50' : 'bg-white'}`}>
                     <span
                       className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
                         row.rank === 1
@@ -210,10 +213,13 @@ export function StudentRankingTable({
                       {RANK_MEDALS[row.rank] || row.rank}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{row.studentNo}</td>
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 text-sm text-gray-600 sticky left-16 z-10 w-20 ${expandedId === row.participantId ? 'bg-emerald-50' : 'bg-white'}`}>
+                    {row.studentNo}
+                  </td>
+                  <td className={`px-4 py-3 sticky left-36 z-10 min-w-[180px] ${expandedId === row.participantId ? 'bg-emerald-50' : 'bg-white'}`}>
                     <span className="font-medium text-gray-900">{row.name}</span>
                   </td>
+                  {/* Normal kolonlar */}
                   <td className="px-4 py-3 text-sm text-gray-600">{row.className}</td>
                   <td className="px-4 py-3 text-center">
                     {row.participantType === 'institution' ? (

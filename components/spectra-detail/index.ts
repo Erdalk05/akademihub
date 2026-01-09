@@ -12,3 +12,8 @@ export { ClassComparison } from './ClassComparison';
 export { ExportButtons } from './ExportButtons';
 export { MatchingModal } from './MatchingModal';
 
+// Yeni component'ler
+export { SubjectPerformanceTable } from './SubjectPerformanceTable';
+export { TopPerformersCards } from './TopPerformersCards';
+export { OrganizationTrendChart } from './OrganizationTrendChart';
+

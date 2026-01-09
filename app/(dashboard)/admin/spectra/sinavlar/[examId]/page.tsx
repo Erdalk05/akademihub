@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { useSpectraDetail } from '@/hooks/spectra-detail';
+import { useSpectraDetail, useOrganizationTrend } from '@/hooks/spectra-detail';
 import { useStudentFilters } from '@/hooks/spectra-detail/useStudentFilters';
 import {
   SpectraHeader,
@@ -14,6 +14,9 @@ import {
   DistributionCharts,
   StudentRankingTable,
   ClassComparison,
+  SubjectPerformanceTable,
+  TopPerformersCards,
+  OrganizationTrendChart,
 } from '@/components/spectra-detail';
 import { exportToExcel, exportToPDF } from '@/lib/spectra-detail';
 
@@ -32,6 +35,18 @@ export default function SpectraExamDetailPage() {
   const { data, isLoading, error, refetch } = useSpectraDetail({
     examId,
     organizationId: currentOrganization?.id,
+  });
+
+  // Kurum trend hook'u
+  const {
+    trends,
+    isLoading: trendLoading,
+    trendDirection,
+    trendPercentage,
+  } = useOrganizationTrend({
+    organizationId: currentOrganization?.id,
+    examId,
+    limit: 5,
   });
 
   // Filtreleme hook'u
@@ -122,6 +137,20 @@ export default function SpectraExamDetailPage() {
     }
   }, [data, currentOrganization?.name]);
 
+  // Share handler (WhatsApp)
+  const handleShare = useCallback(() => {
+    if (!data) return;
+    const text = `📊 ${data.exam.name} Sonuçları\n\n` +
+      `👥 Katılımcı: ${data.statistics.totalParticipants}\n` +
+      `📈 Ortalama Net: ${data.statistics.averageNet.toFixed(1)}\n` +
+      `🏆 En Yüksek: ${data.statistics.maxNet.toFixed(1)}\n` +
+      `📉 En Düşük: ${data.statistics.minNet.toFixed(1)}\n\n` +
+      `🔗 ${window.location.href}`;
+    
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+  }, [data]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -150,6 +179,9 @@ export default function SpectraExamDetailPage() {
     );
   }
 
+  // Toplam soru sayısı
+  const totalQuestions = data.sections.reduce((sum, s) => sum + s.question_count, 0) || 90;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -159,6 +191,7 @@ export default function SpectraExamDetailPage() {
         isRefreshing={isRefreshing}
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
+        onShare={handleShare}
       />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -171,19 +204,46 @@ export default function SpectraExamDetailPage() {
           }}
         />
 
-        {/* Özet Kartları */}
-        <SummaryCards statistics={data.statistics} />
+        {/* 1. Özet Kartları (8 kart) */}
+        <SummaryCards statistics={data.statistics} totalQuestions={totalQuestions} />
 
-        {/* Dağılım Grafikleri */}
-        <DistributionCharts
-          netDistribution={data.statistics.netDistribution}
-          totalCorrect={totals.correct}
-          totalWrong={totals.wrong}
-          totalBlank={totals.blank}
-          averageNet={data.statistics.averageNet}
+        {/* 2. Ders Bazlı Performans Tablosu */}
+        <SubjectPerformanceTable
+          sectionAverages={data.statistics.sectionAverages}
+          sections={data.sections}
         />
 
-        {/* Öğrenci Sıralama Tablosu */}
+        {/* 3. Dağılım Grafikleri + Kurum Trend */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DistributionCharts
+            netDistribution={data.statistics.netDistribution}
+            totalCorrect={totals.correct}
+            totalWrong={totals.wrong}
+            totalBlank={totals.blank}
+            averageNet={data.statistics.averageNet}
+          />
+          <OrganizationTrendChart
+            trends={trends}
+            isLoading={trendLoading}
+            trendDirection={trendDirection}
+            trendPercentage={trendPercentage}
+          />
+        </div>
+
+        {/* 4. Sınıf Karşılaştırma (ders bazlı ortalamalar ile) */}
+        <ClassComparison
+          classAverages={data.statistics.classAverages}
+          organizationAverage={data.statistics.averageNet}
+          sections={data.sections}
+        />
+
+        {/* 5. En İyi/Kötü Performans Kartları */}
+        <TopPerformersCards
+          topStudents={data.statistics.topStudents}
+          bottomStudents={data.statistics.bottomStudents}
+        />
+
+        {/* 6. Öğrenci Sıralama Tablosu (sticky kolonlarla) */}
         <StudentRankingTable
           rows={filterHook.paginatedRows}
           sections={data.sections}
@@ -206,12 +266,6 @@ export default function SpectraExamDetailPage() {
           onPageSizeChange={filterHook.setPageSize}
           classAverages={classAveragesMap}
           sectionAverages={sectionAveragesMap}
-        />
-
-        {/* Sınıf Karşılaştırma */}
-        <ClassComparison
-          classAverages={data.statistics.classAverages}
-          organizationAverage={data.statistics.averageNet}
         />
       </div>
     </div>

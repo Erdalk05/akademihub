@@ -130,16 +130,29 @@ export interface ExamStatistics {
   medianNet: number;
   stdDeviation: number;
 
-  maxNetStudent: { name: string; net: number } | null;
-  minNetStudent: { name: string; net: number } | null;
+  // Yeni alanlar
+  successRate: number; // Başarı oranı (%)
+  averageLGSScore: number; // Ortalama LGS tahmini
+
+  maxNetStudent: { name: string; net: number; className?: string } | null;
+  minNetStudent: { name: string; net: number; className?: string } | null;
+
+  // En iyi/kötü 3 öğrenci
+  topStudents: { name: string; net: number; className: string }[];
+  bottomStudents: { name: string; net: number; className: string }[];
 
   sectionAverages: {
     sectionId: string;
     sectionName: string;
     sectionCode: string;
+    questionCount: number; // Soru sayısı
     averageNet: number;
     averageCorrect: number;
     averageWrong: number;
+    averageBlank: number; // Ortalama boş
+    successRate: number; // Başarı oranı (%)
+    maxNet: number; // En yüksek net
+    minNet: number; // En düşük net
   }[];
 
   classAverages: {
@@ -147,6 +160,7 @@ export interface ExamStatistics {
     className: string;
     studentCount: number;
     averageNet: number;
+    sectionAverages: Record<string, number>; // Ders bazlı ortalamalar
   }[];
 
   netDistribution: {
@@ -156,6 +170,23 @@ export interface ExamStatistics {
     count: number;
     percentage: number;
   }[];
+}
+
+// Kurum trend verisi
+export interface OrganizationTrend {
+  examId: string;
+  examName: string;
+  examDate: string;
+  averageNet: number;
+  participantCount: number;
+}
+
+// En iyi/kötü performans kartları için
+export interface TopPerformer {
+  name: string;
+  net: number;
+  className: string;
+  rank: number;
 }
 
 // Filtreler

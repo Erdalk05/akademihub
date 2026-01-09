@@ -7,8 +7,8 @@ import {
   RefreshCw,
   FileSpreadsheet,
   FileText,
-  Settings,
   Calendar,
+  Share2,
 } from 'lucide-react';
 import type { Exam } from '@/types/spectra-detail';
 
@@ -22,6 +22,7 @@ interface SpectraHeaderProps {
   onRefresh?: () => void;
   onExportExcel?: () => void;
   onExportPDF?: () => void;
+  onShare?: () => void;
   isRefreshing?: boolean;
 }
 
@@ -30,6 +31,7 @@ export function SpectraHeader({
   onRefresh,
   onExportExcel,
   onExportPDF,
+  onShare,
   isRefreshing = false,
 }: SpectraHeaderProps) {
   const formatDate = (dateStr: string | null) => {
@@ -97,6 +99,16 @@ export function SpectraHeader({
               >
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">PDF</span>
+              </button>
+            )}
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2 transition-colors text-sm font-medium"
+                title="WhatsApp ile paylaş"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Paylaş</span>
               </button>
             )}
           </div>
