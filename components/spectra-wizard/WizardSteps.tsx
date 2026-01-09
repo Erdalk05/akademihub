@@ -39,25 +39,25 @@ export function WizardSteps({ currentStep, onStepClick, completedSteps = [] }: W
             <React.Fragment key={step.id}>
               {/* Step */}
               <button
-                onClick={() => onStepClick?.(step.id)}
-                disabled={!isCompleted && step.id > currentStep}
-                className={cn(
-                  'flex items-center gap-3 group transition-all',
-                  (isCompleted || step.id <= currentStep) && 'cursor-pointer',
-                  step.id > currentStep && !isCompleted && 'cursor-not-allowed opacity-50'
-                )}
-              >
+  onClick={() => onStepClick?.(step.id)}
+  className={cn(
+    'flex items-center gap-3 group transition-all cursor-pointer',
+    'hover:scale-105 active:scale-95',
+    isCurrent && 'scale-110'
+  )}
+>
                 {/* Circle */}
                 <div
-                  className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all',
-                    isCompleted && 'bg-emerald-500 text-white',
-                    isCurrent && !isCompleted && 'bg-emerald-500 text-white ring-4 ring-emerald-100',
-                    !isCurrent && !isCompleted && 'bg-gray-200 text-gray-500'
-                  )}
-                >
-                  {isCompleted ? <Check size={20} /> : step.icon}
-                </div>
+  className={cn(
+    'w-10 h-10 rounded-full flex items-center justify-center transition-all',
+    isCompleted && 'bg-emerald-500 text-white shadow-md',
+    isCurrent && !isCompleted && 'bg-emerald-500 text-white ring-4 ring-emerald-100 shadow-lg',
+    !isCurrent && !isCompleted && step.id < currentStep && 'bg-sky-100 text-sky-600 border-2 border-sky-300',
+    !isCurrent && !isCompleted && step.id > currentStep && 'bg-gray-100 text-gray-400 border-2 border-gray-200'
+  )}
+>
+  {isCompleted ? <Check size={20} /> : step.icon}
+</div>
 
                 {/* Text */}
                 <div className="hidden lg:block text-left">

@@ -33,7 +33,7 @@ import type {
 
 export default function SpectraSihirbazPage() {
   const router = useRouter();
-  const { currentOrganization, currentAcademicYear } = useOrganizationStore();
+  const { currentOrganization } = useOrganizationStore();
   const supabase = createClient();
 
   // Wizard State
@@ -42,7 +42,7 @@ export default function SpectraSihirbazPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Step Data
+  // Step Data - Her step'in verisi kalıcı
   const [step1Data, setStep1Data] = useState<WizardStep1Data | null>(null);
   const [step2Data, setStep2Data] = useState<WizardStep2Data | null>(null);
   const [step3Data, setStep3Data] = useState<WizardStep3Data | null>(null);
@@ -134,8 +134,10 @@ export default function SpectraSihirbazPage() {
 
   // Adıma git
   const handleStepClick = (step: number) => {
-    if (step <= currentStep || completedSteps.includes(step - 1)) {
-      setCurrentStep(step);
+    setCurrentStep(step);
+    // Validation uyarısı göstermek isterseniz:
+    if (!canProceed(currentStep)) {
+      toast('⚠️ Mevcut adımda eksik veriler var', { icon: '📝' });
     }
   };
 
@@ -159,7 +161,7 @@ export default function SpectraSihirbazPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organizationId: currentOrganization.id,
-          academicYearId: currentAcademicYear?.id || null, // Opsiyonel
+          academicYearId: null, // Opsiyonel
           draftExamId,
           step1Data,
           step2Data,
