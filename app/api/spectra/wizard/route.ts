@@ -210,46 +210,44 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-      // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için)
-      if (insertedParticipants && insertedParticipants.length > 0) {
-        for (let i = 0; i < insertedParticipants.length; i++) {
-          const participantId = insertedParticipants[i].id;
-          const sonuc = sonuclar[i];
+    // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için)
+    if (insertedParticipants && insertedParticipants.length > 0) {
+      for (let i = 0; i < insertedParticipants.length; i++) {
+        const participantId = insertedParticipants[i].id;
+        const sonuc = sonuclar[i];
 
-          // exam_results tablosuna da yaz
-          const { error: resultError } = await supabase
-            .from('exam_results')
-            .insert({
-              exam_participant_id: participantId,
-              total_correct: sonuc.toplamDogru || 0,
-              total_wrong: sonuc.toplamYanlis || 0,
-              total_blank: sonuc.toplamBos || 0,
-              total_net: sonuc.toplamNet || 0,
-              organization_rank: sonuc.kurumSirasi,
-              class_rank: sonuc.sinifSirasi,
-              percentile: sonuc.yuzdelikDilim,
-              estimated_score: sonuc.tahminiPuan,
-              answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
-            });
+        // exam_results tablosuna da yaz
+        const { error: resultError } = await supabase
+          .from('exam_results')
+          .insert({
+            exam_participant_id: participantId,
+            total_correct: sonuc.toplamDogru || 0,
+            total_wrong: sonuc.toplamYanlis || 0,
+            total_blank: sonuc.toplamBos || 0,
+            total_net: sonuc.toplamNet || 0,
+            organization_rank: sonuc.kurumSirasi,
+            class_rank: sonuc.sinifSirasi,
+            percentile: sonuc.yuzdelikDilim,
+            estimated_score: sonuc.tahminiPuan,
+            answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
+          });
 
-          if (resultError) {
-            console.warn('exam_results kayıt uyarısı:', resultError.message);
-            // Kritik değil, devam et
-          }
+        if (resultError) {
+          console.warn('exam_results kayıt uyarısı:', resultError.message);
+        }
 
-          // Ders bazlı sonuçlar
-          if (sonuc.dersSonuclari) {
-            const sectionResults = sonuc.dersSonuclari.map(ders => ({
-              exam_result_id: participantId, // Eğer exam_results.id yoksa participant kullan
-              exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
-              correct_count: ders.dogru,
-              wrong_count: ders.yanlis,
-              blank_count: ders.bos,
-              net: ders.net,
-            }));
+        // Ders bazlı sonuçlar
+        if (sonuc.dersSonuclari) {
+          const sectionResults = sonuc.dersSonuclari.map(ders => ({
+            exam_result_id: participantId,
+            exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
+            correct_count: ders.dogru,
+            wrong_count: ders.yanlis,
+            blank_count: ders.bos,
+            net: ders.net,
+          }));
 
-            await supabase.from('exam_result_sections').insert(sectionResults).catch(() => {});
-          }
+          await supabase.from('exam_result_sections').insert(sectionResults).catch(() => {});
         }
       }
     }
