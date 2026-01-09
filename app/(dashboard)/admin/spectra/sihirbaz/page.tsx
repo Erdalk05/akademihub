@@ -244,7 +244,7 @@ export default function SpectraSihirbazPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -252,7 +252,7 @@ export default function SpectraSihirbazPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+            className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8"
           >
             {/* Step 1: Sınav Bilgisi */}
             {currentStep === 1 && (

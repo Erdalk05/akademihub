@@ -89,51 +89,54 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Sınav Adı */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          <FileText className="inline w-4 h-4 mr-2" />
-          Sınav Adı
-        </label>
-        <input
-          type="text"
-          value={formData.sinavAdi}
-          onChange={(e) => handleChange('sinavAdi', e.target.value)}
-          placeholder="Örn: ÖZDEBİR LGS DENEME 1"
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-        />
-      </div>
+    <div className="space-y-6 md:space-y-8">
+      {/* Grid Container: 2 kolon desktop, 1 kolon mobil */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Sınav Adı */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <FileText className="inline w-4 h-4 mr-2" />
+            Sınav Adı
+          </label>
+          <input
+            type="text"
+            value={formData.sinavAdi}
+            onChange={(e) => handleChange('sinavAdi', e.target.value)}
+            placeholder="Örn: ÖZDEBİR LGS DENEME 1"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+          />
+        </div>
 
-      {/* Tarih */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          <Calendar className="inline w-4 h-4 mr-2" />
-          Sınav Tarihi
-        </label>
-        <input
-          type="date"
-          value={formData.sinavTarihi}
-          onChange={(e) => handleChange('sinavTarihi', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-        />
+        {/* Tarih */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <Calendar className="inline w-4 h-4 mr-2" />
+            Sınav Tarihi
+          </label>
+          <input
+            type="date"
+            value={formData.sinavTarihi}
+            onChange={(e) => handleChange('sinavTarihi', e.target.value)}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+          />
+        </div>
       </div>
 
       {/* Sınıf Seviyesi */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
           <GraduationCap className="inline w-4 h-4 mr-2" />
           Sınıf Seviyesi
         </label>
-        <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-11 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-11 gap-3">
           {Object.values(SINIF_BILGILERI).map((sinif) => (
             <button
               key={sinif.seviye}
               onClick={() => handleChange('sinifSeviyesi', sinif.seviye)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                 formData.sinifSeviyesi === sinif.seviye
-                  ? 'bg-emerald-500 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-200'
+                  : 'bg-white border-2 border-gray-200 text-gray-600 hover:border-emerald-300 hover:bg-emerald-50'
               }`}
             >
               {sinif.seviye === 'mezun' ? 'Mez.' : `${sinif.seviye}.`}
@@ -144,24 +147,24 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
 
       {/* Sınav Türü */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
           <BookOpen className="inline w-4 h-4 mr-2" />
           Sınav Türü
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {uygunSinavTurleri.map((sinav) => (
             <button
               key={sinav.kod}
               onClick={() => handleChange('sinavTuru', sinav.kod)}
-              className={`p-4 rounded-xl border-2 transition-all text-left ${
+              className={`p-5 rounded-xl border-2 transition-all text-left ${
                 formData.sinavTuru === sinav.kod
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
+                  ? 'border-emerald-500 bg-emerald-50 shadow-lg ring-2 ring-emerald-200'
+                  : 'border-gray-200 hover:border-emerald-300 bg-white hover:shadow-md'
               }`}
             >
-              <div className="text-2xl mb-1">{sinav.icon}</div>
-              <p className="font-semibold text-gray-900 text-sm">{sinav.ad.split(' - ')[0]}</p>
-              <p className="text-xs text-gray-500">{sinav.toplamSoru > 0 ? `${sinav.toplamSoru} soru` : 'Özel'}</p>
+              <div className="text-3xl mb-2">{sinav.icon}</div>
+              <p className="font-bold text-gray-900">{sinav.ad.split(' - ')[0]}</p>
+              <p className="text-xs text-gray-500 mt-1">{sinav.toplamSoru > 0 ? `${sinav.toplamSoru} soru` : 'Özel'}</p>
             </button>
           ))}
         </div>
