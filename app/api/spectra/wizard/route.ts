@@ -136,20 +136,12 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────────────────────────────────────────
     // 4. SONUÇLARI HESAPLA
     // ─────────────────────────────────────────────────────────────────────────
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:139',message:'BEFORE hesaplaTopluSonuclar',data:{satirlarCount:step4Data.parseResult.satirlar?.length||0,cevapAnahtariItemsCount:step2Data.cevapAnahtari?.items?.length||0,sinavKonfigExists:!!sinavKonfig},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-
     let sonuclar = hesaplaTopluSonuclar(
       step4Data.parseResult.satirlar,
       step2Data.cevapAnahtari,
       sinavKonfig,
       examId
     );
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:150',message:'AFTER hesaplaTopluSonuclar',data:{sonuclarCount:sonuclar?.length||0,firstSonuc:sonuclar?.[0]?{ogrenciAdi:sonuclar[0].ogrenciAdi,toplamDogru:sonuclar[0].toplamDogru,toplamNet:sonuclar[0].toplamNet}:null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,D'})}).catch(()=>{});
-    // #endregion
 
     sonuclar = ekleTohminiPuanlar(sonuclar, step1Data.sinavTuru);
 
@@ -179,10 +171,6 @@ export async function POST(request: NextRequest) {
       answers: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
     }));
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:180',message:'participantInserts created',data:{count:participantInserts?.length||0,firstInsert:participantInserts?.[0]?{exam_id:participantInserts[0].exam_id,participant_type:participantInserts[0].participant_type,correct_count:participantInserts[0].correct_count,net:participantInserts[0].net}:null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     // ⚠️ Boş kontrol - kritik debug
     if (participantInserts.length === 0) {
       console.error('❌ participantInserts BOŞ!', { sonuclarCount: sonuclar.length });
@@ -198,10 +186,6 @@ export async function POST(request: NextRequest) {
       .from('exam_participants')
       .insert(participantInserts)
       .select('id');
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:205',message:'AFTER INSERT',data:{success:!participantError,insertedCount:insertedParticipants?.length||0,errorMessage:participantError?.message||null,errorCode:participantError?.code||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
 
     if (participantError) {
       console.error('❌ exam_participants INSERT hatası:', participantError.message);
