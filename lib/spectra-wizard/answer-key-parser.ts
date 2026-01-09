@@ -825,13 +825,15 @@ export function parseTopluCevap(
     uyarilar.push(`${girilmisSayi - toplamSoru} fazla cevap (kesildi)`);
   }
   
+  // isValid: Hata yoksa ve EN AZ 1 cevap girildiyse geçerli
+  // Eksik cevap varsa uyarı olarak gösterilir ama işleme izin verilir
   return {
     cevaplar,
     hatalar,
     uyarilar,
     girilmisSayi: Math.min(girilmisSayi, toplamSoru),
     beklenenSayi: toplamSoru,
-    isValid: hatalar.length === 0 && girilmisSayi >= toplamSoru,
+    isValid: hatalar.length === 0 && girilmisSayi > 0,
     formatTipi,
   };
 }
