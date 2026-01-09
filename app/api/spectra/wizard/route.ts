@@ -210,44 +210,58 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için)
+    // Ayrıca exam_results tablosuna da yaz (eski sistem uyumluluğu için) - BATCH INSERT
     if (insertedParticipants && insertedParticipants.length > 0) {
-      for (let i = 0; i < insertedParticipants.length; i++) {
-        const participantId = insertedParticipants[i].id;
+      // Tüm exam_results'ları tek seferde ekle
+      const allResults = insertedParticipants.map((p, i) => {
         const sonuc = sonuclar[i];
+        return {
+          exam_participant_id: p.id,
+          total_correct: sonuc.toplamDogru || 0,
+          total_wrong: sonuc.toplamYanlis || 0,
+          total_blank: sonuc.toplamBos || 0,
+          total_net: sonuc.toplamNet || 0,
+          organization_rank: sonuc.kurumSirasi,
+          class_rank: sonuc.sinifSirasi,
+          percentile: sonuc.yuzdelikDilim,
+          estimated_score: sonuc.tahminiPuan,
+          answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
+        };
+      });
 
-        // exam_results tablosuna da yaz
-        const { error: resultError } = await supabase
-          .from('exam_results')
-          .insert({
-            exam_participant_id: participantId,
-            total_correct: sonuc.toplamDogru || 0,
-            total_wrong: sonuc.toplamYanlis || 0,
-            total_blank: sonuc.toplamBos || 0,
-            total_net: sonuc.toplamNet || 0,
-            organization_rank: sonuc.kurumSirasi,
-            class_rank: sonuc.sinifSirasi,
-            percentile: sonuc.yuzdelikDilim,
-            estimated_score: sonuc.tahminiPuan,
-            answers_raw: sonuc.cevaplar ? JSON.stringify(sonuc.cevaplar) : null,
-          });
+      const { error: resultsError } = await supabase
+        .from('exam_results')
+        .insert(allResults);
 
-        if (resultError) {
-          console.warn('exam_results kayıt uyarısı:', resultError.message);
-        }
+      if (resultsError) {
+        console.warn('exam_results batch kayıt uyarısı:', resultsError.message);
+      }
 
-        // Ders bazlı sonuçlar
+      // Tüm section sonuçlarını tek seferde ekle
+      const allSectionResults: any[] = [];
+      insertedParticipants.forEach((p, i) => {
+        const sonuc = sonuclar[i];
         if (sonuc.dersSonuclari) {
-          const sectionResults = sonuc.dersSonuclari.map(ders => ({
-            exam_result_id: participantId,
-            exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
-            correct_count: ders.dogru,
-            wrong_count: ders.yanlis,
-            blank_count: ders.bos,
-            net: ders.net,
-          }));
+          sonuc.dersSonuclari.forEach(ders => {
+            allSectionResults.push({
+              exam_result_id: p.id,
+              exam_section_id: sectionIdMap.get(ders.dersKodu) || null,
+              correct_count: ders.dogru,
+              wrong_count: ders.yanlis,
+              blank_count: ders.bos,
+              net: ders.net,
+            });
+          });
+        }
+      });
 
-          await supabase.from('exam_result_sections').insert(sectionResults);
+      if (allSectionResults.length > 0) {
+        const { error: sectionsError } = await supabase
+          .from('exam_result_sections')
+          .insert(allSectionResults);
+
+        if (sectionsError) {
+          console.warn('exam_result_sections batch kayıt uyarısı:', sectionsError.message);
         }
       }
     }

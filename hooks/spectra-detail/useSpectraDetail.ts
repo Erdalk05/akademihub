@@ -47,6 +47,9 @@ export function useSpectraDetail({
       return;
     }
 
+    // Her fetch'te state'i sıfırla - stale data gösterme
+    setData(null);
+    setError(null);
     setIsLoading(true);
     setError(null);
 
