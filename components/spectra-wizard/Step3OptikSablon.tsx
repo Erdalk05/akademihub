@@ -83,6 +83,8 @@ interface DersTanimi {
   dersAdi: string;
   soruSayisi: number;
   sira: number;
+  baslangic: number;
+  bitis: number;
 }
 
 // Validation sonucu
@@ -143,8 +145,8 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
 
   // Ders yöneticisi state
   const [dersler, setDersler] = useState<DersTanimi[]>([
-    { id: 'ders-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1 },
-    { id: 'ders-2', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 2 },
+    { id: 'ders-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1, baslangic: 0, bitis: 0 },
+    { id: 'ders-2', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 2, baslangic: 0, bitis: 0 },
   ]);
 
   // Sınav türü preset seçimi (LGS/TYT/AYT)
@@ -404,10 +406,12 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     const newSira = dersler.length + 1;
     setDersler(prev => [...prev, {
       id: newId,
-      dersKodu: `DERS${newSira}`,
-      dersAdi: `Yeni Ders ${newSira}`,
+      dersKodu: '',
+      dersAdi: '',
       soruSayisi: 10,
       sira: newSira,
+      baslangic: 0,
+      bitis: 0,
     }]);
   }, [dersler.length]);
 
@@ -449,26 +453,26 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     
     if (preset === 'LGS') {
       setDersler([
-        { id: 'lgs-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1 },
-        { id: 'lgs-2', dersKodu: 'INK', dersAdi: 'T.C. İnkılap Tarihi', soruSayisi: 10, sira: 2 },
-        { id: 'lgs-3', dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, sira: 3 },
-        { id: 'lgs-4', dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, sira: 4 },
-        { id: 'lgs-5', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 5 },
-        { id: 'lgs-6', dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 6 },
+        { id: 'lgs-1', dersKodu: 'TUR', dersAdi: 'Türkçe', soruSayisi: 20, sira: 1, baslangic: 65, bitis: 84 },
+        { id: 'lgs-2', dersKodu: 'INK', dersAdi: 'T.C. İnkılap Tarihi', soruSayisi: 10, sira: 2, baslangic: 85, bitis: 94 },
+        { id: 'lgs-3', dersKodu: 'DIN', dersAdi: 'Din Kültürü', soruSayisi: 10, sira: 3, baslangic: 95, bitis: 104 },
+        { id: 'lgs-4', dersKodu: 'ING', dersAdi: 'İngilizce', soruSayisi: 10, sira: 4, baslangic: 105, bitis: 114 },
+        { id: 'lgs-5', dersKodu: 'MAT', dersAdi: 'Matematik', soruSayisi: 20, sira: 5, baslangic: 115, bitis: 134 },
+        { id: 'lgs-6', dersKodu: 'FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 6, baslangic: 135, bitis: 154 },
       ]);
     } else if (preset === 'TYT') {
       setDersler([
-        { id: 'tyt-1', dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', soruSayisi: 40, sira: 1 },
-        { id: 'tyt-2', dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', soruSayisi: 20, sira: 2 },
-        { id: 'tyt-3', dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', soruSayisi: 40, sira: 3 },
-        { id: 'tyt-4', dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 4 },
+        { id: 'tyt-1', dersKodu: 'TYT_TUR', dersAdi: 'Türkçe', soruSayisi: 40, sira: 1, baslangic: 60, bitis: 99 },
+        { id: 'tyt-2', dersKodu: 'TYT_SOS', dersAdi: 'Sosyal Bilimler', soruSayisi: 20, sira: 2, baslangic: 100, bitis: 119 },
+        { id: 'tyt-3', dersKodu: 'TYT_MAT', dersAdi: 'Temel Matematik', soruSayisi: 40, sira: 3, baslangic: 120, bitis: 159 },
+        { id: 'tyt-4', dersKodu: 'TYT_FEN', dersAdi: 'Fen Bilimleri', soruSayisi: 20, sira: 4, baslangic: 160, bitis: 179 },
       ]);
     } else if (preset === 'AYT') {
       setDersler([
-        { id: 'ayt-1', dersKodu: 'AYT_MAT', dersAdi: 'Matematik', soruSayisi: 40, sira: 1 },
-        { id: 'ayt-2', dersKodu: 'AYT_FIZ', dersAdi: 'Fizik', soruSayisi: 14, sira: 2 },
-        { id: 'ayt-3', dersKodu: 'AYT_KIM', dersAdi: 'Kimya', soruSayisi: 13, sira: 3 },
-        { id: 'ayt-4', dersKodu: 'AYT_BIY', dersAdi: 'Biyoloji', soruSayisi: 13, sira: 4 },
+        { id: 'ayt-1', dersKodu: 'AYT_MAT', dersAdi: 'Matematik', soruSayisi: 40, sira: 1, baslangic: 55, bitis: 94 },
+        { id: 'ayt-2', dersKodu: 'AYT_FIZ', dersAdi: 'Fizik', soruSayisi: 14, sira: 2, baslangic: 95, bitis: 108 },
+        { id: 'ayt-3', dersKodu: 'AYT_KIM', dersAdi: 'Kimya', soruSayisi: 13, sira: 3, baslangic: 109, bitis: 121 },
+        { id: 'ayt-4', dersKodu: 'AYT_BIY', dersAdi: 'Biyoloji', soruSayisi: 13, sira: 4, baslangic: 122, bitis: 134 },
       ]);
     } else {
       // OZEL - mevcut dersleri koru
@@ -753,7 +757,17 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                 )}>
                   <div className="col-span-3 flex items-center gap-2">
                     <span className={cn('w-2 h-2 rounded-full', alan.aktif ? 'bg-sky-500' : 'bg-gray-300')}></span>
-                    <span className="text-sm font-medium text-gray-800">{alan.label}</span>
+                    <input
+                      type="text"
+                      value={alan.label}
+                      onChange={(e) => {
+                        const yeni = [...alanlar];
+                        yeni[index].label = e.target.value;
+                        setAlanlar(yeni);
+                      }}
+                      placeholder="Alan adı girin..."
+                      className="flex-1 text-sm font-medium text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-sky-500 focus:ring-0 px-0 py-0.5"
+                    />
                   </div>
                   <div className="col-span-2">
                     <input
@@ -874,13 +888,12 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                   const newId = `ozel-${Date.now()}`;
                   setAlanlar(prev => [...prev, {
                     id: newId,
-                    label: `Özel Alan ${prev.length + 1}`,
+                    label: '',
                     zorunlu: false,
                     aktif: true,
                     baslangic: 0,
                     bitis: 0,
                   }]);
-                  toast.success('Yeni alan eklendi');
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-all border border-emerald-200"
               >
@@ -919,81 +932,105 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
               </div>
             </div>
 
+            {/* Ders Tablosu Başlığı */}
+            <div className="bg-gray-100 px-3 py-2 rounded-t-lg border border-gray-200 border-b-0">
+              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase">
+                <div className="col-span-1">#</div>
+                <div className="col-span-1">Kod</div>
+                <div className="col-span-3">Ders Adı</div>
+                <div className="col-span-1 text-center">Başl.</div>
+                <div className="col-span-1 text-center">Bitiş</div>
+                <div className="col-span-2 text-center">Soru</div>
+                <div className="col-span-3"></div>
+              </div>
+            </div>
+
             {/* Ders listesi */}
-            <div className="space-y-2">
+            <div className="border border-gray-200 rounded-b-lg divide-y divide-gray-100">
               {dersler.map((ders, index) => (
                 <div
                   key={ders.id}
-                  className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200"
+                  className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center bg-white hover:bg-gray-50"
                 >
-                  {/* Sıra numarası */}
-                  <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
-                    {ders.sira}
-                  </span>
+                  {/* Sıra */}
+                  <div className="col-span-1">
+                    <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                      {ders.sira}
+                    </span>
+                  </div>
 
-                  {/* Ders kodu */}
-                  <input
-                    type="text"
-                    value={ders.dersKodu}
-                    onChange={(e) => handleUpdateDers(ders.id, 'dersKodu', e.target.value)}
-                    placeholder="Kod"
-                    className="w-20 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
+                  {/* Kod */}
+                  <div className="col-span-1">
+                    <input
+                      type="text"
+                      value={ders.dersKodu}
+                      onChange={(e) => handleUpdateDers(ders.id, 'dersKodu', e.target.value)}
+                      className="w-full px-1.5 py-1 text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
 
-                  {/* Ders adı */}
-                  <input
-                    type="text"
-                    value={ders.dersAdi}
-                    onChange={(e) => handleUpdateDers(ders.id, 'dersAdi', e.target.value)}
-                    placeholder="Ders Adı"
-                    className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
+                  {/* Ders Adı */}
+                  <div className="col-span-3">
+                    <input
+                      type="text"
+                      value={ders.dersAdi}
+                      onChange={(e) => handleUpdateDers(ders.id, 'dersAdi', e.target.value)}
+                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
 
-                  {/* Soru sayısı */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleUpdateDers(ders.id, 'soruSayisi', Math.max(1, ders.soruSayisi - 1))}
-                      className="p-1 hover:bg-gray-200 rounded"
-                    >
-                      <Minus size={14} />
+                  {/* Başlangıç */}
+                  <div className="col-span-1">
+                    <input
+                      type="number"
+                      value={ders.baslangic || ''}
+                      onChange={(e) => handleUpdateDers(ders.id, 'baslangic', parseInt(e.target.value) || 0)}
+                      placeholder="—"
+                      style={{ MozAppearance: 'textfield' }}
+                      className="w-full px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+
+                  {/* Bitiş */}
+                  <div className="col-span-1">
+                    <input
+                      type="number"
+                      value={ders.bitis || ''}
+                      onChange={(e) => handleUpdateDers(ders.id, 'bitis', parseInt(e.target.value) || 0)}
+                      placeholder="—"
+                      style={{ MozAppearance: 'textfield' }}
+                      className="w-full px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+
+                  {/* Soru Sayısı */}
+                  <div className="col-span-2 flex items-center justify-center gap-1">
+                    <button onClick={() => handleUpdateDers(ders.id, 'soruSayisi', Math.max(1, ders.soruSayisi - 1))} className="p-0.5 hover:bg-gray-200 rounded">
+                      <Minus size={12} />
                     </button>
                     <input
                       type="number"
                       value={ders.soruSayisi}
                       onChange={(e) => handleUpdateDers(ders.id, 'soruSayisi', parseInt(e.target.value) || 0)}
                       style={{ MozAppearance: 'textfield' }}
-                      className="w-12 px-1 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-10 px-1 py-1 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <button
-                      onClick={() => handleUpdateDers(ders.id, 'soruSayisi', ders.soruSayisi + 1)}
-                      className="p-1 hover:bg-gray-200 rounded"
-                    >
-                      <Plus size={14} />
+                    <button onClick={() => handleUpdateDers(ders.id, 'soruSayisi', ders.soruSayisi + 1)} className="p-0.5 hover:bg-gray-200 rounded">
+                      <Plus size={12} />
                     </button>
-                    <span className="text-xs text-gray-500 ml-1">soru</span>
                   </div>
 
-                  {/* Yukarı/Aşağı/Sil */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleMoveDersUp(ders.id)}
-                      disabled={index === 0}
-                      className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
-                    >
-                      <ArrowUp size={14} />
+                  {/* Aksiyonlar */}
+                  <div className="col-span-3 flex items-center justify-end gap-1">
+                    <span className="text-xs text-gray-400 mr-2">{ders.bitis > ders.baslangic ? `${ders.bitis - ders.baslangic + 1} kar.` : ''}</span>
+                    <button onClick={() => handleMoveDersUp(ders.id)} disabled={index === 0} className="p-1 hover:bg-gray-200 rounded disabled:opacity-30">
+                      <ArrowUp size={12} />
                     </button>
-                    <button
-                      onClick={() => handleMoveDersDown(ders.id)}
-                      disabled={index === dersler.length - 1}
-                      className="p-1 hover:bg-gray-200 rounded disabled:opacity-30"
-                    >
-                      <ArrowDown size={14} />
+                    <button onClick={() => handleMoveDersDown(ders.id)} disabled={index === dersler.length - 1} className="p-1 hover:bg-gray-200 rounded disabled:opacity-30">
+                      <ArrowDown size={12} />
                     </button>
-                    <button
-                      onClick={() => handleDeleteDers(ders.id)}
-                      className="p-1 hover:bg-red-50 text-red-500 rounded"
-                    >
-                      <Trash2 size={14} />
+                    <button onClick={() => handleDeleteDers(ders.id)} className="p-1 hover:bg-red-50 text-red-500 rounded">
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
