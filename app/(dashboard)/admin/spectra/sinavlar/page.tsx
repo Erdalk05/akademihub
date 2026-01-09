@@ -108,11 +108,12 @@ export default function SpectraSinavlarPage() {
     const supabase = getBrowserClient();
 
     try {
-      // Sınavları çek
+      // Sınavları çek (SADECE Spectra sınavları)
       const { data: examsData, error: examsError } = await supabase
         .from('exams')
         .select('*')
         .eq('organization_id', currentOrganization.id)
+        .or('source.eq.spectra,source.is.null') // Spectra filtresi
         .order('exam_date', { ascending: false });
 
       if (examsError) {

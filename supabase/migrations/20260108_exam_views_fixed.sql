@@ -1,11 +1,14 @@
 -- ============================================================================
--- EXAM VIEWS - DÜZELTILMIŞ VE ÇALIŞAN VERSİYON
--- Bu migration, sınav analytics view'larını oluşturur/güncelleor
+-- EXAM VIEWS - DÜZELTILMIŞ VE ÇALIŞAN VERSİYON (v2 - Spectra Filtreli)
+-- Bu migration, sınav analytics view'larını oluşturur/günceller
 -- ============================================================================
 -- SORUNLAR VE ÇÖZÜMLERİ:
 -- 1. subject kolonu yoktu -> KALDIRILDI, ders bilgisi exam_sections'tan
 -- 2. student_exam_results yerine exam_participants kullanılıyor
 -- 3. Placeholder'lar kaldırıldı, gerçek UUID sorguları
+-- 4. Spectra filtresi eklendi: WHERE e.source = 'spectra'
+-- ============================================================================
+-- ÖNEMLİ: Bu migration 20260108_spectra_source_column.sql'den SONRA çalıştırılmalı
 -- ============================================================================
 
 -- ============================================================================
@@ -46,9 +49,10 @@ SELECT
 
 FROM exams e
 LEFT JOIN exam_participants ep ON ep.exam_id = e.id
+WHERE e.source = 'spectra' OR e.source IS NULL
 GROUP BY e.id, e.organization_id, e.name, e.exam_date, e.total_questions;
 
-COMMENT ON VIEW exam_participation_summary IS 'Sınav katılım özeti - asil/misafir/eşleşen sayıları';
+COMMENT ON VIEW exam_participation_summary IS 'Sınav katılım özeti - asil/misafir/eşleşen sayıları (sadece Spectra)';
 
 -- ============================================================================
 -- 2. EXAM_STATISTICS_SUMMARY VIEW
@@ -89,10 +93,11 @@ SELECT
 
 FROM exams e
 LEFT JOIN exam_participants ep ON ep.exam_id = e.id
-WHERE ep.net IS NOT NULL AND ep.net > 0
+WHERE (e.source = 'spectra' OR e.source IS NULL)
+  AND ep.net IS NOT NULL AND ep.net > 0
 GROUP BY e.id, e.organization_id, e.name, e.exam_date;
 
-COMMENT ON VIEW exam_statistics_summary IS 'Sınav istatistik özeti - net, doğru/yanlış ortalamaları';
+COMMENT ON VIEW exam_statistics_summary IS 'Sınav istatistik özeti - net, doğru/yanlış ortalamaları (sadece Spectra)';
 
 -- ============================================================================
 -- 3. EXAM_RISK_SUMMARY VIEW
@@ -140,9 +145,10 @@ SELECT
 
 FROM exams e
 LEFT JOIN exam_participants ep ON ep.exam_id = e.id
+WHERE e.source = 'spectra' OR e.source IS NULL
 GROUP BY e.id, e.organization_id, e.name;
 
-COMMENT ON VIEW exam_risk_summary IS 'Sınav risk özeti - ortalama net bazlı risk sınıflaması';
+COMMENT ON VIEW exam_risk_summary IS 'Sınav risk özeti - ortalama net bazlı risk sınıflaması (sadece Spectra)';
 
 -- ============================================================================
 -- 4. EXAM_LEADERBOARD VIEW
@@ -169,11 +175,13 @@ SELECT
   ep.organization_id
 
 FROM exam_participants ep
+JOIN exams e ON e.id = ep.exam_id
 LEFT JOIN students s ON s.id = ep.student_id
 WHERE ep.net IS NOT NULL
+  AND (e.source = 'spectra' OR e.source IS NULL)
 ORDER BY ep.exam_id, ep.rank NULLS LAST, ep.net DESC;
 
-COMMENT ON VIEW exam_leaderboard IS 'Sınav sıralaması - net bazlı katılımcı listesi';
+COMMENT ON VIEW exam_leaderboard IS 'Sınav sıralaması - net bazlı katılımcı listesi (sadece Spectra)';
 
 -- ============================================================================
 -- 5. EXAM_CLASS_SUMMARY VIEW
@@ -194,11 +202,13 @@ SELECT
   ROUND(AVG(ep.wrong_count), 1) AS avg_wrong
 
 FROM exam_participants ep
+JOIN exams e ON e.id = ep.exam_id
 WHERE ep.net IS NOT NULL
+  AND (e.source = 'spectra' OR e.source IS NULL)
 GROUP BY ep.exam_id, ep.organization_id, ep.class_name
 ORDER BY ep.exam_id, avg_net DESC;
 
-COMMENT ON VIEW exam_class_summary IS 'Sınıf bazlı sınav özeti';
+COMMENT ON VIEW exam_class_summary IS 'Sınıf bazlı sınav özeti (sadece Spectra)';
 
 -- ============================================================================
 -- 6. EXAM_SECTION_STATS VIEW (Ders bazlı istatistik - varsa)
@@ -222,9 +232,10 @@ SELECT
 
 FROM exam_sections es
 JOIN exams e ON e.id = es.exam_id
+WHERE e.source = 'spectra' OR e.source IS NULL
 ORDER BY es.exam_id, es.sort_order;
 
-COMMENT ON VIEW exam_section_stats IS 'Sınav bölüm/ders bilgileri';
+COMMENT ON VIEW exam_section_stats IS 'Sınav bölüm/ders bilgileri (sadece Spectra)';
 
 -- ============================================================================
 -- İNDEKSLER (View performansı için)

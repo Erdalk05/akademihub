@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       total_questions: step2Data.cevapAnahtari.toplamSoru,
       organization_id: organizationId,
       status: 'active',
+      source: 'spectra', // ✅ Spectra Wizard ile oluşturulan sınav
     };
 
     // Opsiyonel alanlar (tabloda yoksa hata vermez)
