@@ -103,6 +103,9 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
   const [expandedDersler, setExpandedDersler] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Ders düzenleme state
+  const [editingDersKodu, setEditingDersKodu] = useState<string | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
   // MEMOIZED VALUES
@@ -155,6 +158,14 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     }
     return result;
   }, [cevapAnahtari.items, dersDagilimi, aktifKitapcik, getItemCevap]);
+
+  // Tüm dersler tamamlandı mı
+  const allLessonsComplete = useMemo(() => {
+    return dersDagilimi.every(ders => {
+      const stats = dersStats[ders.dersKodu];
+      return stats?.dolduruan === ders.soruSayisi;
+    });
+  }, [dersDagilimi, dersStats]);
 
   // Filtrelenmiş items
   const filteredItems = useMemo(() => {
@@ -864,7 +875,13 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
                           value={inputValue}
                           onChange={(e) => handleDersInputChange(ders.dersKodu, ders.soruSayisi, e.target.value)}
                           placeholder={`${ders.soruSayisi} cevap...`}
-                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                          disabled={isComplete && editingDersKodu !== ders.dersKodu}
+                          className={cn(
+                            'w-full px-2 py-1.5 border rounded text-xs font-mono',
+                            isComplete && editingDersKodu !== ders.dersKodu
+                              ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                              : 'border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500'
+                          )}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && result?.isValid) {
                               handleDersApply(ders.dersKodu, ders.dersAdi);
@@ -906,12 +923,31 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center">
-                      <div className="flex items-center justify-center">
+                      <div className="flex items-center justify-center gap-2">
                         {isComplete ? (
-                          <div className="flex items-center gap-1 text-emerald-600">
-                            <CheckCircle2 size={18} />
-                            <span className="text-xs font-medium">Tamam</span>
-                          </div>
+                          editingDersKodu === ders.dersKodu ? (
+                            <button
+                              onClick={() => setEditingDersKodu(null)}
+                              className="flex items-center gap-1 px-2 py-1 bg-emerald-500 text-white rounded text-xs hover:bg-emerald-600"
+                            >
+                              <Check size={14} />
+                              Kaydet
+                            </button>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1 text-emerald-600">
+                                <CheckCircle2 size={16} />
+                                <span className="text-xs font-medium">Tamam</span>
+                              </div>
+                              <button
+                                onClick={() => setEditingDersKodu(ders.dersKodu)}
+                                className="p-1 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded"
+                                title="Düzenle"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                            </>
+                          )
                         ) : hasPartial ? (
                           <div className="flex items-center gap-1 text-amber-600">
                             <AlertCircle size={18} />
@@ -931,6 +967,21 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
             </tbody>
           </table>
         </div>
+
+        {/* Global Kaydet Butonu */}
+        {allLessonsComplete && editingDersKodu === null && (
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={() => {
+                toast.success('✅ Tüm cevaplar kaydedildi!');
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transition-all"
+            >
+              <Save size={18} />
+              💾 Kaydet
+            </button>
+          </div>
+        )}
 
         <p className="text-xs text-sky-500 mt-3 flex items-center gap-1">
           <AlertCircle size={12} />
