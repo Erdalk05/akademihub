@@ -28,7 +28,10 @@ import type {
   ExamListFilters,
   ExamType,
   RiskStatus,
+  GradeLevel,
 } from '@/types/exam-list';
+import { GRADE_LEVELS } from '@/types/exam-list';
+import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +90,7 @@ export default function SpectraSinavlarPage() {
     examType: 'all',
     riskStatus: 'all',
     analysisStatus: 'all',
+    gradeLevel: 'all',
     dateRange: { from: null, to: null },
   });
 
@@ -158,6 +162,70 @@ export default function SpectraSinavlarPage() {
   useEffect(() => {
     fetchExams();
   }, [fetchExams]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DELETE EXAM
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleDeleteExam = useCallback(async (examId: string, examName: string) => {
+    // Onay iste
+    const confirmed = window.confirm(`"${examName}" sınavını silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz ve tüm sınav verileri (katılımcılar, sonuçlar) silinecektir.`);
+    if (!confirmed) return;
+
+    const supabase = getBrowserClient();
+    const toastId = toast.loading(`"${examName}" siliniyor...`);
+
+    try {
+      // İlgili verileri sil (cascade yoksa manuel sil)
+      // 1. exam_result_sections
+      await supabase
+        .from('exam_result_sections')
+        .delete()
+        .eq('exam_id', examId);
+
+      // 2. exam_results
+      await supabase
+        .from('exam_results')
+        .delete()
+        .eq('exam_id', examId);
+
+      // 3. exam_participants
+      await supabase
+        .from('exam_participants')
+        .delete()
+        .eq('exam_id', examId);
+
+      // 4. exam_answer_keys
+      await supabase
+        .from('exam_answer_keys')
+        .delete()
+        .eq('exam_id', examId);
+
+      // 5. exam_sections
+      await supabase
+        .from('exam_sections')
+        .delete()
+        .eq('exam_id', examId);
+
+      // 6. Son olarak exam'ı sil
+      const { error } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', examId);
+
+      if (error) {
+        throw error;
+      }
+
+      // State'den kaldır
+      setExams(prev => prev.filter(e => e.id !== examId));
+      toast.success(`"${examName}" başarıyla silindi`, { id: toastId });
+
+    } catch (err: any) {
+      console.error('Sınav silme hatası:', err);
+      toast.error(`Silme hatası: ${err.message || 'Bilinmeyen hata'}`, { id: toastId });
+    }
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // LOAD EXAM DETAILS (for accordion)
@@ -258,6 +326,14 @@ export default function SpectraSinavlarPage() {
       // Risk durumu filtresi
       if (filters.riskStatus !== 'all' && exam.riskStatus !== filters.riskStatus) {
         return false;
+      }
+
+      // Sınıf filtresi
+      if (filters.gradeLevel !== 'all') {
+        const examGrade = exam.gradeLevel?.toString().toLowerCase().replace('. sınıf', '').trim();
+        if (examGrade !== filters.gradeLevel) {
+          return false;
+        }
       }
 
       return true;
@@ -379,6 +455,17 @@ export default function SpectraSinavlarPage() {
             </select>
           </div>
 
+          {/* Sınıf Seviyesi */}
+          <select
+            value={filters.gradeLevel}
+            onChange={(e) => setFilters(prev => ({ ...prev, gradeLevel: e.target.value as GradeLevel }))}
+            className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+          >
+            {GRADE_LEVELS.map((grade) => (
+              <option key={grade.value} value={grade.value}>{grade.label}</option>
+            ))}
+          </select>
+
           {/* Risk Durumu */}
           <select
             value={filters.riskStatus}
@@ -407,6 +494,7 @@ export default function SpectraSinavlarPage() {
           exams={filteredExams}
           isLoading={loading}
           onLoadDetails={loadExamDetails}
+          onDelete={handleDeleteExam}
         />
       </div>
     </div>

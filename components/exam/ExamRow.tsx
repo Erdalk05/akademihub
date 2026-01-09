@@ -19,6 +19,7 @@ import {
   Clock,
   Loader2,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import type { ExamListItem, ExamExpandedDetails } from '@/types/exam-list';
 import { RISK_CONFIG, ANALYSIS_STATUS_CONFIG, EXAM_TYPE_CONFIG } from '@/types/exam-list';
@@ -29,6 +30,7 @@ interface ExamRowProps {
   exam: ExamListItem;
   index: number;
   onLoadDetails?: (examId: string) => Promise<ExamExpandedDetails>;
+  onDelete?: (examId: string, examName: string) => void;
 }
 
 /**
@@ -87,10 +89,19 @@ function ExamTypeBadge({ type }: { type: ExamListItem['examType'] }) {
   );
 }
 
-export function ExamRow({ exam, index, onLoadDetails }: ExamRowProps) {
+export function ExamRow({ exam, index, onLoadDetails, onDelete }: ExamRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [details, setDetails] = useState<ExamExpandedDetails | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Silme işlemi
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Accordion açılmasını engelle
+    if (onDelete && !isDeleting) {
+      onDelete(exam.id, exam.name);
+    }
+  }, [onDelete, exam.id, exam.name, isDeleting]);
 
   // Satıra tıklandığında accordion aç/kapat
   const handleToggle = useCallback(async () => {
@@ -222,6 +233,20 @@ export function ExamRow({ exam, index, onLoadDetails }: ExamRowProps) {
           <AnalysisStatusBadge status={exam.analysisStatus} />
           <span className="text-xs text-gray-400 mt-1">Analiz</span>
         </div>
+
+        {/* Sil Butonu */}
+        {onDelete && (
+          <div className="flex items-center">
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              title="Sınavı Sil"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Genişletilmiş Detay Alanı (Accordion) */}

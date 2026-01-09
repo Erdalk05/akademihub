@@ -114,6 +114,28 @@ export interface ExamExpandedDetails {
 }
 
 /**
+ * Sınıf seviyesi (4-12 + Mezun)
+ */
+export type GradeLevel = '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | 'mezun' | 'all';
+
+/**
+ * Sınıf seviyeleri listesi
+ */
+export const GRADE_LEVELS: { value: GradeLevel; label: string }[] = [
+  { value: 'all', label: 'Tüm Sınıflar' },
+  { value: '4', label: '4. Sınıf' },
+  { value: '5', label: '5. Sınıf' },
+  { value: '6', label: '6. Sınıf' },
+  { value: '7', label: '7. Sınıf' },
+  { value: '8', label: '8. Sınıf' },
+  { value: '9', label: '9. Sınıf' },
+  { value: '10', label: '10. Sınıf' },
+  { value: '11', label: '11. Sınıf' },
+  { value: '12', label: '12. Sınıf' },
+  { value: 'mezun', label: 'Mezun' },
+];
+
+/**
  * Sınav listesi filtre state'i
  */
 export interface ExamListFilters {
@@ -121,6 +143,7 @@ export interface ExamListFilters {
   examType: ExamType | 'all';
   riskStatus: RiskStatus | 'all';
   analysisStatus: AnalysisStatus | 'all';
+  gradeLevel: GradeLevel;
   dateRange: {
     from: string | null;
     to: string | null;

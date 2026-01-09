@@ -15,6 +15,7 @@ interface ExamTableProps {
   exams: ExamListItem[];
   isLoading?: boolean;
   onLoadDetails?: (examId: string) => Promise<ExamExpandedDetails>;
+  onDelete?: (examId: string, examName: string) => void;
 }
 
 /**
@@ -80,11 +81,12 @@ function TableHeader() {
       <div className="w-16 text-center hidden lg:block">Max</div>
       <div className="w-20 text-center hidden lg:block">Risk</div>
       <div className="w-24 text-center hidden xl:block">Analiz</div>
+      <div className="w-10 text-center">Sil</div>
     </div>
   );
 }
 
-export function ExamTable({ exams, isLoading = false, onLoadDetails }: ExamTableProps) {
+export function ExamTable({ exams, isLoading = false, onLoadDetails, onDelete }: ExamTableProps) {
   // Loading state
   if (isLoading) {
     return (
@@ -112,6 +114,7 @@ export function ExamTable({ exams, isLoading = false, onLoadDetails }: ExamTable
           exam={exam}
           index={index}
           onLoadDetails={onLoadDetails}
+          onDelete={onDelete}
         />
       ))}
     </div>
