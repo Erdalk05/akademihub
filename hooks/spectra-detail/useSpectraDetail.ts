@@ -100,12 +100,8 @@ export function useSpectraDetail({
         console.warn('Katılımcı çekme hatası:', participantsError);
       }
 
-      // 4. Exam results ve result sections'ları çek (Fallback: exam_participants)
-      let examResultsData: any[] = [];
-      let examResultsError: any = null;
-
-      // Önce exam_results tablosundan çekmeyi dene (answers kolonu olmadan)
-      const resultsQuery = await supabase
+      // 4. Exam results ve result sections'ları çek (nested join ile exam_sections dahil)
+      const { data: examResultsData, error: examResultsError } = await supabase
         .from('exam_results')
         .select(`
           id,
@@ -124,18 +120,20 @@ export function useSpectraDetail({
             correct_count,
             wrong_count,
             blank_count,
-            net
+            net,
+            exam_sections (
+              id,
+              name,
+              code,
+              question_count,
+              sort_order
+            )
           )
         `)
         .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
 
-      if (resultsQuery.error) {
-        console.warn('⚠️ exam_results tablosu bulunamadı, fallback kullanılıyor:', resultsQuery.error.message);
-        examResultsError = resultsQuery.error;
-        // Fallback: exam_participants verisini kullan
-        examResultsData = [];
-      } else {
-        examResultsData = resultsQuery.data || [];
+      if (examResultsError) {
+        throw new Error('exam_results fetch hatası: ' + examResultsError.message);
       }
 
       // Exam results map oluştur (participant_id -> exam_result)
@@ -162,21 +160,7 @@ export function useSpectraDetail({
           match_confidence: null,
           optical_student_no: null,
           optical_name: p.guest_name,
-          exam_results: examResult ? [examResult] : [
-            {
-              id: p.id,
-              exam_participant_id: p.id,
-              total_correct: p.correct_count || 0,
-              total_wrong: p.wrong_count || 0,
-              total_blank: p.empty_count || 0,
-              total_net: p.net || 0,
-              class_rank: null,
-              organization_rank: p.rank || null,
-              percentile: null,
-              ai_analysis: null,
-              exam_result_sections: [],
-            },
-          ],
+          exam_results: examResult ? [examResult] : [],
         };
       });
 
