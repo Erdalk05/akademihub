@@ -114,25 +114,10 @@ export default function SpectraExamDetailPage() {
   // UNIVERSAL TABLE - Format algılama ve veri dönüştürme
   // ═══════════════════════════════════════════════════════════════════════
   const formatConfig = useMemo(() => {
-    // #region agent log
-    console.log('🔍 [HYP-D] Computing formatConfig:', {
-      hasSections: !!data?.sections,
-      sectionsLength: data?.sections?.length || 0,
-      firstSection: data?.sections?.[0]
-    });
-    // #endregion
     if (!data?.sections) return null;
     const firstStudent = data.tableRows[0];
     const sinif = firstStudent?.className.match(/\d+/)?.[0];
-    const detected = detectExamFormat(data.sections, sinif, data.exam.exam_type);
-    // #region agent log
-    console.log('🔍 [HYP-D] formatConfig computed:', {
-      format: detected?.format,
-      displayName: detected?.displayName,
-      sectionsProvided: data.sections.length
-    });
-    // #endregion
-    return detected;
+    return detectExamFormat(data.sections, sinif, data.exam.exam_type);
   }, [data?.sections, data?.tableRows, data?.exam.exam_type]);
 
   const sortedSections = useMemo(() => {
@@ -141,14 +126,6 @@ export default function SpectraExamDetailPage() {
   }, [data?.sections, formatConfig]);
 
   const universalTableData = useMemo(() => {
-    // #region agent log
-    console.log('🔍 [HYP-B,D] universalTableData BEFORE transform:', {
-      hasTableRows: !!data?.tableRows,
-      tableRowsCount: data?.tableRows?.length || 0,
-      hasFormatConfig: !!formatConfig,
-      sortedSectionsCount: sortedSections.length
-    });
-    // #endregion
     if (!data?.tableRows || !formatConfig) return [];
     const transformed = transformToUniversalTableData(
       filterHook.filteredRows,
@@ -162,12 +139,6 @@ export default function SpectraExamDetailPage() {
       transformedRows: transformed.length,
       sections: sortedSections.length
     });
-    // #region agent log
-    console.log('🔍 [HYP-B,D] universalTableData AFTER transform:', {
-      transformedCount: transformed.length,
-      firstRow: transformed[0]
-    });
-    // #endregion
     return transformed;
   }, [filterHook.filteredRows, sortedSections, formatConfig]);
 

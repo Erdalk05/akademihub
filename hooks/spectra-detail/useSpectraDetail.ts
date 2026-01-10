@@ -66,22 +66,11 @@ export function useSpectraDetail({
       if (examError) throw new Error('Sınav bulunamadı: ' + examError.message);
 
       // 2. Sınav bölümlerini çek (exam_sections tablosu varsa)
-      // #region agent log
-      console.log('🔍 [HYP-B] Fetching exam_sections for examId:', examId);
-      // #endregion
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('exam_sections')
         .select('*')
         .eq('exam_id', examId)
         .order('sort_order', { ascending: true });
-      // #region agent log
-      console.log('🔍 [HYP-B] exam_sections fetched:', {
-        sectionsCount: sectionsData?.length || 0,
-        hasError: !!sectionsError,
-        errorMsg: sectionsError?.message,
-        sections: sectionsData
-      });
-      // #endregion
 
       const sections: ExamSection[] = sectionsData || [];
 
@@ -111,11 +100,12 @@ export function useSpectraDetail({
         console.warn('Katılımcı çekme hatası:', participantsError);
       }
 
-      // 4. Exam results ve result sections'ları çek
-      // #region agent log
-      console.log('🔍 [HYP-A] Fetching exam_results, participantCount:', participantsData?.length || 0);
-      // #endregion
-      const { data: examResultsData, error: examResultsError } = await supabase
+      // 4. Exam results ve result sections'ları çek (Fallback: exam_participants)
+      let examResultsData: any[] = [];
+      let examResultsError: any = null;
+
+      // Önce exam_results tablosundan çekmeyi dene
+      const resultsQuery = await supabase
         .from('exam_results')
         .select(`
           id,
@@ -139,15 +129,15 @@ export function useSpectraDetail({
           )
         `)
         .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
-      // #region agent log
-      console.log('🔍 [HYP-A,C] exam_results fetched:', {
-        resultsCount: examResultsData?.length || 0,
-        hasError: !!examResultsError,
-        errorCode: examResultsError?.code,
-        errorMsg: examResultsError?.message,
-        firstResult: examResultsData?.[0]
-      });
-      // #endregion
+
+      if (resultsQuery.error) {
+        console.warn('⚠️ exam_results tablosu bulunamadı, fallback kullanılıyor:', resultsQuery.error.message);
+        examResultsError = resultsQuery.error;
+        // Fallback: exam_participants verisini kullan
+        examResultsData = [];
+      } else {
+        examResultsData = resultsQuery.data || [];
+      }
 
       // Exam results map oluştur (participant_id -> exam_result)
       const resultsMap = new Map();
@@ -232,15 +222,6 @@ export function useSpectraDetail({
       // Tablo satırlarını oluştur
       const tableRows = createTableRows(participants, sections);
 
-      // #region agent log
-      console.log('🔍 [HYP-B,E] Setting data state:', {
-        sectionsCount: sections.length,
-        participantsCount: participants.length,
-        tableRowsCount: tableRows.length,
-        firstSection: sections[0],
-        buildVersion: 'e151ec8'
-      });
-      // #endregion
       setData({
         exam: examData as Exam,
         sections,
