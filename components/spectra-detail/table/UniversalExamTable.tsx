@@ -172,6 +172,32 @@ export function UniversalExamTable({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* TABLE HEADER - Kolon Başlıkları */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      <div className="px-2 py-2 bg-gray-100 border-b border-gray-300 sticky top-0 z-10">
+        <div className="flex items-center gap-1 text-[10px] font-bold text-gray-600 uppercase">
+          <div className="w-8 flex-shrink-0 text-center">#</div>
+          <div className="w-32 flex-shrink-0">Öğrenci</div>
+          <div className="w-12 flex-shrink-0 text-center">Sınıf</div>
+          <div className="w-14 flex-shrink-0 text-center border-l border-gray-300 pl-1">Sözel</div>
+          <div className="w-14 flex-shrink-0 text-center">Sayısal</div>
+          <div className="w-14 flex-shrink-0 text-center border-l border-gray-300 pl-1">TUR</div>
+          <div className="w-14 flex-shrink-0 text-center">MAT</div>
+          <div className="w-14 flex-shrink-0 text-center">FEN</div>
+          <div className="w-14 flex-shrink-0 text-center">İNK</div>
+          <div className="w-14 flex-shrink-0 text-center">DİN</div>
+          <div className="w-14 flex-shrink-0 text-center">İNG</div>
+          <div className="w-10 flex-shrink-0 text-center border-l border-gray-300 pl-1 text-emerald-600">D</div>
+          <div className="w-10 flex-shrink-0 text-center text-red-600">Y</div>
+          <div className="w-10 flex-shrink-0 text-center text-gray-500">B</div>
+          <div className="w-12 flex-shrink-0 text-center border-l border-gray-300 pl-1">%</div>
+          <div className="w-14 flex-shrink-0 text-center">Net</div>
+          <div className="w-14 flex-shrink-0 text-center">Puan</div>
+          <div className="w-6 flex-shrink-0"></div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* TABLE BODY - Öğrenci Satırları */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div className="divide-y divide-gray-200">
