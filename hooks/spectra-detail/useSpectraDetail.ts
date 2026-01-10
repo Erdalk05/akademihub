@@ -72,6 +72,20 @@ export function useSpectraDetail({
         .eq('exam_id', examId)
         .order('sort_order', { ascending: true });
 
+      console.log('📚 exam_sections response:', {
+        data: sectionsData,
+        error: sectionsError,
+        count: sectionsData?.length || 0,
+      });
+
+      if (sectionsError) {
+        throw new Error('exam_sections fetch hatası: ' + sectionsError.message);
+      }
+
+      if (!sectionsData || sectionsData.length === 0) {
+        throw new Error('❌ exam_sections tablosunda veri yok! SQL populator çalıştırılmalı.');
+      }
+
       const sections: ExamSection[] = sectionsData || [];
 
       // 3. Katılımcıları ve sonuçları çek
@@ -101,39 +115,32 @@ export function useSpectraDetail({
       }
 
       // 4. Exam results ve result sections'ları çek (nested join ile exam_sections dahil)
+      console.log('🔍 Fetching exam_results for participants:', (participantsData || []).length);
+      
       const { data: examResultsData, error: examResultsError } = await supabase
         .from('exam_results')
         .select(`
-          id,
-          exam_participant_id,
-          total_correct,
-          total_wrong,
-          total_blank,
-          total_net,
-          class_rank,
-          organization_rank,
-          percentile,
-          ai_analysis,
+          *,
           exam_result_sections (
-            id,
-            exam_section_id,
-            correct_count,
-            wrong_count,
-            blank_count,
-            net,
-            exam_sections (
-              id,
-              name,
-              code,
-              question_count,
-              sort_order
-            )
+            *,
+            exam_sections (*)
           )
         `)
         .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
 
+      console.log('📊 exam_results response:', {
+        data: examResultsData,
+        error: examResultsError,
+        count: examResultsData?.length || 0,
+        firstResult: examResultsData?.[0],
+      });
+
       if (examResultsError) {
         throw new Error('exam_results fetch hatası: ' + examResultsError.message);
+      }
+
+      if (!examResultsData || examResultsData.length === 0) {
+        throw new Error('❌ exam_results tablosunda veri yok! SQL populator çalıştırılmalı.');
       }
 
       // Exam results map oluştur (participant_id -> exam_result)
@@ -145,6 +152,15 @@ export function useSpectraDetail({
       // Katılımcı verisini ExamParticipant formatına dönüştür
       const participants: ExamParticipant[] = (participantsData || []).map((p: any) => {
         const examResult = resultsMap.get(p.id);
+        
+        if (!examResult) {
+          console.warn(`⚠️ Participant ${p.id} için exam_result bulunamadı!`);
+        } else {
+          console.log(`✅ Participant ${p.id}:`, {
+            sections: examResult.exam_result_sections?.length || 0,
+            firstSection: examResult.exam_result_sections?.[0],
+          });
+        }
         
         return {
           id: p.id,
