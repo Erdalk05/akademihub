@@ -100,36 +100,73 @@ export function useSpectraDetail({
         console.warn('Katılımcı çekme hatası:', participantsError);
       }
 
+      // 4. Exam results ve result sections'ları çek
+      const { data: examResultsData } = await supabase
+        .from('exam_results')
+        .select(`
+          id,
+          exam_participant_id,
+          total_correct,
+          total_wrong,
+          total_blank,
+          total_net,
+          class_rank,
+          organization_rank,
+          percentile,
+          ai_analysis,
+          exam_result_sections (
+            id,
+            exam_section_id,
+            correct_count,
+            wrong_count,
+            blank_count,
+            net,
+            answers
+          )
+        `)
+        .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
+
+      // Exam results map oluştur (participant_id -> exam_result)
+      const resultsMap = new Map();
+      (examResultsData || []).forEach((result: any) => {
+        resultsMap.set(result.exam_participant_id, result);
+      });
+
       // Katılımcı verisini ExamParticipant formatına dönüştür
-      const participants: ExamParticipant[] = (participantsData || []).map((p: any) => ({
-        id: p.id,
-        exam_id: p.exam_id,
-        organization_id: p.organization_id,
-        person_id: null,
-        student_id: p.student_id,
-        participant_type: p.student_id ? 'institution' : 'guest',
-        guest_name: p.guest_name,
-        guest_school: null,
-        guest_class: p.class_name,
-        match_status: p.student_id ? 'matched' : 'guest',
-        match_confidence: null,
-        optical_student_no: null,
-        optical_name: p.guest_name,
-        exam_results: [
-          {
-            id: p.id,
-            exam_participant_id: p.id,
-            total_correct: p.correct_count || 0,
-            total_wrong: p.wrong_count || 0,
-            total_blank: p.empty_count || 0,
-            total_net: p.net || 0,
-            class_rank: null,
-            organization_rank: p.rank || null,
-            percentile: null,
-            ai_analysis: null,
-          },
-        ],
-      }));
+      const participants: ExamParticipant[] = (participantsData || []).map((p: any) => {
+        const examResult = resultsMap.get(p.id);
+        
+        return {
+          id: p.id,
+          exam_id: p.exam_id,
+          organization_id: p.organization_id,
+          person_id: null,
+          student_id: p.student_id,
+          participant_type: p.student_id ? 'institution' : 'guest',
+          guest_name: p.guest_name,
+          guest_school: null,
+          guest_class: p.class_name,
+          match_status: p.student_id ? 'matched' : 'guest',
+          match_confidence: null,
+          optical_student_no: null,
+          optical_name: p.guest_name,
+          exam_results: examResult ? [examResult] : [
+            {
+              id: p.id,
+              exam_participant_id: p.id,
+              total_correct: p.correct_count || 0,
+              total_wrong: p.wrong_count || 0,
+              total_blank: p.empty_count || 0,
+              total_net: p.net || 0,
+              class_rank: null,
+              organization_rank: p.rank || null,
+              percentile: null,
+              ai_analysis: null,
+              exam_result_sections: [],
+            },
+          ],
+        };
+      });
 
       // Eğer katılımcı yoksa, students tablosundan öğrenci bilgilerini çekelim
       if (participants.length > 0 && participants.some((p) => p.student_id)) {
