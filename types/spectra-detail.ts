@@ -189,7 +189,7 @@ export interface TopPerformer {
   rank: number;
 }
 
-// Filtreler
+// Filtreler (Basit)
 export interface StudentFilters {
   search: string;
   classId: string | null;
@@ -197,6 +197,69 @@ export interface StudentFilters {
   sortBy: 'rank' | 'name' | 'net' | 'class';
   sortOrder: 'asc' | 'desc';
 }
+
+// Gelişmiş Filtreler
+export interface AdvancedFilters extends StudentFilters {
+  siniflar: string[];
+  kitapcik: ('A' | 'B' | 'C' | 'D')[];
+  netMin: number;
+  netMax: number;
+  puanMin: number;
+  puanMax: number;
+  siraMin: number;
+  siraMax: number;
+  yuzdelikDilim: 'all' | 'top10' | 'top25' | 'top50' | 'bottom25' | 'bottom10';
+  ekFiltreler: {
+    sadeceBosOlan: boolean;
+    sadeceTamYapan: boolean;
+    ortalamaAlti: boolean;
+    ortalamaUstu: boolean;
+    eksikVeriOlan: boolean;
+  };
+  pageSize: number;
+  currentPage: number;
+}
+
+// Görünüm Modu
+export type ViewMode = 'standart' | 'kompakt' | 'detayli' | 'yuzdelik';
+
+// Kolon Ayarları
+export interface ColumnSettings {
+  // Bilgi kolonları
+  sira: boolean;
+  numara: boolean;
+  ogrenci: boolean;
+  sinif: boolean;
+  tip: boolean;
+  kitapcik: boolean;
+  // Puan kolonları
+  puan: boolean;
+  subeSira: boolean;
+  kurumSira: boolean;
+  yuzdelikDilim: boolean;
+  // Toplam kolonları
+  toplamNet: boolean;
+  sozelToplam: boolean;
+  sayisalToplam: boolean;
+  // Ders kolonları
+  dersler: Record<string, boolean>;
+  // Görünüm
+  gorunumModu: ViewMode;
+  satirYuksekligi: 'dar' | 'normal' | 'genis';
+  fontBoyutu: 'kucuk' | 'normal' | 'buyuk';
+  renklendirme: {
+    ilk3Vurgula: boolean;
+    ortalamaAltiKirmizi: boolean;
+    ortalamaUstuYesil: boolean;
+    zebraSatirlar: boolean;
+  };
+}
+
+// Export Format
+export type ExportFormat = 'ozdebir' | 'k12net' | 'standart';
+
+// Toplu İşlem Türleri
+export type BulkActionType = 'karne' | 'bildirim' | 'etiket' | 'duzenle';
 
 // Spectra Detail Page Data
 export interface SpectraDetailData {
