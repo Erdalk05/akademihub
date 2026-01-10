@@ -41,6 +41,16 @@ export function useSpectraDetail({
   const [error, setError] = useState<Error | null>(null);
 
   const fetchData = useCallback(async () => {
+    // #region agent log - examId validation
+    console.log('🔑 [HOOK] examId received from props:', {
+      examId,
+      examIdType: typeof examId,
+      examIdLength: examId?.length,
+      examIdTrimmed: examId?.trim(),
+      examIdIsEqual: examId === examId?.trim(),
+    });
+    // #endregion
+
     if (!examId) {
       setError(new Error('Exam ID gerekli'));
       setIsLoading(false);
@@ -56,6 +66,14 @@ export function useSpectraDetail({
     try {
       const supabase = getBrowserClient();
 
+      // #region agent log - exams query
+      console.log('🔍 [QUERY 1] exams table - examId used:', {
+        examId,
+        examIdType: typeof examId,
+        queryType: 'exams.select().eq(id, examId)',
+      });
+      // #endregion
+
       // 1. Sınav ve bölümleri çek
       const { data: examData, error: examError } = await supabase
         .from('exams')
@@ -64,6 +82,14 @@ export function useSpectraDetail({
         .single();
 
       if (examError) throw new Error('Sınav bulunamadı: ' + examError.message);
+
+      // #region agent log - exam_sections query
+      console.log('🔍 [QUERY 2] exam_sections table - examId used:', {
+        examId,
+        examIdType: typeof examId,
+        queryType: 'exam_sections.select().eq(exam_id, examId)',
+      });
+      // #endregion
 
       // 2. Sınav bölümlerini çek (exam_sections tablosu varsa)
       const { data: sectionsData, error: sectionsError } = await supabase
@@ -88,6 +114,14 @@ export function useSpectraDetail({
 
       const sections: ExamSection[] = sectionsData || [];
 
+      // #region agent log - exam_participants query
+      console.log('🔍 [QUERY 3] exam_participants table - examId used:', {
+        examId,
+        examIdType: typeof examId,
+        queryType: 'exam_participants.select().eq(exam_id, examId)',
+      });
+      // #endregion
+
       // 3. Katılımcıları ve sonuçları çek
       // Önce exam_participants'tan çek
       const { data: participantsData, error: participantsError } = await supabase
@@ -109,6 +143,15 @@ export function useSpectraDetail({
         `)
         .eq('exam_id', examId)
         .order('rank', { ascending: true });
+
+      // #region agent log - participants response
+      console.log('📊 [QUERY 3 RESPONSE] exam_participants result:', {
+        participantsCount: participantsData?.length || 0,
+        firstParticipant: participantsData?.[0],
+        firstParticipantExamId: participantsData?.[0]?.exam_id,
+        examIdMatch: participantsData?.[0]?.exam_id === examId,
+      });
+      // #endregion
 
       if (participantsError) {
         console.warn('Katılımcı çekme hatası:', participantsError);
