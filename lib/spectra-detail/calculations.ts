@@ -344,6 +344,7 @@ export function createTableRows(
         wrong: sectionResult?.wrong_count ?? 0,
         blank: sectionResult?.blank_count ?? 0,
         net: sectionResult?.net ?? 0,
+        category: section.category,
       };
     });
 

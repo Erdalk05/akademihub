@@ -36,6 +36,7 @@ export function transformToUniversalTableData(
         bos: section.blank,
         net: section.net,
         basariYuzdesi,
+        category: section.category,
       };
     });
 
@@ -87,17 +88,15 @@ function calculatePuanTurleri(
     puanTurleri.lgs = lgsScore || 0;
     puanTurleri.genel = lgsScore || 0;
 
-    // Sözel: TUR + SOS + INK + DIN + ING
-    const sozelDersler = dersSonuclari.filter(d =>
-      ['TUR', 'SOS', 'INK', 'TAR', 'DIN', 'ING'].some(kod => d.dersKodu.includes(kod))
-    );
-    puanTurleri.sozel = sozelDersler.reduce((sum, d) => sum + d.net, 0);
-
-    // Sayısal: MAT + FEN
-    const sayisalDersler = dersSonuclari.filter(d =>
-      ['MAT', 'FEN'].some(kod => d.dersKodu.includes(kod))
-    );
-    puanTurleri.sayisal = sayisalDersler.reduce((sum, d) => sum + d.net, 0);
+    // Sözel/Sayısal toplamları category alanına göre hesapla
+    const sozelNet = dersSonuclari
+      .filter(d => d.category === 'sozel')
+      .reduce((sum, d) => sum + d.net, 0);
+    const sayisalNet = dersSonuclari
+      .filter(d => d.category === 'sayisal')
+      .reduce((sum, d) => sum + d.net, 0);
+    puanTurleri.sozel = sozelNet;
+    puanTurleri.sayisal = sayisalNet;
 
     // Türkçe
     const turkceDers = dersSonuclari.find(d => d.dersKodu.includes('TUR'));

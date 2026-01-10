@@ -24,6 +24,7 @@ export interface ExamSection {
   code: string; // 'TUR', 'MAT', 'FEN', 'SOS', 'ING', 'DIN'
   question_count: number;
   sort_order: number;
+  category?: 'sozel' | 'sayisal' | string;
 }
 
 // Katılımcı
@@ -88,6 +89,7 @@ export interface ExamResultSection {
 
   // İlişkili
   exam_section?: ExamSection;
+  category?: 'sozel' | 'sayisal' | string;
 }
 
 // Tablo satırı (birleştirilmiş veri)
@@ -320,6 +322,7 @@ export interface SubjectResult {
   bos: number;
   net: number;
   basariYuzdesi: number;  // (net/soruSayisi) * 100
+  category?: 'sozel' | 'sayisal' | string;
 }
 
 // Format Konfigürasyonu

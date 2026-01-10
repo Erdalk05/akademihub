@@ -94,7 +94,7 @@ export function useSpectraDetail({
       // 2. Sınav bölümlerini çek (exam_sections tablosu varsa)
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('exam_sections')
-        .select('*')
+        .select('id, exam_id, name, code, question_count, sort_order, category')
         .eq('exam_id', examId)
         .order('sort_order', { ascending: true });
 
