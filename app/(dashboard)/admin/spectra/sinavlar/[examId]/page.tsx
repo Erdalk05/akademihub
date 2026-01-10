@@ -127,11 +127,19 @@ export default function SpectraExamDetailPage() {
 
   const universalTableData = useMemo(() => {
     if (!data?.tableRows || !formatConfig) return [];
-    return transformToUniversalTableData(
+    const transformed = transformToUniversalTableData(
       filterHook.filteredRows,
       sortedSections,
       formatConfig.format
     );
+    console.log('🔍 UniversalTable Debug:', {
+      formatDetected: formatConfig.format,
+      totalRows: data.tableRows.length,
+      filteredRows: filterHook.filteredRows.length,
+      transformedRows: transformed.length,
+      sections: sortedSections.length
+    });
+    return transformed;
   }, [filterHook.filteredRows, sortedSections, formatConfig]);
 
   // PDF Export handler - Genel Sıralı Liste
@@ -362,48 +370,34 @@ export default function SpectraExamDetailPage() {
           isProcessing={bulkHook.isProcessing}
         />
 
-        {/* 7. Universal Exam Table - Yeni Özdebir/K12Net Formatı */}
-        <UniversalExamTable
-          data={universalTableData}
-          formatConfig={formatConfig!}
-          filters={filterHook.filters}
-          onFilterChange={(filters) => {
-            if (filters.search !== undefined) filterHook.setSearch(filters.search);
-            if (filters.classId !== undefined) filterHook.setClassId(filters.classId);
-            if (filters.participantType !== undefined) filterHook.setParticipantType(filters.participantType);
-            if (filters.sortBy !== undefined) filterHook.setSortBy(filters.sortBy);
-            if (filters.sortOrder !== undefined) filterHook.setSortOrder(filters.sortOrder);
-          }}
-          onExport={handleExportSiraliListe}
-          cellFormat="ozdebir"
-          showPuanTurleri={true}
-          highlightTop3={true}
-        />
-
-        {/* 8. Eski Tablo (Yedek - İsterseniz kaldırılabilir) */}
-        {/* <StudentRankingTable
-          rows={filterHook.paginatedRows}
-          sections={data.sections}
-          classOptions={classOptions}
-          search={filterHook.filters.search}
-          onSearchChange={filterHook.setSearch}
-          classId={filterHook.filters.classId}
-          onClassChange={filterHook.setClassId}
-          participantType={filterHook.filters.participantType}
-          onParticipantTypeChange={filterHook.setParticipantType}
-          sortBy={filterHook.filters.sortBy}
-          onSortByChange={filterHook.setSortBy}
-          sortOrder={filterHook.filters.sortOrder}
-          onSortOrderChange={filterHook.setSortOrder}
-          currentPage={filterHook.currentPage}
-          pageSize={filterHook.pageSize}
-          totalPages={filterHook.totalPages}
-          totalCount={filterHook.filteredRows.length}
-          onPageChange={filterHook.setCurrentPage}
-          onPageSizeChange={filterHook.setPageSize}
-          classAverages={classAveragesMap}
-          sectionAverages={sectionAveragesMap}
-        /> */}
+        {/* 7. Universal Exam Table - Yeni Özdebir/K12Net Formatı (Akordiyon + PDF) */}
+        {formatConfig && universalTableData.length > 0 ? (
+          <UniversalExamTable
+            data={universalTableData}
+            formatConfig={formatConfig}
+            filters={filterHook.filters}
+            onFilterChange={(filters) => {
+              if (filters.search !== undefined) filterHook.setSearch(filters.search);
+              if (filters.classId !== undefined) filterHook.setClassId(filters.classId);
+              if (filters.participantType !== undefined) filterHook.setParticipantType(filters.participantType);
+              if (filters.sortBy !== undefined) filterHook.setSortBy(filters.sortBy);
+              if (filters.sortOrder !== undefined) filterHook.setSortOrder(filters.sortOrder);
+            }}
+            onExport={handleExportSiraliListe}
+            cellFormat="ozdebir"
+            showPuanTurleri={true}
+            highlightTop3={true}
+          />
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto mb-4" />
+            <p className="text-gray-600">Sınav tablosu hazırlanıyor...</p>
+            <p className="text-sm text-gray-400 mt-2">
+              {!formatConfig && 'Format algılanıyor...'}
+              {formatConfig && universalTableData.length === 0 && 'Öğrenci verileri yükleniyor...'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
