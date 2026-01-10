@@ -32,6 +32,7 @@ import {
   XCircle,
   Info,
   GripVertical,
+  Pencil,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu, OptikDersDagilimi } from '@/types/spectra-wizard';
@@ -128,6 +129,8 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
 
   // Alan builder state
   const [alanlar, setAlanlar] = useState<AlanDefinition[]>([
+    { id: 'ogrenciNo', label: 'Öğrenci No', zorunlu: false, aktif: true, baslangic: 1, bitis: 10 },
+    { id: 'cevaplar', label: 'Cevaplar', zorunlu: false, aktif: true, baslangic: 41, bitis: 130 },
     { id: 'tcKimlik', label: 'T.C. Kimlik No', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
     { id: 'adSoyad', label: 'Ad Soyad', zorunlu: false, aktif: true, baslangic: 11, bitis: 40 },
     { id: 'kurumKodu', label: 'Kurum Kodu', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
@@ -157,6 +160,47 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
   const [alanlarAcik, setAlanlarAcik] = useState(true);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // EFFECTS - LocalStorage'dan yükleme
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Sayfa yüklendiğinde kayıtlı şablonu yükle
+  React.useEffect(() => {
+    if (data?.optikSablon && data.sablonKaynagi === 'ozel') {
+      // Mevcut wizard data varsa onu kullan
+      setOzelSablon({
+        ad: data.optikSablon.ad,
+        satirUzunlugu: data.optikSablon.satirUzunlugu || 171,
+        ogrenciNo: data.optikSablon.alanlar.ogrenciNo,
+        ogrenciAdi: data.optikSablon.alanlar.ogrenciAdi,
+        cevaplar: data.optikSablon.alanlar.cevaplar,
+        kitapcik: data.optikSablon.alanlar.kitapcik,
+        sinif: data.optikSablon.alanlar.sinif,
+      });
+      if (data.alanlar) setAlanlar(data.alanlar);
+      if (data.dersler) setDersler(data.dersler);
+    } else {
+      // LocalStorage'dan son kaydedilen şablonu yükle
+      try {
+        const kayitliSablonlar = JSON.parse(localStorage.getItem('ozel_sablonlar') || '[]');
+        if (kayitliSablonlar.length > 0) {
+          const sonSablon = kayitliSablonlar[kayitliSablonlar.length - 1];
+          setOzelSablon({
+            ad: sonSablon.ad,
+            satirUzunlugu: sonSablon.satirUzunlugu || 171,
+            ogrenciNo: sonSablon.alanlar.ogrenciNo,
+            ogrenciAdi: sonSablon.alanlar.ogrenciAdi,
+            cevaplar: sonSablon.alanlar.cevaplar,
+            kitapcik: sonSablon.alanlar.kitapcik,
+            sinif: sonSablon.alanlar.sinif,
+          });
+        }
+      } catch (err) {
+        console.warn('LocalStorage okuma hatası:', err);
+      }
+    }
+  }, [data]);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // VALIDATION HELPER
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -170,24 +214,22 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
       errors.push('Şablon adı zorunludur');
     }
     
-    if (ozelSablon.ogrenciNo.baslangic <= 0 || ozelSablon.ogrenciNo.bitis <= 0) {
-      errors.push('Öğrenci No pozisyonları geçersiz');
+    const ogrenciNoAlan = alanlar.find(a => a.id === 'ogrenciNo' && a.aktif);
+    const cevaplarAlan = alanlar.find(a => a.id === 'cevaplar' && a.aktif);
+    
+    if (ogrenciNoAlan && (ogrenciNoAlan.baslangic <= 0 || ogrenciNoAlan.bitis <= 0)) {
+      warnings.push('Öğrenci No pozisyonları eksik');
     }
     
-    if (ozelSablon.cevaplar.baslangic <= 0 || ozelSablon.cevaplar.bitis <= 0) {
-      errors.push('Cevaplar pozisyonları geçersiz');
+    if (cevaplarAlan && (cevaplarAlan.baslangic <= 0 || cevaplarAlan.bitis <= 0)) {
+      warnings.push('Cevaplar pozisyonları eksik');
     }
 
     // Pozisyon çakışma kontrolü
-    const allFields: { name: string; start: number; end: number }[] = [
-      { name: 'Öğrenci No', start: ozelSablon.ogrenciNo.baslangic, end: ozelSablon.ogrenciNo.bitis },
-      { name: 'Cevaplar', start: ozelSablon.cevaplar.baslangic, end: ozelSablon.cevaplar.bitis },
-    ];
+    const allFields: { name: string; start: number; end: number }[] = [];
     
-    alanlar.filter(a => a.aktif).forEach(alan => {
-      if (alan.baslangic > 0 && alan.bitis > 0) {
-        allFields.push({ name: alan.label, start: alan.baslangic, end: alan.bitis });
-      }
+    alanlar.filter(a => a.aktif && a.baslangic > 0 && a.bitis > 0).forEach(alan => {
+      allFields.push({ name: alan.label, start: alan.baslangic, end: alan.bitis });
     });
 
     // Çakışma kontrolü
@@ -210,9 +252,9 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     }
 
     // Uyarılar
-    const hasNameField = alanlar.some(a => a.id === 'adSoyad' && a.aktif);
+    const hasNameField = alanlar.some(a => (a.id === 'adSoyad' || a.id === 'ogrenciNo') && a.aktif);
     if (!hasNameField) {
-      warnings.push('Ad Soyad alanı eklenmesi önerilir');
+      warnings.push('En az bir kimlik alanı (Ad Soyad veya Öğrenci No) eklenmesi önerilir');
     }
 
     if (dersler.length === 0) {
@@ -220,9 +262,11 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     }
 
     const totalQuestions = dersler.reduce((sum, d) => sum + d.soruSayisi, 0);
-    const cevapUzunluk = ozelSablon.cevaplar.bitis - ozelSablon.cevaplar.baslangic + 1;
-    if (totalQuestions > cevapUzunluk) {
-      warnings.push(`Toplam soru (${totalQuestions}) cevap alanından (${cevapUzunluk}) fazla`);
+    if (cevaplarAlan) {
+      const cevapUzunluk = cevaplarAlan.bitis - cevaplarAlan.baslangic + 1;
+      if (totalQuestions > cevapUzunluk) {
+        warnings.push(`Toplam soru (${totalQuestions}) cevap alanından (${cevapUzunluk}) fazla`);
+      }
     }
 
     return {
@@ -241,36 +285,19 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
   const characterSegments = useMemo((): CharacterSegment[] => {
     const segments: CharacterSegment[] = [];
     
-    // Zorunlu alanlar
-    segments.push({
-      name: 'Öğrenci No',
-      start: ozelSablon.ogrenciNo.baslangic,
-      end: ozelSablon.ogrenciNo.bitis,
-      type: 'identity',
-      color: 'bg-green-500',
-    });
-    
-    segments.push({
-      name: 'Cevaplar',
-      start: ozelSablon.cevaplar.baslangic,
-      end: ozelSablon.cevaplar.bitis,
-      type: 'answers',
-      color: 'bg-blue-500',
-    });
-
-    // Aktif opsiyonel alanlar
+    // Tüm aktif alanları ekle
     alanlar.filter(a => a.aktif && a.baslangic > 0 && a.bitis > 0).forEach(alan => {
       segments.push({
         name: alan.label,
         start: alan.baslangic,
         end: alan.bitis,
-        type: 'identity',
-        color: 'bg-emerald-400',
+        type: alan.id === 'cevaplar' ? 'answers' : 'identity',
+        color: alan.id === 'cevaplar' ? 'bg-blue-500' : alan.id === 'ogrenciNo' ? 'bg-green-500' : 'bg-emerald-400',
       });
     });
 
     return segments.sort((a, b) => a.start - b.start);
-  }, [ozelSablon, alanlar]);
+  }, [alanlar]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // MEMOIZED VALUES
@@ -315,6 +342,36 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     toast.success(`${sablon.ad} şablonu seçildi.`);
   }, [onChange]);
 
+  // Şablon sil (sadece özel şablonlar için)
+  const handleSablonSil = useCallback((sablonId: string) => {
+    try {
+      const mevcutSablonlar = JSON.parse(localStorage.getItem('ozel_sablonlar') || '[]');
+      const yeniSablonlar = mevcutSablonlar.filter((s: any) => s.id !== sablonId);
+      localStorage.setItem('ozel_sablonlar', JSON.stringify(yeniSablonlar));
+      toast.success('Şablon silindi');
+      // Sayfa yenileyerek listeyi güncelle
+      window.location.reload();
+    } catch (err) {
+      console.error('Şablon silme hatası:', err);
+      toast.error('Şablon silinemedi');
+    }
+  }, []);
+
+  // Şablon düzenle (özel şablona geç ve verileri yükle)
+  const handleSablonDuzenle = useCallback((sablon: OptikFormSablonu) => {
+    setActiveTab('ozel');
+    setOzelSablon({
+      ad: sablon.ad,
+      satirUzunlugu: sablon.satirUzunlugu || 171,
+      ogrenciNo: sablon.alanlar.ogrenciNo,
+      ogrenciAdi: sablon.alanlar.ogrenciAdi,
+      cevaplar: sablon.alanlar.cevaplar,
+      kitapcik: sablon.alanlar.kitapcik,
+      sinif: sablon.alanlar.sinif,
+    });
+    toast.info('Şablon düzenleme moduna alındı - Özel Şablon sekmesini kontrol edin');
+  }, []);
+
   // Özel şablon kaydet
   const handleOzelSablonKaydet = useCallback(() => {
     if (!ozelSablon.ad.trim()) {
@@ -322,30 +379,52 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
       return;
     }
 
+    // Alanlardan Öğrenci No ve Cevaplar'ı al
+    const ogrenciNoAlan = alanlar.find(a => a.id === 'ogrenciNo');
+    const cevaplarAlan = alanlar.find(a => a.id === 'cevaplar');
+    const adSoyadAlan = alanlar.find(a => a.id === 'adSoyad');
+
     const yeniSablon: OptikFormSablonu = {
       id: `ozel-${Date.now()}`,
       ad: ozelSablon.ad,
       sinavTuru: step1Data.sinavTuru,
       yayinevi: 'Özel',
-      toplamSoru: ozelSablon.cevaplar.bitis - ozelSablon.cevaplar.baslangic + 1,
+      toplamSoru: cevaplarAlan ? (cevaplarAlan.bitis - cevaplarAlan.baslangic + 1) : 90,
       satirUzunlugu: ozelSablon.satirUzunlugu,
       alanlar: {
-        ogrenciNo: ozelSablon.ogrenciNo,
-        ogrenciAdi: ozelSablon.ogrenciAdi,
-        cevaplar: ozelSablon.cevaplar,
+        ogrenciNo: ogrenciNoAlan ? { baslangic: ogrenciNoAlan.baslangic, bitis: ogrenciNoAlan.bitis } : { baslangic: 1, bitis: 10 },
+        ogrenciAdi: adSoyadAlan ? { baslangic: adSoyadAlan.baslangic, bitis: adSoyadAlan.bitis } : { baslangic: 11, bitis: 40 },
+        cevaplar: cevaplarAlan ? { baslangic: cevaplarAlan.baslangic, bitis: cevaplarAlan.bitis } : { baslangic: 41, bitis: 130 },
         kitapcik: ozelSablon.kitapcik,
         sinif: ozelSablon.sinif,
       },
       aciklama: 'Özel oluşturulmuş şablon',
     };
 
+    // LocalStorage'a kaydet (persist için)
+    try {
+      const mevcutSablonlar = JSON.parse(localStorage.getItem('ozel_sablonlar') || '[]');
+      const varOlanIndex = mevcutSablonlar.findIndex((s: any) => s.id === yeniSablon.id);
+      if (varOlanIndex >= 0) {
+        mevcutSablonlar[varOlanIndex] = yeniSablon;
+      } else {
+        mevcutSablonlar.push(yeniSablon);
+      }
+      localStorage.setItem('ozel_sablonlar', JSON.stringify(mevcutSablonlar));
+    } catch (err) {
+      console.error('LocalStorage kayıt hatası:', err);
+    }
+
+    // Wizard state'ini güncelle (KRİTİK - Bu satır eksikti!)
     onChange({
       optikSablon: yeniSablon,
       sablonKaynagi: 'ozel',
+      alanlar: alanlar,
+      dersler: dersler,
     });
 
-    toast.success('Özel şablon kaydedildi.');
-  }, [ozelSablon, step1Data.sinavTuru, onChange]);
+    toast.success('Özel şablon kaydedildi ve wizard state\'i güncellendi.');
+  }, [ozelSablon, step1Data.sinavTuru, alanlar, dersler, onChange]);
 
   // OCR fotoğraf yükle
   const handleOcrImageUpload = useCallback((file: File) => {
@@ -567,25 +646,28 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             <div className="grid gap-2 max-h-[400px] overflow-y-auto">
               {filtreliSablonlar.map((sablon) => {
                 const isSecili = seciliSablon?.id === sablon.id;
+                const isOzel = sablon.yayinevi === 'Özel';
                 return (
-                  <button
+                  <div
                     key={sablon.id}
-                    onClick={() => handleSablonSec(sablon)}
                     className={cn(
-                      'w-full p-2 rounded-lg border transition-all text-left',
+                      'w-full p-2 rounded-lg border transition-all',
                       isSecili
                         ? 'border-emerald-500 bg-emerald-50'
                         : 'border-gray-200 hover:border-emerald-300 bg-white'
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <button
+                        onClick={() => handleSablonSec(sablon)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      >
                         <FileText className={cn('w-4 h-4 flex-shrink-0', isSecili ? 'text-emerald-600' : 'text-gray-400')} />
                         <div className="min-w-0">
                           <h4 className="text-sm font-semibold text-gray-900 truncate">{sablon.ad}</h4>
                           <p className="text-xs text-gray-500">{sablon.yayinevi}</p>
                         </div>
-                      </div>
+                      </button>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-xs font-mono text-gray-500">
                           ÖğNo:{sablon.alanlar.ogrenciNo.baslangic}-{sablon.alanlar.ogrenciNo.bitis}
@@ -596,6 +678,29 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         <span className="text-xs font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-700">
                           {sablon.toplamSoru}S
                         </span>
+                        
+                        {/* Düzenle butonu (sadece özel şablonlar için) */}
+                        {isOzel && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleSablonDuzenle(sablon); }}
+                            className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                            title="Düzenle"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        
+                        {/* Sil butonu (sadece özel şablonlar için) */}
+                        {isOzel && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); if (confirm('Bu şablonu silmek istediğinizden emin misiniz?')) handleSablonSil(sablon.id); }}
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            title="Sil"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        
                         {isSecili && (
                           <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
                             <Check size={12} className="text-white" />
@@ -603,7 +708,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
                         )}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -660,7 +765,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             >
               <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-600" />
-                Alan Tanımları ({alanlar.filter(a => a.aktif).length + 2} aktif)
+                Alan Tanımları ({alanlar.filter(a => a.aktif).length} aktif)
               </span>
               <ChevronRight size={18} className={cn('text-gray-400 transition-transform', alanlarAcik && 'rotate-90')} />
             </button>
@@ -682,75 +787,7 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
             {/* Zorunlu ve Opsiyonel Alanlar */}
             {alanlarAcik && (
             <div className="divide-y divide-gray-100">
-              {/* Öğrenci No - Zorunlu */}
-              <div className="grid grid-cols-12 gap-2 px-4 py-3 items-center bg-emerald-50/50">
-                <div className="col-span-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  <span className="text-sm font-medium text-gray-800">Öğrenci No</span>
-                  <span className="text-red-500 text-xs">*</span>
-                </div>
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={ozelSablon.ogrenciNo.baslangic}
-                    onChange={(e) => setOzelSablon(prev => ({ ...prev, ogrenciNo: { ...prev.ogrenciNo, baslangic: parseInt(e.target.value) || 0 } }))}
-                    className="w-full px-2 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 [&::-webkit-inner-spin-button]:appearance-none"
-                    style={{ MozAppearance: 'textfield' }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={ozelSablon.ogrenciNo.bitis}
-                    onChange={(e) => setOzelSablon(prev => ({ ...prev, ogrenciNo: { ...prev.ogrenciNo, bitis: parseInt(e.target.value) || 0 } }))}
-                    className="w-full px-2 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 [&::-webkit-inner-spin-button]:appearance-none"
-                    style={{ MozAppearance: 'textfield' }}
-                  />
-                </div>
-                <div className="col-span-2 text-center">
-                  <span className="text-sm font-mono text-emerald-600">{ozelSablon.ogrenciNo.bitis - ozelSablon.ogrenciNo.baslangic + 1} kar.</span>
-                </div>
-                <div className="col-span-2 text-center">
-                  <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">Zorunlu</span>
-                </div>
-                <div className="col-span-1"></div>
-              </div>
-
-              {/* Cevaplar - Zorunlu */}
-              <div className="grid grid-cols-12 gap-2 px-4 py-3 items-center bg-emerald-50/50">
-                <div className="col-span-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  <span className="text-sm font-medium text-gray-800">Cevaplar</span>
-                  <span className="text-red-500 text-xs">*</span>
-                </div>
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={ozelSablon.cevaplar.baslangic}
-                    onChange={(e) => setOzelSablon(prev => ({ ...prev, cevaplar: { ...prev.cevaplar, baslangic: parseInt(e.target.value) || 0 } }))}
-                    className="w-full px-2 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 [&::-webkit-inner-spin-button]:appearance-none"
-                    style={{ MozAppearance: 'textfield' }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={ozelSablon.cevaplar.bitis}
-                    onChange={(e) => setOzelSablon(prev => ({ ...prev, cevaplar: { ...prev.cevaplar, bitis: parseInt(e.target.value) || 0 } }))}
-                    className="w-full px-2 py-1.5 text-center text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 [&::-webkit-inner-spin-button]:appearance-none"
-                    style={{ MozAppearance: 'textfield' }}
-                  />
-                </div>
-                <div className="col-span-2 text-center">
-                  <span className="text-sm font-mono text-emerald-600">{ozelSablon.cevaplar.bitis - ozelSablon.cevaplar.baslangic + 1} kar.</span>
-                </div>
-                <div className="col-span-2 text-center">
-                  <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">Zorunlu</span>
-                </div>
-                <div className="col-span-1"></div>
-              </div>
-
-              {/* Opsiyonel Alanlar - 2 sütunlu grid + drag-drop */}
+              {/* Tüm Alanlar - 2 sütunlu grid + drag-drop */}
               <div className="grid grid-cols-2 gap-3 px-4 py-3">
               {alanlar.map((alan, index) => (
                 <div
