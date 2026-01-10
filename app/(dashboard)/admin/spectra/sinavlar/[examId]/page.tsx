@@ -19,9 +19,14 @@ import {
   OrganizationTrendChart,
   AdvancedToolbar,
 } from '@/components/spectra-detail';
+import { UniversalExamTable } from '@/components/spectra-detail/table';
 import { useColumns, useBulkActions } from '@/hooks/spectra-detail';
 import type { AdvancedFilters } from '@/types/spectra-detail';
 import { exportToExcel, exportToPDF } from '@/lib/spectra-detail';
+import { detectExamFormat, sortSectionsByFormat } from '@/lib/spectra-detail/format-detector';
+import { transformToUniversalTableData } from '@/lib/spectra-detail/data-transformer';
+import { quickExportPDF } from '@/lib/spectra-detail/export-pdf-sirali-liste';
+import toast from 'react-hot-toast';
 
 // ============================================================================
 // SPECTRA - SINAV DETAY SAYFASI
@@ -104,6 +109,50 @@ export default function SpectraExamDetailPage() {
       { correct: 0, wrong: 0, blank: 0 }
     );
   }, [data?.tableRows]);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // UNIVERSAL TABLE - Format algılama ve veri dönüştürme
+  // ═══════════════════════════════════════════════════════════════════════
+  const formatConfig = useMemo(() => {
+    if (!data?.sections) return null;
+    const firstStudent = data.tableRows[0];
+    const sinif = firstStudent?.className.match(/\d+/)?.[0];
+    return detectExamFormat(data.sections, sinif, data.exam.exam_type);
+  }, [data?.sections, data?.tableRows, data?.exam.exam_type]);
+
+  const sortedSections = useMemo(() => {
+    if (!data?.sections || !formatConfig) return [];
+    return sortSectionsByFormat(data.sections, formatConfig.format);
+  }, [data?.sections, formatConfig]);
+
+  const universalTableData = useMemo(() => {
+    if (!data?.tableRows || !formatConfig) return [];
+    return transformToUniversalTableData(
+      filterHook.filteredRows,
+      sortedSections,
+      formatConfig.format
+    );
+  }, [filterHook.filteredRows, sortedSections, formatConfig]);
+
+  // PDF Export handler - Genel Sıralı Liste
+  const handleExportSiraliListe = useCallback(() => {
+    if (!data || !formatConfig) {
+      toast.error('Veri yüklenemedi');
+      return;
+    }
+    try {
+      quickExportPDF(
+        universalTableData,
+        data.exam.name,
+        currentOrganization?.name || 'AkademiHub',
+        'detailed'
+      );
+      toast.success('PDF başarıyla oluşturuldu');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('PDF oluşturulurken hata oluştu');
+    }
+  }, [universalTableData, data, formatConfig, currentOrganization?.name]);
 
   // Refresh handler
   const handleRefresh = async () => {
@@ -313,8 +362,26 @@ export default function SpectraExamDetailPage() {
           isProcessing={bulkHook.isProcessing}
         />
 
-        {/* 7. Öğrenci Sıralama Tablosu (sticky kolonlarla) */}
-        <StudentRankingTable
+        {/* 7. Universal Exam Table - Yeni Özdebir/K12Net Formatı */}
+        <UniversalExamTable
+          data={universalTableData}
+          formatConfig={formatConfig!}
+          filters={filterHook.filters}
+          onFilterChange={(filters) => {
+            if (filters.search !== undefined) filterHook.setSearch(filters.search);
+            if (filters.classId !== undefined) filterHook.setClassId(filters.classId);
+            if (filters.participantType !== undefined) filterHook.setParticipantType(filters.participantType);
+            if (filters.sortBy !== undefined) filterHook.setSortBy(filters.sortBy);
+            if (filters.sortOrder !== undefined) filterHook.setSortOrder(filters.sortOrder);
+          }}
+          onExport={handleExportSiraliListe}
+          cellFormat="ozdebir"
+          showPuanTurleri={true}
+          highlightTop3={true}
+        />
+
+        {/* 8. Eski Tablo (Yedek - İsterseniz kaldırılabilir) */}
+        {/* <StudentRankingTable
           rows={filterHook.paginatedRows}
           sections={data.sections}
           classOptions={classOptions}
@@ -336,7 +403,7 @@ export default function SpectraExamDetailPage() {
           onPageSizeChange={filterHook.setPageSize}
           classAverages={classAveragesMap}
           sectionAverages={sectionAveragesMap}
-        />
+        /> */}
       </div>
     </div>
   );

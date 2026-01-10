@@ -21,3 +21,6 @@ export { OrganizationTrendChart } from './OrganizationTrendChart';
 export { AdvancedToolbar } from './toolbar';
 export { FilterAccordion, ViewSettings, ExportOptions, BulkActions } from './toolbar';
 
+// Universal Table (Özdebir/K12Net Format)
+export { UniversalExamTable, StudentRow, SubjectCell, PuanCell, EmptyCell } from './table';
+

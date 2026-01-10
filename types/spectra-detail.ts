@@ -261,6 +261,97 @@ export type ExportFormat = 'ozdebir' | 'k12net' | 'standart';
 // Toplu İşlem Türleri
 export type BulkActionType = 'karne' | 'bildirim' | 'etiket' | 'duzenle';
 
+// ============================================================================
+// UNIVERSAL EXAM TABLE - Dinamik Format Desteği
+// ============================================================================
+
+// Sınav Formatı
+export type ExamFormat = 'LGS' | 'TYT' | 'AYT_SAY' | 'AYT_EA' | 'AYT_SOZ' | 'YDT' | 'CUSTOM';
+
+// Puan Türleri (LGS/AYT için)
+export interface PuanTurleri {
+  genel?: number;        // Genel puan
+  lgs?: number;          // LGS puanı (8. sınıf)
+  sozel?: number;        // Sözel puan
+  sayisal?: number;      // Sayısal puan
+  turkceDil?: number;    // Türkçe-Dil puanı
+  sosyalBilimler?: number;
+  tyt?: number;          // TYT puanı
+  say?: number;          // SAY puanı (AYT)
+  ea?: number;           // Eşit Ağırlık puanı
+  soz?: number;          // Sözel puan (AYT)
+  dil?: number;          // Dil puanı
+}
+
+// Öğrenci Satırı - Kompakt (Kapalı Görünüm)
+export interface StudentRowCompact {
+  sira: number;
+  grup: string;          // "8/801", "8B", "12-A"
+  ogrenciId: string;
+  ogrenciNo: string;
+  ogrenciAdi: string;
+  sinif: string;
+  sube?: string;
+  puanTurleri: PuanTurleri;
+  toplamNet: number;
+  sinifSirasi: number;   // Sınıf içindeki sıra
+  genelSira: number;     // Genel sıra
+  yuzdelik: number;      // Yüzdelik dilim
+  participantType: 'institution' | 'guest';
+}
+
+// Öğrenci Satırı - Detaylı (Açık Görünüm - Akordiyon)
+export interface StudentRowDetailed extends StudentRowCompact {
+  dersSonuclari: SubjectResult[];
+  toplamDogru: number;
+  toplamYanlis: number;
+  toplamBos: number;
+  basariYuzdesi: number;
+}
+
+// Ders Sonucu (Her ders için)
+export interface SubjectResult {
+  sectionId: string;
+  dersKodu: string;
+  dersAdi: string;
+  soruSayisi: number;
+  dogru: number;
+  yanlis: number;
+  bos: number;
+  net: number;
+  basariYuzdesi: number;  // (net/soruSayisi) * 100
+}
+
+// Format Konfigürasyonu
+export interface ExamFormatConfig {
+  format: ExamFormat;
+  displayName: string;
+  dersKodlari: string[];
+  puanTurleriKolonlari: string[];  // Hangi puan türleri gösterilecek
+  showGroupedSubjects: boolean;    // Dersler gruplandırılsın mı (Sözel/Sayısal)
+  pdfExportLayout: 'compact' | 'detailed';
+}
+
+// PDF Export Options - Genel Sıralı Liste
+export interface PDFSiraliListeOptions {
+  title: string;
+  subtitle: string;
+  examDate: string;
+  format: 'compact' | 'detailed';
+  sortBy: 'genelSira' | 'sinifSira' | 'puan' | 'net';
+  groupBy?: 'sinif' | 'sube' | 'none';
+  showColumns: {
+    sira: boolean;
+    grup: boolean;
+    ogrenciAdi: boolean;
+    puanlar: boolean;
+    toplamNet: boolean;
+    dersDetaylari: boolean;
+    siralamalar: boolean;
+  };
+  pageOrientation: 'portrait' | 'landscape';
+}
+
 // Spectra Detail Page Data
 export interface SpectraDetailData {
   exam: Exam;
