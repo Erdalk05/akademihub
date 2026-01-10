@@ -703,6 +703,30 @@ export interface WizardStep3Data {
   sablonId?: string;
   ozelSablonId?: string;
   ozelEslestirme?: OptikDersDagilimi[];
+  ozelSablon?: {
+    ad: string;
+    sinifTuru: string;
+    satirUzunlugu: number;
+    alanlar: { id: number; ad: string; baslangic: number; uzunluk: number }[];
+    dersler: { id: number; kod: string; ad: string; soru: number; baslangic: number; uzunluk: number }[];
+  };
+  alanlar?: {
+    id: string;
+    label: string;
+    zorunlu: boolean;
+    aktif: boolean;
+    baslangic: number;
+    bitis: number;
+  }[];
+  dersler?: {
+    id: string;
+    dersKodu: string;
+    dersAdi: string;
+    soruSayisi: number;
+    sira: number;
+    baslangic: number;
+    bitis: number;
+  }[];
 }
 
 export interface WizardStep4Data {

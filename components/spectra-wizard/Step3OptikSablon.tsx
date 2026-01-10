@@ -38,6 +38,7 @@ import toast from 'react-hot-toast';
 import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu, OptikDersDagilimi } from '@/types/spectra-wizard';
 import { OPTIK_SABLONLARI, getSablonlariByTur, validateTCKimlik } from '@/lib/spectra-wizard/optical-parser';
 import { cn } from '@/lib/utils';
+import { Step3OptikSablonV2 } from './Step3OptikSablonV2';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -107,6 +108,42 @@ interface CharacterSegment {
   color: string;
 }
 
+const normalizeRange = (start: number, end: number) => ({
+  start: Math.min(start, end),
+  end: Math.max(start, end),
+});
+
+const isFieldActive = (field: AlanDefinition) => field?.aktif !== false;
+
+const formatOverlapMessage = (a: { label: string; start: number; end: number }, b: { label: string; start: number; end: number }) =>
+  `${a.label} (${a.start}-${a.end}) ile ${b.label} (${b.start}-${b.end}) aynı karakterleri kullanıyor olabilir.`;
+
+const focusNextInput = (current: HTMLInputElement | null) => {
+  if (!current) return;
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('.alan-input'))
+    .filter(inp => inp.tabIndex !== -1);
+  const index = inputs.indexOf(current);
+  if (index >= 0 && index < inputs.length - 1) {
+    inputs[index + 1].focus();
+  }
+};
+
+const handleArrowKeys = (
+  e: React.KeyboardEvent<HTMLInputElement>,
+  value: number,
+  callback: (val: number) => void
+) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const delta = e.key === 'ArrowUp' ? 1 : -1;
+    const nextValue = Math.max(0, value + delta);
+    callback(nextValue);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    focusNextInput(e.currentTarget);
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,10 +166,10 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
 
   // Alan builder state
   const [alanlar, setAlanlar] = useState<AlanDefinition[]>([
-    { id: 'ogrenciNo', label: 'Öğrenci No', zorunlu: false, aktif: true, baslangic: 1, bitis: 10 },
-    { id: 'cevaplar', label: 'Cevaplar', zorunlu: false, aktif: true, baslangic: 41, bitis: 130 },
+    { id: 'ogrenciNo', label: 'ÖĞRENCİ NO (Kimlik Alanı)', zorunlu: false, aktif: true, baslangic: 1, bitis: 10 },
+    { id: 'cevaplar', label: 'CEVAPLAR (Optik Yanıt Alanı)', zorunlu: false, aktif: true, baslangic: 41, bitis: 130 },
     { id: 'tcKimlik', label: 'T.C. Kimlik No', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
-    { id: 'adSoyad', label: 'Ad Soyad', zorunlu: false, aktif: true, baslangic: 11, bitis: 40 },
+    { id: 'adSoyad', label: 'AD SOYAD (Kişisel Bilgi)', zorunlu: false, aktif: true, baslangic: 11, bitis: 40 },
     { id: 'kurumKodu', label: 'Kurum Kodu', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
     { id: 'cepTelefonu', label: 'Cep Telefonu', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
     { id: 'sinif', label: 'Sınıf', zorunlu: false, aktif: false, baslangic: 0, bitis: 0 },
@@ -158,6 +195,15 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
 
   // Akordiyon state
   const [alanlarAcik, setAlanlarAcik] = useState(true);
+
+  const updateFieldRange = useCallback((index: number, startValue: number, endValue: number) => {
+    const yeni = [...alanlar];
+    const { start, end } = normalizeRange(startValue, endValue);
+    yeni[index].baslangic = start;
+    yeni[index].bitis = end;
+    yeni[index].aktif = true;
+    setAlanlar(yeni);
+  }, [alanlar]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // EFFECTS - LocalStorage'dan yükleme
@@ -226,25 +272,48 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
     }
 
     // Pozisyon çakışma kontrolü
-    const allFields: { name: string; start: number; end: number }[] = [];
-    
-    alanlar.filter(a => a.aktif && a.baslangic > 0 && a.bitis > 0).forEach(alan => {
-      allFields.push({ name: alan.label, start: alan.baslangic, end: alan.bitis });
-    });
+    const allFields = alanlar
+      .filter(a => isFieldActive(a))
+      .map(field => ({
+        id: field.id,
+        label: field.label,
+        start: field.baslangic,
+        end: field.bitis,
+        aktif: field.aktif,
+      }))
+      .filter(field => {
+        const { start, end } = field;
+        return (
+          Number.isFinite(start) &&
+          Number.isFinite(end) &&
+          start > 0 &&
+          end > 0
+        );
+      });
 
     // Çakışma kontrolü
-    for (let i = 0; i < allFields.length; i++) {
+    let overlapFound = false;
+    outer: for (let i = 0; i < allFields.length; i++) {
+      const f1 = allFields[i];
+      if (!isFieldActive(f1)) continue;
+      if (!Number.isFinite(f1.start) || !Number.isFinite(f1.end)) continue;
+      if (f1.start <= 0 || f1.end <= 0) continue;
       for (let j = i + 1; j < allFields.length; j++) {
-        const f1 = allFields[i];
         const f2 = allFields[j];
+        if (!isFieldActive(f2)) continue;
+        if (f1.id === f2.id) continue;
+        if (!Number.isFinite(f2.start) || !Number.isFinite(f2.end)) continue;
+        if (f2.start <= 0 || f2.end <= 0) continue;
         if (f1.start <= f2.end && f1.end >= f2.start) {
-          errors.push(`"${f1.name}" ve "${f2.name}" alanları çakışıyor`);
+          errors.push(formatOverlapMessage(f1, f2));
+          overlapFound = true;
+          break outer;
         }
       }
     }
 
     // Karakter limiti kontrolü
-    const maxEnd = Math.max(...allFields.map(f => f.end), 0);
+    const maxEnd = allFields.length ? Math.max(...allFields.map(f => f.end)) : 0;
     const usedChars = maxEnd;
     
     if (usedChars > limit) {
@@ -717,464 +786,14 @@ export function Step3OptikSablon({ step1Data, data, onChange }: Step3Props) {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB 2: ÖZEL ŞABLON */}
+      {/* TAB 2: ÖZEL ŞABLON - V2 COMPONENT */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'ozel' && (
-        <div className="space-y-6">
-          {/* Bilgi Banner */}
-          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
-            <p className="text-sm text-amber-800 flex items-center gap-2">
-              <Settings size={16} />
-              <strong>Alan Builder:</strong> Optik formunuzdaki alanları tanımlayın. Aktif alanlar için karakter pozisyonlarını girin.
-            </p>
-          </div>
-
-          {/* Temel Bilgiler */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Şablon Adı *</label>
-              <input
-                type="text"
-                value={ozelSablon.ad}
-                onChange={(e) => setOzelSablon(prev => ({ ...prev, ad: e.target.value }))}
-                placeholder="Örn: Kurum Özel Şablon 2024"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Satır Uzunluğu (karakter) *</label>
-              <input
-                type="number"
-                value={ozelSablon.satirUzunlugu}
-                onChange={(e) => setOzelSablon(prev => ({ ...prev, satirUzunlugu: parseInt(e.target.value) || 0 }))}
-                placeholder="171"
-                style={{ MozAppearance: 'textfield' }}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* ALAN TANIMLAMA TABLOSU - AKORDİYON */}
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Akordiyon Başlık */}
-            <button
-              onClick={() => setAlanlarAcik(!alanlarAcik)}
-              className="w-full bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
-            >
-              <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                Alan Tanımları ({alanlar.filter(a => a.aktif).length} aktif)
-              </span>
-              <ChevronRight size={18} className={cn('text-gray-400 transition-transform', alanlarAcik && 'rotate-90')} />
-            </button>
-
-            {/* Tablo Başlığı */}
-            {alanlarAcik && (
-            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase">
-                <div className="col-span-3">Alan Adı</div>
-                <div className="col-span-2 text-center">Başlangıç</div>
-                <div className="col-span-2 text-center">Bitiş</div>
-                <div className="col-span-2 text-center">Uzunluk</div>
-                <div className="col-span-2 text-center">Durum</div>
-                <div className="col-span-1"></div>
-              </div>
-            </div>
-            )}
-
-            {/* Zorunlu ve Opsiyonel Alanlar */}
-            {alanlarAcik && (
-            <div className="divide-y divide-gray-100">
-              {/* Tüm Alanlar - 2 sütunlu grid + drag-drop */}
-              <div className="grid grid-cols-2 gap-3 px-4 py-3">
-              {alanlar.map((alan, index) => (
-                <div
-                  key={alan.id}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('alanIndex', index.toString())}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const fromIndex = parseInt(e.dataTransfer.getData('alanIndex'));
-                    if (fromIndex === index) return;
-                    const yeni = [...alanlar];
-                    const [item] = yeni.splice(fromIndex, 1);
-                    yeni.splice(index, 0, item);
-                    setAlanlar(yeni);
-                  }}
-                  className={cn(
-                    'p-2.5 rounded-lg border cursor-grab active:cursor-grabbing transition-all',
-                    alan.aktif ? 'bg-sky-50 border-sky-200 hover:border-sky-300' : 'bg-white border-gray-200 hover:border-gray-300'
-                  )}
-                >
-                  {/* Üst: Grip + Ad + Toggle + Sil */}
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
-                    <span className={cn('w-2 h-2 rounded-full flex-shrink-0', alan.aktif ? 'bg-sky-500' : 'bg-gray-300')}></span>
-                    <input
-                      type="text"
-                      value={alan.label}
-                      onChange={(e) => {
-                        const yeni = [...alanlar];
-                        yeni[index].label = e.target.value;
-                        setAlanlar(yeni);
-                      }}
-                      placeholder="Alan adı..."
-                      className="flex-1 min-w-0 text-sm font-medium text-gray-800 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-sky-500 focus:ring-0 px-0 py-0"
-                    />
-                    <button
-                      onClick={() => {
-                        const yeni = [...alanlar];
-                        yeni[index].aktif = !yeni[index].aktif;
-                        setAlanlar(yeni);
-                      }}
-                      className={cn(
-                        'px-1.5 py-0.5 text-xs font-medium rounded-full flex-shrink-0',
-                        alan.aktif ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'
-                      )}
-                    >
-                      {alan.aktif ? '✓' : '○'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const yeni = alanlar.filter((_, i) => i !== index);
-                        setAlanlar(yeni);
-                      }}
-                      className="p-0.5 text-red-400 hover:text-red-600 rounded flex-shrink-0"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  {/* Alt: Pozisyonlar */}
-                  <div className="flex items-center gap-1.5 pl-6 text-xs text-gray-500">
-                    <span>[</span>
-                    <input
-                      type="number"
-                      value={alan.baslangic || ''}
-                      onChange={(e) => {
-                        const yeni = [...alanlar];
-                        yeni[index].baslangic = parseInt(e.target.value) || 0;
-                        yeni[index].aktif = true;
-                        setAlanlar(yeni);
-                      }}
-                      placeholder="—"
-                      style={{ MozAppearance: 'textfield' }}
-                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span>-</span>
-                    <input
-                      type="number"
-                      value={alan.bitis || ''}
-                      onChange={(e) => {
-                        const yeni = [...alanlar];
-                        yeni[index].bitis = parseInt(e.target.value) || 0;
-                        yeni[index].aktif = true;
-                        setAlanlar(yeni);
-                      }}
-                      placeholder="—"
-                      style={{ MozAppearance: 'textfield' }}
-                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span>]</span>
-                    {alan.aktif && alan.bitis > alan.baslangic && (
-                      <span className="ml-auto text-sky-600 font-mono">{alan.bitis - alan.baslangic + 1} kar.</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              </div>
-            </div>
-            )}
-
-            {/* Satır Ekle Butonu */}
-            {alanlarAcik && (
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  const newId = `ozel-${Date.now()}`;
-                  setAlanlar(prev => [...prev, {
-                    id: newId,
-                    label: '',
-                    zorunlu: false,
-                    aktif: true,
-                    baslangic: 0,
-                    bitis: 0,
-                  }]);
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-all border border-emerald-200"
-              >
-                <Plus size={16} />
-                Satır Ekle
-              </button>
-            </div>
-            )}
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* DERS YÖNETİCİSİ */}
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <FileText size={16} className="text-indigo-600" />
-                Ders Dağılımı
-              </h4>
-              <div className="flex items-center gap-2">
-                {/* Preset butonları */}
-                {(['LGS', 'TYT', 'AYT', 'OZEL'] as const).map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => handleLoadPreset(preset)}
-                    className={cn(
-                      'px-3 py-1.5 text-xs font-bold rounded-lg transition-all',
-                      selectedPreset === preset
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                    )}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Ders listesi - 2 sütunlu grid + drag-drop */}
-            <div className="grid grid-cols-2 gap-3">
-              {dersler.map((ders, index) => (
-                <div
-                  key={ders.id}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('dersIndex', index.toString())}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const fromIndex = parseInt(e.dataTransfer.getData('dersIndex'));
-                    if (fromIndex === index) return;
-                    const yeni = [...dersler];
-                    const [item] = yeni.splice(fromIndex, 1);
-                    yeni.splice(index, 0, item);
-                    yeni.forEach((d, i) => d.sira = i + 1);
-                    setDersler(yeni);
-                  }}
-                  className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 cursor-grab active:cursor-grabbing"
-                >
-                  {/* Üst: Grip + Sıra + Kod + Ad + Sil */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <GripVertical size={14} className="text-gray-400 flex-shrink-0" />
-                    <span className="w-5 h-5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0">
-                      {ders.sira}
-                    </span>
-                    <input
-                      type="text"
-                      value={ders.dersKodu}
-                      onChange={(e) => handleUpdateDers(ders.id, 'dersKodu', e.target.value)}
-                      placeholder="Kod"
-                      className="w-12 px-1 py-0.5 text-xs font-mono border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <input
-                      type="text"
-                      value={ders.dersAdi}
-                      onChange={(e) => handleUpdateDers(ders.id, 'dersAdi', e.target.value)}
-                      placeholder="Ders Adı"
-                      className="flex-1 min-w-0 px-1.5 py-0.5 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <button onClick={() => handleDeleteDers(ders.id)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded flex-shrink-0">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  {/* Alt: Pozisyon + Soru */}
-                  <div className="flex items-center gap-2 pl-6 text-xs text-gray-500">
-                    <span>[</span>
-                    <input
-                      type="number"
-                      value={ders.baslangic || ''}
-                      onChange={(e) => handleUpdateDers(ders.id, 'baslangic', parseInt(e.target.value) || 0)}
-                      placeholder="—"
-                      style={{ MozAppearance: 'textfield' }}
-                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span>-</span>
-                    <input
-                      type="number"
-                      value={ders.bitis || ''}
-                      onChange={(e) => handleUpdateDers(ders.id, 'bitis', parseInt(e.target.value) || 0)}
-                      placeholder="—"
-                      style={{ MozAppearance: 'textfield' }}
-                      className="w-10 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span>]</span>
-                    <span className="mx-1 text-gray-300">|</span>
-                    <input
-                      type="number"
-                      value={ders.soruSayisi}
-                      onChange={(e) => handleUpdateDers(ders.id, 'soruSayisi', parseInt(e.target.value) || 0)}
-                      style={{ MozAppearance: 'textfield' }}
-                      className="w-8 px-0.5 py-0.5 text-center text-xs font-mono border border-gray-200 rounded [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span>soru</span>
-                    {ders.bitis > ders.baslangic && (
-                      <span className="ml-auto text-gray-400">{ders.bitis - ders.baslangic + 1} kar.</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Ders ekle butonu ve toplam */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={handleAddDers}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all"
-              >
-                <Plus size={16} />
-                Ders Ekle
-              </button>
-              <div className="text-sm text-gray-600">
-                Toplam: <span className="font-bold text-indigo-600">{dersler.reduce((sum, d) => sum + d.soruSayisi, 0)}</span> soru
-              </div>
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* VISUAL RULER (Karakter Haritası) */}
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-              <Ruler size={16} className="text-purple-600" />
-              Karakter Haritası ({ozelSablon.satirUzunlugu} karakter limiti)
-            </h4>
-
-            {/* Visual bar */}
-            <div className="mb-4">
-              <div className="h-10 bg-gray-100 rounded-lg relative overflow-hidden border border-gray-200">
-                {characterSegments.map((seg, i) => {
-                  const limit = ozelSablon.satirUzunlugu || 171;
-                  const width = ((seg.end - seg.start + 1) / limit) * 100;
-                  const left = ((seg.start - 1) / limit) * 100;
-                  return (
-                    <div
-                      key={i}
-                      className={cn('absolute h-full opacity-80 border-r border-white flex items-center justify-center', seg.color)}
-                      style={{ left: `${left}%`, width: `${width}%` }}
-                      title={`${seg.name}: ${seg.start}-${seg.end} (${seg.end - seg.start + 1} kar.)`}
-                    >
-                      {width > 8 && (
-                        <span className="text-[10px] font-bold text-white truncate px-1">
-                          {seg.name}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>0</span>
-                <span>{Math.floor((ozelSablon.satirUzunlugu || 171) / 2)}</span>
-                <span>{ozelSablon.satirUzunlugu || 171}</span>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 text-xs mb-4">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
-                <span>Kimlik Alanları</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                <span>Cevaplar</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-emerald-400 rounded"></div>
-                <span>Opsiyonel Alanlar</span>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                <p className="text-lg font-bold text-gray-800">{validateTemplate.usedChars}</p>
-                <p className="text-xs text-gray-500">Kullanılan</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                <p className="text-lg font-bold text-gray-800">{ozelSablon.satirUzunlugu || 171}</p>
-                <p className="text-xs text-gray-500">Limit</p>
-              </div>
-              <div className={cn(
-                'p-3 rounded-lg text-center',
-                validateTemplate.availableChars < 0 ? 'bg-red-50' : 'bg-emerald-50'
-              )}>
-                <p className={cn(
-                  'text-lg font-bold',
-                  validateTemplate.availableChars < 0 ? 'text-red-600' : 'text-emerald-600'
-                )}>
-                  {validateTemplate.availableChars}
-                </p>
-                <p className="text-xs text-gray-500">{validateTemplate.availableChars < 0 ? 'Aşım!' : 'Boş'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* VALIDATION PANELİ */}
-          {/* ═══════════════════════════════════════════════════════════════════ */}
-          {(validateTemplate.errors.length > 0 || validateTemplate.warnings.length > 0) && (
-            <div className="space-y-3">
-              {/* Hatalar */}
-              {validateTemplate.errors.length > 0 && (
-                <div className="p-4 bg-red-50 rounded-xl border border-red-200">
-                  <h5 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
-                    <XCircle size={16} />
-                    Hatalar ({validateTemplate.errors.length})
-                  </h5>
-                  <ul className="space-y-1">
-                    {validateTemplate.errors.map((error, i) => (
-                      <li key={i} className="text-sm text-red-600 flex items-start gap-2">
-                        <span className="text-red-400">•</span>
-                        {error}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Uyarılar */}
-              {validateTemplate.warnings.length > 0 && (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                  <h5 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
-                    <AlertCircle size={16} />
-                    Uyarılar ({validateTemplate.warnings.length})
-                  </h5>
-                  <ul className="space-y-1">
-                    {validateTemplate.warnings.map((warning, i) => (
-                      <li key={i} className="text-sm text-amber-600 flex items-start gap-2">
-                        <span className="text-amber-400">•</span>
-                        {warning}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Kaydet Butonu */}
-          <button
-            onClick={handleOzelSablonKaydet}
-            disabled={!validateTemplate.isValid}
-            className={cn(
-              'w-full md:w-auto px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg',
-              validateTemplate.isValid
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-xl'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            )}
-          >
-            <Save size={20} />
-            {validateTemplate.isValid ? 'Şablonu Kaydet ve Kullan' : 'Hataları Düzeltin'}
-          </button>
-        </div>
+        <Step3OptikSablonV2 
+          step1Data={step1Data} 
+          data={data} 
+          onChange={onChange} 
+        />
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
