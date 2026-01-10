@@ -67,15 +67,20 @@ export function useSpectraDetail({
 
       // 2. Sınav bölümlerini çek (exam_sections tablosu varsa)
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSpectraDetail.ts:69',message:'Fetching exam_sections',data:{examId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      console.log('🔍 [HYP-B] Fetching exam_sections for examId:', examId);
       // #endregion
-      const { data: sectionsData } = await supabase
+      const { data: sectionsData, error: sectionsError } = await supabase
         .from('exam_sections')
         .select('*')
         .eq('exam_id', examId)
         .order('sort_order', { ascending: true });
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSpectraDetail.ts:73',message:'exam_sections fetched',data:{sectionsCount:sectionsData?.length||0,sections:sectionsData},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      console.log('🔍 [HYP-B] exam_sections fetched:', {
+        sectionsCount: sectionsData?.length || 0,
+        hasError: !!sectionsError,
+        errorMsg: sectionsError?.message,
+        sections: sectionsData
+      });
       // #endregion
 
       const sections: ExamSection[] = sectionsData || [];
@@ -108,7 +113,7 @@ export function useSpectraDetail({
 
       // 4. Exam results ve result sections'ları çek
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSpectraDetail.ts:105',message:'Fetching exam_results',data:{participantCount:participantsData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+      console.log('🔍 [HYP-A] Fetching exam_results, participantCount:', participantsData?.length || 0);
       // #endregion
       const { data: examResultsData, error: examResultsError } = await supabase
         .from('exam_results')
@@ -135,7 +140,13 @@ export function useSpectraDetail({
         `)
         .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSpectraDetail.ts:127',message:'exam_results fetched',data:{resultsCount:examResultsData?.length||0,hasError:!!examResultsError,errorMsg:examResultsError?.message,firstResult:examResultsData?.[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A,C'})}).catch(()=>{});
+      console.log('🔍 [HYP-A,C] exam_results fetched:', {
+        resultsCount: examResultsData?.length || 0,
+        hasError: !!examResultsError,
+        errorCode: examResultsError?.code,
+        errorMsg: examResultsError?.message,
+        firstResult: examResultsData?.[0]
+      });
       // #endregion
 
       // Exam results map oluştur (participant_id -> exam_result)
@@ -222,7 +233,13 @@ export function useSpectraDetail({
       const tableRows = createTableRows(participants, sections);
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSpectraDetail.ts:175',message:'Setting data state',data:{sectionsCount:sections.length,participantsCount:participants.length,tableRowsCount:tableRows.length,firstSection:sections[0],buildVersion:'fb24348'},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B,E'})}).catch(()=>{});
+      console.log('🔍 [HYP-B,E] Setting data state:', {
+        sectionsCount: sections.length,
+        participantsCount: participants.length,
+        tableRowsCount: tableRows.length,
+        firstSection: sections[0],
+        buildVersion: 'e151ec8'
+      });
       // #endregion
       setData({
         exam: examData as Exam,

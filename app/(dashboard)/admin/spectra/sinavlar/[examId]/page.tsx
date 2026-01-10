@@ -115,14 +115,22 @@ export default function SpectraExamDetailPage() {
   // ═══════════════════════════════════════════════════════════════════════
   const formatConfig = useMemo(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:116',message:'Computing formatConfig',data:{hasSections:!!data?.sections,sectionsLength:data?.sections?.length||0,firstSection:data?.sections?.[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'D'})}).catch(()=>{});
+    console.log('🔍 [HYP-D] Computing formatConfig:', {
+      hasSections: !!data?.sections,
+      sectionsLength: data?.sections?.length || 0,
+      firstSection: data?.sections?.[0]
+    });
     // #endregion
     if (!data?.sections) return null;
     const firstStudent = data.tableRows[0];
     const sinif = firstStudent?.className.match(/\d+/)?.[0];
     const detected = detectExamFormat(data.sections, sinif, data.exam.exam_type);
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:125',message:'formatConfig computed',data:{format:detected?.format,displayName:detected?.displayName,sectionsProvided:data.sections.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'D'})}).catch(()=>{});
+    console.log('🔍 [HYP-D] formatConfig computed:', {
+      format: detected?.format,
+      displayName: detected?.displayName,
+      sectionsProvided: data.sections.length
+    });
     // #endregion
     return detected;
   }, [data?.sections, data?.tableRows, data?.exam.exam_type]);
@@ -134,7 +142,12 @@ export default function SpectraExamDetailPage() {
 
   const universalTableData = useMemo(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:128',message:'universalTableData BEFORE transform',data:{hasTableRows:!!data?.tableRows,tableRowsCount:data?.tableRows?.length||0,hasFormatConfig:!!formatConfig,sortedSectionsCount:sortedSections.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B,D'})}).catch(()=>{});
+    console.log('🔍 [HYP-B,D] universalTableData BEFORE transform:', {
+      hasTableRows: !!data?.tableRows,
+      tableRowsCount: data?.tableRows?.length || 0,
+      hasFormatConfig: !!formatConfig,
+      sortedSectionsCount: sortedSections.length
+    });
     // #endregion
     if (!data?.tableRows || !formatConfig) return [];
     const transformed = transformToUniversalTableData(
@@ -150,7 +163,10 @@ export default function SpectraExamDetailPage() {
       sections: sortedSections.length
     });
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:143',message:'universalTableData AFTER transform',data:{transformedCount:transformed.length,firstRow:transformed[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B,D'})}).catch(()=>{});
+    console.log('🔍 [HYP-B,D] universalTableData AFTER transform:', {
+      transformedCount: transformed.length,
+      firstRow: transformed[0]
+    });
     // #endregion
     return transformed;
   }, [filterHook.filteredRows, sortedSections, formatConfig]);
