@@ -2,9 +2,6 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   FileSpreadsheet,
   FileText,
@@ -13,6 +10,36 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+// Simple inline components
+const Label = ({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+  <label className={cn('text-sm font-medium', className)} {...props}>{children}</label>
+);
+
+const Checkbox = ({ id, defaultChecked }: { id?: string; defaultChecked?: boolean }) => (
+  <input
+    type="checkbox"
+    id={id}
+    defaultChecked={defaultChecked}
+    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+  />
+);
+
+const RadioGroup = ({ value, onValueChange, defaultValue, children }: {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  defaultValue?: string;
+  children: React.ReactNode;
+}) => (
+  <div className="space-y-2" onChange={(e: any) => onValueChange?.(e.target.value)}>
+    {children}
+  </div>
+);
+
+const RadioGroupItem = ({ value, id }: { value: string; id?: string }) => (
+  <input type="radio" value={value} id={id} name={`radio-${id?.split('-')[0]}`} className="h-4 w-4 text-emerald-600" />
+);
 
 interface ExportOptionsProps {
   onExportExcel: (format: 'ozdebir' | 'k12net' | 'standart') => void;

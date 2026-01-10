@@ -17,7 +17,10 @@ import {
   SubjectPerformanceTable,
   TopPerformersCards,
   OrganizationTrendChart,
+  AdvancedToolbar,
 } from '@/components/spectra-detail';
+import { useColumns, useBulkActions } from '@/hooks/spectra-detail';
+import type { AdvancedFilters } from '@/types/spectra-detail';
 import { exportToExcel, exportToPDF } from '@/lib/spectra-detail';
 
 // ============================================================================
@@ -53,6 +56,12 @@ export default function SpectraExamDetailPage() {
   const filterHook = useStudentFilters({
     rows: data?.tableRows || [],
   });
+
+  // Kolon ayarları hook'u
+  const columnsHook = useColumns(data?.sections || []);
+
+  // Toplu işlemler hook'u
+  const bulkHook = useBulkActions(data?.tableRows || []);
 
   // Sınıf seçeneklerini oluştur
   const classOptions = useMemo(() => {
@@ -243,7 +252,68 @@ export default function SpectraExamDetailPage() {
           bottomStudents={data.statistics.bottomStudents}
         />
 
-        {/* 6. Öğrenci Sıralama Tablosu (sticky kolonlarla) */}
+        {/* 6. Gelişmiş Filtre & Araçlar Toolbar */}
+        <AdvancedToolbar
+          sections={data.sections}
+          siniflar={classOptions.map(c => c.value)}
+          toplamOgrenci={data.tableRows.length}
+          filtrelenmisOgrenci={filterHook.filteredRows.length}
+          filters={{
+            search: filterHook.filters.search,
+            classId: filterHook.filters.classId,
+            participantType: filterHook.filters.participantType,
+            sortBy: filterHook.filters.sortBy,
+            sortOrder: filterHook.filters.sortOrder,
+            siniflar: filterHook.filters.classId ? [filterHook.filters.classId] : [],
+            kitapcik: [],
+            netMin: 0,
+            netMax: 120,
+            puanMin: 0,
+            puanMax: 500,
+            siraMin: 1,
+            siraMax: 100,
+            yuzdelikDilim: 'all',
+            ekFiltreler: {
+              sadeceBosOlan: false,
+              sadeceTamYapan: false,
+              ortalamaAlti: false,
+              ortalamaUstu: false,
+              eksikVeriOlan: false,
+            },
+            pageSize: filterHook.pageSize,
+            currentPage: filterHook.currentPage,
+          }}
+          onFilterChange={(newFilters) => {
+            if (newFilters.search !== undefined) filterHook.setSearch(newFilters.search);
+            if (newFilters.participantType !== undefined) filterHook.setParticipantType(newFilters.participantType);
+            if (newFilters.sortBy !== undefined) filterHook.setSortBy(newFilters.sortBy);
+            if (newFilters.sortOrder !== undefined) filterHook.setSortOrder(newFilters.sortOrder);
+            if (newFilters.siniflar !== undefined) filterHook.setClassId(newFilters.siniflar[0] || null);
+            if (newFilters.pageSize !== undefined) filterHook.setPageSize(newFilters.pageSize);
+            if (newFilters.currentPage !== undefined) filterHook.setCurrentPage(newFilters.currentPage);
+          }}
+          onResetFilters={() => {
+            filterHook.setSearch('');
+            filterHook.setClassId(null);
+            filterHook.setParticipantType('all');
+            filterHook.setSortBy('rank');
+            filterHook.setSortOrder('asc');
+          }}
+          columns={columnsHook.columns}
+          onColumnChange={columnsHook.setColumn}
+          onResetColumns={columnsHook.resetColumns}
+          onExportExcel={handleExportExcel}
+          onExportPdf={handleExportPDF}
+          onPrint={() => window.print()}
+          isExporting={false}
+          selectedCount={bulkHook.selectedIds.length}
+          onSelectAll={bulkHook.selectAll}
+          onClearSelection={bulkHook.clearSelection}
+          onBulkAction={bulkHook.executeAction}
+          isProcessing={bulkHook.isProcessing}
+        />
+
+        {/* 7. Öğrenci Sıralama Tablosu (sticky kolonlarla) */}
         <StudentRankingTable
           rows={filterHook.paginatedRows}
           sections={data.sections}

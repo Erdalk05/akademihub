@@ -2,11 +2,59 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Slider } from '@/components/ui/slider';
 import { RotateCcw, Save } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+// Simple inline components
+const Label = ({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+  <label className={cn('text-sm font-medium', className)} {...props}>{children}</label>
+);
+
+const Checkbox = ({ id, checked, onCheckedChange, defaultChecked }: {
+  id?: string;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  defaultChecked?: boolean;
+}) => (
+  <input
+    type="checkbox"
+    id={id}
+    checked={checked}
+    defaultChecked={defaultChecked}
+    onChange={(e) => onCheckedChange?.(e.target.checked)}
+    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+  />
+);
+
+const RadioGroup = ({ value, onValueChange, children }: {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  children: React.ReactNode;
+}) => (
+  <div className="space-y-2" onChange={(e: any) => onValueChange?.(e.target.value)}>
+    {children}
+  </div>
+);
+
+const RadioGroupItem = ({ value, id }: { value: string; id?: string }) => (
+  <input type="radio" value={value} id={id} name="view-mode" className="h-4 w-4 text-emerald-600" />
+);
+
+const Slider = ({ defaultValue, max, step, className }: {
+  defaultValue?: number[];
+  max?: number;
+  step?: number;
+  className?: string;
+}) => (
+  <input
+    type="range"
+    min={0}
+    max={max}
+    step={step}
+    defaultValue={defaultValue?.[0]}
+    className={cn("w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer", className)}
+  />
+);
 import type { ExamSection, ColumnSettings, ViewMode } from '@/types/spectra-detail';
 
 interface ViewSettingsProps {

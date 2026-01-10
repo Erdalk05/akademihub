@@ -3,10 +3,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -14,6 +10,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+
+// Simple inline components
+const Label = ({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+  <label className={cn('text-sm font-medium', className)} {...props}>{children}</label>
+);
+
+const Checkbox = ({ id, checked, onCheckedChange, defaultChecked, ...props }: {
+  id?: string;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  defaultChecked?: boolean;
+}) => (
+  <input
+    type="checkbox"
+    id={id}
+    checked={checked}
+    defaultChecked={defaultChecked}
+    onChange={(e) => onCheckedChange?.(e.target.checked)}
+    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+    {...props}
+  />
+);
+
+const RadioGroup = ({ value, onValueChange, children }: {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  children: React.ReactNode;
+}) => <div className="space-y-2">{children}</div>;
+
+const RadioGroupItem = ({ value, id }: { value: string; id?: string }) => (
+  <input type="radio" value={value} id={id} name="radio-group" className="h-4 w-4 text-emerald-600" />
+);
+
+const Slider = ({ value, min, max, step, onValueChange }: {
+  value?: number[];
+  min?: number;
+  max?: number;
+  step?: number;
+  onValueChange?: (value: number[]) => void;
+}) => (
+  <input
+    type="range"
+    min={min}
+    max={max}
+    step={step}
+    value={value?.[0] || 0}
+    onChange={(e) => onValueChange?.([Number(e.target.value), value?.[1] || max || 100])}
+    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+  />
+);
 import type { ExamSection, AdvancedFilters } from '@/types/spectra-detail';
 
 interface FilterAccordionProps {
