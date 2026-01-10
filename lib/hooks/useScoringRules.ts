@@ -64,16 +64,26 @@ export function useScoringRules(): UseScoringRulesReturn {
       setError(null);
 
       const res = await fetch('/api/settings/scoring-rules?active=true');
+      
+      // 401 veya 403 hatası alırsak, sadece fallback kullan
+      if (res.status === 401 || res.status === 403) {
+        console.warn('Scoring rules API unauthorized - using fallback');
+        setRules([]);
+        setLoading(false);
+        return;
+      }
+
       const data = await res.json();
 
       if (data.success) {
         setRules(data.data || []);
       } else {
-        setError(data.error || 'Puanlama kuralları yüklenemedi');
+        console.warn('Scoring rules fetch failed:', data.error);
+        setRules([]);
       }
     } catch (err) {
-      console.error('Scoring rules fetch error:', err);
-      setError('Puanlama kuralları yüklenirken hata oluştu');
+      console.warn('Scoring rules fetch error - using fallback:', err);
+      setRules([]);
     } finally {
       setLoading(false);
     }
