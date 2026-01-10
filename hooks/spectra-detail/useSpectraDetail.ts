@@ -104,7 +104,7 @@ export function useSpectraDetail({
       let examResultsData: any[] = [];
       let examResultsError: any = null;
 
-      // Önce exam_results tablosundan çekmeyi dene
+      // Önce exam_results tablosundan çekmeyi dene (answers kolonu olmadan)
       const resultsQuery = await supabase
         .from('exam_results')
         .select(`
@@ -124,8 +124,7 @@ export function useSpectraDetail({
             correct_count,
             wrong_count,
             blank_count,
-            net,
-            answers
+            net
           )
         `)
         .in('exam_participant_id', (participantsData || []).map((p: any) => p.id));
