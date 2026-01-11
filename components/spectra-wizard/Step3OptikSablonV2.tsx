@@ -115,6 +115,15 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
     const sinif = SINIF_SINAVLAR['8-LGS'];
     return sinif.dersler.map((d, i) => ({ ...d, id: i + 1, baslangic: 1, uzunluk: d.soru }));
   });
+  const [savedTemplates, setSavedTemplates] = useState<any[]>(() => data?.ozelSablon ? [{
+    id: Date.now(),
+    ad: data.ozelSablon.ad || 'İsimsiz Şablon',
+    sinifTuru: data.ozelSablon.sinifTuru,
+    satirUzunlugu: data.ozelSablon.satirUzunlugu,
+    alanlar: data.ozelSablon.alanlar,
+    dersler: data.ozelSablon.dersler,
+  }] : []);
+  const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SYNC TO WIZARD - Her değişiklikte onChange çağır
@@ -226,6 +235,43 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
 
   const toplamSoru = dersler.reduce((t, d) => t + d.soru, 0);
 
+  const handleSaveTemplate = () => {
+    const tpl = {
+      id: activeTemplateId || Date.now(),
+      ad: sablonAdi || 'İsimsiz Şablon',
+      sinifTuru: acikSinif,
+      satirUzunlugu,
+      alanlar: JSON.parse(JSON.stringify(alanlar)),
+      dersler: JSON.parse(JSON.stringify(dersler)),
+    };
+    setSavedTemplates(prev => {
+      const exists = prev.find(t => t.id === tpl.id);
+      if (exists) {
+        return prev.map(t => t.id === tpl.id ? tpl : t);
+      }
+      return [...prev, tpl];
+    });
+    setActiveTemplateId(tpl.id);
+  };
+
+  const handleSelectTemplate = (tplId: number) => {
+    const tpl = savedTemplates.find(t => t.id === tplId);
+    if (!tpl) return;
+    setActiveTemplateId(tpl.id);
+    setSablonAdi(tpl.ad);
+    setAcikSinif(tpl.sinifTuru);
+    setSatirUzunlugu(tpl.satirUzunlugu);
+    setAlanlar(tpl.alanlar);
+    setDersler(tpl.dersler);
+  };
+
+  const handleDeleteTemplate = (tplId: number) => {
+    setSavedTemplates(prev => prev.filter(t => t.id !== tplId));
+    if (activeTemplateId === tplId) {
+      setActiveTemplateId(null);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -249,6 +295,11 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
               placeholder="Şablon adı girin..."
               style={{ flex: 1, maxWidth: '240px', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 500, color: '#1e293b' }}
             />
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={handleSaveTemplate} style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ecfdf3', color: '#166534', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Kaydet</button>
+              <button onClick={() => activeTemplateId && handleSaveTemplate()} style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#eef2ff', color: '#3730a3', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Düzenle</button>
+              <button onClick={() => activeTemplateId && handleDeleteTemplate(activeTemplateId)} style={{ padding: '8px 10px', border: '1px solid #fecdd3', borderRadius: '8px', background: '#fff1f2', color: '#b91c1c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Sil</button>
+            </div>
           </div>
 
           {/* Orta: Satır ve Soru */}
@@ -281,7 +332,24 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
 
           {/* SOL: SINIFLAR */}
           <div style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sınıf / Sınav Türü</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sınıf / Sınav Türü</div>
+            {savedTemplates.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Hazır Şablonlar:</span>
+                <select
+                  value={activeTemplateId ?? ''}
+                  onChange={(e) => handleSelectTemplate(Number(e.target.value))}
+                  style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#111827', background: 'white' }}
+                >
+                  <option value="" disabled>Seçiniz</option>
+                  {savedTemplates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.ad}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {Object.entries(SINIF_SINAVLAR).map(([key, sinif]) => (
