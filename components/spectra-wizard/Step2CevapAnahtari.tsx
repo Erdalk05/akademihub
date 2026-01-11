@@ -321,28 +321,26 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
     try {
       let anahtarlar: KayitliAnahtar[] = [];
 
-      // 1. Supabase'den yükle
+      // Yeni API: /api/cevap-anahtari?organizationId=xxx
       try {
-        const { data, error } = await supabase
-          .from('answer_key_templates')
-          .select('id, name, exam_type, total_questions, created_at')
-          .eq('organization_id', organizationId)
-          .order('created_at', { ascending: false });
-
-        if (!error && data) {
-          anahtarlar = data.map((row: any) => ({
-            id: row.id,
-            ad: row.name,
-            sinavTuru: row.exam_type,
-            toplamSoru: row.total_questions,
-            olusturulmaTarihi: row.created_at,
-          }));
+        const response = await fetch(`/api/cevap-anahtari?organizationId=${organizationId}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && Array.isArray(result.data)) {
+            anahtarlar = result.data.map((template: any) => ({
+              id: template.examId,
+              ad: template.examName,
+              sinavTuru: template.examType,
+              toplamSoru: template.totalQuestions,
+              olusturulmaTarihi: template.examDate || new Date().toISOString(),
+            }));
+          }
         }
-      } catch (supabaseError) {
-        console.warn('Supabase yüklenemedi:', supabaseError);
+      } catch (apiError) {
+        console.warn('API yüklenemedi:', apiError);
       }
 
-      // 2. localStorage'dan da yükle (varsa)
+      // 2. localStorage'dan da yükle (varsa) - backward compatibility
       try {
         const localKey = `answer_key_${organizationId}`;
         const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
@@ -395,27 +393,43 @@ export function Step2CevapAnahtari({ step1Data, data, organizationId, onChange }
         return;
       }
 
-      // Supabase'den yükle
-      const { data, error } = await supabase
-        .from('answer_key_templates')
-        .select('answer_data')
-        .eq('id', seciliSablonId)
-        .single();
-
-      if (error) throw error;
-
-      if (data?.answer_data) {
-        const loadedAnahtar = data.answer_data as CevapAnahtari;
-        updateCevapAnahtari(loadedAnahtar, 'library');
-        toast.success('Şablon yüklendi.');
+      // Yeni API: /api/cevap-anahtari?examId=xxx
+      const response = await fetch(`/api/cevap-anahtari?organizationId=${organizationId}&examId=${seciliSablonId}`);
+      if (!response.ok) {
+        throw new Error('Şablon yüklenemedi');
       }
-    } catch (error) {
-      console.error('Şablon yükleme hatası:', error);
-      toast.error('Şablon yüklenemedi.');
+
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.data)) {
+        throw new Error('Geçersiz veri formatı');
+      }
+
+      // sinav_cevap_anahtari'ndan CevapAnahtari'ya dönüştür
+      const items: CevapAnahtariItem[] = result.data.map((row: any) => ({
+        soruNo: row.soru_no,
+        dogruCevap: row.dogru_cevap,
+        dersKodu: row.ders_kodu,
+        dersAdi: row.ders_kodu, // Ders adı mapping yapılabilir
+        kazanimKodu: row.kazanim_kodu,
+        kazanimAciklamasi: row.kazanim_metni,
+        konuAdi: row.konu_adi,
+        zorlukDerecesi: row.zorluk ? Math.round(row.zorluk * 5) : 3, // 0.0-1.0 -> 1-5
+      }));
+
+      const loadedAnahtar: CevapAnahtari = {
+        ...cevapAnahtari,
+        items,
+      };
+
+      updateCevapAnahtari(loadedAnahtar, 'library');
+      toast.success('Şablon yüklendi.');
+    } catch (error: any) {
+      console.error('Yükleme hatası:', error);
+      toast.error(error.message || 'Şablon yüklenemedi.');
     } finally {
       setIsLoadingKutuphane(false);
     }
-  }, [seciliSablonId, supabase, organizationId, updateCevapAnahtari]);
+  }, [seciliSablonId, organizationId, cevapAnahtari, updateCevapAnahtari]);
 
   // KÜTÜPHANE - Kaydet
   const handleKutuphaneKaydet = useCallback(async () => {

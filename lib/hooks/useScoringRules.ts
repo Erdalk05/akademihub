@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import type { 
   SinavTuru, 
   PuanlamaFormulu, 
@@ -57,17 +58,44 @@ export function useScoringRules(): UseScoringRulesReturn {
   const [rules, setRules] = useState<ScoringRuleDB[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // ✅ Canlı veri - Zustand store'dan direkt al + hydration durumu
+  const { currentOrganization, _hasHydrated } = useOrganizationStore();
+  const organizationId = currentOrganization?.id;
 
   const fetchRules = useCallback(async () => {
+    // ⏳ Zustand henüz hydrate olmadıysa bekle
+    if (!_hasHydrated) {
+      return;
+    }
+    
+    const startTime = Date.now();
+    
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch('/api/settings/scoring-rules?active=true');
+      if (!organizationId) {
+        const duration = Date.now() - startTime;
+        console.warn(`[SCORING_RULES] ⏳ Waiting for organization... (${duration}ms)`);
+        setError('No organization selected. Please select an organization.');
+        setRules([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`[SCORING_RULES] 📡 Fetching rules for org: ${organizationId}`);
+
+      const fetchUrl = `/api/settings/scoring-rules?active=true&organization_id=${organizationId}`;
+
+      const res = await fetch(fetchUrl);
       
-      // 401 veya 403 hatası alırsak, sadece fallback kullan
-      if (res.status === 401 || res.status === 403) {
-        console.warn('Scoring rules API unauthorized - using fallback');
+      const duration = Date.now() - startTime;
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error(`[SCORING_RULES] ❌ API error (${res.status}): ${errorData.error} (${duration}ms)`);
+        setError(`API error: ${errorData.error || res.statusText}`);
         setRules([]);
         setLoading(false);
         return;
@@ -75,23 +103,42 @@ export function useScoringRules(): UseScoringRulesReturn {
 
       const data = await res.json();
 
-      if (data.success) {
-        setRules(data.data || []);
-      } else {
-        console.warn('Scoring rules fetch failed:', data.error);
+      if (!data.success) {
+        console.error(`[SCORING_RULES] ❌ API returned error: ${data.error} (${duration}ms)`);
+        setError(data.error || 'Failed to fetch scoring rules');
         setRules([]);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.warn('Scoring rules fetch error - using fallback:', err);
+
+      const fetchedRules = data.data || [];
+      
+      if (fetchedRules.length === 0) {
+        console.warn(`[SCORING_RULES] ⚠️  DB returned 0 rules (${duration}ms) - fallback will be used if needed`);
+        setError('No scoring rules configured for this organization');
+        setRules([]);
+      } else {
+        console.log(`[SCORING_RULES] ✅ DB'den ${fetchedRules.length} kural yüklendi (${duration}ms)`);
+        setError(null);
+        setRules(fetchedRules);
+      }
+      
+    } catch (err: any) {
+      const duration = Date.now() - startTime;
+      console.error(`[SCORING_RULES] ❌ Network error: ${err.message} (${duration}ms)`);
+      setError(`Network error: ${err.message}`);
       setRules([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [organizationId, _hasHydrated]);
 
+  // Hydration tamamlanınca ve organization değişince yeniden fetch et
   useEffect(() => {
-    fetchRules();
-  }, [fetchRules]);
+    if (_hasHydrated && organizationId) {
+      fetchRules();
+    }
+  }, [_hasHydrated, organizationId, fetchRules]);
 
   // Sınav türü için varsayılan kuralı getir
   const getDefaultRule = useCallback((sinavTuru: SinavTuru): ScoringRuleDB | null => {
@@ -132,7 +179,11 @@ export function useScoringRules(): UseScoringRulesReturn {
   // Fallback ile birlikte kural getir (NULL döndürmez)
   const getDefaultRuleWithFallback = useCallback((sinavTuru: SinavTuru): PuanlamaFormulu => {
     const rule = getDefaultRule(sinavTuru);
+    
     if (rule) return toPuanlamaFormulu(rule);
+    
+    // Fallback sadece DB'de kural yoksa çalışır
+    console.warn('[SCORING_RULES] ⚠️ Using fallback for:', sinavTuru);
     return getHardcodedScoringRule(sinavTuru);
   }, [getDefaultRule, toPuanlamaFormulu]);
 

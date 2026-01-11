@@ -47,6 +47,7 @@ import { Step3OptikSablonV2 } from './Step3OptikSablonV2';
 interface Step3Props {
   step1Data: WizardStep1Data;
   data: WizardStep3Data | null;
+  organizationId?: string;
   onChange: (data: WizardStep3Data) => void;
 }
 

@@ -277,6 +277,7 @@ export default function SpectraSihirbazPage() {
               <Step3OptikSablon
                 step1Data={step1Data}
                 data={step3Data}
+                organizationId={currentOrganization.id}
                 onChange={setStep3Data}
               />
             )}

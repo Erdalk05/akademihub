@@ -5,8 +5,9 @@
 // Wizard entegrasyonlu, localStorage kullanmayan versiyon
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import React, { useState, useEffect, useCallback } from 'react';
-import type { WizardStep1Data, WizardStep3Data } from '@/types/spectra-wizard';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import type { WizardStep1Data, WizardStep3Data, OptikFormSablonu } from '@/types/spectra-wizard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -32,6 +33,22 @@ interface DersTanimi {
   soru: number;
   baslangic: number;
   uzunluk: number;
+}
+
+interface TemplateSchemaPayload {
+  optikSablon: OptikFormSablonu;
+  alanlar: AlanTanimi[];
+  dersler: DersTanimi[];
+}
+
+interface SavedTemplate {
+  id: string;
+  name: string;
+  schema: TemplateSchemaPayload;
+  totalColumns?: number;
+  totalQuestions?: number;
+  createdAt?: string;
+  sinifTuru?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,56 +132,117 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
     const sinif = SINIF_SINAVLAR['8-LGS'];
     return sinif.dersler.map((d, i) => ({ ...d, id: i + 1, baslangic: 1, uzunluk: d.soru }));
   });
-  
-  const [savedTemplates, setSavedTemplates] = useState<any[]>([]);
-  const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
-
-  // Load from localStorage on mount
+  const [opticalTemplateId, setOpticalTemplateId] = useState<string | null>(() => data?.opticalTemplateId || null);
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const { currentOrganization } = useOrganizationStore();
+  const organizationId = currentOrganization?.id;
+  const sablonIdRef = useRef<string>(data?.optikSablon?.id || `ozel-${Date.now()}`);
   useEffect(() => {
-    const saved = localStorage.getItem('optik_sablon_library');
-    if (saved) {
-      try {
-        setSavedTemplates(JSON.parse(saved));
-      } catch (e) {
-        console.error('Template loading error:', e);
-      }
+    if (data?.optikSablon?.id) {
+      sablonIdRef.current = data.ozelSablon?.id || sablonIdRef.current;
     }
+  }, [data?.optikSablon?.id]);
+
+  const findAlan = useCallback((keywords: string[]) => {
+    return alanlar.find(alan =>
+      keywords.some(word => alan.ad.toLowerCase().includes(word))
+    );
+  }, [alanlar]);
+
+  const alanRange = useCallback((alan?: AlanTanimi) => {
+    if (!alan) return undefined;
+    return { baslangic: alan.baslangic, bitis: alan.baslangic + alan.uzunluk - 1 };
   }, []);
 
-  // Save to localStorage when changed
+  const optikSablonPayload = useMemo<OptikFormSablonu>(() => {
+    const ogrenciNo = alanRange(findAlan(['öğrenci no', 'öğrenci numarası', 'student no']));
+    const cevaplar = alanRange(findAlan(['cevaplar', 'optik yanıt', 'answers']));
+    const adSoyad = alanRange(findAlan(['ad soyad', 'öğrenci adı', 'ad']));
+    const kitapcik = alanRange(findAlan(['kitapçık', 'kitapcik']));
+    const sinif = alanRange(findAlan(['sınıf', 'sinif']));
+    const cinsiyet = alanRange(findAlan(['cinsiyet']));
+
+    const alanlarPayload: OptikFormSablonu['alanlar'] = {
+      ogrenciNo: ogrenciNo || { baslangic: 1, bitis: 10 },
+      cevaplar: cevaplar || { baslangic: 41, bitis: 130 },
+    };
+
+    if (adSoyad) alanlarPayload.ogrenciAdi = adSoyad;
+    if (kitapcik) alanlarPayload.kitapcik = kitapcik;
+    if (sinif) alanlarPayload.sinif = sinif;
+    if (cinsiyet) alanlarPayload.cinsiyet = cinsiyet;
+
+    const dersDagilimi = dersler.map(d => ({
+      dersKodu: d.kod,
+      dersAdi: d.ad,
+      baslangic: d.baslangic,
+      bitis: d.baslangic + d.uzunluk - 1,
+      soruSayisi: d.soru,
+    }));
+
+    return {
+      id: sablonIdRef.current,
+      organizationId: organizationId || undefined,
+      ad: sablonAdi || 'İsimsiz Şablon',
+      yayinevi: 'Özel',
+      sinifSeviyeleri: [step1Data.sinifSeviyesi],
+      sinavTurleri: [step1Data.sinavTuru],
+      toplamSoru,
+      satirUzunlugu,
+      alanlar: alanlarPayload,
+      dersDagilimi,
+      createdAt: undefined,
+    };
+  }, [alanRange, dersler, findAlan, organizationId, sablonAdi, satirUzunlugu, step1Data.sinavTuru, step1Data.sinifSeviyesi, toplamSoru]);
+
+  const templateSchemaPayload = useMemo<TemplateSchemaPayload>(() => ({
+    optikSablon: optikSablonPayload,
+    alanlar,
+    dersler,
+  }), [optikSablonPayload, alanlar, dersler]);
+
   useEffect(() => {
-    if (savedTemplates.length > 0) {
-      localStorage.setItem('optik_sablon_library', JSON.stringify(savedTemplates));
-    }
-  }, [savedTemplates]);
+    if (!organizationId) return;
+    let cancelled = false;
+    const loadTemplates = async () => {
+      const response = await fetch(`/api/optical-templates?organizationId=${organizationId}`, {
+        cache: 'no-store',
+      });
+      const json = await response.json().catch(() => null);
+      if (!cancelled && response.ok && json?.templates) {
+        setSavedTemplates(
+          json.templates.map((tpl: any) => ({
+            id: tpl.id,
+            name: tpl.name,
+            schema: tpl.schema,
+            totalColumns: tpl.total_columns,
+            totalQuestions: tpl.total_questions,
+            createdAt: tpl.created_at,
+            sinifTuru: tpl.sinif_turu,
+          }))
+        );
+      }
+    };
+    loadTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId]);
+
+  const toplamSoru = useMemo(() => dersler.reduce((t, d) => t + d.soru, 0), [dersler]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SYNC TO WIZARD - Her değişiklikte onChange çağır
   // ─────────────────────────────────────────────────────────────────────────
 
   const syncToWizard = useCallback(() => {
-    const toplamSoru = dersler.reduce((t, d) => t + d.soru, 0);
-    
     const wizardData: WizardStep3Data = {
       sablonKaynagi: 'ozel',
-      optikSablon: {
-        id: `ozel-${Date.now()}`,
-        ad: sablonAdi || 'İsimsiz Şablon',
-        sinavTurleri: [step1Data.sinavTuru],
-        sinifSeviyeleri: [step1Data.sinifSeviyesi],
-        yayinevi: 'Özel',
-        toplamSoru,
-        satirUzunlugu,
-        alanlar: {
-          ogrenciNo: alanlar.find(a => a.ad.toLowerCase().includes('öğrenci no')) 
-            ? { baslangic: alanlar.find(a => a.ad.toLowerCase().includes('öğrenci no'))!.baslangic, bitis: alanlar.find(a => a.ad.toLowerCase().includes('öğrenci no'))!.baslangic + alanlar.find(a => a.ad.toLowerCase().includes('öğrenci no'))!.uzunluk - 1 }
-            : { baslangic: 1, bitis: 10 },
-          ogrenciAdi: alanlar.find(a => a.ad.toLowerCase().includes('ad soyad') || a.ad.toLowerCase().includes('ad'))
-            ? { baslangic: alanlar.find(a => a.ad.toLowerCase().includes('ad soyad') || a.ad.toLowerCase().includes('ad'))!.baslangic, bitis: alanlar.find(a => a.ad.toLowerCase().includes('ad soyad') || a.ad.toLowerCase().includes('ad'))!.baslangic + alanlar.find(a => a.ad.toLowerCase().includes('ad soyad') || a.ad.toLowerCase().includes('ad'))!.uzunluk - 1 }
-            : { baslangic: 11, bitis: 40 },
-          cevaplar: { baslangic: 66, bitis: 66 + toplamSoru - 1 },
-        },
-      },
+      optikSablon: optikSablonPayload,
+      opticalTemplateId: opticalTemplateId || undefined,
       ozelSablon: {
         ad: sablonAdi,
         sinifTuru: acikSinif,
@@ -192,11 +270,11 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
     };
 
     onChange(wizardData);
-  }, [sablonAdi, acikSinif, satirUzunlugu, alanlar, dersler, step1Data.sinavTuru, onChange]);
+  }, [acikSinif, alanlar, dersler, optikSablonPayload, opticalTemplateId, onChange, sablonAdi, satirUzunlugu]);
 
   useEffect(() => {
     syncToWizard();
-  }, [sablonAdi, acikSinif, satirUzunlugu, alanlar, dersler]);
+  }, [syncToWizard]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // HANDLERS
@@ -246,42 +324,81 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
     setAlanlar([...alanlar, { id: Date.now(), ad: '(Boşluk)', baslangic: yeniBaslangic, uzunluk: 5 }]);
   };
 
-  const toplamSoru = dersler.reduce((t, d) => t + d.soru, 0);
+  const handleSaveTemplate = async () => {
+    setTemplateError(null);
+    if (!organizationId) {
+      setTemplateError('Kurum bilgisi hazır değil');
+      return;
+    }
+    if (!sablonAdi.trim()) {
+      setTemplateError('Lütfen şablon adı girin');
+      return;
+    }
 
-  const handleSaveTemplate = () => {
-    const tpl = {
-      id: activeTemplateId || Date.now(),
-      ad: sablonAdi || 'İsimsiz Şablon',
-      sinifTuru: acikSinif,
-      satirUzunlugu,
-      alanlar: JSON.parse(JSON.stringify(alanlar)),
-      dersler: JSON.parse(JSON.stringify(dersler)),
-    };
-    setSavedTemplates(prev => {
-      const exists = prev.find(t => t.id === tpl.id);
-      if (exists) {
-        return prev.map(t => t.id === tpl.id ? tpl : t);
+    setIsSavingTemplate(true);
+    try {
+      const requestBody: Record<string, any> = {
+        organizationId,
+        name: sablonAdi,
+        schema: templateSchemaPayload,
+        totalColumns: satirUzunlugu,
+        totalQuestions: toplamSoru,
+      };
+      if (activeTemplateId) {
+        requestBody.templateId = activeTemplateId;
       }
-      return [...prev, tpl];
-    });
-    setActiveTemplateId(tpl.id);
+      const response = await fetch('/api/optical-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success || !json?.template_id) {
+        throw new Error(json?.message || 'Şablon kaydedilemedi');
+      }
+
+      const templateId: string = json.template_id;
+      const savedTemplate: SavedTemplate = {
+        id: templateId,
+        name: sablonAdi,
+        schema: templateSchemaPayload,
+        totalColumns: satirUzunlugu,
+        totalQuestions: toplamSoru,
+        createdAt: json.created_at,
+        sinifTuru: acikSinif,
+      };
+
+      setSavedTemplates(prev => {
+        const filtered = prev.filter(t => t.id !== templateId);
+        return [savedTemplate, ...filtered];
+      });
+      setActiveTemplateId(templateId);
+      setOpticalTemplateId(templateId);
+    } catch (err: any) {
+      setTemplateError(err?.message || 'Şablon kaydedilemedi');
+    } finally {
+      setIsSavingTemplate(false);
+    }
   };
 
-  const handleSelectTemplate = (tplId: number) => {
+  const handleSelectTemplate = (tplId: string) => {
+    setTemplateError(null);
     const tpl = savedTemplates.find(t => t.id === tplId);
     if (!tpl) return;
     setActiveTemplateId(tpl.id);
-    setSablonAdi(tpl.ad);
-    setAcikSinif(tpl.sinifTuru);
-    setSatirUzunlugu(tpl.satirUzunlugu);
-    setAlanlar(tpl.alanlar);
-    setDersler(tpl.dersler);
+    setOpticalTemplateId(tpl.id);
+    setSablonAdi(tpl.name);
+    if (tpl.sinifTuru) setAcikSinif(tpl.sinifTuru);
+    setSatirUzunlugu(tpl.schema.optikSablon.satirUzunlugu);
+    setAlanlar(tpl.schema.alanlar.map(a => ({ ...a })));
+    setDersler(tpl.schema.dersler.map(d => ({ ...d })));
   };
 
-  const handleDeleteTemplate = (tplId: number) => {
+  const handleDeleteTemplate = (tplId: string) => {
     setSavedTemplates(prev => prev.filter(t => t.id !== tplId));
     if (activeTemplateId === tplId) {
       setActiveTemplateId(null);
+      setOpticalTemplateId(null);
     }
   };
 
@@ -309,11 +426,53 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
               style={{ flex: 1, maxWidth: '240px', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', fontWeight: 500, color: '#1e293b' }}
             />
             <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={handleSaveTemplate} style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ecfdf3', color: '#166534', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Kaydet</button>
-              <button onClick={() => activeTemplateId && handleSaveTemplate()} style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#eef2ff', color: '#3730a3', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Düzenle</button>
-              <button onClick={() => activeTemplateId && handleDeleteTemplate(activeTemplateId)} style={{ padding: '8px 10px', border: '1px solid #fecdd3', borderRadius: '8px', background: '#fff1f2', color: '#b91c1c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Sil</button>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={isSavingTemplate || !organizationId}
+                style={{
+                  padding: '8px 10px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  background: '#ecfdf3',
+                  color: '#166534',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: isSavingTemplate || !organizationId ? 'not-allowed' : 'pointer',
+                  opacity: isSavingTemplate || !organizationId ? 0.6 : 1,
+                }}
+              >
+                {isSavingTemplate ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+              <button
+                onClick={() => activeTemplateId && handleSaveTemplate()}
+                disabled={isSavingTemplate || !activeTemplateId}
+                style={{
+                  padding: '8px 10px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  background: '#eef2ff',
+                  color: '#3730a3',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: isSavingTemplate || !activeTemplateId ? 'not-allowed' : 'pointer',
+                  opacity: isSavingTemplate || !activeTemplateId ? 0.6 : 1,
+                }}
+              >
+                Düzenle
+              </button>
+              <button
+                onClick={() => activeTemplateId && handleDeleteTemplate(activeTemplateId)}
+                style={{ padding: '8px 10px', border: '1px solid #fecdd3', borderRadius: '8px', background: '#fff1f2', color: '#b91c1c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Sil
+              </button>
             </div>
           </div>
+          {templateError && (
+            <div style={{ marginTop: '6px', color: '#b91c1c', fontSize: '12px' }}>
+              {templateError}
+            </div>
+          )}
 
           {/* Orta: Satır ve Soru */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -352,12 +511,12 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
                 <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Hazır Şablonlar:</span>
                 <select
                   value={activeTemplateId ?? ''}
-                  onChange={(e) => handleSelectTemplate(Number(e.target.value))}
+                  onChange={(e) => handleSelectTemplate(e.target.value)}
                   style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#111827', background: 'white' }}
                 >
                   <option value="" disabled>Seçiniz</option>
                   {savedTemplates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>{tpl.ad}</option>
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                   ))}
                 </select>
               </div>

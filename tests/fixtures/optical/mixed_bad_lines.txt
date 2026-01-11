@@ -1,0 +1,7 @@
+1234567890AHMET YILMAZ             8  AAAAABBBBBCCCCCDDDDD                                                     
+SHORT_LINE
+9876543210ZEYNEP KAYA              8  BBBBBCCCCCDDDDDEEEEE                                                     
+          
+1111111111MEHMET DEMIR             8  ACCCCBBBBBDDDDDEEEEE                                                     
+VERY_LONG_LINE_THAT_EXCEEDS_EXPECTED_LENGTH_SIGNIFICANTLY_WITH_EXTRA_DATA_AT_THE_END_JUST_TO_TEST_PARSER
+5555555555                         8  ACCCCBBBBBDDDDDEEEEE                                                     

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, FileText, Table, AlertCircle, CheckCircle, XCircle, Users, Link2 } from 'lucide-react';
 import type { WizardStep3Data, WizardStep4Data, OptikParseResult, ParsedOptikSatir } from '@/types/spectra-wizard';
-import { parseOptikData } from '@/lib/spectra-wizard/optical-parser';
 import { cn } from '@/lib/utils';
 
 interface Step4Props {
@@ -18,34 +17,88 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
   const [parseResult, setParseResult] = useState<OptikParseResult | null>(data?.parseResult || null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const missingOpticalTemplate = step3Data?.sablonKaynagi === 'ozel' && !step3Data?.opticalTemplateId;
 
   // Dosya yükle
-  const handleFileUpload = useCallback(async (file: File) => {
-    const text = await file.text();
-    const result = parseOptikData(text, step3Data.optikSablon);
-    
-    // Öğrenci eşleştirme
-    const eslestirmeler = result.satirlar.map((satir) => {
-      const eslesen = ogrenciListesi.find(
-        (ogr) => ogr.ogrenciNo === satir.ogrenciNo || 
-                 `${ogr.ad} ${ogr.soyad}`.toUpperCase() === satir.ogrenciAdi.toUpperCase()
-      );
-      
-      return {
-        optikOgrenciNo: satir.ogrenciNo,
-        dbStudentId: eslesen?.id || null,
-        isMisafir: !eslesen,
-      };
-    });
+  const guardMissingTemplate = useCallback(() => {
+    if (missingOpticalTemplate) {
+      setUploadError('Bu sınav için optik şablon tanımlı değil');
+      return true;
+    }
+    return false;
+  }, [missingOpticalTemplate]);
 
-    setParseResult(result);
-    onChange({
-      yuklemeTuru,
-      parseResult: result,
-      dosyaAdi: file.name,
-      eslestirmeler,
-    });
-  }, [step3Data.optikSablon, ogrenciListesi, yuklemeTuru, onChange]);
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (guardMissingTemplate()) return;
+    setUploadError(null);
+    
+    try {
+      const text = await file.text();
+      
+      // ✅ TXT parse işlemi SADECE /api/spectra/parse-txt üzerinden
+      const response = await fetch('/api/spectra/parse-txt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rawText: text,
+          optikSablon: step3Data.optikSablon,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Parse işlemi başarısız');
+      }
+
+      const { success, data, error } = await response.json();
+      
+      if (!success || !data) {
+        throw new Error(error || 'Parse sonucu alınamadı');
+      }
+
+      // ✅ API response primitive-safe, direkt kullanılabilir
+      const result: OptikParseResult = {
+        basarili: data.basarili,
+        dosyaAdi: data.dosyaAdi || file.name,
+        sablonAdi: data.sablonAdi,
+        toplamSatir: data.toplamSatir,
+        basariliSatir: data.basariliSatir,
+        hataliSatir: data.hataliSatir,
+        uyariSatir: data.uyariSatir,
+        satirlar: data.satirlar,
+        hatalar: data.hatalar,
+        uyarilar: data.uyarilar,
+        parseBaslangic: data.parseBaslangic,
+        parseBitis: data.parseBitis,
+        sureMilisaniye: data.sureMilisaniye,
+        stats: data.stats,
+      };
+      
+      // Öğrenci eşleştirme
+      const eslestirmeler = result.satirlar.map((satir) => {
+        const eslesen = ogrenciListesi.find(
+          (ogr) => ogr.ogrenciNo === satir.ogrenciNo || 
+                   `${ogr.ad} ${ogr.soyad}`.toUpperCase() === satir.ogrenciAdi.toUpperCase()
+        );
+        
+        return {
+          optikOgrenciNo: satir.ogrenciNo,
+          dbStudentId: eslesen?.id || null,
+          isMisafir: !eslesen,
+        };
+      });
+
+      setParseResult(result);
+      onChange({
+        yuklemeTuru,
+        parseResult: result,
+        dosyaAdi: file.name,
+        eslestirmeler,
+      });
+    } catch (error: any) {
+      setUploadError(error.message || 'Dosya yüklenirken hata oluştu');
+    }
+  }, [step3Data.optikSablon, ogrenciListesi, yuklemeTuru, onChange, guardMissingTemplate]);
 
   // Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -58,6 +111,10 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
   };
 
   const handleDrop = async (e: React.DragEvent) => {
+    if (missingOpticalTemplate) {
+      setUploadError('Bu sınav için optik şablon tanımlı değil');
+      return;
+    }
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
@@ -67,11 +124,18 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (guardMissingTemplate()) return;
     const file = e.target.files?.[0];
     if (file) {
       await handleFileUpload(file);
     }
   };
+
+  useEffect(() => {
+    if (!missingOpticalTemplate) {
+      setUploadError(null);
+    }
+  }, [missingOpticalTemplate]);
 
   // İstatistikler
   const asilSayisi = parseResult?.satirlar.filter(s => 
@@ -133,10 +197,20 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-6 py-2.5 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600"
+            disabled={missingOpticalTemplate}
+            title={missingOpticalTemplate ? 'Optik şablon tanımlanmadan dosya yüklenemez' : undefined}
+            className={cn(
+              'px-6 py-2.5 rounded-lg font-medium transition-all',
+              missingOpticalTemplate
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-emerald-500 text-white hover:bg-emerald-600'
+            )}
           >
             Dosya Seç
           </button>
+          {uploadError && (
+            <p className="text-sm text-red-600 mt-3">{uploadError}</p>
+          )}
         </div>
       )}
 
@@ -172,7 +246,7 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
               </div>
               <ul className="text-sm text-red-600 space-y-1 max-h-32 overflow-y-auto">
                 {parseResult.hatalar.slice(0, 5).map((hata, i) => (
-                  <li key={i}>• {hata}</li>
+                  <li key={i}>• {typeof hata === 'string' ? hata : hata.mesaj || JSON.stringify(hata)}</li>
                 ))}
                 {parseResult.hatalar.length > 5 && (
                   <li className="text-red-500">... ve {parseResult.hatalar.length - 5} hata daha</li>
@@ -190,7 +264,7 @@ export function Step4VeriYukle({ step3Data, data, ogrenciListesi = [], onChange 
               </div>
               <ul className="text-sm text-amber-600 space-y-1">
                 {parseResult.uyarilar.map((uyari, i) => (
-                  <li key={i}>• {uyari}</li>
+                  <li key={i}>• {typeof uyari === 'string' ? uyari : uyari.mesaj || JSON.stringify(uyari)}</li>
                 ))}
               </ul>
             </div>

@@ -40,6 +40,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Öğrenci verisi gerekli' }, { status: 400 });
     }
 
+    const requiresOpticalTemplate =
+      step3Data?.sablonKaynagi === 'ozel' && !step3Data?.opticalTemplateId;
+
+    if (requiresOpticalTemplate) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'Bu sınav için optik şablon tanımlı değil. Lütfen önce optik şablon seçin veya oluşturun.',
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = getServiceRoleClient();
     const sinavKonfig = SINAV_KONFIGURASYONLARI[step1Data.sinavTuru];
 
@@ -61,6 +75,9 @@ export async function POST(request: NextRequest) {
     if (academicYearId) examInsertData.academic_year_id = academicYearId;
     if (step1Data.sinifSeviyesi) examInsertData.grade_level = step1Data.sinifSeviyesi;
     if (step1Data.aciklama) examInsertData.description = step1Data.aciklama;
+    if (step3Data?.opticalTemplateId) {
+      examInsertData.optical_template_id = step3Data.opticalTemplateId;
+    }
 
     const { data: exam, error: examError } = await supabase
       .from('exams')
@@ -110,9 +127,34 @@ export async function POST(request: NextRequest) {
     sections?.forEach(s => sectionIdMap.set(s.code, s.id));
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3. CEVAP ANAHTARINI KAYDET (exam_answer_keys)
+    // 3. CEVAP ANAHTARINI KAYDET (sinav_cevap_anahtari) - SINGLE SOURCE OF TRUTH
     // ─────────────────────────────────────────────────────────────────────────
     const answerKeyInserts = step2Data.cevapAnahtari.items.map(item => ({
+      exam_id: examId,
+      organization_id: organizationId,
+      soru_no: item.soruNo,
+      dogru_cevap: (item.dogruCevap || '').substring(0, 1), // CHAR(1)
+      ders_kodu: item.dersKodu,
+      kazanim_kodu: item.kazanimKodu || null,
+      kazanim_metni: item.kazanimAciklamasi || null,
+      konu_adi: item.konuAdi || null,
+      zorluk: item.zorlukDerecesi ? item.zorlukDerecesi / 5.0 : 0.5, // 1-5 -> 0.2-1.0
+    }));
+
+    const { error: answerKeyError } = await supabase
+      .from('sinav_cevap_anahtari')
+      .insert(answerKeyInserts);
+
+    if (answerKeyError) {
+      console.error('❌ Cevap anahtarı kayıt hatası:', answerKeyError);
+      return NextResponse.json({ 
+        success: false, 
+        message: `Cevap anahtarı kaydedilemedi: ${answerKeyError.message}` 
+      }, { status: 500 });
+    }
+
+    // Legacy: exam_answer_keys tablosuna da yaz (backward compatibility)
+    const legacyAnswerKeyInserts = step2Data.cevapAnahtari.items.map(item => ({
       exam_id: examId,
       question_number: item.soruNo,
       correct_answer: item.dogruCevap || '',
@@ -124,13 +166,13 @@ export async function POST(request: NextRequest) {
       booklet_answers: item.kitapcikCevaplari ? JSON.stringify(item.kitapcikCevaplari) : null,
     }));
 
-    const { error: answerKeyError } = await supabase
+    const { error: legacyAnswerKeyError } = await supabase
       .from('exam_answer_keys')
-      .insert(answerKeyInserts);
+      .insert(legacyAnswerKeyInserts);
 
-    if (answerKeyError) {
-      console.error('❌ Cevap anahtarı kayıt hatası:', answerKeyError);
-      // Devam et
+    if (legacyAnswerKeyError) {
+      console.warn('⚠️ Legacy exam_answer_keys kayıt uyarısı:', legacyAnswerKeyError.message);
+      // Devam et, kritik değil
     }
 
     // ─────────────────────────────────────────────────────────────────────────

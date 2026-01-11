@@ -453,6 +453,8 @@ export interface ParsedOptikSatir {
   eslesmeDurumu?: EslesmeDurumu;
   eslesmiStudentId?: string;
   eslesmiStudentAdi?: string;
+  status?: 'ok' | 'eksik_veri' | 'gecersiz_satir';
+  durumEtiketi?: string;
 }
 
 export interface OptikParseResult {
@@ -466,6 +468,12 @@ export interface OptikParseResult {
   satirlar: ParsedOptikSatir[];
   hatalar: (string | OptikHata)[];
   uyarilar: (string | OptikHata)[];
+  stats?: {
+    toplam: number;
+    basarili: number;
+    eksikVeri: number;
+    gecersizSatir: number;
+  };
   parseBaslangic?: ISODate;
   parseBitis?: ISODate;
   sureMilisaniye?: number;
@@ -727,6 +735,7 @@ export interface WizardStep3Data {
     baslangic: number;
     bitis: number;
   }[];
+  opticalTemplateId?: string;
 }
 
 export interface WizardStep4Data {

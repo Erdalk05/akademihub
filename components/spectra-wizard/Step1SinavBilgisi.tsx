@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useEffect, useRef } from 'react';
-import { Calendar, FileText, GraduationCap, Settings2, BookOpen, Loader2 } from 'lucide-react';
+import { Calendar, FileText, GraduationCap, Settings2, BookOpen, Loader2, AlertTriangle } from 'lucide-react';
 import type { SinavTuru, SinifSeviyesi, WizardStep1Data } from '@/types/spectra-wizard';
 import { SINIF_BILGILERI, SINAV_KONFIGURASYONLARI, getUygunSinavTurleri, getDersDagilimi, DERS_RENKLERI } from '@/lib/spectra-wizard';
 import { useScoringRules } from '@/lib/hooks/useScoringRules';
@@ -13,7 +13,7 @@ interface Step1Props {
 
 export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
   // DB'den kurum puanlama kurallarını çek
-  const { loading: rulesLoading, getDefaultRuleWithFallback } = useScoringRules();
+  const { loading: rulesLoading, error: rulesError, getDefaultRuleWithFallback } = useScoringRules();
   const prevSinavTuru = useRef<SinavTuru | null>(null);
 
   // Varsayılan değerler
@@ -84,6 +84,22 @@ export function Step1SinavBilgisi({ data, onChange }: Step1Props) {
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
         <span className="ml-2 text-slate-600">Puanlama kuralları yükleniyor...</span>
+      </div>
+    );
+  }
+
+  // Show error if DB fetch failed
+  if (rulesError) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-red-800 mb-1">Puanlama Kuralları Yüklenemedi</h3>
+            <p className="text-sm text-red-700 mb-3">{rulesError}</p>
+            <p className="text-xs text-red-600">Lütfen sistem yöneticisiyle iletişime geçin.</p>
+          </div>
+        </div>
       </div>
     );
   }

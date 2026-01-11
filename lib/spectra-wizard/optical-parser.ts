@@ -370,6 +370,21 @@ function createError(
   return { tur, seviye, mesaj, satirNo, alan, oneri };
 }
 
+export const sanitizeFieldValue = (value: string): string => {
+  const str = String(value || '');
+  // Sadece control ve garbled karakterleri temizle, Türkçe karakterlere dokunma
+  return str
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Control karakterler
+    .trim();
+};
+
+export const sanitizeLine = (value: string): string => {
+  const str = String(value || '');
+  return str
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+    .trimEnd();
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ANA PARSER FONKSİYONU
 // ─────────────────────────────────────────────────────────────────────────────
@@ -427,27 +442,58 @@ export function parseOptikData(
   let basariliSatir = 0;
   let hataliSatir = 0;
   let uyariSatir = 0;
+  let gecersizSatir = 0;
+  let eksikVeri = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const rawLine = lines[i];
     const satirNo = i + 1;
+    const line = sanitizeLine(rawLine);
+
+    if (Math.abs(line.length - sablon.satirUzunlugu) > 0) {
+      gecersizSatir++;
+      hataliSatir++;
+      satirlar.push({
+        satirNo,
+        rawData: line,
+        ogrenciNo: '',
+        ogrenciAdi: '',
+        kitapcik: 'A',
+        cevaplar: Array(sablon.toplamSoru).fill(null),
+        hatalar: [
+          createError(
+            'UZUNLUK',
+            'warning',
+            `Satır uzunluğu ${sablon.satirUzunlugu} değil`,
+            satirNo
+          ),
+        ],
+        eslesmeDurumu: 'error',
+        status: 'gecersiz_satir',
+        durumEtiketi: 'Geçersiz Satır',
+      });
+      continue;
+    }
 
     try {
       const parsed = parseSingleLine(line, sablon, satirNo);
-      
-      const lineHatalar = parsed.hatalar.filter(h => 
+
+      const lineHatalar = parsed.hatalar.filter(h =>
         typeof h === 'object' && (h as OptikHata).seviye === 'error'
       );
-      const lineUyarilar = parsed.hatalar.filter(h => 
+      const lineUyarilar = parsed.hatalar.filter(h =>
         typeof h === 'object' && (h as OptikHata).seviye !== 'error'
       );
-      
+
       if (lineHatalar.length > 0) {
         hataliSatir++;
-        hatalar.push(...lineHatalar.map(h => typeof h === 'string' 
-          ? createError('FORMAT', 'error', h, satirNo)
-          : h as OptikHata
-        ));
+        hatalar.push(
+          ...lineHatalar.map(h =>
+            typeof h === 'string'
+              ? createError('FORMAT', 'error', h, satirNo)
+              : h
+          )
+        );
       } else if (lineUyarilar.length > 0) {
         uyariSatir++;
         basariliSatir++;
@@ -455,27 +501,35 @@ export function parseOptikData(
         basariliSatir++;
       }
 
+      if (parsed.status === 'eksik_veri') {
+        eksikVeri++;
+      }
+
       satirlar.push(parsed);
     } catch (err: any) {
       hataliSatir++;
-      hatalar.push(createError(
-        'FORMAT',
-        'error',
-        `Parse hatası: ${err.message}`,
-        satirNo,
-        undefined,
-        'Satır formatını kontrol edin'
-      ));
-      
+      hatalar.push(
+        createError(
+          'FORMAT',
+          'error',
+          `Parse hatası: ${err.message}`,
+          satirNo,
+          undefined,
+          'Satır formatını kontrol edin'
+        )
+      );
+
       satirlar.push({
         satirNo,
         rawData: line,
         ogrenciNo: '',
         ogrenciAdi: '',
         kitapcik: 'A',
-        cevaplar: [],
+        cevaplar: Array(sablon.toplamSoru).fill(null),
         hatalar: [createError('FORMAT', 'error', err.message, satirNo)],
         eslesmeDurumu: 'error',
+        status: 'gecersiz_satir',
+        durumEtiketi: 'Geçersiz Satır',
       });
     }
   }
@@ -520,6 +574,12 @@ export function parseOptikData(
     parseBaslangic: new Date(startTime).toISOString(),
     parseBitis: new Date().toISOString(),
     sureMilisaniye: Date.now() - startTime,
+    stats: {
+      toplam: lines.length,
+      basarili: basariliSatir,
+      eksikVeri,
+      gecersizSatir,
+    },
   };
 }
 
@@ -539,7 +599,7 @@ function parseSingleLine(
   const extract = (start: number, end: number): string => {
     const s = Math.max(0, start - 1);
     const e = Math.min(line.length, end);
-    return line.substring(s, e).trim();
+    return sanitizeFieldValue(line.substring(s, e));
   };
 
   // Zorunlu alanlar
@@ -614,6 +674,11 @@ function parseSingleLine(
     ));
   }
 
+  const missingFields = !ogrenciNo || !ogrenciAdi;
+  if (missingFields) {
+    hatalar.push(createError('EKSIK_ALAN', 'warning', 'Bazı alanlar eksik', satirNo));
+  }
+
   return {
     satirNo,
     rawData: line,
@@ -627,6 +692,8 @@ function parseSingleLine(
     cevaplar,
     hatalar,
     eslesmeDurumu: 'pending',
+    status: missingFields ? 'eksik_veri' : 'ok',
+    durumEtiketi: missingFields ? 'Eksik Veri' : undefined,
   };
 }
 
