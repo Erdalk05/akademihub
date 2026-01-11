@@ -135,25 +135,6 @@ export default function ManuelCevapAnahtari({
   // ✅ TDZ fix: dependency array’lerde kullanılmadan önce tanımlı olmalı
   const emptyDersDraft = Object.fromEntries(dersler.map((d: DersUI) => [d.kod, ''])) as Record<string, string>;
 
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'A',
-        location: 'ManuelCevapAnahtari.tsx:mount',
-        message: 'component mount',
-        data: { organizationId: Boolean(organizationId), examId: Boolean(examId), examType: examType || null, dersKodlari: dersler.map((d) => d.kod) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  // #endregion
-
   const kitapcikTurleri = (Array.isArray(konfig?.kitapcikTurleri) ? konfig.kitapcikTurleri : [])
     .map((x: any) => String(x).toUpperCase())
     .filter((x: string) => x === 'A' || x === 'B' || x === 'C' || x === 'D') as KitapcikTuru[];
@@ -298,21 +279,6 @@ export default function ManuelCevapAnahtari({
           setHasApiData(true);
           applyAnswerKeyRows(rows as CevapAnahtariSatir[]);
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId: 'pre-fix',
-            hypothesisId: 'B',
-            location: 'ManuelCevapAnahtari.tsx:apiLoad',
-            message: 'answer-keys GET completed',
-            data: { ok: Boolean(json?.ok), status: res.status, hasRows: Array.isArray(rows) ? rows.length : 0, hasOrder: Array.isArray(order) ? order.length : 0 },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       } catch (e) {
         // ignore (UI fallback devreye girebilir)
       } finally {
@@ -624,22 +590,6 @@ export default function ManuelCevapAnahtari({
   const persistAnswerKeyToApi = useCallback(
     async (data: CevapAnahtariSatir[], reason: string) => {
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId: 'pre-fix',
-            hypothesisId: 'C',
-            location: 'ManuelCevapAnahtari.tsx:persist',
-            message: 'answer-keys PUT start',
-            data: { reason, answerKeyLen: data.length, dersSirasiLen: dersSirasi.length },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-
         const res = await fetch('/api/exam-intelligence/answer-keys', {
           method: 'PUT',
           cache: 'no-store',
@@ -653,21 +603,6 @@ export default function ManuelCevapAnahtari({
             reason,
           }),
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId: 'pre-fix',
-            hypothesisId: 'C',
-            location: 'ManuelCevapAnahtari.tsx:persist',
-            message: 'answer-keys PUT end',
-            data: { status: res.status, ok: res.ok },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       } catch {
         // ignore
       }
@@ -706,21 +641,6 @@ export default function ManuelCevapAnahtari({
       
       onSave(payload);
       void persistAnswerKeyToApi(data, reason);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'D',
-          location: 'ManuelCevapAnahtari.tsx:sendToWizard',
-          message: 'onSave called',
-          data: { reason, answerKeyLen: data.length, sig },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       console.log(`✅ onSave çağrıldı: ${data.length} soru | dersSirasi=${dersSirasi.join(',')} | reason=${reason} | sig=${sig}`);
     },
     [computeSig, onSave, dersSirasi, persistAnswerKeyToApi],

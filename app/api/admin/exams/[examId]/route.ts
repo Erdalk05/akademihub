@@ -83,45 +83,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { examI
       return NextResponse.json({ ok: false, error: 'Şifre yanlış' }, { status: 401 })
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'DEL-A',
-        location: 'api/admin/exams/[examId]/route.ts:DELETE:start',
-        message: 'admin exam delete start',
-        data: {
-          examId,
-          hasAuthHeader: Boolean(request.headers.get('authorization') || request.headers.get('Authorization')),
-          ua: request.headers.get('user-agent') || null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     // 1) student_exam_results
     const r1 = await supabase.from('student_exam_results').delete().eq('exam_id', examId)
     if (r1.error) {
       console.error('[admin exam delete] student_exam_results delete error:', r1.error)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'DEL-B',
-          location: 'api/admin/exams/[examId]/route.ts:DELETE:r1',
-          message: 'student_exam_results delete error',
-          data: { examId, code: (r1.error as any)?.code || null, message: r1.error.message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return NextResponse.json(
         { ok: false, error: 'Öğrenci sınav sonuçları silinemedi', meta: debug ? { step: 'student_exam_results', supabase: pickErr(r1.error) } : undefined },
         { status: 500 },
@@ -132,21 +97,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { examI
     const r2 = await supabase.from('student_test_results').delete().eq('exam_id', examId)
     if (r2.error) {
       console.error('[admin exam delete] student_test_results delete error:', r2.error)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'DEL-C',
-          location: 'api/admin/exams/[examId]/route.ts:DELETE:r2',
-          message: 'student_test_results delete error',
-          data: { examId, code: (r2.error as any)?.code || null, message: r2.error.message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       // Uzun süredir görülen durum: bazı ortamlarda tablo yok / şema farklı. Bu adımı "opsiyonel" say.
       const code = (r2.error as any)?.code || ''
       const msg = String(r2.error.message || '')
@@ -163,21 +113,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { examI
     const r3 = await supabase.from('booklet_answer_keys').delete().eq('exam_id', examId)
     if (r3.error) {
       console.error('[admin exam delete] booklet_answer_keys delete error:', r3.error)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'DEL-D',
-          location: 'api/admin/exams/[examId]/route.ts:DELETE:r3',
-          message: 'booklet_answer_keys delete error',
-          data: { examId, code: (r3.error as any)?.code || null, message: r3.error.message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return NextResponse.json(
         { ok: false, error: 'Cevap anahtarları silinemedi', meta: debug ? { step: 'booklet_answer_keys', supabase: pickErr(r3.error) } : undefined },
         { status: 500 },
@@ -188,21 +123,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { examI
     const r4 = await supabase.from('exam_tests').delete().eq('exam_id', examId)
     if (r4.error) {
       console.error('[admin exam delete] exam_tests delete error:', r4.error)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'DEL-E',
-          location: 'api/admin/exams/[examId]/route.ts:DELETE:r4',
-          message: 'exam_tests delete error',
-          data: { examId, code: (r4.error as any)?.code || null, message: r4.error.message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return NextResponse.json(
         { ok: false, error: 'Sınav testleri silinemedi', meta: debug ? { step: 'exam_tests', supabase: pickErr(r4.error) } : undefined },
         { status: 500 },
@@ -221,61 +141,15 @@ export async function DELETE(request: NextRequest, { params }: { params: { examI
 
     if (examError) {
       console.error('[admin exam delete] exam delete error:', examError)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'DEL-F',
-          location: 'api/admin/exams/[examId]/route.ts:DELETE:exam',
-          message: 'exams delete error',
-          data: { examId, code: (examError as any)?.code || null, message: examError.message },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return NextResponse.json(
         { ok: false, error: 'Sınav silinemedi', meta: debug ? { step: 'exams', supabase: pickErr(examError) } : undefined },
         { status: 500 },
       )
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'DEL-G',
-        location: 'api/admin/exams/[examId]/route.ts:DELETE:ok',
-        message: 'admin exam delete ok',
-        data: { examId },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (e) {
     console.error('[admin exam delete] unexpected:', e)
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'DEL-Z',
-        location: 'api/admin/exams/[examId]/route.ts:DELETE:catch',
-        message: 'admin exam delete unexpected',
-        data: { examId, error: e instanceof Error ? e.message : String(e) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return NextResponse.json(
       { ok: false, error: 'Beklenmeyen hata', meta: { message: e instanceof Error ? e.message : String(e) } },
       { status: 500 },

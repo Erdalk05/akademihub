@@ -35,9 +35,6 @@ export default function SpectraSihirbazPage() {
   const router = useRouter();
   const { currentOrganization } = useOrganizationStore();
   const supabase = createClient();
-  const headerRef = useRef<HTMLDivElement>(null);
-  const stepsRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   // Wizard State
   const [currentStep, setCurrentStep] = useState(1);
@@ -61,29 +58,6 @@ export default function SpectraSihirbazPage() {
 
   // Öğrenci listesi
   const [ogrenciListesi, setOgrenciListesi] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const headerWidth = headerRef.current?.clientWidth || 0;
-    const stepsWidth = stepsRef.current?.clientWidth || 0;
-    const contentWidth = contentRef.current?.clientWidth || 0;
-    const windowWidth = window.innerWidth;
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'A',
-        location: 'sihirbaz/page.tsx:widths',
-        message: 'container widths',
-        data: { headerWidth, stepsWidth, contentWidth, windowWidth },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  }, []);
 
   // Öğrenci listesini yükle
   useEffect(() => {
@@ -231,7 +205,7 @@ export default function SpectraSihirbazPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/30">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div ref={headerRef} className="max-w-7xl mx-auto px-6 lg:px-10 py-4">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -260,7 +234,7 @@ export default function SpectraSihirbazPage() {
 
       {/* Steps Progress */}
       <div className="bg-white border-b border-gray-100">
-        <div ref={stepsRef} className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
           <WizardSteps
             currentStep={currentStep}
             completedSteps={completedSteps}
@@ -270,7 +244,7 @@ export default function SpectraSihirbazPage() {
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}

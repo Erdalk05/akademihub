@@ -115,15 +115,28 @@ export function Step3OptikSablonV2({ step1Data, data, onChange }: Step3Props) {
     const sinif = SINIF_SINAVLAR['8-LGS'];
     return sinif.dersler.map((d, i) => ({ ...d, id: i + 1, baslangic: 1, uzunluk: d.soru }));
   });
-  const [savedTemplates, setSavedTemplates] = useState<any[]>(() => data?.ozelSablon ? [{
-    id: Date.now(),
-    ad: data.ozelSablon.ad || 'İsimsiz Şablon',
-    sinifTuru: data.ozelSablon.sinifTuru,
-    satirUzunlugu: data.ozelSablon.satirUzunlugu,
-    alanlar: data.ozelSablon.alanlar,
-    dersler: data.ozelSablon.dersler,
-  }] : []);
+  
+  const [savedTemplates, setSavedTemplates] = useState<any[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('optik_sablon_library');
+    if (saved) {
+      try {
+        setSavedTemplates(JSON.parse(saved));
+      } catch (e) {
+        console.error('Template loading error:', e);
+      }
+    }
+  }, []);
+
+  // Save to localStorage when changed
+  useEffect(() => {
+    if (savedTemplates.length > 0) {
+      localStorage.setItem('optik_sablon_library', JSON.stringify(savedTemplates));
+    }
+  }, [savedTemplates]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SYNC TO WIZARD - Her değişiklikte onChange çağır

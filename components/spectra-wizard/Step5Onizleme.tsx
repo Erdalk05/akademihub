@@ -294,21 +294,21 @@ export function Step5Onizleme({
             <TrendingUp size={18} />
             <span className="text-sm font-medium">Ortalama Net</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{istatistikler.ortalamaNet}</p>
+          <p className="text-2xl font-bold text-gray-900">{String(istatistikler.ortalamaNet)}</p>
         </div>
         <div className="p-4 bg-white rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <Trophy size={18} />
             <span className="text-sm font-medium">En Yüksek</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{istatistikler.enYuksekNet}</p>
+          <p className="text-2xl font-bold text-gray-900">{String(istatistikler.enYuksekNet)}</p>
         </div>
         <div className="p-4 bg-white rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 text-amber-600 mb-2">
             <BarChart3 size={18} />
             <span className="text-sm font-medium">Medyan</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{istatistikler.medyan}</p>
+          <p className="text-2xl font-bold text-gray-900">{String(istatistikler.medyan)}</p>
         </div>
         <div className="p-4 bg-white rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 text-purple-600 mb-2">
@@ -382,8 +382,12 @@ export function Step5Onizleme({
                     onClick={() => handleToggleStudent(i)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800">{sonuc.ogrenciAdi}</span>
-                      <span className="text-gray-400 text-sm">{sonuc.sinif || '-'}</span>
+                      <span className="font-semibold text-gray-800">
+                        {typeof sonuc.ogrenciAdi === 'object' ? 'Hatalı Veri' : String(sonuc.ogrenciAdi)}
+                      </span>
+                      <span className="text-gray-400 text-sm">
+                        {sonuc.sinif ? (typeof sonuc.sinif === 'object' ? '?' : String(sonuc.sinif)) : '-'}
+                      </span>
                       {sonuc.kitapcik && (
                         <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full font-bold">
                           Kitapçık {sonuc.kitapcik}
@@ -404,10 +408,10 @@ export function Step5Onizleme({
                       <span className="text-gray-500 font-bold">{sonuc.toplamBos}</span>
                     </div>
                     <div className="px-3 py-1 bg-slate-800 text-white rounded font-bold min-w-[60px] text-center">
-                      {sonuc.toplamNet}
+                      {typeof sonuc.toplamNet === 'object' ? '?' : String(sonuc.toplamNet)}
                     </div>
                     <div className="px-3 py-1 bg-blue-600 text-white rounded font-bold min-w-[70px] text-center">
-                      {sonuc.tahminiPuan || '-'}
+                      {typeof sonuc.tahminiPuan === 'object' ? '?' : String(sonuc.tahminiPuan || '-')}
                     </div>
 
                     {/* Düzenle Butonu */}
@@ -561,7 +565,7 @@ export function Step5Onizleme({
                                   <span className="text-[9px] absolute -top-1.5 -left-1.5 bg-slate-600 text-white w-4 h-4 rounded-full flex items-center justify-center font-normal">
                                     {cevap.soruNo}
                                   </span>
-                                  <span className="text-sm">{currentCevap || '-'}</span>
+                                  <span className="text-sm">{currentCevap ? String(currentCevap) : '-'}</span>
                                 </div>
                               );
                             })}
