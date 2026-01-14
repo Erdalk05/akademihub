@@ -1,173 +1,149 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import { Loader2, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
-import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { useSpectraDetail, useOrganizationTrend } from '@/hooks/spectra-detail';
-import { useStudentFilters } from '@/hooks/spectra-detail/useStudentFilters';
-import {
-  SpectraHeader,
-  SummaryCards,
-  MatchWarningBanner,
-  DistributionCharts,
-  StudentRankingTable,
-  ClassComparison,
-  SubjectPerformanceTable,
-  TopPerformersCards,
-  OrganizationTrendChart,
-} from '@/components/spectra-detail';
-import { exportToExcel, exportToPDF } from '@/lib/spectra-detail';
+// ============================================================================
+// SPECTRA - SINAV DETAY SAYFASI (v3.0 - Geçici Sade Versiyon)
+// Eksik component bağımlılıkları kaldırıldı
+// ============================================================================
 
-// ============================================================================
-// SPECTRA - SINAV DETAY SAYFASI
-// Ana sayfa - tüm component'leri birleştirir
-// ============================================================================
+import React, { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  Loader2,
+  AlertTriangle,
+  ArrowLeft,
+  FileText,
+  Users,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  Building2,
+} from 'lucide-react';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
+import { getBrowserClient } from '@/lib/supabase/client';
+import toast from 'react-hot-toast';
+import { cn } from '@/lib/utils';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ExamDetail {
+  id: string;
+  name: string;
+  exam_date: string;
+  exam_type: string;
+  grade_level?: string;
+  total_questions?: number;
+  description?: string;
+  status?: string;
+}
+
+interface ExamStats {
+  participantCount: number;
+  averageNet: number;
+  maxNet: number;
+  minNet: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function SpectraExamDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const examId = params.examId as string;
-  const { currentOrganization } = useOrganizationStore();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { currentOrganization, _hasHydrated } = useOrganizationStore();
 
-  // Ana veri hook'u
-  const { data, isLoading, error, refetch } = useSpectraDetail({
-    examId,
-    organizationId: currentOrganization?.id,
-  });
+  const [exam, setExam] = useState<ExamDetail | null>(null);
+  const [stats, setStats] = useState<ExamStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Kurum trend hook'u
-  const {
-    trends,
-    isLoading: trendLoading,
-    trendDirection,
-    trendPercentage,
-  } = useOrganizationTrend({
-    organizationId: currentOrganization?.id,
-    examId,
-    limit: 5,
-  });
+  // ─────────────────────────────────────────────────────────────────────────
+  // DATA FETCHING
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Filtreleme hook'u
-  const filterHook = useStudentFilters({
-    rows: data?.tableRows || [],
-  });
+  useEffect(() => {
+    const fetchExam = async () => {
+      if (!examId || !currentOrganization?.id) {
+        setIsLoading(false);
+        return;
+      }
 
-  // Sınıf seçeneklerini oluştur
-  const classOptions = useMemo(() => {
-    if (!data?.statistics.classAverages) return [];
-    return data.statistics.classAverages.map((c) => ({
-      value: c.className,
-      label: c.className,
-    }));
-  }, [data?.statistics.classAverages]);
+      try {
+        setIsLoading(true);
+        setError(null);
+        const supabase = getBrowserClient();
 
-  // Sınıf ortalamalarını Map'e çevir
-  const classAveragesMap = useMemo(() => {
-    const map = new Map<string, number>();
-    data?.statistics.classAverages.forEach((c) => {
-      map.set(c.className, c.averageNet);
-    });
-    return map;
-  }, [data?.statistics.classAverages]);
+        // Fetch exam
+        const { data: examData, error: examError } = await supabase
+          .from('exams')
+          .select('*')
+          .eq('id', examId)
+          .eq('organization_id', currentOrganization.id)
+          .single();
 
-  // Ders ortalamalarını Map'e çevir
-  const sectionAveragesMap = useMemo(() => {
-    const map = new Map<string, number>();
-    data?.statistics.sectionAverages.forEach((s) => {
-      map.set(s.sectionId, s.averageNet);
-    });
-    return map;
-  }, [data?.statistics.sectionAverages]);
+        if (examError) {
+          setError('Sınav bulunamadı');
+          setExam(null);
+          return;
+        }
 
-  // Toplam D/Y/B hesapla
-  const totals = useMemo(() => {
-    if (!data?.tableRows || data.tableRows.length === 0) {
-      return { correct: 0, wrong: 0, blank: 0 };
+        setExam(examData);
+
+        // Fetch basic stats (participant count)
+        const { count } = await supabase
+          .from('exam_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('exam_id', examId);
+
+        setStats({
+          participantCount: count || 0,
+          averageNet: 0,
+          maxNet: 0,
+          minNet: 0,
+        });
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError('Bağlantı hatası');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (_hasHydrated) {
+      fetchExam();
     }
-    return data.tableRows.reduce(
-      (acc, row) => ({
-        correct: acc.correct + row.totalCorrect,
-        wrong: acc.wrong + row.totalWrong,
-        blank: acc.blank + row.totalBlank,
-      }),
-      { correct: 0, wrong: 0, blank: 0 }
-    );
-  }, [data?.tableRows]);
+  }, [examId, currentOrganization?.id, _hasHydrated]);
 
-  // Refresh handler
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER - Loading
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Excel export handler
-  const handleExportExcel = useCallback(async () => {
-    if (!data) return;
-    try {
-      await exportToExcel({
-        exam: data.exam,
-        sections: data.sections,
-        rows: data.tableRows,
-        statistics: data.statistics,
-        organizationName: currentOrganization?.name || 'AkademiHub',
-      });
-    } catch (error) {
-      console.error('Excel export error:', error);
-      alert('Excel export sırasında bir hata oluştu.');
-    }
-  }, [data, currentOrganization?.name]);
-
-  // PDF export handler
-  const handleExportPDF = useCallback(async () => {
-    if (!data) return;
-    try {
-      await exportToPDF({
-        exam: data.exam,
-        sections: data.sections,
-        rows: data.tableRows,
-        statistics: data.statistics,
-        organizationName: currentOrganization?.name || 'AkademiHub',
-      });
-    } catch (error) {
-      console.error('PDF export error:', error);
-      alert('PDF export sırasında bir hata oluştu.');
-    }
-  }, [data, currentOrganization?.name]);
-
-  // Share handler (WhatsApp)
-  const handleShare = useCallback(() => {
-    if (!data) return;
-    const text = `📊 ${data.exam.name} Sonuçları\n\n` +
-      `👥 Katılımcı: ${data.statistics.totalParticipants}\n` +
-      `📈 Ortalama Net: ${data.statistics.averageNet.toFixed(1)}\n` +
-      `🏆 En Yüksek: ${data.statistics.maxNet.toFixed(1)}\n` +
-      `📉 En Düşük: ${data.statistics.minNet.toFixed(1)}\n\n` +
-      `🔗 ${window.location.href}`;
-    
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(whatsappUrl, '_blank');
-  }, [data]);
-
-  // Loading state
-  if (isLoading) {
+  if (!_hasHydrated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+          <p className="text-gray-500">Sınav yükleniyor...</p>
+        </div>
       </div>
     );
   }
 
-  // Error state
-  if (error || !data) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER - Error
+  // ─────────────────────────────────────────────────────────────────────────
+
+  if (error || !exam) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
         <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
         <h2 className="text-xl font-bold text-gray-800 mb-2">Sınav Bulunamadı</h2>
         <p className="text-gray-500 mb-4 text-center">
-          {error?.message || 'Bu sınav mevcut değil veya silinmiş olabilir.'}
+          {error || 'Bu sınav mevcut değil veya silinmiş olabilir.'}
         </p>
         <Link
           href="/admin/spectra/sinavlar"
@@ -179,96 +155,142 @@ export default function SpectraExamDetailPage() {
     );
   }
 
-  // Toplam soru sayısı
-  const totalQuestions = data.sections.reduce((sum, s) => sum + s.question_count, 0) || 90;
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER - Success
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <SpectraHeader
-        exam={data.exam}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        onExportExcel={handleExportExcel}
-        onExportPDF={handleExportPDF}
-        onShare={handleShare}
-      />
+      <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] text-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-2xl font-black">{exam.name}</h1>
+              <div className="flex items-center gap-3 text-white/80 text-sm mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(exam.exam_date).toLocaleDateString('tr-TR')}
+                </span>
+                <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium">
+                  {exam.exam_type}
+                </span>
+                {exam.grade_level && (
+                  <span>{exam.grade_level}. Sınıf</span>
+                )}
+              </div>
+            </div>
+          </div>
 
+          {/* Organization Badge */}
+          {currentOrganization && (
+            <div className="flex items-center gap-2 text-sm text-white/80">
+              <Building2 className="w-4 h-4" />
+              {currentOrganization.name}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        {/* Eşleşme Uyarısı */}
-        <MatchWarningBanner
-          pendingCount={data.statistics.pendingMatchCount}
-          onOpenModal={() => {
-            // TODO: Eşleştirme modalı
-            alert('Eşleştirme modalı - yakında!');
-          }}
-        />
-
-        {/* 1. Özet Kartları (8 kart) */}
-        <SummaryCards statistics={data.statistics} totalQuestions={totalQuestions} />
-
-        {/* 2. Ders Bazlı Performans Tablosu */}
-        <SubjectPerformanceTable
-          sectionAverages={data.statistics.sectionAverages}
-          sections={data.sections}
-        />
-
-        {/* 3. Dağılım Grafikleri + Kurum Trend */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <DistributionCharts
-            netDistribution={data.statistics.netDistribution}
-            totalCorrect={totals.correct}
-            totalWrong={totals.wrong}
-            totalBlank={totals.blank}
-            averageNet={data.statistics.averageNet}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard
+            icon={<Users className="w-6 h-6" />}
+            label="Katılımcı"
+            value={stats?.participantCount || 0}
+            color="emerald"
           />
-          <OrganizationTrendChart
-            trends={trends}
-            isLoading={trendLoading}
-            trendDirection={trendDirection}
-            trendPercentage={trendPercentage}
+          <StatCard
+            icon={<BarChart3 className="w-6 h-6" />}
+            label="Ortalama Net"
+            value={stats?.averageNet.toFixed(1) || '—'}
+            color="blue"
+          />
+          <StatCard
+            icon={<TrendingUp className="w-6 h-6" />}
+            label="En Yüksek"
+            value={stats?.maxNet.toFixed(1) || '—'}
+            color="green"
+          />
+          <StatCard
+            icon={<FileText className="w-6 h-6" />}
+            label="Soru Sayısı"
+            value={exam.total_questions || '—'}
+            color="purple"
           />
         </div>
 
-        {/* 4. Sınıf Karşılaştırma (ders bazlı ortalamalar ile) */}
-        <ClassComparison
-          classAverages={data.statistics.classAverages}
-          organizationAverage={data.statistics.averageNet}
-          sections={data.sections}
-        />
+        {/* Placeholder for detailed content */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-10 h-10 text-amber-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Detaylı Analiz Bileşenleri Bekleniyor
+          </h3>
+          <p className="text-gray-500 max-w-md mx-auto mb-6">
+            Bu sayfa şu anda temel bilgileri göstermektedir. Ders bazlı analiz,
+            öğrenci sıralaması ve dağılım grafikleri yakında eklenecektir.
+          </p>
+          <Link
+            href="/admin/spectra/sinavlar"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Sınavlara Dön
+          </Link>
+        </div>
 
-        {/* 5. En İyi/Kötü Performans Kartları */}
-        <TopPerformersCards
-          topStudents={data.statistics.topStudents}
-          bottomStudents={data.statistics.bottomStudents}
-        />
-
-        {/* 6. Öğrenci Sıralama Tablosu (sticky kolonlarla) */}
-        <StudentRankingTable
-          rows={filterHook.paginatedRows}
-          sections={data.sections}
-          classOptions={classOptions}
-          search={filterHook.filters.search}
-          onSearchChange={filterHook.setSearch}
-          classId={filterHook.filters.classId}
-          onClassChange={filterHook.setClassId}
-          participantType={filterHook.filters.participantType}
-          onParticipantTypeChange={filterHook.setParticipantType}
-          sortBy={filterHook.filters.sortBy}
-          onSortByChange={filterHook.setSortBy}
-          sortOrder={filterHook.filters.sortOrder}
-          onSortOrderChange={filterHook.setSortOrder}
-          currentPage={filterHook.currentPage}
-          pageSize={filterHook.pageSize}
-          totalPages={filterHook.totalPages}
-          totalCount={filterHook.filteredRows.length}
-          onPageChange={filterHook.setCurrentPage}
-          onPageSizeChange={filterHook.setPageSize}
-          classAverages={classAveragesMap}
-          sectionAverages={sectionAveragesMap}
-        />
+        {/* Debug Info */}
+        <div className="p-4 bg-gray-100 rounded-xl text-xs font-mono text-gray-600">
+          <p><strong>Debug:</strong></p>
+          <p>Exam ID: {exam.id}</p>
+          <p>Organization ID: {currentOrganization?.id}</p>
+          <p>Exam Data: {JSON.stringify(exam, null, 2)}</p>
+        </div>
       </div>
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color: 'emerald' | 'blue' | 'green' | 'purple';
+}
+
+function StatCard({ icon, label, value, color }: StatCardProps) {
+  const colorClasses = {
+    emerald: 'bg-emerald-100 text-emerald-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    purple: 'bg-purple-100 text-purple-600',
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-center gap-3">
+        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', colorClasses[color])}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-2xl font-bold text-gray-900">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
