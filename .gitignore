@@ -8,3 +8,16 @@ build
 .vercel
 *.log
 .DS_Store
+# ===============================
+# Spectra legacy / temp (DO NOT COMMIT)
+# ===============================
+
+.env.local.template.bak
+supabase/.temp/
+
+lib/exam/
+lib/spectra/
+lib/spectra-scoring/
+
+components/settings/ScoringRulesSettings.tsx
+
