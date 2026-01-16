@@ -80,7 +80,7 @@ interface Stats {
   min_net: number;
 }
 
-interface ErrorState {
+type ErrorState = {
   message: string;
   statusCode?: number;
 } | null;

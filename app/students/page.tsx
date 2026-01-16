@@ -232,9 +232,15 @@ function StudentsContent() {
 
   // ✅ TEK FETCH FONKSİYONU - Data Provider ile (Offline destekli)
   const fetchStudents = useCallback(async (signal?: AbortSignal, forceRefresh: boolean = false) => {
-    // Organization hazır değilse çık
+    // ✅ GUARD: Organization hazır değilse çık
     if (!isAllOrganizations && !currentOrganization?.id) {
-      console.log('[STUDENTS] ⏳ Org hazır değil, bekleniyor...');
+      console.warn('[STUDENTS] ⚠️ organizationId NULL - API çağrısı atlanıyor. Org store kontrol edin.');
+      return;
+    }
+    
+    // ✅ GUARD: Academic year kontrolü
+    if (!selectedYear) {
+      console.warn('[STUDENTS] ⚠️ academicYear NULL - API çağrısı atlanıyor.');
       return;
     }
     
@@ -251,6 +257,7 @@ function StudentsContent() {
       // ✅ YENİ: Data Provider kullan (Online/Offline otomatik yönetim)
       const result = await getStudentsCached({
         organizationId: !isAllOrganizations ? currentOrganization?.id : undefined,
+        academicYear: selectedYear || undefined,
         page: currentPage,
         limit: pageSize,
         search: debouncedSearch || undefined,

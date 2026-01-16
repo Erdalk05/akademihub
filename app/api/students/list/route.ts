@@ -36,6 +36,17 @@ export async function GET(req: NextRequest) {
     
     const offset = (page - 1) * pageSize;
     
+    // ✅ GUARD: organizationId NULL olamaz
+    if (!organizationId) {
+      console.warn('[STUDENTS_LIST] ⚠️ organizationId NULL - boş liste dönülüyor');
+      return NextResponse.json({
+        success: true,
+        data: [],
+        pagination: { total: 0, page: 1, pageSize: 15, totalPages: 0 },
+        stats: { totalActive: 0, withDebt: 0, paid: 0, critical: 0, deleted: 0 }
+      }, { status: 200 });
+    }
+    
     const supabase = getEdgeSupabaseClient();
     
     console.log('[STUDENTS_LIST] ⏱️ RPC çağrılıyor...', { organizationId, academicYear, page, pageSize });

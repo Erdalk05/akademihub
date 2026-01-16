@@ -192,7 +192,7 @@ export async function POST(
     const failed = results.filter((r: any) => r.error_code);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 7️⃣ SONUÇLARI exam_results TABLOSUNA YAZ (v2.0 YENİ)
+    // 7️⃣ SONUÇLARI exam_results TABLOSUNA YAZ (v2.0 - UPSERT/IDEMPOTENT)
     // ─────────────────────────────────────────────────────────────────────────
 
     // Scoring snapshot oluştur
@@ -206,28 +206,12 @@ export async function POST(
       lesson_weights: scoringConfig.lesson_weights,
     };
 
-    // Önce mevcut sonuçları sil (DELETE)
-    const { error: deleteError } = await supabase
-      .from('exam_results')
-      .delete()
-      .eq('exam_id', examId);
-
-    if (deleteError) {
-      console.error('[Recalculate] Delete error:', deleteError);
-      // Devam et - yeni kayıt eklenebilir
-    }
-
-    // Başarılı sonuçları INSERT
+    // UPSERT başarılı sonuçlar (idempotent - exam_participant_id UNIQUE)
     if (successful.length > 0) {
       const examResultsRows = successful.map((result: any, index: number) => {
         const studentData = studentsAnswers[index];
         return {
-          exam_id: examId,
-          student_answer_id: studentData.student_answer_id,
-          student_id: result.student_id || null,
-          participant_name: studentData.participant_name,
-          participant_identifier: result.participant_identifier,
-          booklet_type: studentData.booklet_type,
+          exam_participant_id: studentData.exam_participant_id,
           total_correct: result.total_correct,
           total_wrong: result.total_wrong,
           total_empty: result.total_empty,
@@ -240,13 +224,12 @@ export async function POST(
         };
       });
 
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('exam_results')
-        .insert(examResultsRows);
+        .upsert(examResultsRows, { onConflict: 'exam_participant_id' });
 
-      if (insertError) {
-        console.error('[Recalculate] Insert error:', insertError);
-        // Hata logla ama response'u bozma (backward compat)
+      if (upsertError) {
+        console.error('[Recalculate] Upsert error:', upsertError);
       }
     }
 

@@ -149,11 +149,67 @@ export async function GET(
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 4.5️⃣ ✅ AUTO-CREATE FALLBACK: Config yoksa exam type'a göre oluştur
+  // ─────────────────────────────────────────────────────────────────────────
+  let finalConfig = config;
+  
+  if (!config) {
+    console.log(`[SCORING] ℹ️ Config yok, exam bilgisi kontrol ediliyor...`);
+    
+    // Exam bilgisini al (exam_type için)
+    const { data: exam } = await supabase
+      .from('exams')
+      .select('exam_type, organization_id')
+      .eq('id', examId)
+      .single();
+    
+    if (exam) {
+      // Exam type'a göre preset belirle
+      const examType = exam.exam_type?.toUpperCase() || 'LGS';
+      const presetName = ['LGS', 'TYT', 'AYT'].includes(examType) ? examType as PresetName : 'LGS';
+      const defaults = PRESET_DEFAULTS[presetName];
+      
+      // Default lesson weights (hepsi 1.0)
+      const defaultWeights: LessonWeight[] = lessons.map(l => ({
+        lesson_id: l.id,
+        weight: 1.0
+      }));
+      
+      // Auto-create config
+      const autoConfig = {
+        organization_id: exam.organization_id,
+        exam_id: examId,
+        scoring_type: 'preset' as const,
+        preset_name: presetName,
+        correct_score: defaults?.correct_score || 1.0,
+        wrong_penalty: defaults?.wrong_penalty || 0.25,
+        empty_score: defaults?.empty_score || 0,
+        cancelled_question_policy: (defaults?.cancelled_question_policy || 'count_as_correct') as CancelledPolicy,
+        lesson_weights: defaultWeights,
+        status: 'draft' as Status,
+      };
+      
+      const { data: createdConfig, error: createError } = await supabase
+        .from('exam_scoring_configs')
+        .insert(autoConfig)
+        .select()
+        .single();
+      
+      if (!createError && createdConfig) {
+        finalConfig = createdConfig;
+        console.log(`[SCORING] ✅ Auto-created ${presetName} config for exam ${examId}`);
+      } else {
+        console.error('[SCORING] ❌ Auto-create failed:', createError);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 5️⃣ Yanıt
   // ─────────────────────────────────────────────────────────────────────────
   return NextResponse.json({
-    exists: !!config,
-    config: config || null,
+    exists: !!finalConfig,
+    config: finalConfig || null,
     lessons: lessons.map((l) => ({
       id: l.id,
       code: l.lesson_code,

@@ -73,7 +73,7 @@ interface ScoringConfig {
   status: Status;
 }
 
-interface ErrorState {
+type ErrorState = {
   message: string;
   statusCode?: number;
 } | null;

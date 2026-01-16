@@ -1,58 +1,37 @@
 'use client';
 
 // ============================================================================
-// SPECTRA - YENİ SINAV EKLE WIZARD (v1.0)
+// SPECTRA - YENİ SINAV EKLE WIZARD (v2.0)
 // Route: /admin/spectra/sihirbaz
-// TEK ve GERÇEK entry point
+// 4 Adımlı sınav oluşturma sihirbazı
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, AlertTriangle, Building2 } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, Building2, CheckCircle } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { WizardHeader, WizardShell } from '@/components/spectra-wizard';
+import { WizardHeader } from '@/components/spectra-wizard';
+import { WizardShell } from './_components/WizardShell';
+import { Step1ExamInfo } from './_steps/Step1ExamInfo';
+import { Step2Lessons } from './_steps/Step2Lessons';
+import { Step3AnswerKey } from './_steps/Step3AnswerKey';
+import { Step4Review } from './_steps/Step4Review';
+import type {
+  WizardState,
+  WizardStep1Data,
+  WizardStep2Data,
+  WizardStep3Data,
+  WizardStep4Data,
+  ExamType,
+  GradeLevel,
+} from '@/lib/spectra/types';
+import toast from 'react-hot-toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// TYPES & CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type WizardStep = 1 | 2 | 3 | 4;
-
-export interface WizardState {
-  currentStep: WizardStep;
-  completedSteps: WizardStep[];
-  // Step 1: Sınav Bilgileri
-  step1: {
-    examName: string;
-    examDate: string;
-    examType: 'LGS' | 'TYT' | 'AYT' | 'DENEME';
-    gradeLevel: number | null;
-    description: string;
-  };
-  // Step 2-4 placeholders (ileride doldurulacak)
-  step2: Record<string, unknown>;
-  step3: Record<string, unknown>;
-  step4: Record<string, unknown>;
-}
-
-const initialWizardState: WizardState = {
-  currentStep: 1,
-  completedSteps: [],
-  step1: {
-    examName: '',
-    examDate: new Date().toISOString().split('T')[0],
-    examType: 'LGS',
-    gradeLevel: 8,
-    description: '',
-  },
-  step2: {},
-  step3: {},
-  step4: {},
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STEP LABELS
-// ─────────────────────────────────────────────────────────────────────────────
+type WizardStep = 1 | 2 | 3 | 4;
 
 const WIZARD_STEPS = [
   { step: 1 as const, label: 'Sınav Bilgileri', description: 'Temel bilgiler' },
@@ -61,6 +40,29 @@ const WIZARD_STEPS = [
   { step: 4 as const, label: 'Onay', description: 'Kaydet' },
 ];
 
+const initialStep1: WizardStep1Data = {
+  examName: '',
+  examDate: new Date().toISOString().split('T')[0],
+  examType: 'LGS',
+  gradeLevel: 8,
+  description: '',
+};
+
+const initialStep2: WizardStep2Data = {
+  lessons: [],
+  totalQuestions: 0,
+};
+
+const initialStep3: WizardStep3Data = {
+  answerKey: [],
+  source: 'manual',
+};
+
+const initialStep4: WizardStep4Data = {
+  confirmed: false,
+  notes: '',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,9 +70,17 @@ const WIZARD_STEPS = [
 export default function SpectraWizardPage() {
   const router = useRouter();
   const { currentOrganization, _hasHydrated } = useOrganizationStore();
-  
-  // Wizard state
-  const [wizardState, setWizardState] = useState<WizardState>(initialWizardState);
+
+  // State
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
+  const [completedSteps, setCompletedSteps] = useState<WizardStep[]>([]);
+  const [step1Data, setStep1Data] = useState<WizardStep1Data>(initialStep1);
+  const [step2Data, setStep2Data] = useState<WizardStep2Data>(initialStep2);
+  const [step3Data, setStep3Data] = useState<WizardStep3Data>(initialStep3);
+  const [step4Data, setStep4Data] = useState<WizardStep4Data>(initialStep4);
+  const [examId, setExamId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   // Client-side hydration
@@ -79,58 +89,192 @@ export default function SpectraWizardPage() {
     console.log('🚀 [SpectraWizard] Sayfa yüklendi');
   }, []);
 
-  // Organization debug
-  useEffect(() => {
-    if (_hasHydrated) {
-      console.log('🏢 [SpectraWizard] Organization objesi:', currentOrganization);
-      console.log('🔑 [SpectraWizard] Organization ID:', currentOrganization?.id || 'YOK');
-    }
-  }, [currentOrganization, _hasHydrated]);
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 1 HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const updateStep1 = useCallback((field: keyof WizardStep1Data, value: string | ExamType | GradeLevel | null) => {
+    setStep1Data((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // NAVIGATION HANDLERS
+  // NAVIGATION
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleBack = () => {
     router.push('/admin/spectra/sinavlar');
   };
 
-  const handleStepChange = (step: WizardStep) => {
-    // Sadece tamamlanmış veya mevcut adıma git
-    if (step <= wizardState.currentStep || wizardState.completedSteps.includes(step)) {
-      setWizardState(prev => ({ ...prev, currentStep: step }));
+  const handleStepClick = (step: WizardStep) => {
+    if (step <= currentStep || completedSteps.includes(step)) {
+      setCurrentStep(step);
     }
   };
 
-  const handleNext = () => {
-    const nextStep = (wizardState.currentStep + 1) as WizardStep;
+  const handleNext = async () => {
+    // Step 1'den geçerken sınav kaydı oluştur
+    if (currentStep === 1 && !examId) {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/spectra/exams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: step1Data.examName,
+            exam_type: step1Data.examType,
+            exam_date: step1Data.examDate,
+            grade_level: step1Data.gradeLevel,
+            description: step1Data.description,
+            organization_id: currentOrganization?.id,
+          }),
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          toast.error(result.message || 'Sınav oluşturulamadı');
+          return;
+        }
+
+        setExamId(result.examId);
+        toast.success('Sınav taslağı oluşturuldu');
+      } catch (error) {
+        console.error('[Wizard] Exam create error:', error);
+        toast.error('Bağlantı hatası');
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Step 2'den geçerken ders config kaydet
+    if (currentStep === 2 && examId) {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/spectra/exams/${examId}/lessons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lessons: step2Data.lessons,
+            total_questions: step2Data.totalQuestions,
+          }),
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          toast.error(result.message || 'Ders dağılımı kaydedilemedi');
+          return;
+        }
+      } catch (error) {
+        console.error('[Wizard] Lessons save error:', error);
+        toast.error('Bağlantı hatası');
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Step 3'ten geçerken cevap anahtarı kaydet
+    if (currentStep === 3 && examId) {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/spectra/exams/${examId}/answer-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: step3Data.answerKey,
+            source: step3Data.source,
+          }),
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          toast.error(result.message || 'Cevap anahtarı kaydedilemedi');
+          return;
+        }
+      } catch (error) {
+        console.error('[Wizard] Answer key save error:', error);
+        toast.error('Bağlantı hatası');
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Sonraki adıma geç
+    const nextStep = (currentStep + 1) as WizardStep;
     if (nextStep <= 4) {
-      setWizardState(prev => ({
-        ...prev,
-        currentStep: nextStep,
-        completedSteps: prev.completedSteps.includes(prev.currentStep)
-          ? prev.completedSteps
-          : [...prev.completedSteps, prev.currentStep],
-      }));
+      if (!completedSteps.includes(currentStep)) {
+        setCompletedSteps((prev) => [...prev, currentStep]);
+      }
+      setCurrentStep(nextStep);
     }
   };
 
   const handlePrev = () => {
-    const prevStep = (wizardState.currentStep - 1) as WizardStep;
+    const prevStep = (currentStep - 1) as WizardStep;
     if (prevStep >= 1) {
-      setWizardState(prev => ({ ...prev, currentStep: prevStep }));
+      setCurrentStep(prevStep);
     }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 1 DATA HANDLERS
+  // SAVE (Final Step)
   // ─────────────────────────────────────────────────────────────────────────
 
-  const updateStep1 = (field: keyof WizardState['step1'], value: string | number | null) => {
-    setWizardState(prev => ({
-      ...prev,
-      step1: { ...prev.step1, [field]: value },
-    }));
+  const handleSave = async () => {
+    if (!examId || !step4Data.confirmed) {
+      toast.error('Lütfen onay kutusunu işaretleyin');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      // Sınav durumunu "ready" yap
+      const response = await fetch(`/api/spectra/exams/${examId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'ready',
+          total_questions: step2Data.totalQuestions,
+        }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        toast.error(result.message || 'Sınav kaydedilemedi');
+        return;
+      }
+
+      toast.success('Sınav başarıyla oluşturuldu!');
+
+      // Sınav detay sayfasına yönlendir
+      router.push(`/admin/spectra/sinavlar/${examId}`);
+    } catch (error) {
+      console.error('[Wizard] Save error:', error);
+      toast.error('Bağlantı hatası');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // VALIDATION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const canGoNext = (): boolean => {
+    switch (currentStep) {
+      case 1:
+        return step1Data.examName.trim().length > 0 && !!step1Data.examDate && !!step1Data.examType;
+      case 2:
+        return step2Data.lessons.length > 0 && step2Data.totalQuestions > 0;
+      case 3:
+        return step3Data.answerKey.length > 0;
+      case 4:
+        return step4Data.confirmed;
+      default:
+        return false;
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -180,7 +324,7 @@ export default function SpectraWizardPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4">
@@ -199,6 +343,12 @@ export default function SpectraWizardPage() {
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Building2 className="w-4 h-4" />
                   <span>{currentOrganization.name}</span>
+                  {examId && (
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Taslak
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -215,166 +365,72 @@ export default function SpectraWizardPage() {
       {/* Wizard Header (Steps) */}
       <WizardHeader
         steps={WIZARD_STEPS}
-        currentStep={wizardState.currentStep}
-        completedSteps={wizardState.completedSteps}
-        onStepClick={handleStepChange}
+        currentStep={currentStep}
+        completedSteps={completedSteps}
+        onStepClick={handleStepClick}
       />
 
       {/* Wizard Content */}
-      <WizardShell
-        currentStep={wizardState.currentStep}
-        onNext={handleNext}
-        onPrev={handlePrev}
-        canGoNext={wizardState.step1.examName.trim().length > 0}
-        canGoPrev={wizardState.currentStep > 1}
-        isLastStep={wizardState.currentStep === 4}
-      >
-        {/* Step 1: Sınav Bilgileri */}
-        {wizardState.currentStep === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Sınav Bilgileri</h2>
-              <p className="text-sm text-gray-500">Sınavın temel bilgilerini girin</p>
-            </div>
+      <div className="flex-1">
+        <WizardShell
+          currentStep={currentStep}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          onSave={handleSave}
+          canGoNext={canGoNext()}
+          canGoPrev={currentStep > 1}
+          isLoading={isLoading}
+          isSaving={isSaving}
+          isLastStep={currentStep === 4}
+          nextLabel={
+            currentStep === 1
+              ? 'Devam Et'
+              : currentStep === 2
+                ? 'Cevap Anahtarı'
+                : currentStep === 3
+                  ? 'Onay'
+                  : 'Kaydet'
+          }
+        >
+          {/* Step 1: Sınav Bilgileri */}
+          {currentStep === 1 && (
+            <Step1ExamInfo
+              data={step1Data}
+              onChange={updateStep1}
+            />
+          )}
 
-            {/* Sınav Adı */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınav Adı <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={wizardState.step1.examName}
-                onChange={(e) => updateStep1('examName', e.target.value)}
-                placeholder="Örn: LGS Deneme #5"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-              />
-            </div>
+          {/* Step 2: Dersler */}
+          {currentStep === 2 && (
+            <Step2Lessons
+              data={step2Data}
+              examType={step1Data.examType}
+              onChange={setStep2Data}
+            />
+          )}
 
-            {/* Sınav Tarihi & Türü */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sınav Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={wizardState.step1.examDate}
-                  onChange={(e) => updateStep1('examDate', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sınav Türü
-                </label>
-                <select
-                  value={wizardState.step1.examType}
-                  onChange={(e) => updateStep1('examType', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
-                >
-                  <option value="LGS">LGS</option>
-                  <option value="TYT">TYT</option>
-                  <option value="AYT">AYT</option>
-                  <option value="DENEME">Kurum Denemesi</option>
-                </select>
-              </div>
-            </div>
+          {/* Step 3: Cevap Anahtarı */}
+          {currentStep === 3 && (
+            <Step3AnswerKey
+              data={step3Data}
+              lessonsData={step2Data}
+              onChange={setStep3Data}
+            />
+          )}
 
-            {/* Sınıf Seviyesi */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf Seviyesi
-              </label>
-              <select
-                value={wizardState.step1.gradeLevel || ''}
-                onChange={(e) => updateStep1('gradeLevel', e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
-              >
-                <option value="">Seçiniz</option>
-                <option value="4">4. Sınıf</option>
-                <option value="5">5. Sınıf</option>
-                <option value="6">6. Sınıf</option>
-                <option value="7">7. Sınıf</option>
-                <option value="8">8. Sınıf</option>
-                <option value="9">9. Sınıf</option>
-                <option value="10">10. Sınıf</option>
-                <option value="11">11. Sınıf</option>
-                <option value="12">12. Sınıf</option>
-              </select>
-            </div>
-
-            {/* Açıklama */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Açıklama (Opsiyonel)
-              </label>
-              <textarea
-                value={wizardState.step1.description}
-                onChange={(e) => updateStep1('description', e.target.value)}
-                placeholder="Sınav hakkında notlar..."
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
-              />
-            </div>
-
-            {/* Debug Info (Development) */}
-            <div className="p-4 bg-gray-100 rounded-xl text-xs font-mono text-gray-600">
-              <p><strong>Debug:</strong></p>
-              <p>Organization ID: {currentOrganization.id}</p>
-              <p>Organization Name: {currentOrganization.name}</p>
-              <p>Step 1 Data: {JSON.stringify(wizardState.step1, null, 2)}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Dersler (Placeholder) */}
-        {wizardState.currentStep === 2 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">📚</span>
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Dersler</h2>
-            <p className="text-gray-500">Bu adım henüz geliştirilmedi</p>
-          </div>
-        )}
-
-        {/* Step 3: Cevap Anahtarı (Placeholder) */}
-        {wizardState.currentStep === 3 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">✅</span>
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Cevap Anahtarı</h2>
-            <p className="text-gray-500">Bu adım henüz geliştirilmedi</p>
-          </div>
-        )}
-
-        {/* Step 4: Onay (Placeholder) */}
-        {wizardState.currentStep === 4 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🚀</span>
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Onay & Kaydet</h2>
-            <p className="text-gray-500">Bu adım henüz geliştirilmedi</p>
-          </div>
-        )}
-      </WizardShell>
+          {/* Step 4: Onay & Kaydet */}
+          {currentStep === 4 && (
+            <Step4Review
+              step1Data={step1Data}
+              step2Data={step2Data}
+              step3Data={step3Data}
+              step4Data={step4Data}
+              organizationName={currentOrganization.name}
+              onChange={setStep4Data}
+            />
+          )}
+        </WizardShell>
+      </div>
     </div>
   );
 }
-
-/**
- * SPECTRA NEW EXAM WIZARD – v1
- *
- * Bu sayfa /admin/spectra/sihirbaz route'unun TEK ve GERÇEK karşılığıdır.
- * Sidebar, Dashboard ve Sınavlar sayfasındaki tüm linkler buraya gelir.
- * organization context olmadan API çağrısı yapmaz.
- *
- * Adımlar:
- * Step 1 → sınav bilgileri
- * Step 2 → dersler
- * Step 3 → cevap anahtarı
- * Step 4 → onay & submit
- */

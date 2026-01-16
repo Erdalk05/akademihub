@@ -1,50 +1,45 @@
 'use client';
 
 // ============================================================================
-// SPECTRA - SINAV DETAY SAYFASI (v3.0 - Geçici Sade Versiyon)
-// Eksik component bağımlılıkları kaldırıldı
+// SPECTRA - SINAV DETAY SAYFASI (v3.0)
+// Route: /admin/spectra/sinavlar/[examId]
+// Sınav özeti + Sekmeli içerik (Katılımcılar, Optik, Sonuçlar, Ayarlar)
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Loader2,
   AlertTriangle,
   ArrowLeft,
-  FileText,
   Users,
-  Calendar,
+  Upload,
   BarChart3,
-  TrendingUp,
-  Building2,
+  Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { getBrowserClient } from '@/lib/supabase/client';
-import toast from 'react-hot-toast';
+import { ExamHeaderSummary } from './_components/ExamHeaderSummary';
+import { ResultsTable } from './_components/ResultsTable';
+import { ParticipantDetailDrawer } from './_components/ParticipantDetailDrawer';
+import { OpticalUploadPanel } from './_components/OpticalUploadPanel';
 import { cn } from '@/lib/utils';
+import type { ExamSummary, ResultsRow, LessonBreakdown } from '@/lib/spectra/types';
+import toast from 'react-hot-toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ExamDetail {
-  id: string;
-  name: string;
-  exam_date: string;
-  exam_type: string;
-  grade_level?: string;
-  total_questions?: number;
-  description?: string;
-  status?: string;
-}
+type TabId = 'participants' | 'optical' | 'results' | 'settings';
 
-interface ExamStats {
-  participantCount: number;
-  averageNet: number;
-  maxNet: number;
-  minNet: number;
-}
+const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  { id: 'participants', label: 'Katılımcılar', icon: <Users className="w-4 h-4" /> },
+  { id: 'optical', label: 'Optik Yükle', icon: <Upload className="w-4 h-4" /> },
+  { id: 'results', label: 'Sonuçlar', icon: <BarChart3 className="w-4 h-4" /> },
+  { id: 'settings', label: 'Ayarlar', icon: <Settings className="w-4 h-4" /> },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT
@@ -56,67 +51,101 @@ export default function SpectraExamDetailPage() {
   const examId = params.examId as string;
   const { currentOrganization, _hasHydrated } = useOrganizationStore();
 
-  const [exam, setExam] = useState<ExamDetail | null>(null);
-  const [stats, setStats] = useState<ExamStats | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('results');
+  const [summary, setSummary] = useState<ExamSummary | null>(null);
+  const [results, setResults] = useState<ResultsRow[]>([]);
+  const [lessons, setLessons] = useState<{ code: string; name: string }[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<ResultsRow | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DATA FETCHING
+  // FETCH SUMMARY
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const fetchSummary = useCallback(async () => {
+    if (!examId) return;
+
+    try {
+      const response = await fetch(`/api/spectra/exams/${examId}/summary`);
+      const data = await response.json();
+
+      if (data.success) {
+        setSummary(data);
+      } else {
+        console.error('[ExamDetail] Summary error:', data.message);
+      }
+    } catch (error) {
+      console.error('[ExamDetail] Summary fetch error:', error);
+    }
+  }, [examId]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FETCH RESULTS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const fetchResults = useCallback(async (page = 1) => {
+    if (!examId) return;
+
+    try {
+      setIsLoadingResults(true);
+      const response = await fetch(
+        `/api/spectra/exams/${examId}/results?page=${page}&pageSize=25`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setResults(data.rows || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+        if (data.lessons) {
+          setLessons(data.lessons);
+        }
+      }
+    } catch (error) {
+      console.error('[ExamDetail] Results fetch error:', error);
+    } finally {
+      setIsLoadingResults(false);
+    }
+  }, [examId]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INITIAL LOAD
   // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const fetchExam = async () => {
-      if (!examId || !currentOrganization?.id) {
-        setIsLoading(false);
-        return;
-      }
+    const loadData = async () => {
+      if (!examId || !_hasHydrated) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
-        const supabase = getBrowserClient();
-
-        // Fetch exam
-        const { data: examData, error: examError } = await supabase
-          .from('exams')
-          .select('*')
-          .eq('id', examId)
-          .eq('organization_id', currentOrganization.id)
-          .single();
-
-        if (examError) {
-          setError('Sınav bulunamadı');
-          setExam(null);
-          return;
-        }
-
-        setExam(examData);
-
-        // Fetch basic stats (participant count)
-        const { count } = await supabase
-          .from('exam_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('exam_id', examId);
-
-        setStats({
-          participantCount: count || 0,
-          averageNet: 0,
-          maxNet: 0,
-          minNet: 0,
-        });
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setError('Bağlantı hatası');
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+      await Promise.all([fetchSummary(), fetchResults()]);
+      setIsLoading(false);
     };
 
-    if (_hasHydrated) {
-      fetchExam();
-    }
-  }, [examId, currentOrganization?.id, _hasHydrated]);
+    loadData();
+  }, [examId, _hasHydrated, fetchSummary, fetchResults]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleRefresh = () => {
+    fetchSummary();
+    fetchResults(pagination.page);
+    toast.success('Veriler yenilendi');
+  };
+
+  const handleUploadSuccess = () => {
+    fetchSummary();
+    fetchResults(1);
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER - Loading
@@ -134,16 +163,16 @@ export default function SpectraExamDetailPage() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // RENDER - Error
+  // RENDER - Not Found
   // ─────────────────────────────────────────────────────────────────────────
 
-  if (error || !exam) {
+  if (!summary) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
         <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
         <h2 className="text-xl font-bold text-gray-800 mb-2">Sınav Bulunamadı</h2>
         <p className="text-gray-500 mb-4 text-center">
-          {error || 'Bu sınav mevcut değil veya silinmiş olabilir.'}
+          Bu sınav mevcut değil veya silinmiş olabilir.
         </p>
         <Link
           href="/admin/spectra/sinavlar"
@@ -161,136 +190,116 @@ export default function SpectraExamDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] text-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-          <div className="flex items-center gap-4 mb-4">
+      {/* Top Navigation */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between">
             <button
               onClick={() => router.back()}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Geri</span>
             </button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-black">{exam.name}</h1>
-              <div className="flex items-center gap-3 text-white/80 text-sm mt-1">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {new Date(exam.exam_date).toLocaleDateString('tr-TR')}
-                </span>
-                <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium">
-                  {exam.exam_type}
-                </span>
-                {exam.grade_level && (
-                  <span>{exam.grade_level}. Sınıf</span>
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="text-sm font-medium">Yenile</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Header Summary */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        <ExamHeaderSummary summary={summary} />
+      </div>
+
+      {/* Tabs */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex gap-1 overflow-x-auto">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 )}
-              </div>
-            </div>
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        {/* Participants Tab */}
+        {activeTab === 'participants' && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Katılımcı Listesi</h3>
+            <p className="text-gray-500">
+              Toplam {summary.participantCount} katılımcı bulunmaktadır.
+            </p>
+            {/* Participants list can be expanded here */}
           </div>
+        )}
 
-          {/* Organization Badge */}
-          {currentOrganization && (
-            <div className="flex items-center gap-2 text-sm text-white/80">
-              <Building2 className="w-4 h-4" />
-              {currentOrganization.name}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            icon={<Users className="w-6 h-6" />}
-            label="Katılımcı"
-            value={stats?.participantCount || 0}
-            color="emerald"
-          />
-          <StatCard
-            icon={<BarChart3 className="w-6 h-6" />}
-            label="Ortalama Net"
-            value={stats?.averageNet.toFixed(1) || '—'}
-            color="blue"
-          />
-          <StatCard
-            icon={<TrendingUp className="w-6 h-6" />}
-            label="En Yüksek"
-            value={stats?.maxNet.toFixed(1) || '—'}
-            color="green"
-          />
-          <StatCard
-            icon={<FileText className="w-6 h-6" />}
-            label="Soru Sayısı"
-            value={exam.total_questions || '—'}
-            color="purple"
-          />
-        </div>
-
-        {/* Placeholder for detailed content */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-10 h-10 text-amber-600" />
+        {/* Optical Upload Tab */}
+        {activeTab === 'optical' && (
+          <div className="max-w-xl">
+            <OpticalUploadPanel
+              examId={examId}
+              onUploadSuccess={handleUploadSuccess}
+            />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            Detaylı Analiz Bileşenleri Bekleniyor
-          </h3>
-          <p className="text-gray-500 max-w-md mx-auto mb-6">
-            Bu sayfa şu anda temel bilgileri göstermektedir. Ders bazlı analiz,
-            öğrenci sıralaması ve dağılım grafikleri yakında eklenecektir.
-          </p>
-          <Link
-            href="/admin/spectra/sinavlar"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Sınavlara Dön
-          </Link>
-        </div>
+        )}
 
-        {/* Debug Info */}
-        <div className="p-4 bg-gray-100 rounded-xl text-xs font-mono text-gray-600">
-          <p><strong>Debug:</strong></p>
-          <p>Exam ID: {exam.id}</p>
-          <p>Organization ID: {currentOrganization?.id}</p>
-          <p>Exam Data: {JSON.stringify(exam, null, 2)}</p>
-        </div>
+        {/* Results Tab */}
+        {activeTab === 'results' && (
+          <ResultsTable
+            rows={results}
+            lessons={lessons}
+            isLoading={isLoadingResults}
+            pagination={pagination}
+            onPageChange={(page) => fetchResults(page)}
+            onRowClick={(row) => setSelectedParticipant(row)}
+          />
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Puanlama Ayarları</h3>
+            <p className="text-gray-500">
+              Puanlama kuralları ve ders ağırlıkları burada düzenlenebilir.
+            </p>
+            <Link
+              href={`/spectra/exams/${examId}/step-4-scoring`}
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Puanlama Ayarlarını Düzenle
+            </Link>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  color: 'emerald' | 'blue' | 'green' | 'purple';
-}
-
-function StatCard({ icon, label, value, color }: StatCardProps) {
-  const colorClasses = {
-    emerald: 'bg-emerald-100 text-emerald-600',
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600',
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <div className="flex items-center gap-3">
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', colorClasses[color])}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-      </div>
+      {/* Participant Detail Drawer */}
+      <ParticipantDetailDrawer
+        participant={selectedParticipant}
+        isOpen={!!selectedParticipant}
+        onClose={() => setSelectedParticipant(null)}
+        lessons={lessons}
+      />
     </div>
   );
 }
