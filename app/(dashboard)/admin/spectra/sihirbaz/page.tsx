@@ -206,11 +206,17 @@ export default function SpectraWizardPage() {
 
     // Sonraki adıma geç
     const nextStep = (currentStep + 1) as WizardStep;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleNext:stepTransition',message:'Transitioning to next step',data:{currentStep,nextStep,willTransition:nextStep<=4,completedSteps},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
+    // #endregion
     if (nextStep <= 4) {
       if (!completedSteps.includes(currentStep)) {
         setCompletedSteps((prev) => [...prev, currentStep]);
       }
       setCurrentStep(nextStep);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleNext:stepSet',message:'Step state updated',data:{newStep:nextStep},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
+      // #endregion
     }
   };
 
