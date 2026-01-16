@@ -108,7 +108,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     });
 
-    // 6. Katılımcıları işle
+    // 6. Öğrenci eşleştirmesi yap
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, student_no, first_name, last_name')
+      .eq('organization_id', exam.organization_id);
+
+    const studentMap = new Map<string, string>();
+    students?.forEach(s => {
+      studentMap.set(s.student_no, s.id);
+    });
+
+    // 7-10. Her katılımcı için tek tek UPSERT yap
     const result: OpticalUploadResult = {
       insertedParticipants: 0,
       insertedResults: 0,
@@ -117,141 +128,122 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       warnings: [],
     };
 
-    const participantsToInsert: any[] = [];
-    const resultsToInsert: any[] = [];
-
     for (const satir of parseResult.satirlar) {
       if (satir.hatalar.some(h => typeof h === 'object' && h.seviye === 'error')) {
         result.errors.push(`Satır ${satir.satirNo}: Parse hatası`);
         continue;
       }
 
-      // Katılımcı verisi
+      // 7. Katılımcı payload hazırla
+      const studentId = satir.ogrenciNo ? studentMap.get(satir.ogrenciNo) : null;
       const participantData = {
         exam_id: examId,
         organization_id: exam.organization_id,
-        participant_type: 'guest', // Optikten gelen default olarak guest
+        student_id: studentId,
+        participant_type: studentId ? 'institution' : 'guest',
         participant_name: satir.ogrenciAdi || `Öğrenci ${satir.satirNo}`,
-        guest_name: satir.ogrenciAdi,
+        guest_name: studentId ? null : satir.ogrenciAdi,
         guest_class: satir.sinif,
         class_name: satir.sinif,
-        match_status: 'pending',
+        match_status: studentId ? 'matched' : 'pending',
         answers: JSON.stringify(satir.cevaplar),
         booklet_type: satir.kitapcik,
       };
 
-      participantsToInsert.push({
-        ...participantData,
-        _cevaplar: satir.cevaplar, // Geçici - sonuç hesabı için
-      });
-    }
-
-    // 7. Batch UPSERT katılımcılar (idempotent - exam_id + student_id UNIQUE)
-    if (participantsToInsert.length > 0) {
-      // _cevaplar'ı çıkar
-      const cleanParticipants = participantsToInsert.map(({ _cevaplar, ...rest }) => rest);
-
-      const { data: upsertedParticipants, error: participantError } = await supabase
+      // 8. exam_participants UPSERT + exam_participant_id al
+      const { data: participant, error: participantError } = await supabase
         .from('exam_participants')
-        .upsert(cleanParticipants, { onConflict: 'exam_id,student_id' })
-        .select('id');
+        .upsert(participantData, { onConflict: 'exam_id,student_id' })
+        .select('id')
+        .single();
 
-      if (participantError) {
-        console.error('[OPTICAL] Participant upsert error:', participantError);
-        result.errors.push(`Katılımcı kayıt hatası: ${participantError.message}`);
-      } else {
-        result.insertedParticipants = upsertedParticipants?.length || 0;
+      if (participantError || !participant) {
+        result.errors.push(`Satır ${satir.satirNo}: Katılımcı kaydedilemedi`);
+        continue;
+      }
 
-        // 8. Sonuçları hesapla ve kaydet
-        if (recalculateResults && upsertedParticipants && answerKeys && answerKeys.length > 0) {
-          for (let i = 0; i < upsertedParticipants.length; i++) {
-            const participant = upsertedParticipants[i];
-            const cevaplar = participantsToInsert[i]._cevaplar;
+      const participantId = participant.id;
+      result.insertedParticipants++;
 
-            // Sonuç hesapla
-            let correct = 0;
-            let wrong = 0;
-            let empty = 0;
-            let cancelled = 0;
+      // 9. Sonuç hesapla
+      if (!recalculateResults || !answerKeys || answerKeys.length === 0) {
+        continue;
+      }
 
-            const lessonResults = new Map<string, { correct: number; wrong: number; empty: number; cancelled: number }>();
+      const cevaplar = satir.cevaplar;
 
-            cevaplar.forEach((cevap: AnswerOption, index: number) => {
-              const questionNum = index + 1;
-              const ak = answerKeyMap.get(questionNum);
+      let correct = 0;
+      let wrong = 0;
+      let empty = 0;
+      let cancelled = 0;
 
-              if (!ak) return;
+      const lessonResults = new Map<string, { correct: number; wrong: number; empty: number; cancelled: number }>();
 
-              const lessonCode = ak.section;
-              if (!lessonResults.has(lessonCode)) {
-                lessonResults.set(lessonCode, { correct: 0, wrong: 0, empty: 0, cancelled: 0 });
-              }
-              const lessonResult = lessonResults.get(lessonCode)!;
+      cevaplar.forEach((cevap: AnswerOption, index: number) => {
+        const questionNum = index + 1;
+        const ak = answerKeyMap.get(questionNum);
 
-              if (ak.cancelled) {
-                cancelled++;
-                lessonResult.cancelled++;
-                lessonResult.correct++; // İptal = doğru sayılır
-                correct++;
-              } else if (!cevap) {
-                empty++;
-                lessonResult.empty++;
-              } else if (cevap === ak.answer) {
-                correct++;
-                lessonResult.correct++;
-              } else {
-                wrong++;
-                lessonResult.wrong++;
-              }
-            });
+        if (!ak) return;
 
-            // Net hesapla (4 yanlış = 1 doğru götürür for LGS/TYT)
-            const totalNet = correct - (wrong / 4);
-
-            // Lesson breakdown
-            const lessonBreakdown = Array.from(lessonResults.entries()).map(([code, data]) => ({
-              lesson_code: code,
-              lesson_name: code,
-              correct: data.correct,
-              wrong: data.wrong,
-              empty: data.empty,
-              cancelled: data.cancelled,
-              net: data.correct - (data.wrong / 4),
-            }));
-
-            resultsToInsert.push({
-              exam_participant_id: participant.id,
-              total_correct: correct,
-              total_wrong: wrong,
-              total_empty: empty,
-              total_cancelled: cancelled,
-              total_net: totalNet,
-              total_score: totalNet * 5, // Basit puan hesabı (sonra güncellenebilir)
-              lesson_breakdown: lessonBreakdown,
-              scoring_snapshot: { type: 'auto', penalty: 0.25 },
-              calculated_at: new Date().toISOString(),
-            });
-          }
-
-          // Batch UPSERT sonuçlar (idempotent - exam_participant_id UNIQUE)
-          if (resultsToInsert.length > 0) {
-            const { data: upsertedResults, error: resultsError } = await supabase
-              .from('exam_results')
-              .upsert(resultsToInsert, { onConflict: 'exam_participant_id' })
-              .select('id');
-
-            if (resultsError) {
-              console.error('[OPTICAL] Results upsert error:', resultsError);
-              result.errors.push(`Sonuç kayıt hatası: ${resultsError.message}`);
-            } else {
-              result.insertedResults = upsertedResults?.length || 0;
-            }
-          }
+        const lessonCode = ak.section;
+        if (!lessonResults.has(lessonCode)) {
+          lessonResults.set(lessonCode, { correct: 0, wrong: 0, empty: 0, cancelled: 0 });
         }
+        const lessonResult = lessonResults.get(lessonCode)!;
+
+        if (ak.cancelled) {
+          cancelled++;
+          lessonResult.cancelled++;
+          lessonResult.correct++;
+          correct++;
+        } else if (!cevap) {
+          empty++;
+          lessonResult.empty++;
+        } else if (cevap === ak.answer) {
+          correct++;
+          lessonResult.correct++;
+        } else {
+          wrong++;
+          lessonResult.wrong++;
+        }
+      });
+
+      const totalNet = correct - (wrong / 4);
+
+      const lessonBreakdown = Array.from(lessonResults.entries()).map(([code, data]) => ({
+        lesson_code: code,
+        lesson_name: code,
+        correct: data.correct,
+        wrong: data.wrong,
+        empty: data.empty,
+        cancelled: data.cancelled,
+        net: data.correct - (data.wrong / 4),
+      }));
+
+      // 10. exam_results UPSERT
+      const { error: resultError } = await supabase
+        .from('exam_results')
+        .upsert({
+          exam_participant_id: participantId,
+          total_correct: correct,
+          total_wrong: wrong,
+          total_empty: empty,
+          total_cancelled: cancelled,
+          total_net: totalNet,
+          total_score: totalNet * 5,
+          lesson_breakdown: lessonBreakdown,
+          scoring_snapshot: { type: 'auto', penalty: 0.25 },
+          calculated_at: new Date().toISOString(),
+        }, { onConflict: 'exam_participant_id' });
+
+      if (resultError) {
+        result.errors.push(`Satır ${satir.satirNo}: Sonuç kaydedilemedi`);
+      } else {
+        result.insertedResults++;
       }
     }
 
-    // 9. Sınav istatistiklerini güncelle
+    // 11. Sınav istatistiklerini güncelle
     if (result.insertedParticipants > 0) {
       const { count: totalParticipants } = await supabase
         .from('exam_participants')
@@ -268,7 +260,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .eq('id', examId);
     }
 
-    // 10. Warnings ekle
+    // 12. Warnings ekle
     if (parseResult.uyarilar.length > 0) {
       result.warnings = parseResult.uyarilar.map(u => u.mesaj);
     }
