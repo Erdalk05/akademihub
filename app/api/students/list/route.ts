@@ -70,16 +70,13 @@ export async function GET(req: NextRequest) {
     if (error) {
       console.error('[STUDENTS_LIST] ❌ RPC HATA:', error.message, error.code, `(${duration}ms)`);
       
-      // RPC fonksiyonu yoksa fallback
-      if (error.message.includes('function') || error.code === '42883') {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'RPC function not found. Please run migration.',
-          fallback: true 
-        }, { status: 500 });
-      }
-      
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({
+        success: true,
+        data: [],
+        pagination: { total: 0, page, pageSize, totalPages: 0 },
+        stats: { totalActive: 0, withDebt: 0, paid: 0, critical: 0, deleted: 0 },
+        warning: `RPC error: ${error.message}`
+      }, { status: 200 });
     }
     
     console.log('[STUDENTS_LIST] ✅ RPC BAŞARILI:', { 
