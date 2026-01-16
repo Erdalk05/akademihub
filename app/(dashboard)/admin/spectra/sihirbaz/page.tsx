@@ -119,6 +119,8 @@ export default function SpectraWizardPage() {
   };
 
   const handleNext = async () => {
+    console.log(`[Wizard] Navigating from step ${currentStep} to ${currentStep + 1}`);
+    
     // Step 1'den geçerken sınav kaydı oluştur
     if (currentStep === 1 && !examId && currentOrganization?.id) {
       try {
