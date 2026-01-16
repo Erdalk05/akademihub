@@ -118,10 +118,6 @@ export default function SpectraWizardPage() {
   };
 
   const handleNext = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleNext:entry',message:'handleNext called',data:{currentStep,examId,hasOrg:!!currentOrganization?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-    // #endregion
-    console.log(`[Wizard] Navigating from step ${currentStep} to ${currentStep + 1}`);
     
     // Step 1'den geçerken sınav kaydı oluştur
     if (currentStep === 1 && !examId && currentOrganization?.id) {
@@ -206,17 +202,11 @@ export default function SpectraWizardPage() {
 
     // Sonraki adıma geç
     const nextStep = (currentStep + 1) as WizardStep;
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleNext:stepTransition',message:'Transitioning to next step',data:{currentStep,nextStep,willTransition:nextStep<=4,completedSteps},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-    // #endregion
     if (nextStep <= 4) {
       if (!completedSteps.includes(currentStep)) {
         setCompletedSteps((prev) => [...prev, currentStep]);
       }
       setCurrentStep(nextStep);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleNext:stepSet',message:'Step state updated',data:{newStep:nextStep},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-      // #endregion
     }
   };
 
@@ -384,9 +374,6 @@ export default function SpectraWizardPage() {
 
           {/* Step 2: Dersler */}
           {currentStep === 2 && (
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:render:step2Branch',message:'Step2 render branch active',data:{currentStep,examType:step1Data.examType,lessonsCount:step2Data.lessons.length,totalQuestions:step2Data.totalQuestions},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{}),
-            // #endregion
             <Step2Lessons
               data={step2Data}
               examType={step1Data.examType}

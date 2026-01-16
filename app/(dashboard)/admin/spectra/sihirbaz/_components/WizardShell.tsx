@@ -42,25 +42,16 @@ export function WizardShell({
   prevLabel = 'Geri',
   saveLabel = 'Sınavı Oluştur',
 }: WizardShellProps) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WizardShell.tsx:render',message:'WizardShell rendering',data:{currentStep,isLoading,isSaving,hasChildren:!!children,childrenType:typeof children},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-  // #endregion
   return (
     <div className="flex flex-col h-full">
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {isLoading ? (
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WizardShell.tsx:loading',message:'Showing loading spinner',data:{isLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{}),
-            // #endregion
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
             </div>
           ) : (
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WizardShell.tsx:children',message:'Rendering children',data:{hasChildren:!!children,childrenType:typeof children},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{}),
-            // #endregion
             children
           )}
         </div>

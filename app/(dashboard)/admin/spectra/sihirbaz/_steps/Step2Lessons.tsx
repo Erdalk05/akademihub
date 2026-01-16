@@ -52,21 +52,11 @@ const DEFAULT_LESSONS: Record<ExamType, LessonConfig[]> = {
 };
 
 export default function Step2Lessons({ data, examType, onChange }: Step2LessonsProps) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Step2Lessons.tsx:mount',message:'Step2Lessons component mounted',data:{examType,lessonsCount:data.lessons.length,totalQuestions:data.totalQuestions,hasOnChange:!!onChange},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1,H2,H4'})}).catch(()=>{});
-  // #endregion
-  
   // İlk yüklemede varsayılan dersleri yükle
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Step2Lessons.tsx:useEffect:entry',message:'useEffect triggered',data:{lessonsLength:data.lessons.length,examType,hasDefaults:!!DEFAULT_LESSONS[examType]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     if (data.lessons.length === 0) {
       const defaults = DEFAULT_LESSONS[examType] || DEFAULT_LESSONS.DENEME;
       const total = defaults.reduce((sum, l) => sum + l.question_count, 0);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Step2Lessons.tsx:useEffect:settingDefaults',message:'Setting default lessons',data:{defaultsCount:defaults.length,total},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       onChange({ lessons: defaults, totalQuestions: total });
     }
   }, [examType, data.lessons.length, onChange]);
@@ -132,10 +122,6 @@ export default function Step2Lessons({ data, examType, onChange }: Step2LessonsP
     onChange({ lessons: [...defaults], totalQuestions: total });
   };
 
-  // RENDER: Full step implementation (not a placeholder)
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Step2Lessons.tsx:return',message:'About to return JSX',data:{lessonsCount:data.lessons.length,totalQuestions:data.totalQuestions},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   return (
     <div className="space-y-6">
       {/* Header */}
