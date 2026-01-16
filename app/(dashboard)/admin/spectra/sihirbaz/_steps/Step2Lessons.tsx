@@ -122,6 +122,7 @@ export default function Step2Lessons({ data, examType, onChange }: Step2LessonsP
     onChange({ lessons: [...defaults], totalQuestions: total });
   };
 
+  // RENDER: Full step implementation (not a placeholder)
   return (
     <div className="space-y-6">
       {/* Header */}

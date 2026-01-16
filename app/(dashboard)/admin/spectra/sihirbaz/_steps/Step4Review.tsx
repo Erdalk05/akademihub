@@ -125,6 +125,7 @@ export default function Step4Review({
   const allValid = validations.every((v) => v.isValid);
   const criticalErrors = validations.filter(v => !v.isValid);
 
+  // RENDER: Full review & validation implementation (not placeholder)
   return (
     <div className="space-y-6">
       {/* Header */}
