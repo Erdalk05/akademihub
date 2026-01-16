@@ -1,23 +1,58 @@
-node_modules
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+.next/
+out/
+dist/
+
+# =========================
+# Logs
+# =========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Environment files (ASLA COMMIT ETME)
+# =========================
 .env
 .env.local
-supabase.env
-.next
-out
-build
-.vercel
-*.log
+.env.development
+.env.production
+.env.test
+.env.*
+!.env.example
+!.env.template
+
+# =========================
+# OS / Editor
+# =========================
 .DS_Store
-# ===============================
-# Spectra legacy / temp (DO NOT COMMIT)
-# ===============================
+Thumbs.db
+.vscode/
+.idea/
 
-.env.local.template.bak
-supabase/.temp/
+# =========================
+# Temporary / Backup files
+# =========================
+*.bak
+*.tmp
+*.swp
 
-lib/exam/
-lib/spectra/
-lib/spectra-scoring/
+# =========================
+# Test / Coverage
+# =========================
+coverage/
 
-components/settings/ScoringRulesSettings.tsx
+# =========================
+# Supabase (local only)
+# =========================
+.supabase/
 
+# =========================
+# ❗ ÖNEMLİ NOT
+# lib/, components/, app/ ALTINDAKİ
+# HİÇBİR UYGULAMA KODU IGNORE EDİLMEZ
+# =========================
