@@ -56,3 +56,5 @@ coverage/
 # lib/, components/, app/ ALTINDAKİ
 # HİÇBİR UYGULAMA KODU IGNORE EDİLMEZ
 # =========================
+.vercel
+supabase/.temp
