@@ -34,7 +34,7 @@ const GRADE_LEVELS: { value: GradeLevel; label: string }[] = [
   { value: 'mezun', label: 'Mezun' },
 ];
 
-export function Step1ExamInfo({ data, onChange }: Step1ExamInfoProps) {
+export default function Step1ExamInfo({ data, onChange }: Step1ExamInfoProps) {
   return (
     <div className="space-y-8">
       {/* Header */}

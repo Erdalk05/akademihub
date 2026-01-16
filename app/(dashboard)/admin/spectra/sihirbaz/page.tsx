@@ -12,10 +12,10 @@ import { ArrowLeft, Loader2, AlertTriangle, Building2, CheckCircle } from 'lucid
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { WizardHeader } from '@/components/spectra-wizard';
 import { WizardShell } from './_components/WizardShell';
-import { Step1ExamInfo } from './_steps/Step1ExamInfo';
-import { Step2Lessons } from './_steps/Step2Lessons';
-import { Step3AnswerKey } from './_steps/Step3AnswerKey';
-import { Step4Review } from './_steps/Step4Review';
+import Step1ExamInfo from './_steps/Step1ExamInfo';
+import Step2Lessons from './_steps/Step2Lessons';
+import Step3AnswerKey from './_steps/Step3AnswerKey';
+import Step4Review from './_steps/Step4Review';
 import type {
   WizardState,
   WizardStep1Data,

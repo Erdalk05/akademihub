@@ -38,7 +38,7 @@ interface Step4ReviewProps {
   onChange: (data: WizardStep4Data) => void;
 }
 
-export function Step4Review({
+export default function Step4Review({
   step1Data,
   step2Data,
   step3Data,

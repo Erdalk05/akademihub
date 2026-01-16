@@ -51,7 +51,7 @@ const DEFAULT_LESSONS: Record<ExamType, LessonConfig[]> = {
   ],
 };
 
-export function Step2Lessons({ data, examType, onChange }: Step2LessonsProps) {
+export default function Step2Lessons({ data, examType, onChange }: Step2LessonsProps) {
   // İlk yüklemede varsayılan dersleri yükle
   useEffect(() => {
     if (data.lessons.length === 0) {

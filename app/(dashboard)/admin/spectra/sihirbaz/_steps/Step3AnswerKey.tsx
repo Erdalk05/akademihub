@@ -18,7 +18,7 @@ interface Step3AnswerKeyProps {
 
 const ANSWER_OPTIONS: AnswerOption[] = ['A', 'B', 'C', 'D', 'E'];
 
-export function Step3AnswerKey({ data, lessonsData, onChange }: Step3AnswerKeyProps) {
+export default function Step3AnswerKey({ data, lessonsData, onChange }: Step3AnswerKeyProps) {
   const [inputMode, setInputMode] = useState<'grid' | 'text'>('grid');
   const [textInput, setTextInput] = useState('');
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
