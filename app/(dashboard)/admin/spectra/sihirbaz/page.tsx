@@ -114,6 +114,10 @@ export default function SpectraWizardPage() {
   const handleNext = async () => {
     // Step 1'den geçerken sınav kaydı oluştur
     if (currentStep === 1 && !examId) {
+      if (!currentOrganization?.id) {
+        toast.error('Kurum bilgisi eksik. Lütfen sayfayı yenileyin.');
+        return;
+      }
       try {
         setIsLoading(true);
         const response = await fetch('/api/spectra/exams', {
@@ -125,7 +129,7 @@ export default function SpectraWizardPage() {
             exam_date: step1Data.examDate,
             grade_level: step1Data.gradeLevel,
             description: step1Data.description,
-            organization_id: currentOrganization?.id,
+            organization_id: currentOrganization.id,
           }),
         });
 
