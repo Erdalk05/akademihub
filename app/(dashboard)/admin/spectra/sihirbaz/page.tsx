@@ -10,7 +10,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, AlertTriangle, Building2, CheckCircle } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
-import { WizardHeader } from '@/components/spectra-wizard';
 import { WizardShell } from './_components/WizardShell';
 import Step1ExamInfo from './_steps/Step1ExamInfo';
 import Step2Lessons from './_steps/Step2Lessons';
@@ -343,14 +342,6 @@ export default function SpectraWizardPage() {
           </div>
         </div>
       </div>
-
-      {/* Wizard Header (Steps) */}
-      <WizardHeader
-        steps={WIZARD_STEPS}
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onStepClick={handleStepClick}
-      />
 
       {/* Wizard Content */}
       <div className="flex-1">
