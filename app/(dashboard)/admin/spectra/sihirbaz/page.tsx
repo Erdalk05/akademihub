@@ -112,7 +112,6 @@ export default function SpectraWizardPage() {
   };
 
   const handleNext = async () => {
-    setIsLoading(false);
     // Step 1'den geçerken sınav kaydı oluştur
     if (currentStep === 1 && !examId) {
       try {
