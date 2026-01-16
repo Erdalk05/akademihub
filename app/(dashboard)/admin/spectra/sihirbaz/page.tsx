@@ -135,11 +135,11 @@ export default function SpectraWizardPage() {
           toast.success('Sınav taslağı oluşturuldu');
         } else {
           console.warn('[Wizard] Exam creation failed but continuing:', result.message);
-          toast.warning('Sınav kaydı başarısız ama devam edebilirsiniz');
+          toast('⚠️ Sınav kaydı başarısız ama devam edebilirsiniz', { duration: 4000 });
         }
       } catch (error) {
         console.error('[Wizard] Exam create error:', error);
-        toast.warning('API hatası ama wizard devam ediyor');
+        toast('⚠️ API hatası ama wizard devam ediyor', { duration: 4000 });
       } finally {
         setIsLoading(false);
       }
