@@ -5,7 +5,7 @@
 // Sınav özeti ve son onay
 // ============================================================================
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   CheckCircle2,
   FileText,
@@ -16,6 +16,9 @@ import {
   Building2,
   AlertTriangle,
   Info,
+  X,
+  Shield,
+  Loader2,
 } from 'lucide-react';
 import type {
   WizardStep1Data,
@@ -31,6 +34,7 @@ interface Step4ReviewProps {
   step3Data: WizardStep3Data;
   step4Data: WizardStep4Data;
   organizationName?: string;
+  examId: string | null;
   onChange: (data: WizardStep4Data) => void;
 }
 
@@ -40,44 +44,86 @@ export function Step4Review({
   step3Data,
   step4Data,
   organizationName,
+  examId,
   onChange,
 }: Step4ReviewProps) {
   // İstatistikler
-  const answerKeyStats = {
+  const answerKeyStats = useMemo(() => ({
     total: step3Data.answerKey.length,
     filled: step3Data.answerKey.filter((a) => a.correct_answer !== null).length,
     cancelled: step3Data.answerKey.filter((a) => a.is_cancelled).length,
-  };
+  }), [step3Data.answerKey]);
 
   const isAnswerKeyComplete = answerKeyStats.filled === answerKeyStats.total;
   const isEmpty = answerKeyStats.filled === 0;
 
-  // Validation
-  const validations = [
+  // Boş ders kontrolü
+  const emptyLessons = step2Data.lessons.filter(l => l.question_count <= 0);
+
+  // Eksik cevap anahtarı detayı
+  const missingAnswerCount = answerKeyStats.total - answerKeyStats.filled;
+
+  // Sistem Doğrulamaları (Backend Guard ile uyumlu)
+  const validations = useMemo(() => [
     {
+      id: 'examId',
+      label: 'Sınav Kaydı',
+      value: examId ? 'Oluşturuldu' : 'Eksik',
+      isValid: !!examId,
+      detail: !examId ? 'Sınav taslağı oluşturulmadı' : undefined,
+    },
+    {
+      id: 'organization',
+      label: 'Kurum Bağlantısı',
+      value: organizationName || 'Bağlı değil',
+      isValid: !!organizationName,
+      detail: !organizationName ? 'Kurum seçilmedi' : undefined,
+    },
+    {
+      id: 'examName',
       label: 'Sınav Adı',
-      value: step1Data.examName,
+      value: step1Data.examName || 'Girilmedi',
       isValid: step1Data.examName.trim().length > 0,
     },
     {
+      id: 'examDate',
       label: 'Sınav Tarihi',
-      value: step1Data.examDate,
+      value: step1Data.examDate || 'Belirlenmedi',
       isValid: !!step1Data.examDate,
     },
     {
+      id: 'lessons',
       label: 'Ders Dağılımı',
-      value: `${step2Data.lessons.length} ders, ${step2Data.totalQuestions} soru`,
-      isValid: step2Data.lessons.length > 0 && step2Data.totalQuestions > 0,
+      value: `${step2Data.lessons.length} ders`,
+      isValid: step2Data.lessons.length > 0,
+      detail: step2Data.lessons.length === 0 ? 'En az 1 ders gerekli' : undefined,
     },
     {
-      label: 'Cevap Anahtarı',
-      value: `${answerKeyStats.filled}/${answerKeyStats.total} cevap`,
-      isValid: answerKeyStats.filled > 0,
-      warning: !isAnswerKeyComplete && !isEmpty,
+      id: 'totalQuestions',
+      label: 'Toplam Soru',
+      value: `${step2Data.totalQuestions} soru`,
+      isValid: step2Data.totalQuestions > 0,
+      detail: step2Data.totalQuestions === 0 ? 'En az 1 soru gerekli' : undefined,
     },
-  ];
+    {
+      id: 'emptyLessons',
+      label: 'Boş Ders Kontrolü',
+      value: emptyLessons.length === 0 ? 'Tamamlandı' : `${emptyLessons.length} ders boş`,
+      isValid: emptyLessons.length === 0,
+      detail: emptyLessons.length > 0 ? `Boş dersler: ${emptyLessons.map(l => l.name).join(', ')}` : undefined,
+    },
+    {
+      id: 'answerKey',
+      label: 'Cevap Anahtarı',
+      value: `${answerKeyStats.filled}/${answerKeyStats.total}`,
+      isValid: answerKeyStats.filled === answerKeyStats.total && answerKeyStats.total > 0,
+      warning: !isAnswerKeyComplete && !isEmpty,
+      detail: missingAnswerCount > 0 ? `${missingAnswerCount} cevap eksik` : undefined,
+    },
+  ], [examId, organizationName, step1Data, step2Data, answerKeyStats, emptyLessons, missingAnswerCount, isAnswerKeyComplete, isEmpty]);
 
   const allValid = validations.every((v) => v.isValid);
+  const criticalErrors = validations.filter(v => !v.isValid);
 
   return (
     <div className="space-y-6">
@@ -194,27 +240,41 @@ export function Step4Review({
 
       {/* Validation Checklist */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-        <h4 className="font-semibold text-gray-900 mb-3">Kontrol Listesi</h4>
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-5 h-5 text-gray-600" />
+          <h4 className="font-semibold text-gray-900">Sistem Doğrulamaları</h4>
+          <span className={cn(
+            'ml-auto text-xs font-medium px-2 py-0.5 rounded-full',
+            allValid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+          )}>
+            {allValid ? 'Tamamlandı' : `${criticalErrors.length} hata`}
+          </span>
+        </div>
         <div className="space-y-2">
-          {validations.map((item, index) => (
+          {validations.map((item) => (
             <div
-              key={index}
+              key={item.id}
               className={cn(
                 'flex items-center justify-between p-2 rounded-lg',
                 item.isValid ? 'bg-emerald-50' : 'bg-red-50'
               )}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 {item.isValid ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
                 )}
-                <span className="text-sm text-gray-700">{item.label}</span>
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-700">{item.label}</span>
+                  {item.detail && !item.isValid && (
+                    <span className="text-xs text-red-600">{item.detail}</span>
+                  )}
+                </div>
               </div>
               <span
                 className={cn(
-                  'text-sm font-medium',
+                  'text-sm font-medium text-right',
                   item.isValid ? 'text-emerald-700' : 'text-red-700',
                   item.warning && 'text-amber-700'
                 )}
@@ -241,19 +301,33 @@ export function Step4Review({
       </div>
 
       {/* Confirmation Checkbox */}
-      <label className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100 transition-colors">
+      <label 
+        className={cn(
+          'flex items-start gap-3 p-4 rounded-xl transition-colors',
+          allValid 
+            ? 'bg-emerald-50 border border-emerald-200 cursor-pointer hover:bg-emerald-100' 
+            : 'bg-gray-100 border border-gray-200 cursor-not-allowed opacity-60'
+        )}
+      >
         <input
           type="checkbox"
           checked={step4Data.confirmed}
           onChange={(e) => onChange({ ...step4Data, confirmed: e.target.checked })}
-          className="w-5 h-5 mt-0.5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+          disabled={!allValid}
+          className="w-5 h-5 mt-0.5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50"
         />
         <div>
-          <p className="font-medium text-emerald-900">
-            Bilgileri kontrol ettim, sınavı oluşturmak istiyorum
+          <p className={cn(
+            'font-medium',
+            allValid ? 'text-emerald-900' : 'text-gray-500'
+          )}>
+            Bilgileri kontrol ettim, sınavı aktif etmek istiyorum
           </p>
-          <p className="text-sm text-emerald-700 mt-1">
-            Sınav oluşturulduktan sonra detay sayfasından optik okuma yapabilir ve sonuçları görebilirsiniz.
+          <p className={cn(
+            'text-sm mt-1',
+            allValid ? 'text-emerald-700' : 'text-gray-400'
+          )}>
+            Sınav aktif edildikten sonra optik okuma yapabilir ve sonuçları görebilirsiniz.
           </p>
         </div>
       </label>
@@ -263,20 +337,22 @@ export function Step4Review({
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex gap-3">
           <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-red-800">
-            <strong>Uyarı:</strong> Bazı zorunlu alanlar eksik. 
-            Lütfen yukarıdaki kontrol listesini tamamlayın.
+            <strong>Uyarı:</strong> {criticalErrors.length} zorunlu kontrol başarısız. 
+            Lütfen yukarıdaki hataları düzeltin.
           </div>
         </div>
       )}
 
       {/* Info */}
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex gap-3">
-        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-800">
-          <strong>Not:</strong> Sınav &quot;taslak&quot; olarak oluşturulacak. 
-          Optik okuma yaptıktan ve sonuçları kontrol ettikten sonra yayınlayabilirsiniz.
+      {allValid && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex gap-3">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <strong>Hazır:</strong> Tüm kontroller başarılı. 
+            Onay kutusunu işaretleyip &quot;Sınavı Oluştur&quot; butonuna basarak sınavı aktif edebilirsiniz.
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

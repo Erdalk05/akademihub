@@ -426,6 +426,7 @@ export default function SpectraWizardPage() {
               step3Data={step3Data}
               step4Data={step4Data}
               organizationName={currentOrganization.name}
+              examId={examId}
               onChange={setStep4Data}
             />
           )}
