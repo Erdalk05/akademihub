@@ -300,7 +300,7 @@ export default function SpectraWizardPage() {
   // ORGANIZATION CHECK
   // ─────────────────────────────────────────────────────────────────────────
 
-  if (!currentOrganization?.id) {
+  if (isClient && _hasHydrated && !currentOrganization?.id) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white rounded-2xl shadow-lg border border-amber-200 p-8 max-w-md w-full text-center">
