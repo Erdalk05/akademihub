@@ -91,13 +91,19 @@ export default function Step3AnswerKey({
     }
   }, [bookletAnswers.A.length, lessonsData.totalQuestions, lessonsData.lessons, data, onChange]);
   
-  // Aktif kitapçığın cevaplarını parent'a sync et
+  // Aktif kitapçığın cevaplarını parent'a sync et (sadece kitapçık değiştiğinde)
   useEffect(() => {
     const currentAnswerKey = bookletAnswers[activeBooklet];
-    if (currentAnswerKey.length > 0) {
-      onChange({ ...data, answerKey: currentAnswerKey });
+    if (currentAnswerKey && currentAnswerKey.length > 0) {
+      // Sadece activeBooklet değiştiğinde onChange çağır (infinite loop önleme)
+      onChange({ 
+        answerKey: currentAnswerKey, 
+        source: data.source || 'manual',
+        templateId: data.templateId 
+      });
     }
-  }, [activeBooklet, bookletAnswers, data, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBooklet]); // Sadece activeBooklet dependency
 
   // Tek cevap güncelle
   const updateAnswer = useCallback((questionNumber: number, answer: AnswerOption) => {
@@ -107,14 +113,17 @@ export default function Step3AnswerKey({
           ? { ...item, correct_answer: answer }
           : item
       );
-      const newBookletAnswers = { ...prev, [activeBooklet]: updatedAnswerKey };
       
       // Parent'a güncellenen kitapçığı gönder
-      onChange({ ...data, answerKey: updatedAnswerKey });
+      onChange({ 
+        answerKey: updatedAnswerKey, 
+        source: data.source || 'manual',
+        templateId: data.templateId 
+      });
       
-      return newBookletAnswers;
+      return { ...prev, [activeBooklet]: updatedAnswerKey };
     });
-  }, [activeBooklet, data, onChange]);
+  }, [activeBooklet, data.source, data.templateId, onChange]);
 
   // Soru iptal et
   const toggleCancelled = useCallback((questionNumber: number) => {
@@ -124,14 +133,17 @@ export default function Step3AnswerKey({
           ? { ...item, is_cancelled: !item.is_cancelled }
           : item
       );
-      const newBookletAnswers = { ...prev, [activeBooklet]: updatedAnswerKey };
       
       // Parent'a güncellenen kitapçığı gönder
-      onChange({ ...data, answerKey: updatedAnswerKey });
+      onChange({ 
+        answerKey: updatedAnswerKey, 
+        source: data.source || 'manual',
+        templateId: data.templateId 
+      });
       
-      return newBookletAnswers;
+      return { ...prev, [activeBooklet]: updatedAnswerKey };
     });
-  }, [activeBooklet, data, onChange]);
+  }, [activeBooklet, data.source, data.templateId, onChange]);
 
   // BULK PASTE: Tüm cevapları tek seferde uygula
   const handleBulkApply = useCallback((answers: (AnswerOption | null)[]) => {
@@ -140,14 +152,17 @@ export default function Step3AnswerKey({
         ...item,
         correct_answer: answers[index] || item.correct_answer,
       }));
-      const newBookletAnswers = { ...prev, [activeBooklet]: updatedAnswerKey };
       
       // Parent'a güncellenen kitapçığı gönder
-      onChange({ ...data, answerKey: updatedAnswerKey, source: 'bulk' });
+      onChange({ 
+        answerKey: updatedAnswerKey, 
+        source: 'bulk',
+        templateId: data.templateId 
+      });
       
-      return newBookletAnswers;
+      return { ...prev, [activeBooklet]: updatedAnswerKey };
     });
-  }, [activeBooklet, data, onChange]);
+  }, [activeBooklet, data.templateId, onChange]);
 
   // LESSON QUICK TABLE: Derse cevap uygula
   const handleLessonUpdate = useCallback((lessonCode: string, answers: (AnswerOption | null)[]) => {
@@ -162,14 +177,17 @@ export default function Step3AnswerKey({
           correct_answer: answers[lessonIndex] || item.correct_answer,
         };
       });
-      const newBookletAnswers = { ...prev, [activeBooklet]: updatedAnswerKey };
       
       // Parent'a güncellenen kitapçığı gönder
-      onChange({ ...data, answerKey: updatedAnswerKey, source: 'lesson' });
+      onChange({ 
+        answerKey: updatedAnswerKey, 
+        source: 'lesson',
+        templateId: data.templateId 
+      });
       
-      return newBookletAnswers;
+      return { ...prev, [activeBooklet]: updatedAnswerKey };
     });
-  }, [activeBooklet, data, onChange]);
+  }, [activeBooklet, data.templateId, onChange]);
 
   // LIBRARY: Şablondan yükle
   const handleLibraryLoad = useCallback((loadedAnswerKey: AnswerKeyItem[]) => {
@@ -186,14 +204,17 @@ export default function Step3AnswerKey({
         }
         return item;
       });
-      const newBookletAnswers = { ...prev, [activeBooklet]: updatedAnswerKey };
       
       // Parent'a güncellenen kitapçığı gönder
-      onChange({ ...data, answerKey: updatedAnswerKey, source: 'template' });
+      onChange({ 
+        answerKey: updatedAnswerKey, 
+        source: 'template',
+        templateId: data.templateId 
+      });
       
-      return newBookletAnswers;
+      return { ...prev, [activeBooklet]: updatedAnswerKey };
     });
-  }, [activeBooklet, data, onChange]);
+  }, [activeBooklet, data.templateId, onChange]);
 
   // Ders accordion aç
   const handleExpandLesson = useCallback((lessonCode: string) => {
@@ -297,6 +318,7 @@ export default function Step3AnswerKey({
           LESSON QUICK TABLE
       ───────────────────────────────────────────────────────────────────── */}
       <LessonQuickTable
+        key={`${activeBooklet}-${stats.filled}`}
         lessons={lessonsData.lessons}
         answerKey={currentAnswerKey}
         onUpdateLesson={handleLessonUpdate}
