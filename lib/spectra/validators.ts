@@ -34,6 +34,7 @@ export const createExamSchema = z.object({
   exam_type: examTypeSchema,
   exam_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Geçerli tarih formatı: YYYY-MM-DD'),
   grade_level: gradeLevelSchema.optional(),
+  total_questions: z.number().int().positive(),
   description: z.string().max(1000).optional(),
   organization_id: z.string().uuid('Geçerli organization_id gerekli'),
   academic_year_id: z.string().uuid().optional(),

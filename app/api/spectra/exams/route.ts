@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
     
     // Validation
     const validation = validateRequest(createExamSchema, body);
+    console.log('[API] validation.success:', validation.success);
+    console.log('[API] validation.data:', validation.data);
     if (!validation.success) {
       return NextResponse.json(
         { success: false, message: validation.error },
@@ -26,7 +28,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, exam_type, exam_date, grade_level, description, organization_id, academic_year_id } = validation.data!;
+    const {
+      name,
+      exam_type,
+      exam_date,
+      grade_level,
+      description,
+      organization_id,
+      academic_year_id,
+      total_questions,
+    } = validation.data!;
+
+    console.log('[API] VALIDATED exam payload:', validation.data);
 
     const supabase = getServiceRoleClient();
 
@@ -35,6 +48,7 @@ export async function POST(request: NextRequest) {
       name,
       exam_type,
       exam_date,
+      total_questions,
       organization_id,
       status: 'draft',
       source: 'wizard',
@@ -43,6 +57,8 @@ export async function POST(request: NextRequest) {
     if (grade_level) examData.grade_level = grade_level;
     if (description) examData.description = description;
     if (academic_year_id) examData.academic_year_id = academic_year_id;
+
+    console.log('[API] Insert payload (exams):', examData);
 
     const { data: exam, error: examError } = await supabase
       .from('exams')

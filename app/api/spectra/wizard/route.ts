@@ -23,6 +23,12 @@ interface WizardRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    // ⚠️ Deprecated: Wizard artık /api/spectra/exams kullanıyor
+    return NextResponse.json(
+      { success: false, message: 'Deprecated endpoint. Use /api/spectra/exams.' },
+      { status: 410 }
+    );
+
     const body: WizardRequestBody = await request.json();
     const { organizationId, academicYearId, draftExamId, step1Data, step2Data, step3Data, step4Data } = body;
 
