@@ -1,22 +1,23 @@
 'use client';
 
 // ============================================================================
-// SPECTRA - YENİ SINAV EKLE WIZARD (v2.0)
+// SPECTRA - YENİ SINAV EKLE WIZARD (v3.0)
 // Route: /admin/spectra/sihirbaz
-// 4 Adımlı sınav oluşturma sihirbazı
+// 3 Adımlı sınav oluşturma sihirbazı
+// Step 1: Sınav Bilgileri + Ders Dağılımı
+// Step 2: Cevap Anahtarı
+// Step 3: Onay & Kaydet
 // ============================================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, AlertTriangle, Building2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Building2, CheckCircle } from 'lucide-react';
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { WizardShell } from './_components/WizardShell';
 import Step1ExamInfo from './_steps/Step1ExamInfo';
-import Step2Lessons from './_steps/Step2Lessons';
 import Step3AnswerKey from './_steps/Step3AnswerKey';
 import Step4Review from './_steps/Step4Review';
 import type {
-  WizardState,
   WizardStep1Data,
   WizardStep2Data,
   WizardStep3Data,
@@ -30,13 +31,12 @@ import toast from 'react-hot-toast';
 // TYPES & CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3;
 
 const WIZARD_STEPS = [
-  { step: 1 as const, label: 'Sınav Bilgileri', description: 'Temel bilgiler' },
-  { step: 2 as const, label: 'Dersler', description: 'Ders ve soru dağılımı' },
-  { step: 3 as const, label: 'Cevap Anahtarı', description: 'Doğru cevaplar' },
-  { step: 4 as const, label: 'Onay', description: 'Kaydet' },
+  { step: 1 as const, label: 'Sınav Bilgileri', description: 'Ad, tarih ve tür' },
+  { step: 2 as const, label: 'Cevap Anahtarı', description: 'Kazanım bazlı' },
+  { step: 3 as const, label: 'Onay', description: 'Sonuçları gör' },
 ];
 
 const initialStep1: WizardStep1Data = {
@@ -74,9 +74,9 @@ export default function SpectraWizardPage() {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [completedSteps, setCompletedSteps] = useState<WizardStep[]>([]);
   const [step1Data, setStep1Data] = useState<WizardStep1Data>(initialStep1);
-  const [step2Data, setStep2Data] = useState<WizardStep2Data>(initialStep2);
-  const [step3Data, setStep3Data] = useState<WizardStep3Data>(initialStep3);
-  const [step4Data, setStep4Data] = useState<WizardStep4Data>(initialStep4);
+  const [step2Data, setStep2Data] = useState<WizardStep2Data>(initialStep2); // Dersler (Step1'de yönetilir)
+  const [step3Data, setStep3Data] = useState<WizardStep3Data>(initialStep3); // Cevap Anahtarı
+  const [step4Data, setStep4Data] = useState<WizardStep4Data>(initialStep4); // Onay
   const [examId, setExamId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +85,6 @@ export default function SpectraWizardPage() {
   // Client-side hydration
   useEffect(() => {
     setIsClient(true);
-    console.log('🚀 [SpectraWizard] Sayfa yüklendi');
   }, []);
 
   // Organization check (soft warning - does not block)
@@ -118,11 +117,12 @@ export default function SpectraWizardPage() {
   };
 
   const handleNext = async () => {
-    
-    // Step 1'den geçerken sınav kaydı oluştur
+    // Step 1'den geçerken: Sınav + Ders kaydı oluştur
     if (currentStep === 1 && !examId && currentOrganization?.id) {
       try {
         setIsLoading(true);
+        
+        // 1. Sınav kaydı oluştur
         const response = await fetch('/api/spectra/exams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -139,6 +139,17 @@ export default function SpectraWizardPage() {
         const result = await response.json();
         if (result.success) {
           setExamId(result.examId);
+          
+          // 2. Ders config kaydet
+          await fetch(`/api/spectra/exams/${result.examId}/lessons`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lessons: step2Data.lessons,
+              total_questions: step2Data.totalQuestions,
+            }),
+          });
+          
           toast.success('Sınav taslağı oluşturuldu');
         } else {
           console.warn('[Wizard] Exam creation failed but continuing:', result.message);
@@ -152,32 +163,8 @@ export default function SpectraWizardPage() {
       }
     }
 
-    // Step 2'den geçerken ders config kaydet (optional, wizard continues either way)
+    // Step 2'den geçerken: Cevap anahtarı kaydet
     if (currentStep === 2 && examId) {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/spectra/exams/${examId}/lessons`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            lessons: step2Data.lessons,
-            total_questions: step2Data.totalQuestions,
-          }),
-        });
-
-        const result = await response.json();
-        if (!result.success) {
-          console.warn('[Wizard] Lessons save failed but continuing');
-        }
-      } catch (error) {
-        console.error('[Wizard] Lessons save error:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    // Step 3'ten geçerken cevap anahtarı kaydet (optional, wizard continues either way)
-    if (currentStep === 3 && examId) {
       try {
         setIsLoading(true);
         const response = await fetch(`/api/spectra/exams/${examId}/answer-key`, {
@@ -202,7 +189,7 @@ export default function SpectraWizardPage() {
 
     // Sonraki adıma geç
     const nextStep = (currentStep + 1) as WizardStep;
-    if (nextStep <= 4) {
+    if (nextStep <= 3) {
       if (!completedSteps.includes(currentStep)) {
         setCompletedSteps((prev) => [...prev, currentStep]);
       }
@@ -263,19 +250,15 @@ export default function SpectraWizardPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const canGoNext = (): boolean => {
-    // Relaxed validation - allows wizard flow for testing/debugging
     switch (currentStep) {
       case 1:
-        // Minimum requirement: just have a name
-        return step1Data.examName.trim().length > 0;
+        // Minimum: Sınav adı ve en az 1 ders
+        return step1Data.examName.trim().length > 0 && step2Data.lessons.length > 0;
       case 2:
-        // Allow proceeding even with no lessons (will auto-populate)
+        // Cevap anahtarı tamamlanmamış olabilir
         return true;
       case 3:
-        // Allow proceeding even with incomplete answer key
-        return true;
-      case 4:
-        // Require confirmation for final step
+        // Onay gerekli
         return step4Data.confirmed;
       default:
         return true;
@@ -346,6 +329,7 @@ export default function SpectraWizardPage() {
       <div className="flex-1">
         <WizardShell
           currentStep={currentStep}
+          totalSteps={3}
           onNext={handleNext}
           onPrev={handlePrev}
           onSave={handleSave}
@@ -353,36 +337,27 @@ export default function SpectraWizardPage() {
           canGoPrev={currentStep > 1}
           isLoading={isLoading}
           isSaving={isSaving}
-          isLastStep={currentStep === 4}
+          isLastStep={currentStep === 3}
           nextLabel={
             currentStep === 1
-              ? 'Devam Et'
+              ? 'Cevap Anahtarı'
               : currentStep === 2
-                ? 'Cevap Anahtarı'
-                : currentStep === 3
-                  ? 'Onay'
-                  : 'Kaydet'
+                ? 'Onay & Kaydet'
+                : 'Kaydet'
           }
         >
-          {/* Step 1: Sınav Bilgileri */}
+          {/* Step 1: Sınav Bilgileri + Ders Dağılımı */}
           {currentStep === 1 && (
             <Step1ExamInfo
               data={step1Data}
+              lessonsData={step2Data}
               onChange={updateStep1}
+              onLessonsChange={setStep2Data}
             />
           )}
 
-          {/* Step 2: Dersler */}
+          {/* Step 2: Cevap Anahtarı */}
           {currentStep === 2 && (
-            <Step2Lessons
-              data={step2Data}
-              examType={step1Data.examType}
-              onChange={setStep2Data}
-            />
-          )}
-
-          {/* Step 3: Cevap Anahtarı */}
-          {currentStep === 3 && (
             <Step3AnswerKey
               data={step3Data}
               lessonsData={step2Data}
@@ -390,8 +365,8 @@ export default function SpectraWizardPage() {
             />
           )}
 
-          {/* Step 4: Onay & Kaydet */}
-          {currentStep === 4 && (
+          {/* Step 3: Onay & Kaydet */}
+          {currentStep === 3 && (
             <Step4Review
               step1Data={step1Data}
               step2Data={step2Data}
