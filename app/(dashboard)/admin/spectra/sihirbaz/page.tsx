@@ -133,6 +133,7 @@ export default function SpectraWizardPage() {
             grade_level: step1Data.gradeLevel,
             description: step1Data.description,
             organization_id: currentOrganization.id,
+            total_questions: step2Data.totalQuestions,
           }),
         });
 
