@@ -1,20 +1,24 @@
 'use client';
 
 // ============================================================================
-// STEP 2: CEVAP ANAHTARI (v2.0)
-// Geliştirilmiş UI: BulkPaste + QuickTable + Grid Editor
+// STEP 2: CEVAP ANAHTARI (v3.0)
+// Geliştirilmiş UI: Library + Booklet + BulkPaste + QuickTable + Grid Editor
 // ============================================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Key, FileSpreadsheet, Type, CheckCircle2, AlertCircle, Info, ChevronDown, ChevronRight, Edit3 } from 'lucide-react';
-import type { WizardStep3Data, WizardStep2Data, AnswerKeyItem, AnswerOption, LessonConfig } from '@/lib/spectra/types';
+import { Key, CheckCircle2, AlertCircle, Info, ChevronDown, ChevronRight, Edit3 } from 'lucide-react';
+import type { WizardStep3Data, WizardStep2Data, WizardStep1Data, AnswerKeyItem, AnswerOption } from '@/lib/spectra/types';
 import { cn } from '@/lib/utils';
 import { BulkPasteInput } from '../_components/BulkPasteInput';
 import { LessonQuickTable } from '../_components/LessonQuickTable';
+import { AnswerKeyLibrary } from '../_components/AnswerKeyLibrary';
+import { BookletSelector, type BookletType } from '../_components/BookletSelector';
 
 interface Step3AnswerKeyProps {
   data: WizardStep3Data;
   lessonsData: WizardStep2Data;
+  examData: WizardStep1Data;
+  organizationId: string;
   onChange: (data: WizardStep3Data) => void;
 }
 
@@ -39,9 +43,16 @@ const LESSON_ICONS: Record<string, string> = {
   GENEL: '📋',
 };
 
-export default function Step3AnswerKey({ data, lessonsData, onChange }: Step3AnswerKeyProps) {
+export default function Step3AnswerKey({ 
+  data, 
+  lessonsData, 
+  examData,
+  organizationId,
+  onChange 
+}: Step3AnswerKeyProps) {
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeBooklet, setActiveBooklet] = useState<BookletType>('A');
 
   // Cevap anahtarını oluştur (ilk yüklemede)
   useEffect(() => {
@@ -107,6 +118,23 @@ export default function Step3AnswerKey({ data, lessonsData, onChange }: Step3Ans
     onChange({ ...data, answerKey: newAnswerKey, source: 'lesson' });
   }, [data, onChange]);
 
+  // LIBRARY: Şablondan yükle
+  const handleLibraryLoad = useCallback((loadedAnswerKey: AnswerKeyItem[]) => {
+    // Yüklenen cevapları mevcut yapıya map et
+    const newAnswerKey = data.answerKey.map((item) => {
+      const loaded = loadedAnswerKey.find(l => l.question_number === item.question_number);
+      if (loaded) {
+        return {
+          ...item,
+          correct_answer: loaded.correct_answer,
+          is_cancelled: loaded.is_cancelled || false,
+        };
+      }
+      return item;
+    });
+    onChange({ ...data, answerKey: newAnswerKey, source: 'template' });
+  }, [data, onChange]);
+
   // Ders accordion aç
   const handleExpandLesson = useCallback((lessonCode: string) => {
     setExpandedLesson(prev => prev === lessonCode ? null : lessonCode);
@@ -167,6 +195,27 @@ export default function Step3AnswerKey({ data, lessonsData, onChange }: Step3Ans
           {stats.filled} / {stats.total} ({stats.progress}%)
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          1️⃣ CEVAP ANAHTARI KÜTÜPHANESİ
+      ───────────────────────────────────────────────────────────────────── */}
+      <AnswerKeyLibrary
+        organizationId={organizationId}
+        examType={examData.examType}
+        currentAnswerKey={data.answerKey}
+        totalQuestions={lessonsData.totalQuestions}
+        onLoad={handleLibraryLoad}
+      />
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          2️⃣ KİTAPÇIK SEÇİMİ
+      ───────────────────────────────────────────────────────────────────── */}
+      <BookletSelector
+        activeBooklet={activeBooklet}
+        onBookletChange={setActiveBooklet}
+        filledCount={stats.filled}
+        totalQuestions={stats.total}
+      />
 
       {/* ─────────────────────────────────────────────────────────────────────
           BULK PASTE INPUT
@@ -322,9 +371,9 @@ export default function Step3AnswerKey({ data, lessonsData, onChange }: Step3Ans
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex gap-3">
         <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
-          <strong>İpucu:</strong> "Tek Seferde Yapıştır" ile tüm cevapları hızlıca girebilir,
+          <strong>İpucu:</strong> Kütüphaneden kayıtlı şablonları yükleyebilir veya mevcut anahtarı kaydedebilirsiniz.
+          "Tek Seferde Yapıştır" ile tüm cevapları hızlıca girebilir,
           "Hızlı Ders Bazlı Giriş" ile her dersi ayrı ayrı doldurabilirsiniz.
-          İptal edilen sorular herkes için doğru sayılır.
         </div>
       </div>
     </div>

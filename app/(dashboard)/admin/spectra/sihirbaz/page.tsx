@@ -361,6 +361,8 @@ export default function SpectraWizardPage() {
             <Step3AnswerKey
               data={step3Data}
               lessonsData={step2Data}
+              examData={step1Data}
+              organizationId={currentOrganization?.id || ''}
               onChange={setStep3Data}
             />
           )}
