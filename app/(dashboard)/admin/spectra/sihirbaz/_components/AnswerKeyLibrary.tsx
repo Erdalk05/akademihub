@@ -15,7 +15,6 @@ import toast from 'react-hot-toast';
 interface AnswerKeyTemplate {
   id: string;
   name: string;
-  total_questions: number;
   answer_data: AnswerKeyItem[];
   created_at: string;
 }
@@ -53,7 +52,7 @@ export function AnswerKeyLibrary({
     try {
       const { data, error } = await supabase
         .from('answer_key_templates')
-        .select('id, name, total_questions, answer_data, created_at')
+        .select('id, name, answer_data, created_at')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
@@ -110,7 +109,6 @@ export function AnswerKeyLibrary({
           organization_id: organizationId,
           name: newTemplateName.trim(),
           exam_type: examType,
-          total_questions: totalQuestions,
           answer_data: currentAnswerKey,
         });
 
@@ -198,7 +196,7 @@ export function AnswerKeyLibrary({
             <option value="">Kayıtlı şablon seçin...</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} ({t.total_questions} soru)
+                {t.name} ({t.answer_data?.length || 0} soru)
               </option>
             ))}
           </select>
@@ -299,7 +297,7 @@ export function AnswerKeyLibrary({
       {/* Selected Info */}
       {selectedTemplate && (
         <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-          <strong>Seçili:</strong> {selectedTemplate.name} • {selectedTemplate.total_questions} soru • {new Date(selectedTemplate.created_at).toLocaleDateString('tr-TR')}
+          <strong>Seçili:</strong> {selectedTemplate.name} • {selectedTemplate.answer_data?.length || 0} soru • {new Date(selectedTemplate.created_at).toLocaleDateString('tr-TR')}
         </div>
       )}
     </div>

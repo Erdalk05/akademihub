@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Key, CheckCircle2, AlertCircle, Info, ChevronDown, ChevronRight, Edit3 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { WizardStep3Data, WizardStep2Data, WizardStep1Data, AnswerKeyItem, AnswerOption } from '@/lib/spectra/types';
 import { cn } from '@/lib/utils';
 import { BulkPasteInput } from '../_components/BulkPasteInput';
@@ -156,7 +157,7 @@ export default function Step3AnswerKey({
       // Parent'a güncellenen kitapçığı gönder
       onChange({ 
         answerKey: updatedAnswerKey, 
-        source: 'bulk',
+        source: 'manual',
         templateId: data.templateId 
       });
       
@@ -181,7 +182,7 @@ export default function Step3AnswerKey({
       // Parent'a güncellenen kitapçığı gönder
       onChange({ 
         answerKey: updatedAnswerKey, 
-        source: 'lesson',
+        source: 'manual',
         templateId: data.templateId 
       });
       
@@ -191,6 +192,10 @@ export default function Step3AnswerKey({
 
   // LIBRARY: Şablondan yükle
   const handleLibraryLoad = useCallback((loadedAnswerKey: AnswerKeyItem[]) => {
+    if (!loadedAnswerKey || loadedAnswerKey.length === 0) {
+      toast.error('Şablon yüklenemedi. Lütfen geçerli bir şablon seçin.');
+      return;
+    }
     setBookletAnswers((prev) => {
       // Yüklenen cevapları mevcut aktif kitapçığa map et
       const updatedAnswerKey = prev[activeBooklet].map((item) => {
