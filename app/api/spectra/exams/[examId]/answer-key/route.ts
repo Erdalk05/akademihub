@@ -146,9 +146,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       booklet_answers: item.booklet_answers ? JSON.stringify(item.booklet_answers) : null,
     }));
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'answer-key/route.ts:148',message:'Answer key INSERT - full payload',data:{insertLength:answerKeyInserts.length,firstInsert:answerKeyInserts[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+
     const { error: insertError } = await supabase
       .from('exam_answer_keys')
       .insert(answerKeyInserts);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'answer-key/route.ts:157',message:'Answer key INSERT result',data:{success:!insertError,errorCode:insertError?.code,errorMessage:insertError?.message,errorDetails:insertError?.details},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
 
     if (insertError) {
       console.error('[ANSWER-KEY] Insert error:', insertError);

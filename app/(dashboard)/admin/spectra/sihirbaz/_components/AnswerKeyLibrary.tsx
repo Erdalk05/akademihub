@@ -50,11 +50,19 @@ export function AnswerKeyLibrary({
     
     setIsLoading(true);
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AnswerKeyLibrary.tsx:55',message:'Loading templates - SELECT query',data:{organizationId,selectColumns:'id, name, answer_data, created_at'},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
+      
       const { data, error } = await supabase
         .from('answer_key_templates')
         .select('id, name, answer_data, created_at')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AnswerKeyLibrary.tsx:60',message:'Templates SELECT result',data:{success:!error,errorCode:error?.code,errorMessage:error?.message,dataLength:data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
 
       if (error) throw error;
       setTemplates(data || []);
@@ -103,6 +111,10 @@ export function AnswerKeyLibrary({
 
     setIsSaving(true);
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AnswerKeyLibrary.tsx:108',message:'Saving template - INSERT payload',data:{organizationId,name:newTemplateName.trim(),exam_type:examType,answerKeyLength:currentAnswerKey.length},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
+      
       const { error } = await supabase
         .from('answer_key_templates')
         .insert({
@@ -111,6 +123,10 @@ export function AnswerKeyLibrary({
           exam_type: examType,
           answer_data: currentAnswerKey,
         });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AnswerKeyLibrary.tsx:114',message:'Template INSERT result',data:{success:!error,errorCode:error?.code,errorMessage:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
 
       if (error) {
         if (error.code === '23505') {
