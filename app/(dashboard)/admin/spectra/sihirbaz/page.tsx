@@ -123,6 +123,15 @@ export default function SpectraWizardPage() {
         setIsLoading(true);
         
         // 1. Sınav kaydı oluştur
+        console.log('[Wizard] Creating exam with payload:', {
+          name: step1Data.examName,
+          exam_type: step1Data.examType,
+          exam_date: step1Data.examDate,
+          grade_level: step1Data.gradeLevel,
+          total_questions: step2Data.totalQuestions,
+          organization_id: currentOrganization.id,
+        });
+        
         const response = await fetch('/api/spectra/exams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -138,8 +147,11 @@ export default function SpectraWizardPage() {
         });
 
         const result = await response.json();
+        console.log('[Wizard] Exam creation result:', result);
+        
         if (result.success) {
           setExamId(result.examId);
+          console.log('[Wizard] Exam created with ID:', result.examId);
           
           // 2. Ders config kaydet
           await fetch(`/api/spectra/exams/${result.examId}/lessons`, {
@@ -153,8 +165,10 @@ export default function SpectraWizardPage() {
           
           toast.success('Sınav taslağı oluşturuldu');
         } else {
-          console.warn('[Wizard] Exam creation failed but continuing:', result.message);
-          toast('⚠️ Sınav kaydı başarısız ama devam edebilirsiniz', { duration: 4000 });
+          console.error('[Wizard] Exam creation FAILED:', result.message);
+          toast.error('Sınav kaydı başarısız: ' + (result.message || 'Bilinmeyen hata'));
+          // examId yoksa wizard devam etmemeli
+          return;
         }
       } catch (error) {
         console.error('[Wizard] Exam create error:', error);
@@ -166,6 +180,7 @@ export default function SpectraWizardPage() {
 
     // Step 2'den geçerken: Cevap anahtarı kaydet
     if (currentStep === 2 && examId) {
+      console.log('[Wizard] Saving answer key for exam:', examId);
       try {
         setIsLoading(true);
         const response = await fetch(`/api/spectra/exams/${examId}/answer-key`, {
@@ -179,13 +194,17 @@ export default function SpectraWizardPage() {
 
         const result = await response.json();
         if (!result.success) {
-          console.warn('[Wizard] Answer key save failed but continuing');
+          console.warn('[Wizard] Answer key save failed:', result.message);
         }
       } catch (error) {
         console.error('[Wizard] Answer key save error:', error);
       } finally {
         setIsLoading(false);
       }
+    } else if (currentStep === 2 && !examId) {
+      console.error('[Wizard] Cannot save answer key: examId is missing');
+      toast.error('Sınav ID bulunamadı. Lütfen Step 1\'den başlayın.');
+      return;
     }
 
     // Sonraki adıma geç

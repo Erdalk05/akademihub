@@ -15,7 +15,6 @@ import toast from 'react-hot-toast';
 interface AnswerKeyTemplate {
   id: string;
   name: string;
-  exam_type: string;
   total_questions: number;
   answer_data: AnswerKeyItem[];
   created_at: string;
@@ -54,7 +53,7 @@ export function AnswerKeyLibrary({
     try {
       const { data, error } = await supabase
         .from('answer_key_templates')
-        .select('id, name, exam_type, total_questions, answer_data, created_at')
+        .select('id, name, total_questions, answer_data, created_at')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
@@ -199,7 +198,7 @@ export function AnswerKeyLibrary({
             <option value="">Kayıtlı şablon seçin...</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} ({t.total_questions} soru) - {t.exam_type}
+                {t.name} ({t.total_questions} soru)
               </option>
             ))}
           </select>
