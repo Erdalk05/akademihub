@@ -309,6 +309,7 @@ export default function Step3AnswerKey({
           BULK PASTE INPUT
       ───────────────────────────────────────────────────────────────────── */}
       <BulkPasteInput
+        key={`bulk-${activeBooklet}`}
         totalQuestions={lessonsData.totalQuestions}
         answerKey={currentAnswerKey}
         onApply={handleBulkApply}
@@ -318,7 +319,7 @@ export default function Step3AnswerKey({
           LESSON QUICK TABLE
       ───────────────────────────────────────────────────────────────────── */}
       <LessonQuickTable
-        key={`${activeBooklet}-${stats.filled}`}
+        key={`quick-${activeBooklet}`}
         lessons={lessonsData.lessons}
         answerKey={currentAnswerKey}
         onUpdateLesson={handleLessonUpdate}
