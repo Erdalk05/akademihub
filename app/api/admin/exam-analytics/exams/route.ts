@@ -104,11 +104,24 @@ export async function POST(request: NextRequest) {
     if (!dersler || dersler.length === 0) {
       return NextResponse.json({ error: 'En az 1 ders gerekli' }, { status: 400 });
     }
-    if (dersler.some((ders: any) => !ders.dersId)) {
-      return NextResponse.json({ error: 'Ders eşleştirmesi eksik (dersId gerekli)' }, { status: 400 });
+
+    // Ders validasyonları
+    const eksikDersler = dersler.filter((ders: any) => !ders.dersId);
+    if (eksikDersler.length > 0) {
+      console.error('[EA Sinavlar] Eksik dersId:', eksikDersler);
+      return NextResponse.json({ 
+        error: `Ders eşleştirmesi eksik: ${eksikDersler.length} derste dersId bulunamadı`,
+        eksikDersler: eksikDersler.map((d: any) => d.dersKodu || d.dersAdi)
+      }, { status: 400 });
     }
-    if (dersler.some((ders: any) => !ders.soruSayisi || ders.soruSayisi <= 0)) {
-      return NextResponse.json({ error: 'Ders soru sayısı geçersiz' }, { status: 400 });
+
+    const gecersizSoruSayisi = dersler.filter((ders: any) => !ders.soruSayisi || ders.soruSayisi <= 0);
+    if (gecersizSoruSayisi.length > 0) {
+      console.error('[EA Sinavlar] Geçersiz soru sayısı:', gecersizSoruSayisi);
+      return NextResponse.json({ 
+        error: `Ders soru sayısı geçersiz: ${gecersizSoruSayisi.length} derste soru sayısı 0 veya boş`,
+        gecersizDersler: gecersizSoruSayisi.map((d: any) => d.dersKodu || d.dersAdi)
+      }, { status: 400 });
     }
 
     const supabase = getServiceRoleClient();
