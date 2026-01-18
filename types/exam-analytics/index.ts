@@ -376,7 +376,12 @@ export const SINAV_TURLERI: Record<string, SinavTuruConfig> = {
   ayt: {
     ad: 'AYT',
     siniflar: [11, 12, 'mezun'],
-    varsayilanDersler: [],
+    varsayilanDersler: [
+      { kod: 'MAT_AYT', ad: 'Matematik (AYT)', soru: 40 },
+      { kod: 'FIZ', ad: 'Fizik', soru: 14 },
+      { kod: 'KIM', ad: 'Kimya', soru: 13 },
+      { kod: 'BIO', ad: 'Biyoloji', soru: 13 },
+    ],
     toplamSoru: 80,
     sure: 180,
     yanlisKatsayi: 0.25,
