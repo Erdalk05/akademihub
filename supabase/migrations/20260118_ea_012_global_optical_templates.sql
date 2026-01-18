@@ -58,7 +58,13 @@ INSERT INTO ea_optik_sablonlar (
   90,
   true,
   true
-);
+)
+ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
+  sablon_turu = EXCLUDED.sablon_turu,
+  aciklama = EXCLUDED.aciklama,
+  alan_tanimlari = EXCLUDED.alan_tanimlari,
+  is_default = EXCLUDED.is_default,
+  updated_at = NOW();
 
 -- ════════════════════════════════════════════════════════════
 -- STANDART TYT OPTİK FORMU
@@ -92,7 +98,13 @@ INSERT INTO ea_optik_sablonlar (
   120,
   true,
   true
-);
+)
+ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
+  sablon_turu = EXCLUDED.sablon_turu,
+  aciklama = EXCLUDED.aciklama,
+  alan_tanimlari = EXCLUDED.alan_tanimlari,
+  is_default = EXCLUDED.is_default,
+  updated_at = NOW();
 
 -- ════════════════════════════════════════════════════════════
 -- STANDART AYT OPTİK FORMU
@@ -126,7 +138,13 @@ INSERT INTO ea_optik_sablonlar (
   80,
   true,
   true
-);
+)
+ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
+  sablon_turu = EXCLUDED.sablon_turu,
+  aciklama = EXCLUDED.aciklama,
+  alan_tanimlari = EXCLUDED.alan_tanimlari,
+  is_default = EXCLUDED.is_default,
+  updated_at = NOW();
 
 -- ════════════════════════════════════════════════════════════
 -- GENEL AMAÇLI OPTİK FORM (20 SORU)
@@ -160,7 +178,13 @@ INSERT INTO ea_optik_sablonlar (
   20,
   true,
   false
-);
+)
+ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
+  sablon_turu = EXCLUDED.sablon_turu,
+  aciklama = EXCLUDED.aciklama,
+  alan_tanimlari = EXCLUDED.alan_tanimlari,
+  is_default = EXCLUDED.is_default,
+  updated_at = NOW();
 
 -- ════════════════════════════════════════════════════════════
 -- GENEL AMAÇLI OPTİK FORM (40 SORU)
@@ -194,8 +218,7 @@ INSERT INTO ea_optik_sablonlar (
   40,
   true,
   false
-);
-
+)
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
   sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
