@@ -77,29 +77,39 @@ export default function CreateExamPage() {
     setIsLoading(true);
     
     try {
+      const payload = {
+        organizationId,
+        sinavAdi: state.step1.sinavAdi,
+        sinavTarihi: state.step1.sinavTarihi?.toISOString(),
+        sinifSeviyesi: state.step1.sinifSeviyesi,
+        sinavTuru: state.step1.sinavTuru,
+        sureDakika: state.step1.sureDakika,
+        yanlisKatsayi: state.step1.yanlisKatsayi,
+        dersler: state.step1.dersler.map(d => ({
+          dersId: d.dersId,
+          dersKodu: d.dersKodu,
+          soruSayisi: d.soruSayisi,
+          dogruPuan: d.dogruPuan,
+          yanlisPuan: d.yanlisPuan,
+        })),
+        userId,
+      };
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:85',message:'Frontend payload BEFORE fetch',data:{organizationId:payload.organizationId,sinavAdi:payload.sinavAdi,sinavTuru:payload.sinavTuru,derslerCount:payload.dersler.length,firstDers:payload.dersler[0]},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FRONTEND'})}).catch(()=>{});
+      // #endregion
+
       const res = await fetch('/api/admin/exam-analytics/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId,
-          sinavAdi: state.step1.sinavAdi,
-          sinavTarihi: state.step1.sinavTarihi?.toISOString(),
-          sinifSeviyesi: state.step1.sinifSeviyesi,
-          sinavTuru: state.step1.sinavTuru,
-          sureDakika: state.step1.sureDakika,
-          yanlisKatsayi: state.step1.yanlisKatsayi,
-          dersler: state.step1.dersler.map(d => ({
-            dersId: d.dersId,
-            dersKodu: d.dersKodu,
-            soruSayisi: d.soruSayisi,
-            dogruPuan: d.dogruPuan,
-            yanlisPuan: d.yanlisPuan,
-          })),
-          userId,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:120',message:'Frontend response received',data:{status:res.status,ok:res.ok,error:json.error},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FRONTEND'})}).catch(()=>{});
+      // #endregion
 
       if (!res.ok) {
         throw new Error(json.error || 'Sınav oluşturulamadı');
