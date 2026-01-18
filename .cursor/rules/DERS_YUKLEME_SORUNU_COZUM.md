@@ -41,8 +41,10 @@ GROUP BY o.id, o.name;
 ```
 | name                  | id                                   | ders_sayisi |
 |-----------------------|--------------------------------------|-------------|
-| Dikmen Çözüm Kurs     | abc123...                            | 7           |
+| Dikmen Çözüm Kurs     | abc123...                            | 6 (LGS)     |
 ```
+
+**Not:** LGS için 6 ders, TYT/AYT için 7 ders (Sosyal Bilimler ekstra)
 
 ---
 
@@ -75,10 +77,11 @@ INSERT INTO ea_dersler (
   ('YOUR_ORG_ID_HERE', 'TUR', 'Türkçe', 'sozel', '#EF4444', 1, 40, 1, true),
   ('YOUR_ORG_ID_HERE', 'MAT', 'Matematik', 'sayisal', '#3B82F6', 2, 40, 1, true),
   ('YOUR_ORG_ID_HERE', 'FEN', 'Fen Bilimleri', 'sayisal', '#10B981', 3, 40, 1, true),
-  ('YOUR_ORG_ID_HERE', 'SOS', 'Sosyal Bilimler', 'sozel', '#F59E0B', 4, 40, 1, true),
-  ('YOUR_ORG_ID_HERE', 'INK', 'T.C. İnkılap Tarihi', 'sozel', '#8B5CF6', 5, 20, 1, true),
-  ('YOUR_ORG_ID_HERE', 'DIN', 'Din Kültürü', 'sozel', '#06B6D4', 6, 20, 1, true),
-  ('YOUR_ORG_ID_HERE', 'ING', 'İngilizce', 'sozel', '#EC4899', 7, 20, 1, true);
+  ('YOUR_ORG_ID_HERE', 'INK', 'T.C. İnkılap Tarihi', 'sozel', '#8B5CF6', 4, 20, 1, true),
+  ('YOUR_ORG_ID_HERE', 'DIN', 'Din Kültürü', 'sozel', '#06B6D4', 5, 20, 1, true),
+  ('YOUR_ORG_ID_HERE', 'ING', 'İngilizce', 'sozel', '#EC4899', 6, 20, 1, true),
+  -- TYT/AYT için ek ders (opsiyonel)
+  ('YOUR_ORG_ID_HERE', 'SOS', 'Sosyal Bilimler', 'sozel', '#F59E0B', 7, 40, 1, true);
 ```
 
 ---
@@ -103,11 +106,13 @@ ORDER BY sira_no;
 | TUR       | Türkçe            | 1       | true      |
 | MAT       | Matematik         | 2       | true      |
 | FEN       | Fen Bilimleri     | 3       | true      |
-| SOS       | Sosyal Bilimler   | 4       | true      |
-| INK       | T.C. İnkılap...   | 5       | true      |
-| DIN       | Din Kültürü       | 6       | true      |
-| ING       | İngilizce         | 7       | true      |
+| INK       | T.C. İnkılap...   | 4       | true      |
+| DIN       | Din Kültürü       | 5       | true      |
+| ING       | İngilizce         | 6       | true      |
+| SOS       | Sosyal Bilimler   | 7       | true      | (TYT/AYT için)
 ```
+
+**Not:** LGS sınavı için ilk 6 ders yeterlidir (SOS dersi LGS'de yoktur)
 
 ---
 
@@ -203,7 +208,7 @@ ALTER TABLE ea_dersler ENABLE ROW LEVEL SECURITY;
 
 - [ ] Supabase'de `organizations` tablosu var
 - [ ] Supabase'de `ea_dersler` tablosu var
-- [ ] `ea_dersler` tablosunda 7 kayıt var (TUR, MAT, FEN, SOS, INK, DIN, ING)
+- [ ] `ea_dersler` tablosunda 6-7 kayıt var (LGS için: TUR, MAT, FEN, INK, DIN, ING; TYT/AYT için +SOS)
 - [ ] Kayıtların `organization_id` doğru
 - [ ] Kayıtların `is_active = true`
 - [ ] API `/api/admin/exam-analytics/dersler` çalışıyor

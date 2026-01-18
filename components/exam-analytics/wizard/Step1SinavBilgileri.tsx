@@ -33,8 +33,8 @@ interface Step1Props {
 const SINIF_SEVIYELERI = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 const SINAV_TURU_OPTIONS: { value: SinavTipi; label: string; icon: string; desc: string }[] = [
-  { value: 'lgs', label: 'LGS', icon: '🎓', desc: '90 soru' },
-  { value: 'tyt', label: 'TYT', icon: '📚', desc: '120 soru' },
+  { value: 'lgs', label: 'LGS', icon: '🎓', desc: '90 soru (6 ders)' },
+  { value: 'tyt', label: 'TYT', icon: '📚', desc: '120 soru (4 ders)' },
   { value: 'ayt', label: 'AYT', icon: '✍️', desc: '80 soru' },
   { value: 'kurum_deneme', label: 'Kurum Denemesi', icon: '🏢', desc: 'Özel' },
   { value: 'konu_testi', label: 'Konu Testi', icon: '📝', desc: 'Özel' },

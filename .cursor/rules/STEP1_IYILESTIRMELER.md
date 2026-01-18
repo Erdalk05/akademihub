@@ -1,5 +1,22 @@
 # ✨ Step1 Sınav Bilgileri Sayfası İyileştirmeleri
 
+## 📊 LGS Ders Yapısı
+
+**ÖNEMLİ:** LGS sınavı 6 dersten oluşur, Sosyal Bilimler dersi yoktur!
+
+### LGS Dersleri (6 ders - 90 soru):
+1. 🔴 **Türkçe** (TUR) - 20 soru
+2. 🔵 **Matematik** (MAT) - 20 soru  
+3. 🟢 **Fen Bilimleri** (FEN) - 20 soru
+4. 🟣 **T.C. İnkılap Tarihi** (INK) - 10 soru
+5. 🔷 **Din Kültürü** (DIN) - 10 soru
+6. 🟡 **İngilizce** (ING) - 10 soru
+
+### TYT İçin Ek Ders:
+7. 🟠 **Sosyal Bilimler** (SOS) - Sadece TYT/AYT için
+
+---
+
 ## 📸 Sorun
 Kullanıcı sayfayı açtığında kırmızı bir uyarı görüyordu:
 ```

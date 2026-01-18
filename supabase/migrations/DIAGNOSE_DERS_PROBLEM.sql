@@ -34,7 +34,7 @@ LEFT JOIN ea_dersler d ON d.organization_id = o.id
 GROUP BY o.id, o.name
 ORDER BY o.created_at;
 
--- 4. Eksik dersler var mı? (TUR, MAT, FEN, INK, DIN, ING)
+-- 4. Eksik dersler var mı? (LGS için 6 ders: TUR, MAT, FEN, INK, DIN, ING)
 SELECT 
   'TUR' as beklenen_kod,
   CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'TUR') 
@@ -46,10 +46,10 @@ SELECT 'MAT', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'MAT'
 UNION ALL
 SELECT 'FEN', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'FEN') THEN '✅ Var' ELSE '❌ Yok' END
 UNION ALL
-SELECT 'SOS', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'SOS') THEN '✅ Var' ELSE '❌ Yok' END
-UNION ALL
 SELECT 'INK', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'INK') THEN '✅ Var' ELSE '❌ Yok' END
 UNION ALL
 SELECT 'DIN', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'DIN') THEN '✅ Var' ELSE '❌ Yok' END
 UNION ALL
-SELECT 'ING', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'ING') THEN '✅ Var' ELSE '❌ Yok' END;
+SELECT 'ING', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'ING') THEN '✅ Var' ELSE '❌ Yok' END
+UNION ALL
+SELECT 'SOS', CASE WHEN EXISTS (SELECT 1 FROM ea_dersler WHERE ders_kodu = 'SOS') THEN '✅ Var (TYT/AYT için)' ELSE '⚠️ Yok (TYT/AYT için gerekli)' END;
