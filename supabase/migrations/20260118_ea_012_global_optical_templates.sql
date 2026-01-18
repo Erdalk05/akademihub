@@ -32,12 +32,10 @@ ALTER TABLE ea_optik_sablonlar
 INSERT INTO ea_optik_sablonlar (
   organization_id,
   sablon_adi,
-  sablon_turu,
   aciklama,
-  satir_format,
+  format_tipi,
+  satir_uzunlugu,
   alan_tanimlari,
-  ogrenci_no_baslangic,
-  ogrenci_no_uzunluk,
   cevap_baslangic,
   cevap_uzunluk,
   is_active,
@@ -45,22 +43,19 @@ INSERT INTO ea_optik_sablonlar (
 ) VALUES (
   NULL,
   'Standart LGS Optik Formu',
-  'sabit',
   'MEB Standart LGS optik formu - 90 soru',
-  'FIXED',
+  'fixed_width',
+  100,
   '[
     {"alan": "ogrenci_no", "baslangic": 1, "uzunluk": 10},
     {"alan": "cevaplar", "baslangic": 11, "uzunluk": 90}
   ]'::jsonb,
-  1,
-  10,
   11,
   90,
   true,
   true
 )
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
-  sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
   alan_tanimlari = EXCLUDED.alan_tanimlari,
   is_default = EXCLUDED.is_default,
@@ -72,12 +67,10 @@ ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
 INSERT INTO ea_optik_sablonlar (
   organization_id,
   sablon_adi,
-  sablon_turu,
   aciklama,
-  satir_format,
+  format_tipi,
+  satir_uzunlugu,
   alan_tanimlari,
-  ogrenci_no_baslangic,
-  ogrenci_no_uzunluk,
   cevap_baslangic,
   cevap_uzunluk,
   is_active,
@@ -85,22 +78,19 @@ INSERT INTO ea_optik_sablonlar (
 ) VALUES (
   NULL,
   'Standart TYT Optik Formu',
-  'sabit',
   'MEB Standart TYT optik formu - 120 soru',
-  'FIXED',
+  'fixed_width',
+  130,
   '[
     {"alan": "ogrenci_no", "baslangic": 1, "uzunluk": 10},
     {"alan": "cevaplar", "baslangic": 11, "uzunluk": 120}
   ]'::jsonb,
-  1,
-  10,
   11,
   120,
   true,
   true
 )
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
-  sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
   alan_tanimlari = EXCLUDED.alan_tanimlari,
   is_default = EXCLUDED.is_default,
@@ -112,12 +102,10 @@ ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
 INSERT INTO ea_optik_sablonlar (
   organization_id,
   sablon_adi,
-  sablon_turu,
   aciklama,
-  satir_format,
+  format_tipi,
+  satir_uzunlugu,
   alan_tanimlari,
-  ogrenci_no_baslangic,
-  ogrenci_no_uzunluk,
   cevap_baslangic,
   cevap_uzunluk,
   is_active,
@@ -125,22 +113,19 @@ INSERT INTO ea_optik_sablonlar (
 ) VALUES (
   NULL,
   'Standart AYT Optik Formu',
-  'sabit',
   'MEB Standart AYT optik formu - 80 soru',
-  'FIXED',
+  'fixed_width',
+  90,
   '[
     {"alan": "ogrenci_no", "baslangic": 1, "uzunluk": 10},
     {"alan": "cevaplar", "baslangic": 11, "uzunluk": 80}
   ]'::jsonb,
-  1,
-  10,
   11,
   80,
   true,
   true
 )
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
-  sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
   alan_tanimlari = EXCLUDED.alan_tanimlari,
   is_default = EXCLUDED.is_default,
@@ -152,12 +137,10 @@ ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
 INSERT INTO ea_optik_sablonlar (
   organization_id,
   sablon_adi,
-  sablon_turu,
   aciklama,
-  satir_format,
+  format_tipi,
+  satir_uzunlugu,
   alan_tanimlari,
-  ogrenci_no_baslangic,
-  ogrenci_no_uzunluk,
   cevap_baslangic,
   cevap_uzunluk,
   is_active,
@@ -165,22 +148,19 @@ INSERT INTO ea_optik_sablonlar (
 ) VALUES (
   NULL,
   'Konu Testi - 20 Soru',
-  'sabit',
   'Kısa testler için 20 soruluk optik form',
-  'FIXED',
+  'fixed_width',
+  30,
   '[
     {"alan": "ogrenci_no", "baslangic": 1, "uzunluk": 10},
     {"alan": "cevaplar", "baslangic": 11, "uzunluk": 20}
   ]'::jsonb,
-  1,
-  10,
   11,
   20,
   true,
   false
 )
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
-  sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
   alan_tanimlari = EXCLUDED.alan_tanimlari,
   is_default = EXCLUDED.is_default,
@@ -192,12 +172,10 @@ ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
 INSERT INTO ea_optik_sablonlar (
   organization_id,
   sablon_adi,
-  sablon_turu,
   aciklama,
-  satir_format,
+  format_tipi,
+  satir_uzunlugu,
   alan_tanimlari,
-  ogrenci_no_baslangic,
-  ogrenci_no_uzunluk,
   cevap_baslangic,
   cevap_uzunluk,
   is_active,
@@ -205,22 +183,19 @@ INSERT INTO ea_optik_sablonlar (
 ) VALUES (
   NULL,
   'Konu Testi - 40 Soru',
-  'sabit',
   'Orta boy testler için 40 soruluk optik form',
-  'FIXED',
+  'fixed_width',
+  50,
   '[
     {"alan": "ogrenci_no", "baslangic": 1, "uzunluk": 10},
     {"alan": "cevaplar", "baslangic": 11, "uzunluk": 40}
   ]'::jsonb,
-  1,
-  10,
   11,
   40,
   true,
   false
 )
 ON CONFLICT (organization_id, sablon_adi) DO UPDATE SET
-  sablon_turu = EXCLUDED.sablon_turu,
   aciklama = EXCLUDED.aciklama,
   alan_tanimlari = EXCLUDED.alan_tanimlari,
   is_default = EXCLUDED.is_default,
