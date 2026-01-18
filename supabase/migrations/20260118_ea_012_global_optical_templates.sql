@@ -217,13 +217,13 @@ COMMENT ON COLUMN ea_optik_sablonlar.organization_id IS
 -- =====================================================
 SELECT
   CASE
-    WHEN organization_id IS NULL THEN '🌐 GLOBAL'
+    WHEN s.organization_id IS NULL THEN '🌐 GLOBAL'
     ELSE '🏢 ' || o.name
   END AS kurum,
   COUNT(*) AS sablon_sayisi,
-  STRING_AGG(sablon_adi, ', ' ORDER BY sablon_adi) AS sablonlar
+  STRING_AGG(s.sablon_adi, ', ' ORDER BY s.sablon_adi) AS sablonlar
 FROM ea_optik_sablonlar s
 LEFT JOIN organizations o ON o.id = s.organization_id
-WHERE is_active = true
-GROUP BY organization_id, o.name
-ORDER BY organization_id NULLS FIRST;
+WHERE s.is_active = true
+GROUP BY s.organization_id, o.name
+ORDER BY s.organization_id NULLS FIRST;

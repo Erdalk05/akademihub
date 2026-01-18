@@ -12,23 +12,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organizationId');
-    
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'organizationId gerekli' },
-        { status: 400 }
-      );
-    }
 
     const supabase = getServiceRoleClient();
 
     // Global dersler (organization_id = NULL) + Kuruma özel dersler
-    const { data, error } = await supabase
+    const derslerQuery = supabase
       .from('ea_dersler')
       .select('*')
-      .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
       .eq('is_active', true)
       .order('sira_no', { ascending: true });
+
+    const { data, error } = organizationId
+      ? await derslerQuery.or(`organization_id.is.null,organization_id.eq.${organizationId}`)
+      : await derslerQuery.is('organization_id', null);
 
     if (error) {
       console.error('[EA Dersler] GET error:', error);

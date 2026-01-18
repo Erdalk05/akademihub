@@ -58,12 +58,27 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
       setDersYukleniyor(true);
       setDersYuklemeHatasi(null);
       try {
-        const res = await fetch(`/api/admin/exam-analytics/dersler?organizationId=${organizationId}`);
+        const url = organizationId
+          ? `/api/admin/exam-analytics/dersler?organizationId=${organizationId}`
+          : `/api/admin/exam-analytics/dersler`;
+        const res = await fetch(url, { cache: 'no-store' });
         const json = await res.json();
+
+        if (!res.ok || json.error) {
+          setDersYuklemeHatasi(`Ders listesi yüklenemedi: ${json.error || res.statusText}`);
+          return;
+        }
+
         if (json.data && json.data.length > 0) {
           setDersListesi(json.data);
         } else {
-          setDersYuklemeHatasi('Sistemde kayıtlı ders bulunamadı. Lütfen önce dersleri ekleyin.');
+          const hedef =
+            organizationId && organizationId.trim().length > 0
+              ? 'Global + kuruma özel ders bulunamadı'
+              : 'Global ders bulunamadı';
+          setDersYuklemeHatasi(
+            `${hedef}. Lütfen önce Supabase'de migration 011 (global_course_pool) dosyasını çalıştırın.`
+          );
         }
       } catch (err) {
         console.error('Ders listesi yüklenemedi:', err);
@@ -73,9 +88,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
       }
     }
     
-    if (organizationId) {
-      fetchDersler();
-    }
+    fetchDersler();
   }, [organizationId]);
 
   const buildVarsayilanDersler = (tur: SinavTipi): { dersler: SinavDers[]; eksikler: string[] } => {
@@ -477,7 +490,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                 {!step1.sinavAdi && <li>• Sınav adı girin (en az 3 karakter)</li>}
                 {!step1.sinavTuru && <li>• Sınav türü seçin</li>}
                 {step1.dersler.length === 0 && <li>• En az 1 ders ekleyin</li>}
-                {!tumDerslerGecerli && <li className="text-red-600 font-medium">• Eksik dersleri sisteme ekleyin (migration 008)</li>}
+                {!tumDerslerGecerli && <li className="text-red-600 font-medium">• Eksik dersleri sisteme ekleyin (migration 011)</li>}
               </ul>
             </div>
           )}
