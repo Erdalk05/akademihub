@@ -23,6 +23,7 @@ import {
 import { useOrganizationStore } from '@/lib/store/organizationStore';
 import { ResultsTable } from '../_components/ResultsTable';
 import { ParticipantDetailDrawer } from '../_components/ParticipantDetailDrawer';
+import { ReplayDrawer } from '../_components/ReplayDrawer';
 import type { ExamSummary, ResultsRow } from '@/lib/spectra/types';
 import toast from 'react-hot-toast';
 
@@ -48,6 +49,7 @@ export default function SpectraExamResultsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<ResultsRow | null>(null);
+  const [replayParticipant, setReplayParticipant] = useState<ResultsRow | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
   // FETCH DATA
@@ -233,6 +235,7 @@ export default function SpectraExamResultsPage() {
           pagination={pagination}
           onPageChange={(page) => fetchResults(page)}
           onRowClick={(row) => setSelectedParticipant(row)}
+          onReplay={(row) => setReplayParticipant(row)}
         />
       </div>
 
@@ -242,6 +245,15 @@ export default function SpectraExamResultsPage() {
         isOpen={!!selectedParticipant}
         onClose={() => setSelectedParticipant(null)}
         lessons={lessons}
+      />
+
+      {/* Replay Drawer */}
+      <ReplayDrawer
+        examId={examId}
+        resultId={replayParticipant?.resultId || ''}
+        isOpen={!!replayParticipant}
+        onClose={() => setReplayParticipant(null)}
+        participantName={replayParticipant?.participantName}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import {
   Loader2,
   Download,
   Filter,
+  PlayCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ResultsRow, LessonBreakdown } from '@/lib/spectra/types';
@@ -35,6 +36,7 @@ interface ResultsTableProps {
   onRowClick?: (row: ResultsRow) => void;
   onSearch?: (query: string) => void;
   onSort?: (field: string, order: 'asc' | 'desc') => void;
+  onReplay?: (row: ResultsRow) => void;
 }
 
 export function ResultsTable({
@@ -46,6 +48,7 @@ export function ResultsTable({
   onRowClick,
   onSearch,
   onSort,
+  onReplay,
 }: ResultsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<string>('rank');
@@ -169,19 +172,23 @@ export function ResultsTable({
                   {lesson.code.substring(0, 3)}
                 </th>
               ))}
+              {/* Actions Column */}
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Aksiyonlar
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={9 + lessons.length} className="px-4 py-12 text-center">
+                <td colSpan={10 + lessons.length} className="px-4 py-12 text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
                   <p className="text-sm text-gray-500 mt-2">Yükleniyor...</p>
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9 + lessons.length} className="px-4 py-12 text-center text-gray-500">
+                <td colSpan={10 + lessons.length} className="px-4 py-12 text-center text-gray-500">
                   Sonuç bulunamadı
                 </td>
               </tr>
@@ -282,6 +289,18 @@ export function ResultsTable({
                       </td>
                     );
                   })}
+
+                  {/* Actions */}
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => onReplay?.(row)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                      title="Hesaplama detayını görüntüle"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      <span>Replay</span>
+                    </button>
+                  </td>
                 </tr>
               ))
             )}

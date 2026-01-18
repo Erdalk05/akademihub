@@ -142,6 +142,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return {
         rank: from + index + 1,
         participantId: r.exam_participant_id,
+        resultId: r.id, // exam_results.id for replay
         participantName: participant?.participant_name || participant?.guest_name || 'İsimsiz',
         className: participant?.class_name || participant?.guest_class || undefined,
         participantType: participant?.participant_type || 'guest',

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 import { updateExamSchema, validateRequest } from '@/lib/spectra/validators';
+import { validateExamReadiness } from '@/lib/spectra/examReadiness';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,80 +85,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = getServiceRoleClient();
 
     // ─────────────────────────────────────────────────────────────────────────
-    // BACKEND GUARD: status='active' veya 'ready' yapılmadan önce doğrulama
+    // BACKEND GUARD: status='active' veya 'ready' yapılmadan önce DB-backed validation
     // ─────────────────────────────────────────────────────────────────────────
     const targetStatus = validation.data?.status;
     if (targetStatus === 'active' || targetStatus === 'ready') {
-      // 1. Sınav var mı ve organization bağlı mı?
-      const { data: exam, error: examError } = await supabase
-        .from('exams')
-        .select('id, organization_id, name')
-        .eq('id', examId)
-        .single();
-
-      if (examError || !exam) {
+      console.log(`[SPECTRA/EXAM] Validating readiness for exam: ${examId}`);
+      
+      const readiness = await validateExamReadiness(examId);
+      
+      if (!readiness.ready) {
+        console.error(`[SPECTRA/EXAM] ❌ Readiness check failed:`, readiness.blockingErrors);
         return NextResponse.json(
-          { success: false, message: 'Sınav bulunamadı' },
-          { status: 404 }
-        );
-      }
-
-      if (!exam.organization_id) {
-        return NextResponse.json(
-          { success: false, message: 'Sınav bir kuruma bağlı değil' },
+          { 
+            success: false, 
+            message: readiness.blockingErrors[0] || 'Sınav aktif edilemiyor',
+            blockingErrors: readiness.blockingErrors,
+            checks: readiness.checks,
+          },
           { status: 422 }
         );
       }
 
-      // 2. En az 1 ders (exam_sections) var mı?
-      const { count: sectionCount } = await supabase
-        .from('exam_sections')
-        .select('*', { count: 'exact', head: true })
-        .eq('exam_id', examId);
-
-      if (!sectionCount || sectionCount === 0) {
-        return NextResponse.json(
-          { success: false, message: 'En az 1 ders tanımlanmalı' },
-          { status: 422 }
-        );
-      }
-
-      // 3. Cevap anahtarı var mı?
-      const { count: answerKeyCount } = await supabase
-        .from('exam_answer_keys')
-        .select('*', { count: 'exact', head: true })
-        .eq('exam_id', examId);
-
-      if (!answerKeyCount || answerKeyCount === 0) {
-        return NextResponse.json(
-          { success: false, message: 'Cevap anahtarı tanımlanmalı' },
-          { status: 422 }
-        );
-      }
-
-      // 4. total_questions kontrolü
-      const { data: sections } = await supabase
-        .from('exam_sections')
-        .select('question_count')
-        .eq('exam_id', examId);
-
-      const totalQuestions = sections?.reduce((sum, s) => sum + (s.question_count || 0), 0) || 0;
-      if (totalQuestions === 0) {
-        return NextResponse.json(
-          { success: false, message: 'Toplam soru sayısı 0 olamaz' },
-          { status: 422 }
-        );
-      }
-
-      // 5. Cevap anahtarı tam mı?
-      if (answerKeyCount < totalQuestions) {
-        return NextResponse.json(
-          { success: false, message: `Cevap anahtarı eksik: ${answerKeyCount}/${totalQuestions}` },
-          { status: 422 }
-        );
-      }
-
-      console.log(`[SPECTRA/EXAM] ✅ Backend guard passed for exam: ${examId}`);
+      console.log(`[SPECTRA/EXAM] ✅ Readiness check passed for exam: ${examId}`);
     }
 
     const updateData = {

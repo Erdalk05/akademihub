@@ -248,18 +248,34 @@ export default function SpectraWizardPage() {
       });
 
       const result = await response.json();
+      
+      // ✅ FIX: Başarısızlıkta redirect YAPMA
       if (!result.success) {
-        toast.error(result.message || 'Sınav kaydedilemedi');
+        console.error('[Wizard] Activation failed:', result.message, result.blockingErrors);
+        
+        // Detaylı hata mesajı göster
+        if (result.blockingErrors && result.blockingErrors.length > 0) {
+          toast.error(result.blockingErrors[0], { duration: 6000 });
+          // Ek hatalar varsa konsola yaz
+          if (result.blockingErrors.length > 1) {
+            console.warn('[Wizard] Diğer hatalar:', result.blockingErrors.slice(1));
+          }
+        } else {
+          toast.error(result.message || 'Sınav kaydedilemedi');
+        }
+        
+        // ❌ REDIRECT YOK - Kullanıcı wizard'da kalır
         return;
       }
 
+      // ✅ Başarılı - Redirect yap
       toast.success('Sınav başarıyla oluşturuldu!');
-
-      // Sınav detay sayfasına yönlendir
       router.push(`/admin/spectra/sinavlar/${examId}`);
+      
     } catch (error) {
       console.error('[Wizard] Save error:', error);
       toast.error('Bağlantı hatası');
+      // ❌ REDIRECT YOK
     } finally {
       setIsSaving(false);
     }

@@ -187,6 +187,7 @@ export interface ExamSummary {
 export interface ResultsRow {
   rank: number;
   participantId: string;
+  resultId: string; // exam_results.id for replay
   participantName: string;
   className?: string;
   participantType: ParticipantType;

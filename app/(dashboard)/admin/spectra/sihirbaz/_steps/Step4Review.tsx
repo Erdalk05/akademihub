@@ -3,9 +3,10 @@
 // ============================================================================
 // STEP 4: ONAY & KAYDET
 // Sınav özeti ve son onay
+// DB-backed readiness validation (SINGLE SOURCE OF TRUTH)
 // ============================================================================
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   CheckCircle2,
   FileText,
@@ -16,7 +17,7 @@ import {
   Building2,
   AlertTriangle,
   Info,
-  X,
+  XCircle,
   Shield,
   Loader2,
 } from 'lucide-react';
@@ -47,14 +48,47 @@ export default function Step4Review({
   examId,
   onChange,
 }: Step4ReviewProps) {
-  // İstatistikler
+  // ✅ DB-backed validation (SINGLE SOURCE OF TRUTH)
+  const [dbValidation, setDbValidation] = useState<any>(null);
+  const [isLoadingValidation, setIsLoadingValidation] = useState(false);
+
+  // Fetch DB-backed validation when exam ID is available
+  useEffect(() => {
+    if (!examId) {
+      setDbValidation(null);
+      return;
+    }
+
+    const fetchValidation = async () => {
+      setIsLoadingValidation(true);
+      try {
+        const response = await fetch(`/api/spectra/exams/${examId}/validate`);
+        const data = await response.json();
+        if (data.success) {
+          setDbValidation(data);
+          console.log('[Step4Review] DB validation:', data);
+        }
+      } catch (error) {
+        console.error('[Step4Review] Validation fetch error:', error);
+      } finally {
+        setIsLoadingValidation(false);
+      }
+    };
+
+    fetchValidation();
+  }, [examId]);
+
+  // İstatistikler (local state - sadece görsel amaçlı)
   const answerKeyStats = useMemo(() => ({
     total: step3Data.answerKey.length,
     filled: step3Data.answerKey.filter((a) => a.correct_answer !== null).length,
     cancelled: step3Data.answerKey.filter((a) => a.is_cancelled).length,
   }), [step3Data.answerKey]);
 
-  const isAnswerKeyComplete = answerKeyStats.filled === answerKeyStats.total;
+  // ✅ DB-backed answer key stats (SINGLE SOURCE OF TRUTH)
+  const dbAnswerKeyStats = dbValidation?.checks?.answerKeyStats || null;
+  const isAnswerKeyComplete = dbValidation?.checks?.answerKeyComplete || false;
+
   const isEmpty = answerKeyStats.filled === 0;
 
   // Boş ders kontrolü
@@ -114,11 +148,17 @@ export default function Step4Review({
     },
     {
       id: 'answerKey',
-      label: 'Cevap Anahtarı',
-      value: `${answerKeyStats.filled}/${answerKeyStats.total}`,
-      isValid: answerKeyStats.filled === answerKeyStats.total && answerKeyStats.total > 0,
-      warning: !isAnswerKeyComplete && !isEmpty,
-      detail: missingAnswerCount > 0 ? `${missingAnswerCount} cevap eksik` : undefined,
+      label: 'Cevap Anahtarı (DB)',
+      value: dbAnswerKeyStats 
+        ? `${dbAnswerKeyStats.actual}/${dbAnswerKeyStats.expected} (${dbAnswerKeyStats.percentage}%)`
+        : isLoadingValidation 
+          ? 'Yükleniyor...' 
+          : `${answerKeyStats.filled}/${answerKeyStats.total} (local)`,
+      isValid: dbAnswerKeyStats ? isAnswerKeyComplete : (answerKeyStats.filled === answerKeyStats.total && answerKeyStats.total > 0),
+      warning: dbAnswerKeyStats && !isAnswerKeyComplete && dbAnswerKeyStats.actual > 0,
+      detail: dbAnswerKeyStats && !isAnswerKeyComplete
+        ? `${dbAnswerKeyStats.expected - dbAnswerKeyStats.actual} cevap eksik`
+        : undefined,
     },
   ], [examId, organizationName, step1Data, step2Data, answerKeyStats, emptyLessons, missingAnswerCount, isAnswerKeyComplete, isEmpty]);
 
@@ -205,34 +245,72 @@ export default function Step4Review({
           <div className="flex items-center gap-2 mb-3">
             <Key className="w-5 h-5 text-amber-500" />
             <h4 className="font-semibold text-gray-900">Cevap Anahtarı</h4>
+            {isLoadingValidation && (
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            )}
           </div>
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Tamamlanan</span>
-              <span className="font-medium text-gray-900">
-                {answerKeyStats.filled} / {answerKeyStats.total}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={cn(
-                  'h-2 rounded-full transition-all',
-                  isAnswerKeyComplete ? 'bg-emerald-500' : 'bg-amber-500'
+            {/* DB-backed stats (priority) */}
+            {dbAnswerKeyStats && (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Veritabanı (DB)</span>
+                  <span className="font-medium text-gray-900">
+                    {dbAnswerKeyStats.actual} / {dbAnswerKeyStats.expected}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={cn(
+                      'h-2 rounded-full transition-all',
+                      isAnswerKeyComplete ? 'bg-emerald-500' : 'bg-amber-500'
+                    )}
+                    style={{
+                      width: `${dbAnswerKeyStats.percentage}%`,
+                    }}
+                  />
+                </div>
+                {!isAnswerKeyComplete && dbAnswerKeyStats.actual > 0 && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {dbAnswerKeyStats.expected - dbAnswerKeyStats.actual} cevap eksik
+                  </p>
                 )}
-                style={{
-                  width: `${(answerKeyStats.filled / answerKeyStats.total) * 100}%`,
-                }}
-              />
-            </div>
+                {dbAnswerKeyStats.actual === 0 && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Cevap anahtarı tanımlanmadı
+                  </p>
+                )}
+              </>
+            )}
+            
+            {/* Local stats (fallback) */}
+            {!dbAnswerKeyStats && !isLoadingValidation && (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Tamamlanan (local)</span>
+                  <span className="font-medium text-gray-900">
+                    {answerKeyStats.filled} / {answerKeyStats.total}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={cn(
+                      'h-2 rounded-full transition-all',
+                      answerKeyStats.filled === answerKeyStats.total ? 'bg-emerald-500' : 'bg-amber-500'
+                    )}
+                    style={{
+                      width: `${(answerKeyStats.filled / answerKeyStats.total) * 100}%`,
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
             {answerKeyStats.cancelled > 0 && (
               <p className="text-xs text-amber-600">
                 {answerKeyStats.cancelled} soru iptal edildi
-              </p>
-            )}
-            {!isAnswerKeyComplete && !isEmpty && (
-              <p className="text-xs text-amber-600 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                Bazı cevaplar eksik
               </p>
             )}
           </div>
@@ -337,9 +415,37 @@ export default function Step4Review({
       {!allValid && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex gap-3">
           <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-red-800">
+          <div className="text-sm text-red-800 flex-1">
             <strong>Uyarı:</strong> {criticalErrors.length} zorunlu kontrol başarısız. 
-            Lütfen yukarıdaki hataları düzeltin.
+            <div className="mt-2 space-y-1">
+              {criticalErrors.map((error, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>{error.detail || error.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DB Blocking Errors (if any) */}
+      {dbValidation && !dbValidation.ready && dbValidation.blockingErrors && (
+        <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl flex gap-3">
+          <XCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-900 flex-1">
+            <strong className="block text-base mb-2">Veritabanı Doğrulaması Başarısız</strong>
+            <ul className="space-y-1.5">
+              {dbValidation.blockingErrors.map((error: string, idx: number) => (
+                <li key={idx} className="flex items-start gap-2 font-medium">
+                  <span className="text-red-600">✗</span>
+                  <span>{error}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-red-700">
+              Bu hatalar düzeltilmeden sınav aktif edilemez.
+            </p>
           </div>
         </div>
       )}
