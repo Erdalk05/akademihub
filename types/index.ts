@@ -8,4 +8,4 @@ export * from './student.types';
 export * from './finance.types';
 export * from './api.types';
 export * from './contract.types';
-export * from './akademik-analiz.contract';
+

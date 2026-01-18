@@ -126,7 +126,18 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         { label: 'Rapor Olusturucu', href: '/finance/reports/builder', icon: <BarChart3 size={16} /> },
       ],
     },
-  
+    {
+      label: 'Sinav Analizi',
+      href: '/admin/exam-analytics',
+      icon: <Brain size={20} />,
+      adminOnly: true, // Sadece admin görebilir
+      hideForSuperAdmin: true, // Franchise yöneticisi görmez
+      submenu: [
+        { label: 'Dashboard', href: '/admin/exam-analytics', icon: <Target size={16} /> },
+        { label: 'Sinavlar', href: '/admin/exam-analytics/sinavlar', icon: <FileText size={16} /> },
+        { label: 'Ayarlar', href: '/admin/exam-analytics/ayarlar', icon: <Settings size={16} /> },
+      ],
+    },
     {
       label: 'Ayarlar',
       href: '/settings',
@@ -165,6 +176,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       return item;
     });
     const getActiveMenu = () => {
+      if (pathname.startsWith('/admin/exam-analytics')) return 'Sinav Analizi';
       if (pathname.startsWith('/finance/reports')) return 'Raporlar';
       if (pathname.startsWith('/finance')) return 'Finans';
       if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';

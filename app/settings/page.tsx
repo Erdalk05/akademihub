@@ -18,10 +18,9 @@ import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import OrganizationSettings from '@/components/settings/OrganizationSettings';
 import DataMigrationSection from '@/components/settings/DataMigrationSection';
 import AdminPasswordModal from '@/components/ui/AdminPasswordModal';
-import ScoringRulesSettings from '@/components/settings/ScoringRulesSettings';
 
 // Tab Types
-type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration' | 'scoring';
+type SettingsTab = 'general' | 'organizations' | 'users' | 'permissions' | 'academic' | 'communication' | 'contracts' | 'payments' | 'backup' | 'api' | 'shortcuts' | 'migration';
 
 // Interfaces
 interface SchoolInfo {
@@ -981,10 +980,8 @@ function SettingsPageContent() {
     { id: 'users', label: 'Kullanıcı Yönetimi', icon: Users, description: 'Kullanıcılar ve roller' },
     { id: 'permissions', label: 'Rol Yetkileri', icon: Shield, description: 'Rol bazlı erişim kontrolü' },
     { id: 'academic', label: 'Akademik Yıllar', icon: Calendar, description: 'Eğitim dönemleri' },
-    { id: 'scoring', label: 'Puanlama Kuralları', icon: Calculator, description: 'LGS/TYT/AYT katsayıları' },
     { id: 'communication', label: 'İletişim Ayarları', icon: Mail, description: 'SMS, Email, WhatsApp' },
-    { id: 'contracts', label: 'Sözleşme Şablonları', icon: FileText, description: 'KVKK ve kayıt sözleşmesi' },
-    { id: 'payments', label: 'Ödeme Şablonları', icon: CreditCard, description: 'Program ücretleri' },
+    { id: 'contracts', label: 'Sözleşme Şablonları', icon: FileText, description: 'KVKK ve kayıt sözleşmesi' }, { id: 'payments', label: 'Ödeme Şablonları', icon: CreditCard, description: 'Program ücretleri' },
     { id: 'api', label: 'API Ayarları', icon: Server, description: 'SMS, E-posta provider' },
     { id: 'backup', label: 'Yedekleme', icon: Database, description: 'Veri yedekleme ve geri yükleme' },
     { id: 'migration', label: 'Veri Aktarımı', icon: Upload, description: 'Geçmiş yıllardan veri aktarımı' },
@@ -2578,15 +2575,7 @@ function SettingsPageContent() {
                   <BackupRestore />
                 )}
 
-                {/* Puanlama Kuralları Sekmesi */}
-                {activeTab === 'scoring' && (
-                  <ScoringRulesSettings />
-                )}
-
-                {/* Veri Aktarımı Sekmesi */}
-                {activeTab === 'migration' && (
-                  <DataMigrationSection organizationId={currentOrganization?.id} />
-                )}
+        
 
                 {/* Klavye Kısayolları Sekmesi */}
                 {activeTab === 'shortcuts' && (
@@ -2681,8 +2670,7 @@ function SettingsPageContent() {
         title="Kullanıcı Silme Onayı"
         description="Bu kullanıcıyı silmek için admin şifrenizi girin. Bu işlem geri alınamaz!"
         confirmText="Kullanıcıyı Sil"
-        loading={deleteUserLoading}
-        isDanger
+        dangerAction={true}
       />
     </div>
   );

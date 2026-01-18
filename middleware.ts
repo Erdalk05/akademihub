@@ -10,6 +10,7 @@ const protectedRoutes = [
   '/settings',
   '/profile',
   '/franchise',
+  '/admin/exam-analytics', // Exam Analytics modülü
 ];
 
 export function middleware(request: NextRequest) {
