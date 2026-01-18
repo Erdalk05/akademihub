@@ -147,6 +147,17 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
   const eksikDersKodlari = step1.dersler.filter(d => !d.dersId).map(d => d.dersKodu);
   const tumDerslerGecerli = step1.dersler.length > 0 && eksikDersKodlari.length === 0;
 
+  // Sınav türüne göre eklenebilir dersleri filtrele
+  const eklenebilirDersler = dersListesi.filter(d => {
+    // Zaten eklenmişleri çıkar
+    if (step1.dersler.find(sd => sd.dersId === d.id)) return false;
+    
+    // LGS için Sosyal Bilimler gösterme (SOS dersi sadece TYT/AYT için)
+    if (step1.sinavTuru === 'lgs' && d.ders_kodu === 'SOS') return false;
+    
+    return true;
+  });
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       {/* Başlık */}
@@ -384,9 +395,16 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
           {tumDerslerGecerli && step1.dersler.length > 0 && (
             <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
               <span className="text-green-600 text-lg">✅</span>
-              <span className="text-sm text-green-700 font-medium">
-                Tüm dersler başarıyla yüklendi! ({step1.dersler.length} ders)
-              </span>
+              <div>
+                <span className="text-sm text-green-700 font-medium">
+                  Tüm dersler başarıyla yüklendi! ({step1.dersler.length} ders)
+                </span>
+                {step1.sinavTuru === 'lgs' && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Sistemde 7 ders var, LGS için 6 tanesi kullanılıyor (Sosyal Bilimler TYT/AYT için ayrıldı)
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -463,7 +481,8 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
               <div>
                 <h3 className="text-lg font-semibold">Ders Ekle</h3>
                 <p className="text-xs text-gray-500 mt-1">
-                  {dersListesi.length} ders mevcut
+                  {eklenebilirDersler.length} ders eklenebilir
+                  {step1.sinavTuru === 'lgs' && ' (LGS için Sosyal Bilimler hariç)'}
                 </p>
               </div>
               <button
@@ -498,30 +517,32 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
               </div>
             ) : (
               <div className="space-y-2 overflow-y-auto flex-1">
-                {dersListesi
-                  .filter(d => !step1.dersler.find(sd => sd.dersId === d.id))
-                  .map((ders) => (
-                    <button
-                      key={ders.id}
-                      onClick={() => handleDersEkle(ders)}
-                      className="w-full p-3 border rounded-lg text-left hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center gap-3"
-                    >
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: ders.renk_kodu || getDersRenk(ders.ders_kodu) }}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{ders.ders_adi}</div>
-                        <div className="text-xs text-gray-500">{ders.ders_kodu}</div>
-                      </div>
-                      <Plus className="w-4 h-4 text-gray-400" />
-                    </button>
-                  ))}
+                {eklenebilirDersler.map((ders) => (
+                  <button
+                    key={ders.id}
+                    onClick={() => handleDersEkle(ders)}
+                    className="w-full p-3 border rounded-lg text-left hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center gap-3"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: ders.renk_kodu || getDersRenk(ders.ders_kodu) }}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{ders.ders_adi}</div>
+                      <div className="text-xs text-gray-500">{ders.ders_kodu}</div>
+                    </div>
+                    <Plus className="w-4 h-4 text-gray-400" />
+                  </button>
+                ))}
                 
-                {dersListesi.filter(d => !step1.dersler.find(sd => sd.dersId === d.id)).length === 0 && (
+                {eklenebilirDersler.length === 0 && (
                   <div className="py-8 text-center">
                     <div className="text-4xl mb-2">✅</div>
-                    <p className="text-gray-700 font-medium">Tüm dersler eklenmiş</p>
+                    <p className="text-gray-700 font-medium">
+                      {step1.sinavTuru === 'lgs' 
+                        ? 'Tüm LGS dersleri eklenmiş' 
+                        : 'Tüm dersler eklenmiş'}
+                    </p>
                     <p className="text-sm text-gray-500 mt-1">
                       Sınavda {step1.dersler.length} ders bulunuyor
                     </p>
