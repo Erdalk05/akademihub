@@ -101,53 +101,41 @@ export async function POST(request: NextRequest) {
     if (!sinavTuru) {
       return NextResponse.json({ error: 'Sınav türü gerekli' }, { status: 400 });
     }
-    if (!dersler || dersler.length === 0) {
-      return NextResponse.json({ error: 'En az 1 ders gerekli' }, { status: 400 });
-    }
 
-    // Ders validasyonları - dersId VEYA dersKodu olmalı
-    const eksikDersler = dersler.filter((ders: any) => !ders.dersId && !ders.dersKodu);
-    if (eksikDersler.length > 0) {
-      console.error('[EA Sinavlar] Eksik dersId ve dersKodu:', eksikDersler);
-      return NextResponse.json({ 
-        error: `Ders eşleştirmesi eksik: ${eksikDersler.length} derste hem dersId hem dersKodu bulunamadı`,
-        eksikDersler: eksikDersler.map((d: any, i: number) => `Ders ${i + 1}: ${d.dersAdi || 'İsimsiz'}`)
-      }, { status: 400 });
-    }
-
-    const gecersizSoruSayisi = dersler.filter((ders: any) => !ders.soruSayisi || ders.soruSayisi <= 0);
-    if (gecersizSoruSayisi.length > 0) {
-      console.error('[EA Sinavlar] Geçersiz soru sayısı:', gecersizSoruSayisi);
-      return NextResponse.json({ 
-        error: `Ders soru sayısı geçersiz: ${gecersizSoruSayisi.length} derste soru sayısı 0 veya boş`,
-        gecersizDersler: gecersizSoruSayisi.map((d: any) => `${d.dersKodu || d.dersAdi || 'İsimsiz'}: ${d.soruSayisi || 0} soru`)
-      }, { status: 400 });
-    }
+    // NOTE: dersler validation removed - will be handled in separate endpoint
+    // when implementing ea_sinav_dersler insert
 
     const supabase = getServiceRoleClient();
 
     // Toplam soru sayısını hesapla
-    const toplamSoru = dersler.reduce((total: number, ders: any) => total + (ders.soruSayisi || 0), 0);
+    const toplamSoru = dersler?.reduce((total: number, ders: any) => total + (ders.soruSayisi || 0), 0) || 0;
 
     // Sınav kodu oluştur (LGS-2026-001 formatı)
     const yil = new Date().getFullYear();
-    const { data: lastSinav } = await supabase
-      .from('ea_sinavlar')
-      .select('sinav_kodu')
-      .eq('organization_id', organizationId)
-      .ilike('sinav_kodu', `${sinavTuru.toUpperCase()}-${yil}-%`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    
+    let sinavKodu = `${sinavTuru.toUpperCase()}-${yil}-001`; // default
+    
+    try {
+      const { data: lastSinav, error: codeError } = await supabase
+        .from('ea_sinavlar')
+        .select('sinav_kodu')
+        .eq('organization_id', organizationId)
+        .ilike('sinav_kodu', `${sinavTuru.toUpperCase()}-${yil}-%`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-    let siraNo = 1;
-    if (lastSinav?.sinav_kodu) {
-      const match = lastSinav.sinav_kodu.match(/-(\d+)$/);
-      if (match) {
-        siraNo = parseInt(match[1]) + 1;
+      if (!codeError && lastSinav?.sinav_kodu) {
+        const match = lastSinav.sinav_kodu.match(/-(\d+)$/);
+        if (match) {
+          const siraNo = parseInt(match[1]) + 1;
+          sinavKodu = `${sinavTuru.toUpperCase()}-${yil}-${siraNo.toString().padStart(3, '0')}`;
+        }
       }
+    } catch (err) {
+      // Sınav kodu oluştururken hata olsa bile devam et (default kod kullan)
+      console.warn('[EA Sinavlar] Sınav kodu oluşturma uyarı:', err);
     }
-    const sinavKodu = `${sinavTuru.toUpperCase()}-${yil}-${siraNo.toString().padStart(3, '0')}`;
 
     // 1. SINAV OLUŞTUR
     const { data: sinav, error: sinavError } = await supabase
