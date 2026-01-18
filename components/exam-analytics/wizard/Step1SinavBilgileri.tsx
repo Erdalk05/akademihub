@@ -104,6 +104,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
       return {
         ...ders,
         dersId: eslesen.id,
+        dersKodu: eslesen.ders_kodu || ders.dersKodu, // ZORUNLU
         dersAdi: eslesen.ders_adi || ders.dersAdi,
         renkKodu: eslesen.renk_kodu || ders.renkKodu,
       };
