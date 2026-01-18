@@ -104,6 +104,12 @@ export async function POST(request: NextRequest) {
     if (!dersler || dersler.length === 0) {
       return NextResponse.json({ error: 'En az 1 ders gerekli' }, { status: 400 });
     }
+    if (dersler.some((ders: any) => !ders.dersId)) {
+      return NextResponse.json({ error: 'Ders eşleştirmesi eksik (dersId gerekli)' }, { status: 400 });
+    }
+    if (dersler.some((ders: any) => !ders.soruSayisi || ders.soruSayisi <= 0)) {
+      return NextResponse.json({ error: 'Ders soru sayısı geçersiz' }, { status: 400 });
+    }
 
     const supabase = getServiceRoleClient();
 
@@ -139,11 +145,11 @@ export async function POST(request: NextRequest) {
         sinav_kodu: sinavKodu,
         sinav_adi: sinavAdi.trim(),
         sinav_tarihi: sinavTarihi || null,
-        sinif_seviyesi: sinifSeviyesi || null,
+        sinif_seviyesi: sinifSeviyesi ?? null,
         sinav_tipi: sinavTuru.toLowerCase(),
         toplam_soru: toplamSoru,
-        sure_dakika: sureDakika || 120,
-        yanlis_katsayi: yanlisKatsayi || 0.3333,
+        sure_dakika: sureDakika ?? 120,
+        yanlis_katsayi: yanlisKatsayi ?? 0.3333,
         durum: 'taslak',
         is_published: false,
         created_by: userId,

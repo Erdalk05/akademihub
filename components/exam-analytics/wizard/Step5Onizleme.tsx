@@ -171,7 +171,9 @@ export function Step5Onizleme({ wizard, organizationId, userId, onPublish }: Ste
           </div>
           <div>
             <span className="text-sm text-gray-500">Yanlış Katsayısı:</span>
-            <p className="font-medium">1/{Math.round(1/step1.yanlisKatsayi)}</p>
+            <p className="font-medium">
+              {step1.yanlisKatsayi > 0 ? `1/${Math.round(1 / step1.yanlisKatsayi)}` : 'Yok'}
+            </p>
           </div>
         </div>
 

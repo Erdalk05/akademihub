@@ -42,7 +42,7 @@ const SINAV_TURU_OPTIONS: { value: SinavTipi; label: string; icon: string; desc:
 ];
 
 export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
-  const { state, setSinavAdi, setSinavTarihi, setSinifSeviyesi, setSinavTuru, setDersler, addDers, removeDers, updateDersSoruSayisi } = wizard;
+  const { state, setSinavAdi, setSinavTarihi, setSinifSeviyesi, setSinavTuru, addDers, removeDers, updateDersSoruSayisi } = wizard;
   const { step1 } = state;
 
   const [dersListesi, setDersListesi] = useState<EADers[]>([]);
@@ -71,27 +71,60 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
     }
   }, [organizationId]);
 
+  const buildVarsayilanDersler = (tur: SinavTipi): SinavDers[] => {
+    const config = SINAV_TURLERI[tur];
+    if (!config?.varsayilanDersler?.length) return [];
+
+    let baslangic = 1;
+    return config.varsayilanDersler.map((d, index) => {
+      const eslesen = dersListesi.find(
+        (ders) => ders.ders_kodu.toUpperCase() === d.kod.toUpperCase()
+      );
+
+      const soruSayisi = d.soru;
+      const kayit = {
+        dersId: eslesen?.id || '',
+        dersKodu: d.kod,
+        dersAdi: eslesen?.ders_adi || d.ad,
+        renkKodu: eslesen?.renk_kodu || getDersRenk(d.kod),
+        soruSayisi,
+        siraNo: index + 1,
+        baslangicSoru: baslangic,
+        bitisSoru: baslangic + soruSayisi - 1,
+      };
+      baslangic += soruSayisi;
+      return kayit;
+    });
+  };
+
+  const handleSinavTuruSec = (tur: SinavTipi) => {
+    const varsayilanDersler = buildVarsayilanDersler(tur);
+    setSinavTuru(tur, varsayilanDersler.length > 0 ? varsayilanDersler : undefined);
+  };
+
   // Varsayılana sıfırla
   const handleVarsayilanaSifirla = () => {
     if (step1.sinavTuru) {
-      setSinavTuru(step1.sinavTuru as SinavTipi);
+      handleSinavTuruSec(step1.sinavTuru as SinavTipi);
     }
   };
 
   // Ders ekle
   const handleDersEkle = (ders: EADers) => {
+    const varsayilanSoru = Math.max(1, ders.min_soru_sayisi || 10);
     addDers({
       dersId: ders.id,
       dersKodu: ders.ders_kodu,
       dersAdi: ders.ders_adi,
       renkKodu: ders.renk_kodu || getDersRenk(ders.ders_kodu),
-      soruSayisi: 10,
+      soruSayisi: varsayilanSoru,
     });
     setDersEkleModalAcik(false);
   };
 
   // Toplam soru ve süre hesapla
   const toplamSoru = step1.dersler.reduce((t, d) => t + d.soruSayisi, 0);
+  const eksikDersKodlari = step1.dersler.filter(d => !d.dersId).map(d => d.dersKodu);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -184,7 +217,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
             {SINAV_TURU_OPTIONS.map((tur) => (
               <button
                 key={tur.value}
-                onClick={() => setSinavTuru(tur.value)}
+                onClick={() => handleSinavTuruSec(tur.value)}
                 className={cn(
                   'p-4 rounded-lg border transition-all text-left',
                   step1.sinavTuru === tur.value
@@ -275,6 +308,12 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
               <span className="text-sm">Ders Ekle</span>
             </button>
           </div>
+          {eksikDersKodlari.length > 0 && (
+            <div className="mt-3 text-sm text-red-600">
+              Bu dersler sistemde bulunamadı: {eksikDersKodlari.join(', ')}. 
+              Lütfen bu dersleri önce ders listesinden ekleyin.
+            </div>
+          )}
         </div>
 
         {/* Özet Bar */}
@@ -293,7 +332,9 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
             <div className="h-4 w-px bg-gray-300" />
             <div>
               <span className="text-sm text-gray-500">Yanlış:</span>
-              <span className="ml-2 font-semibold text-gray-900">1/{Math.round(1/step1.yanlisKatsayi)}</span>
+              <span className="ml-2 font-semibold text-gray-900">
+                {step1.yanlisKatsayi > 0 ? `1/${Math.round(1 / step1.yanlisKatsayi)}` : 'Yok'}
+              </span>
             </div>
           </div>
           

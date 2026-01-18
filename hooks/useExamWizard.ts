@@ -148,16 +148,32 @@ export function useExamWizard() {
     }));
   }, []);
 
-  const setSinavTuru = useCallback((tur: SinavTipi) => {
+  const buildStep2State = (prevStep2: WizardState['step2'], dersler: SinavDers[], toplamSoru: number) => ({
+    ...prevStep2,
+    cevaplar: dersler.map(d => ({
+      dersId: d.dersId,
+      dersKodu: d.dersKodu,
+      dersAdi: d.dersAdi,
+      soruSayisi: d.soruSayisi,
+      cevapDizisi: '',
+      girilenCevap: 0,
+      tamamlandi: false,
+    })),
+    toplamCevap: toplamSoru,
+    girilenCevap: 0,
+    isCompleted: false,
+  });
+
+  const setSinavTuru = useCallback((tur: SinavTipi, derslerOverride?: SinavDers[]) => {
     const config = SINAV_TURLERI[tur];
     
-    // Varsayılan dersleri oluştur
-    let dersler: SinavDers[] = [];
+    // Varsayılan dersleri oluştur (override yoksa)
+    let dersler: SinavDers[] = derslerOverride || [];
     let baslangic = 1;
     
-    if (config?.varsayilanDersler?.length > 0) {
+    if (!derslerOverride && config?.varsayilanDersler?.length > 0) {
       dersler = config.varsayilanDersler.map((d, index) => ({
-        dersId: '', // Backend'den gelecek
+        dersId: '',
         dersKodu: d.kod,
         dersAdi: d.ad,
         renkKodu: '#3B82F6',
@@ -169,15 +185,15 @@ export function useExamWizard() {
       baslangic += dersler.reduce((t, d) => t + d.soruSayisi, 0);
     }
     
-    const toplamSoru = config?.toplamSoru || dersler.reduce((t, d) => t + d.soruSayisi, 0);
+    const toplamSoru = config?.toplamSoru ?? dersler.reduce((t, d) => t + d.soruSayisi, 0);
     
     setState(prev => ({
       ...prev,
       step1: {
         ...prev.step1,
         sinavTuru: tur,
-        sureDakika: config?.sure || 120,
-        yanlisKatsayi: config?.yanlisKatsayi || 0.333,
+        sureDakika: config?.sure ?? 120,
+        yanlisKatsayi: config?.yanlisKatsayi ?? 0.333,
         dersler,
         toplamSoru,
         isCompleted: validateStep1({
@@ -186,6 +202,7 @@ export function useExamWizard() {
           dersler,
         }),
       },
+      step2: buildStep2State(prev.step2, dersler, toplamSoru),
     }));
   }, []);
 
@@ -213,22 +230,7 @@ export function useExamWizard() {
           dersler: guncelDersler,
         }),
       },
-      // Step 2'yi de güncelle (ders listesi değişti)
-      step2: {
-        ...prev.step2,
-        cevaplar: guncelDersler.map(d => ({
-          dersId: d.dersId,
-          dersKodu: d.dersKodu,
-          dersAdi: d.dersAdi,
-          soruSayisi: d.soruSayisi,
-          cevapDizisi: '',
-          girilenCevap: 0,
-          tamamlandi: false,
-        })),
-        toplamCevap: toplamSoru,
-        girilenCevap: 0,
-        isCompleted: false,
-      },
+      step2: buildStep2State(prev.step2, guncelDersler, toplamSoru),
     }));
   }, []);
 
@@ -259,6 +261,7 @@ export function useExamWizard() {
             dersler: yeniDersler,
           }),
         },
+        step2: buildStep2State(prev.step2, yeniDersler, toplamSoru),
       };
     });
   }, []);
@@ -293,6 +296,7 @@ export function useExamWizard() {
             dersler: guncelDersler,
           }),
         },
+        step2: buildStep2State(prev.step2, guncelDersler, toplamSoru),
       };
     });
   }, []);
@@ -324,7 +328,12 @@ export function useExamWizard() {
           ...prev.step1,
           dersler: guncelDersler,
           toplamSoru,
+          isCompleted: validateStep1({
+            ...prev.step1,
+            dersler: guncelDersler,
+          }),
         },
+        step2: buildStep2State(prev.step2, guncelDersler, toplamSoru),
       };
     });
   }, []);
@@ -513,7 +522,7 @@ export function useExamWizard() {
       step1.sinavAdi.trim().length >= 3 &&
       step1.sinavTuru !== '' &&
       step1.dersler.length >= 1 &&
-      step1.dersler.every(d => d.soruSayisi > 0)
+      step1.dersler.every(d => d.soruSayisi > 0 && !!d.dersId)
     );
   };
 
