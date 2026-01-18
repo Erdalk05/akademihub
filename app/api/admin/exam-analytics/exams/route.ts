@@ -105,13 +105,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'En az 1 ders gerekli' }, { status: 400 });
     }
 
-    // Ders validasyonları
-    const eksikDersler = dersler.filter((ders: any) => !ders.dersId);
+    // Ders validasyonları - dersId VEYA dersKodu olmalı
+    const eksikDersler = dersler.filter((ders: any) => !ders.dersId && !ders.dersKodu);
     if (eksikDersler.length > 0) {
-      console.error('[EA Sinavlar] Eksik dersId:', eksikDersler);
+      console.error('[EA Sinavlar] Eksik dersId ve dersKodu:', eksikDersler);
       return NextResponse.json({ 
-        error: `Ders eşleştirmesi eksik: ${eksikDersler.length} derste dersId bulunamadı`,
-        eksikDersler: eksikDersler.map((d: any) => d.dersKodu || d.dersAdi)
+        error: `Ders eşleştirmesi eksik: ${eksikDersler.length} derste hem dersId hem dersKodu bulunamadı`,
+        eksikDersler: eksikDersler.map((d: any, i: number) => `Ders ${i + 1}: ${d.dersAdi || 'İsimsiz'}`)
       }, { status: 400 });
     }
 
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       console.error('[EA Sinavlar] Geçersiz soru sayısı:', gecersizSoruSayisi);
       return NextResponse.json({ 
         error: `Ders soru sayısı geçersiz: ${gecersizSoruSayisi.length} derste soru sayısı 0 veya boş`,
-        gecersizDersler: gecersizSoruSayisi.map((d: any) => d.dersKodu || d.dersAdi)
+        gecersizDersler: gecersizSoruSayisi.map((d: any) => `${d.dersKodu || d.dersAdi || 'İsimsiz'}: ${d.soruSayisi || 0} soru`)
       }, { status: 400 });
     }
 
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       const soruSayisi = ders.soruSayisi || 10;
       const record = {
         sinav_id: sinavId,
-        ders_id: ders.dersId,
+        ders_id: ders.dersId || null,
         ders_kodu: ders.dersKodu || null,
         soru_sayisi: soruSayisi,
         sira_no: index + 1,
@@ -197,15 +197,21 @@ export async function POST(request: NextRequest) {
       return record;
     });
 
+    console.log('[EA Sinavlar] Ders bilgileri insert edilecek:', JSON.stringify(dersBilgileri, null, 2));
+
     const { error: dersError } = await supabase
       .from('ea_sinav_dersler')
       .insert(dersBilgileri);
 
     if (dersError) {
       console.error('[EA Sinavlar] Ders dağılımı hatası:', dersError);
+      console.error('[EA Sinavlar] Hatalı payload:', dersBilgileri);
       // Rollback: Sınavı sil
       await supabase.from('ea_sinavlar').delete().eq('id', sinavId);
-      return NextResponse.json({ error: dersError.message }, { status: 500 });
+      return NextResponse.json({ 
+        error: `Ders dağılımı kaydedilemedi: ${dersError.message}`,
+        details: dersError.details || dersError.hint || 'Detay yok'
+      }, { status: 500 });
     }
 
     return NextResponse.json({
