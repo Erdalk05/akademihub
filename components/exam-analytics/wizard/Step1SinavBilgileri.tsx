@@ -44,7 +44,7 @@ const SINAV_TURU_OPTIONS: { value: SinavTipi; label: string; icon: string; desc:
 ];
 
 export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
-  const { state, setSinavAdi, setSinavTarihi, setSinifSeviyesi, setSinavTuru, addDers, removeDers, updateDersSoruSayisi } = wizard;
+  const { state, setSinavAdi, setSinavTarihi, setSinifSeviyesi, setSinavTuru, setDersler, addDers, removeDers, updateDersSoruSayisi } = wizard;
   const { step1 } = state;
 
   const [dersListesi, setDersListesi] = useState<EADers[]>([]);
@@ -90,6 +90,35 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
     
     fetchDersler();
   }, [organizationId]);
+
+  // Ders listesi geldikten sonra eksik dersId'leri tamamla
+  useEffect(() => {
+    if (!dersListesi.length || step1.dersler.length === 0) return;
+
+    const guncellenmisDersler = step1.dersler.map(ders => {
+      if (ders.dersId) return ders;
+      const eslesen = dersListesi.find(
+        (d) => d.ders_kodu.toUpperCase() === ders.dersKodu.toUpperCase()
+      );
+      if (!eslesen) return ders;
+      return {
+        ...ders,
+        dersId: eslesen.id,
+        dersAdi: eslesen.ders_adi || ders.dersAdi,
+        renkKodu: eslesen.renk_kodu || ders.renkKodu,
+      };
+    });
+
+    const degisti = guncellenmisDersler.some((ders, idx) => (
+      ders.dersId !== step1.dersler[idx].dersId ||
+      ders.dersAdi !== step1.dersler[idx].dersAdi ||
+      ders.renkKodu !== step1.dersler[idx].renkKodu
+    ));
+
+    if (degisti) {
+      setDersler(guncellenmisDersler);
+    }
+  }, [dersListesi, step1.dersler, setDersler]);
 
   const buildVarsayilanDersler = (tur: SinavTipi): { dersler: SinavDers[]; eksikler: string[] } => {
     const config = SINAV_TURLERI[tur];
