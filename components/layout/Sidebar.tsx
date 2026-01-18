@@ -126,23 +126,7 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
         { label: 'Rapor Olusturucu', href: '/finance/reports/builder', icon: <BarChart3 size={16} /> },
       ],
     },
-    // Spectra - Sınav Analiz Modülü
-    {
-      label: 'Spectra',
-      href: '/admin/spectra',
-      icon: <Target size={20} />,
-      hideForSuperAdmin: true,
-      submenu: [
-        { label: 'Dashboard', href: '/admin/spectra', icon: <LayoutDashboard size={16} /> },
-        { label: 'Sınavlar', href: '/admin/spectra/sinavlar', icon: <FileText size={16} /> },
-        { label: 'Öğrenciler', href: '/admin/spectra/ogrenciler', icon: <Users size={16} /> },
-        { label: 'Karneler', href: '/admin/spectra/karneler', icon: <FileSignature size={16} /> },
-        { label: 'Yeni Sınav Ekle', href: '/admin/spectra/sihirbaz', icon: <FileSpreadsheet size={16} /> },
-        { label: 'Rehberlik', href: '/admin/spectra/rehberlik', icon: <Brain size={16} /> },
-        { label: 'Konu Analizi', href: '/admin/spectra/konu-analizi', icon: <BarChart3 size={16} /> },
-        { label: 'Karşılaştırma', href: '/admin/spectra/karsilastirma', icon: <PieChart size={16} /> },
-      ],
-    },
+  
     {
       label: 'Ayarlar',
       href: '/settings',
@@ -181,7 +165,6 @@ const Sidebar: React.FC<{ onClose?: () => void; collapsed?: boolean }> = ({
       return item;
     });
     const getActiveMenu = () => {
-      if (pathname.startsWith('/admin/spectra')) return 'Spectra';
       if (pathname.startsWith('/finance/reports')) return 'Raporlar';
       if (pathname.startsWith('/finance')) return 'Finans';
       if (pathname.startsWith('/students') || pathname.startsWith('/enrollment')) return 'Ogrenciler';
