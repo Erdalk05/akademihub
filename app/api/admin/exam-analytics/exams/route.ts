@@ -91,14 +91,27 @@ export async function POST(request: NextRequest) {
       userId,
     } = body;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:80',message:'POST body received',data:{organizationId,sinavAdi,sinavTuru,derslerCount:dersler?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,D'})}).catch(()=>{});
+    // #endregion
+
     // Validasyon
     if (!organizationId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:96',message:'Validation FAILED: organizationId missing',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return NextResponse.json({ error: 'organizationId gerekli' }, { status: 400 });
     }
     if (!sinavAdi || sinavAdi.trim().length < 3) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:104',message:'Validation FAILED: sinavAdi invalid',data:{sinavAdi},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return NextResponse.json({ error: 'Sınav adı en az 3 karakter olmalı' }, { status: 400 });
     }
     if (!sinavTuru) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:112',message:'Validation FAILED: sinavTuru missing',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return NextResponse.json({ error: 'Sınav türü gerekli' }, { status: 400 });
     }
 
@@ -109,6 +122,10 @@ export async function POST(request: NextRequest) {
 
     // Toplam soru sayısını hesapla
     const toplamSoru = dersler?.reduce((total: number, ders: any) => total + (ders.soruSayisi || 0), 0) || 0;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:124',message:'toplamSoru calculated',data:{toplamSoru,derslerLength:dersler?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     // Sınav kodu oluştur (LGS-2026-001 formatı)
     const yil = new Date().getFullYear();
@@ -135,7 +152,14 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       // Sınav kodu oluştururken hata olsa bile devam et (default kod kullan)
       console.warn('[EA Sinavlar] Sınav kodu oluşturma uyarı:', err);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:148',message:'sinavKodu generation fallback',data:{error:String(err),sinavKodu},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:155',message:'BEFORE ea_sinavlar insert',data:{organizationId,sinavKodu,sinavAdi,toplamSoru},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
 
     // 1. SINAV OLUŞTUR
     const { data: sinav, error: sinavError } = await supabase
@@ -160,6 +184,9 @@ export async function POST(request: NextRequest) {
 
     if (sinavError) {
       console.error('[EA Sinavlar] Sınav oluşturma hatası:', sinavError);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:183',message:'ea_sinavlar INSERT FAILED',data:{error:sinavError.message,code:sinavError.code,details:sinavError.details,hint:sinavError.hint},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+      // #endregion
       return NextResponse.json({ 
         error: `Sınav oluşturulamadı: ${sinavError.message}`,
         details: sinavError.details || sinavError.hint
@@ -168,6 +195,9 @@ export async function POST(request: NextRequest) {
 
     // ✅ SUCCESS — Sınav başarıyla oluşturuldu
     console.log('[EA Sinavlar] Sınav oluşturuldu:', sinav.id, sinav.sinav_kodu);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/016afb74-602c-437e-b39f-b018d97de079',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:195',message:'SUCCESS - exam created',data:{sinavId:sinav.id,sinavKodu:sinav.sinav_kodu},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ALL'})}).catch(()=>{});
+    // #endregion
 
     // TODO: Ders dağılımı (ea_sinav_dersler) ayrı bir endpoint'te yapılacak
     // Örnek: PATCH /api/admin/exam-analytics/exams/:id/subjects
