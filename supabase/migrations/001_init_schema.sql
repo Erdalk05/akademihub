@@ -60,53 +60,6 @@ CREATE TABLE payment_plans (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Exams Table
-CREATE TABLE exams (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  description TEXT,
-  exam_type TEXT, -- 'lgs', 'yks', 'midterm', 'final'
-  subject TEXT NOT NULL,
-  total_questions INT,
-  duration_minutes INT,
-  exam_date TIMESTAMP,
-  status TEXT DEFAULT 'draft', -- 'draft', 'published', 'completed'
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Questions Table
-CREATE TABLE questions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
-  question_text TEXT NOT NULL,
-  option_a TEXT,
-  option_b TEXT,
-  option_c TEXT,
-  option_d TEXT,
-  correct_answer TEXT NOT NULL,
-  difficulty TEXT, -- 'easy', 'medium', 'hard'
-  subject TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Exam Results Table
-CREATE TABLE exam_results (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-  exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
-  score DECIMAL(5, 2),
-  total_questions INT,
-  correct_answers INT,
-  wrong_answers INT,
-  empty_answers INT,
-  completion_time INT, -- in minutes
-  exam_date TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
 -- Communication Logs Table
 CREATE TABLE communication_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -136,8 +89,6 @@ CREATE INDEX idx_students_user_id ON students(user_id);
 CREATE INDEX idx_students_status ON students(status);
 CREATE INDEX idx_payments_student_id ON payments(student_id);
 CREATE INDEX idx_payment_plans_student_id ON payment_plans(student_id);
-CREATE INDEX idx_exam_results_student_id ON exam_results(student_id);
-CREATE INDEX idx_exam_results_exam_id ON exam_results(exam_id);
 CREATE INDEX idx_communication_logs_recipient_id ON communication_logs(recipient_id);
 CREATE INDEX idx_guidance_notes_student_id ON guidance_notes(student_id);
 
@@ -146,9 +97,6 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE exam_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE communication_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guidance_notes ENABLE ROW LEVEL SECURITY;
 
