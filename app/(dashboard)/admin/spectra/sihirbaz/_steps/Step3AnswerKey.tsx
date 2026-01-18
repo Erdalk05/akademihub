@@ -295,6 +295,7 @@ export default function Step3AnswerKey({
       <AnswerKeyLibrary
         organizationId={organizationId}
         examType={examData.examType}
+        gradeLevel={examData.gradeLevel}
         currentAnswerKey={currentAnswerKey}
         totalQuestions={lessonsData.totalQuestions}
         onLoad={handleLibraryLoad}
