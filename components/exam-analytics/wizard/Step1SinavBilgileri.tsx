@@ -117,7 +117,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
     
     if (eksikler.length > 0 && dersListesi.length === 0) {
       // Hiç ders yoksa uyarı göster
-      alert('⚠️ Sistemde kayıtlı ders bulunamadı!\n\nLütfen önce Supabase\'de migration 008 (seed_dersler) dosyasını çalıştırın.');
+      alert('⚠️ Sistemde kayıtlı ders bulunamadı!\n\nLütfen önce Supabase\'de migration 011 (global_course_pool) dosyasını çalıştırın.');
       return;
     }
     
@@ -196,11 +196,12 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
             <div className="flex-1">
               <h3 className="font-semibold text-red-800 mb-1">Ders Listesi Yüklenemedi</h3>
               <p className="text-sm text-red-700 mb-3">{dersYuklemeHatasi}</p>
-              <div className="bg-red-100 rounded p-3 text-xs text-red-800 font-mono">
+                <div className="bg-red-100 rounded p-3 text-xs text-red-800 font-mono">
                 <p className="font-semibold mb-2">Çözüm:</p>
-                <p>1. Supabase Dashboard &gt; SQL Editor açın</p>
-                <p>2. <code className="bg-red-200 px-1 rounded">20260118_ea_008_seed_dersler.sql</code> dosyasını çalıştırın</p>
-                <p>3. Bu sayfayı yenileyin</p>
+                <p>1. Supabase Dashboard açın</p>
+                <p>2. SQL Editor &gt; <code className="bg-red-200 px-1 rounded">20260118_ea_011_global_course_pool.sql</code></p>
+                <p>3. Run tuşuna basın</p>
+                <p>4. Bu sayfayı yenileyin</p>
               </div>
             </div>
           </div>
@@ -387,15 +388,15 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                   <p className="text-sm text-red-700 mb-2">
                     Aşağıdaki dersler sistemde bulunamadı: <strong>{eksikDersKodlari.join(', ')}</strong>
                   </p>
-                  <div className="bg-red-100 rounded p-3 text-xs text-red-800">
-                    <p className="font-semibold mb-1">Bu sorunu çözmek için:</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Supabase Dashboard &gt; SQL Editor açın</li>
-                      <li><code className="bg-red-200 px-1 rounded">20260118_ea_008_seed_dersler.sql</code> dosyasını çalıştırın</li>
-                      <li>Bu sayfayı yenileyin (F5)</li>
-                      <li>Veya "Varsayılana Sıfırla" butonuna tıklayın</li>
-                    </ol>
-                  </div>
+                <div className="bg-red-100 rounded p-3 text-xs text-red-800">
+                  <p className="font-semibold mb-1">Bu sorunu çözmek için:</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Supabase Dashboard &gt; SQL Editor açın</li>
+                    <li><code className="bg-red-200 px-1 rounded">20260118_ea_011_global_course_pool.sql</code> dosyasını çalıştırın</li>
+                    <li>Bu sayfayı yenileyin (F5)</li>
+                    <li>Veya "Varsayılana Sıfırla" butonuna tıklayın</li>
+                  </ol>
+                </div>
                 </div>
               </div>
             </div>
@@ -520,11 +521,11 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                 <p className="text-sm text-gray-500 mb-4">
                   Lütfen önce dersleri ekleyin
                 </p>
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-left">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-left">
                   <p className="font-semibold text-yellow-800 mb-1">Çözüm:</p>
                   <ol className="list-decimal list-inside text-yellow-700 space-y-1">
                     <li>Supabase Dashboard açın</li>
-                    <li>SQL Editor &gt; <code className="bg-yellow-100 px-1">20260118_ea_008_seed_dersler.sql</code></li>
+                    <li>SQL Editor &gt; <code className="bg-yellow-100 px-1">20260118_ea_011_global_course_pool.sql</code></li>
                     <li>Run tuşuna basın</li>
                     <li>Bu sayfayı yenileyin</li>
                   </ol>
