@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useExamWizard } from '@/hooks/useExamWizard';
+import { useOrganizationStore } from '@/lib/store/organizationStore';
 import {
   WizardHeader,
   Step1SinavBilgileri,
@@ -23,6 +24,7 @@ export default function CreateExamPage() {
   const router = useRouter();
   const wizard = useExamWizard();
   const { state, goNext, goBack, goToStep, canGoNext, setIsLoading, setError, setSinavId } = wizard;
+  const { currentOrganization, isAllOrganizations, fetchOrganizations } = useOrganizationStore();
   
   // Mock organization ID - gerçek uygulamada session'dan alınacak
   const [organizationId, setOrganizationId] = useState<string>('');
@@ -31,23 +33,35 @@ export default function CreateExamPage() {
 
   // Organization bilgisini al
   useEffect(() => {
-    // localStorage'dan veya session'dan al
-    const storedOrgId = localStorage.getItem('selectedOrganizationId');
+    // localStorage'dan userId al
     const storedUserId = localStorage.getItem('userId');
     
-    if (storedOrgId) {
-      setOrganizationId(storedOrgId);
-    }
     if (storedUserId) {
       setUserId(storedUserId);
     }
-    
-    setPageLoading(false);
   }, []);
+
+  // Organization store'dan kurum bilgisini yükle
+  useEffect(() => {
+    fetchOrganizations();
+  }, [fetchOrganizations]);
+
+  // OrganizationId'yi currentOrganization üzerinden senkronla
+  useEffect(() => {
+    const storedOrgId = localStorage.getItem('selectedOrganizationId') || '';
+    const orgId = currentOrganization?.id || storedOrgId || '';
+    setOrganizationId(orgId);
+    setPageLoading(false);
+  }, [currentOrganization?.id]);
 
   // Adım 1 tamamlandığında API'ye kaydet
   const handleStep1Complete = async () => {
     if (!state.step1.isCompleted) return;
+
+    if (!organizationId || isAllOrganizations) {
+      setError('Kurum seçili değil. Lütfen üst menüden bir kurum seçin.');
+      return;
+    }
     
     setIsLoading(true);
     
