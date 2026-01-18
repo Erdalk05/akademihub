@@ -174,7 +174,7 @@ DROP POLICY IF EXISTS "cevap_sablonlar_select" ON ea_cevap_anahtari_sablonlar;
 CREATE POLICY "cevap_sablonlar_select" ON ea_cevap_anahtari_sablonlar
     FOR SELECT USING (
         organization_id IN (
-            SELECT organization_id FROM user_organizations WHERE user_id = auth.uid()
+            SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
         )
     );
 
@@ -182,7 +182,7 @@ DROP POLICY IF EXISTS "cevap_sablonlar_insert" ON ea_cevap_anahtari_sablonlar;
 CREATE POLICY "cevap_sablonlar_insert" ON ea_cevap_anahtari_sablonlar
     FOR INSERT WITH CHECK (
         organization_id IN (
-            SELECT organization_id FROM user_organizations WHERE user_id = auth.uid()
+            SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
         )
     );
 
@@ -190,7 +190,7 @@ DROP POLICY IF EXISTS "cevap_sablonlar_update" ON ea_cevap_anahtari_sablonlar;
 CREATE POLICY "cevap_sablonlar_update" ON ea_cevap_anahtari_sablonlar
     FOR UPDATE USING (
         organization_id IN (
-            SELECT organization_id FROM user_organizations WHERE user_id = auth.uid()
+            SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
         )
     );
 
@@ -198,7 +198,7 @@ DROP POLICY IF EXISTS "cevap_sablonlar_delete" ON ea_cevap_anahtari_sablonlar;
 CREATE POLICY "cevap_sablonlar_delete" ON ea_cevap_anahtari_sablonlar
     FOR DELETE USING (
         organization_id IN (
-            SELECT organization_id FROM user_organizations WHERE user_id = auth.uid()
+            SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
         )
     );
 
