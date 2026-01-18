@@ -22,10 +22,11 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServiceRoleClient();
 
+    // Global dersler (organization_id = NULL) + Kuruma özel dersler
     const { data, error } = await supabase
       .from('ea_dersler')
       .select('*')
-      .eq('organization_id', organizationId)
+      .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
       .eq('is_active', true)
       .order('sira_no', { ascending: true });
 
@@ -34,7 +35,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    // Duplike dersleri filtrele (Kuruma özel olan önceliklidir)
+    const dersMap = new Map();
+    data?.forEach(ders => {
+      const existing = dersMap.get(ders.ders_kodu);
+      // Kuruma özel ders varsa onu kullan, yoksa global'i al
+      if (!existing || (ders.organization_id && !existing.organization_id)) {
+        dersMap.set(ders.ders_kodu, ders);
+      }
+    });
+
+    const uniqueDersler = Array.from(dersMap.values())
+      .sort((a, b) => a.sira_no - b.sira_no);
+
+    return NextResponse.json({ data: uniqueDersler });
   } catch (err: any) {
     console.error('[EA Dersler] GET exception:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
