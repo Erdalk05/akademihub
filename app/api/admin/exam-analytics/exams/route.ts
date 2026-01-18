@@ -147,11 +147,15 @@ export async function POST(request: NextRequest) {
     console.log('🔍 [BACKEND] BEFORE ea_sinavlar insert:', { organizationId, sinavKodu, sinavAdi, toplamSoru });
 
     // 1. SINAV OLUŞTUR
+    // Boş stringleri null'a çevir (UUID alanları için)
+    const safeAcademicYearId = academicYearId && academicYearId.trim() !== '' ? academicYearId : null;
+    const safeUserId = userId && userId.trim() !== '' ? userId : null;
+
     const { data: sinav, error: sinavError } = await supabase
       .from('ea_sinavlar')
       .insert({
         organization_id: organizationId,
-        academic_year_id: academicYearId || null,
+        academic_year_id: safeAcademicYearId,
         sinav_kodu: sinavKodu,
         sinav_adi: sinavAdi.trim(),
         sinav_tarihi: sinavTarihi || null,
@@ -162,7 +166,7 @@ export async function POST(request: NextRequest) {
         yanlis_katsayi: yanlisKatsayi ?? 0.3333,
         durum: 'taslak',
         is_published: false,
-        created_by: userId,
+        created_by: safeUserId,
       })
       .select('id, sinav_kodu')
       .single();
