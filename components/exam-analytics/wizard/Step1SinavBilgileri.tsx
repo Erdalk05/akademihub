@@ -22,6 +22,8 @@ import {
   SINAV_TURLERI,
   EADers,
   getDersRenk,
+  getSinifDersleri,
+  isDersZorunlu,
 } from '@/types/exam-analytics';
 import { UseExamWizardReturn } from '@/hooks/useExamWizard';
 
@@ -154,6 +156,14 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
     
     // LGS için Sosyal Bilimler gösterme (SOS dersi sadece TYT/AYT için)
     if (step1.sinavTuru === 'lgs' && d.ders_kodu === 'SOS') return false;
+    
+    // Sınıf seviyesi seçilmişse, o sınıfa uygun dersleri filtrele
+    if (step1.sinifSeviyesi !== undefined && step1.sinifSeviyesi !== null) {
+      const sinifDersleri = getSinifDersleri(step1.sinifSeviyesi);
+      if (sinifDersleri.length > 0 && !sinifDersleri.includes(d.ders_kodu.toUpperCase())) {
+        return false; // Bu ders bu sınıfa uygun değil
+      }
+    }
     
     return true;
   });
@@ -482,6 +492,11 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                 <h3 className="text-lg font-semibold">Ders Ekle</h3>
                 <p className="text-xs text-gray-500 mt-1">
                   {eklenebilirDersler.length} ders eklenebilir
+                  {step1.sinifSeviyesi !== undefined && step1.sinifSeviyesi !== null && (
+                    <span className="text-blue-600 font-medium">
+                      {' '}({step1.sinifSeviyesi === 0 ? 'Mezun' : `${step1.sinifSeviyesi}. Sınıf`} için)
+                    </span>
+                  )}
                   {step1.sinavTuru === 'lgs' && ' (LGS için Sosyal Bilimler hariç)'}
                 </p>
               </div>
@@ -517,23 +532,41 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
               </div>
             ) : (
               <div className="space-y-2 overflow-y-auto flex-1">
-                {eklenebilirDersler.map((ders) => (
-                  <button
-                    key={ders.id}
-                    onClick={() => handleDersEkle(ders)}
-                    className="w-full p-3 border rounded-lg text-left hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center gap-3"
-                  >
-                    <div
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: ders.renk_kodu || getDersRenk(ders.ders_kodu) }}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{ders.ders_adi}</div>
-                      <div className="text-xs text-gray-500">{ders.ders_kodu}</div>
-                    </div>
-                    <Plus className="w-4 h-4 text-gray-400" />
-                  </button>
-                ))}
+                {eklenebilirDersler.map((ders) => {
+                  const zorunlu = isDersZorunlu(ders.ders_kodu, step1.sinifSeviyesi);
+                  return (
+                    <button
+                      key={ders.id}
+                      onClick={() => handleDersEkle(ders)}
+                      className="w-full p-3 border rounded-lg text-left hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center gap-3"
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: ders.renk_kodu || getDersRenk(ders.ders_kodu) }}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{ders.ders_adi}</span>
+                          {zorunlu && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded">
+                              Zorunlu
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <span>{ders.ders_kodu}</span>
+                          {ders.aciklama && (
+                            <>
+                              <span>•</span>
+                              <span>{ders.aciklama}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-gray-400" />
+                    </button>
+                  );
+                })}
                 
                 {eklenebilirDersler.length === 0 && (
                   <div className="py-8 text-center">
@@ -541,6 +574,8 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                     <p className="text-gray-700 font-medium">
                       {step1.sinavTuru === 'lgs' 
                         ? 'Tüm LGS dersleri eklenmiş' 
+                        : step1.sinifSeviyesi !== undefined && step1.sinifSeviyesi !== null
+                        ? `Tüm ${step1.sinifSeviyesi === 0 ? 'Mezun' : step1.sinifSeviyesi + '. Sınıf'} dersleri eklenmiş`
                         : 'Tüm dersler eklenmiş'}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">

@@ -425,3 +425,106 @@ export const DERS_RENKLERI: Record<string, string> = {
 export function getDersRenk(dersKodu: string): string {
   return DERS_RENKLERI[dersKodu?.toUpperCase()] || DERS_RENKLERI.DEFAULT;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SINIF BAZLI DERS KONFİGÜRASYONU
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface SinifDersConfig {
+  sinif: number | 'mezun';
+  zorunluDersler: string[]; // Bu sınıf için mutlaka olması gereken dersler
+  secmeliDersler: string[]; // Bu sınıf için seçilebilir dersler
+  aciklama: string;
+}
+
+export const SINIF_DERS_KONFIG: Record<number | 'mezun', SinifDersConfig> = {
+  4: {
+    sinif: 4,
+    zorunluDersler: ['TUR', 'MAT', 'FEN', 'SOS', 'DIN', 'ING'],
+    secmeliDersler: [],
+    aciklama: '4. Sınıf - Temel dersler'
+  },
+  5: {
+    sinif: 5,
+    zorunluDersler: ['TUR', 'MAT', 'FEN', 'SOS', 'DIN', 'ING'],
+    secmeliDersler: [],
+    aciklama: '5. Sınıf - Temel dersler'
+  },
+  6: {
+    sinif: 6,
+    zorunluDersler: ['TUR', 'MAT', 'FEN', 'SOS', 'DIN', 'ING'],
+    secmeliDersler: [],
+    aciklama: '6. Sınıf - Temel dersler'
+  },
+  7: {
+    sinif: 7,
+    zorunluDersler: ['TUR', 'MAT', 'FEN', 'SOS', 'DIN', 'ING'],
+    secmeliDersler: [],
+    aciklama: '7. Sınıf - Temel dersler'
+  },
+  8: {
+    sinif: 8,
+    zorunluDersler: ['TUR', 'MAT', 'FEN', 'INK', 'DIN', 'ING'],
+    secmeliDersler: ['SOS'], // 8'de Sosyal Bilimler yerine İnkılap var, ama opsiyonel eklenebilir
+    aciklama: '8. Sınıf - LGS hazırlık'
+  },
+  9: {
+    sinif: 9,
+    zorunluDersler: ['TUR', 'MAT', 'FIZ', 'KIM', 'BIY', 'TAR', 'COG', 'EDB', 'ING'],
+    secmeliDersler: ['DIN', 'ALM', 'FRA', 'ARB'],
+    aciklama: '9. Sınıf - Lise ortak dersler'
+  },
+  10: {
+    sinif: 10,
+    zorunluDersler: ['TUR', 'MAT', 'FIZ', 'KIM', 'BIY', 'TAR', 'COG', 'FEL', 'EDB', 'ING'],
+    secmeliDersler: ['DIN', 'ALM', 'FRA', 'ARB'],
+    aciklama: '10. Sınıf - Lise ortak dersler + Felsefe'
+  },
+  11: {
+    sinif: 11,
+    zorunluDersler: ['TUR', 'MAT', 'ING'],
+    secmeliDersler: ['FIZ', 'KIM', 'BIY', 'TAR', 'COG', 'FEL', 'EDB', 'DIN', 'ALM', 'FRA', 'ARB', 'TAR1', 'TAR2', 'COG1', 'COG2'],
+    aciklama: '11. Sınıf - Alan dersleri başlıyor'
+  },
+  12: {
+    sinif: 12,
+    zorunluDersler: ['TUR', 'MAT'],
+    secmeliDersler: ['FIZ', 'KIM', 'BIY', 'TAR', 'COG', 'FEL', 'EDB', 'DIN', 'ING', 'ALM', 'FRA', 'ARB', 'TAR1', 'TAR2', 'COG1', 'COG2', 'SOS', 'FEN'],
+    aciklama: '12. Sınıf - TYT/AYT hazırlık'
+  },
+  mezun: {
+    sinif: 'mezun',
+    zorunluDersler: [],
+    secmeliDersler: ['TUR', 'MAT', 'FIZ', 'KIM', 'BIY', 'TAR', 'COG', 'FEL', 'EDB', 'DIN', 'ING', 'ALM', 'FRA', 'ARB', 'TAR1', 'TAR2', 'COG1', 'COG2', 'SOS', 'FEN', 'INK'],
+    aciklama: 'Mezun - Tüm dersler seçilebilir'
+  }
+};
+
+/**
+ * Sınıf seviyesine göre kullanılabilir dersleri getir
+ */
+export function getSinifDersleri(sinifSeviyesi?: number | null): string[] {
+  if (sinifSeviyesi === null || sinifSeviyesi === undefined) {
+    return []; // Sınıf seçilmemişse boş liste
+  }
+  
+  const seviye = sinifSeviyesi === 0 ? 'mezun' : sinifSeviyesi;
+  const config = SINIF_DERS_KONFIG[seviye];
+  
+  if (!config) return [];
+  
+  return [...config.zorunluDersler, ...config.secmeliDersler];
+}
+
+/**
+ * Dersin bu sınıf için zorunlu olup olmadığını kontrol et
+ */
+export function isDersZorunlu(dersKodu: string, sinifSeviyesi?: number | null): boolean {
+  if (sinifSeviyesi === null || sinifSeviyesi === undefined) return false;
+  
+  const seviye = sinifSeviyesi === 0 ? 'mezun' : sinifSeviyesi;
+  const config = SINIF_DERS_KONFIG[seviye];
+  
+  return config?.zorunluDersler.includes(dersKodu.toUpperCase()) || false;
+}
+
