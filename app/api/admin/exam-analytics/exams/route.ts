@@ -172,57 +172,31 @@ export async function POST(request: NextRequest) {
 
     if (sinavError) {
       console.error('[EA Sinavlar] Sınav oluşturma hatası:', sinavError);
-      return NextResponse.json({ error: sinavError.message }, { status: 500 });
-    }
-
-    const sinavId = sinav.id;
-
-    // 2. DERS DAĞILIMINI KAYDET
-    let baslangicSoru = 1;
-    const dersBilgileri = dersler.map((ders: any, index: number) => {
-      const soruSayisi = ders.soruSayisi || 10;
-      const record = {
-        sinav_id: sinavId,
-        ders_id: ders.dersId || null,
-        ders_kodu: ders.dersKodu || null,
-        soru_sayisi: soruSayisi,
-        sira_no: index + 1,
-        baslangic_soru: baslangicSoru,
-        bitis_soru: baslangicSoru + soruSayisi - 1,
-        dogru_puan: ders.dogruPuan || 1,
-        yanlis_puan: ders.yanlisPuan || 0,
-        bos_puan: 0,
-      };
-      baslangicSoru += soruSayisi;
-      return record;
-    });
-
-    console.log('[EA Sinavlar] Ders bilgileri insert edilecek:', JSON.stringify(dersBilgileri, null, 2));
-
-    const { error: dersError } = await supabase
-      .from('ea_sinav_dersler')
-      .insert(dersBilgileri);
-
-    if (dersError) {
-      console.error('[EA Sinavlar] Ders dağılımı hatası:', dersError);
-      console.error('[EA Sinavlar] Hatalı payload:', dersBilgileri);
-      // Rollback: Sınavı sil
-      await supabase.from('ea_sinavlar').delete().eq('id', sinavId);
       return NextResponse.json({ 
-        error: `Ders dağılımı kaydedilemedi: ${dersError.message}`,
-        details: dersError.details || dersError.hint || 'Detay yok'
-      }, { status: 500 });
+        error: `Sınav oluşturulamadı: ${sinavError.message}`,
+        details: sinavError.details || sinavError.hint
+      }, { status: 400 });
     }
+
+    // ✅ SUCCESS — Sınav başarıyla oluşturuldu
+    console.log('[EA Sinavlar] Sınav oluşturuldu:', sinav.id, sinav.sinav_kodu);
+
+    // TODO: Ders dağılımı (ea_sinav_dersler) ayrı bir endpoint'te yapılacak
+    // Örnek: PATCH /api/admin/exam-analytics/exams/:id/subjects
+    // Şu an wizard Step 1 sadece sınav kaydı oluşturuyor.
 
     return NextResponse.json({
       success: true,
-      sinavId,
+      sinavId: sinav.id,
       sinavKodu: sinav.sinav_kodu,
       message: 'Sınav başarıyla oluşturuldu',
     }, { status: 201 });
 
   } catch (err: any) {
     console.error('[EA Sinavlar] POST exception:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'İç sunucu hatası',
+      message: err.message 
+    }, { status: 500 });
   }
 }
