@@ -84,16 +84,20 @@ export async function POST(
       .update({ is_active: false })
       .eq('sinav_id', sinavId);
 
+    // Boş string'leri null'a çevir
+    const safeUserId = userId && userId.trim() !== '' ? userId : null;
+
     // Yeni cevap anahtarlarını ekle
     const cevapAnahtarlari = cevaplar.map((cevap: any) => ({
       sinav_id: sinavId,
-      ders_id: cevap.dersId,
+      ders_id: cevap.dersId && cevap.dersId.trim() !== '' ? cevap.dersId : null,
+      ders_kodu: cevap.dersKodu || null,
       kitapcik: kitapcik,
       cevap_dizisi: cevap.cevapDizisi,
       cevaplar: cevap.cevapDizisi.split('').filter((c: string) => c.trim()), // JSONB format
       soru_sayisi: cevap.cevapDizisi.length,
       is_active: true,
-      created_by: userId,
+      created_by: safeUserId,
     }));
 
     const { error: insertError } = await supabase

@@ -113,7 +113,18 @@ export default function CreateExamPage() {
 
   // Adım 2 tamamlandığında cevap anahtarını kaydet
   const handleStep2Complete = async () => {
-    if (!state.step2.isCompleted || !state.sinavId) return;
+    // isCompleted kontrolü kaldırıldı - UI'da tüm dersler tamam ise devam et
+    if (!state.sinavId) {
+      setError('Sınav ID bulunamadı. Lütfen 1. adıma geri dönün.');
+      return;
+    }
+    
+    // Manuel kontrol: tüm cevaplar girildi mi?
+    const toplamGirilen = state.step2.cevaplar.reduce((t, c) => t + c.girilenCevap, 0);
+    if (toplamGirilen < state.step2.toplamCevap) {
+      setError(`Tüm cevaplar girilmedi. ${state.step2.toplamCevap - toplamGirilen} cevap eksik.`);
+      return;
+    }
     
     setIsLoading(true);
     
@@ -124,7 +135,8 @@ export default function CreateExamPage() {
         body: JSON.stringify({
           kitapcik: state.step2.kitapcik,
           cevaplar: state.step2.cevaplar.map(c => ({
-            dersId: c.dersId,
+            dersId: c.dersId || null,
+            dersKodu: c.dersKodu,
             cevapDizisi: c.cevapDizisi,
           })),
           userId,

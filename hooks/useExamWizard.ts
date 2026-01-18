@@ -349,10 +349,11 @@ export function useExamWizard() {
     }));
   }, []);
 
-  const setCevapDizisi = useCallback((dersId: string, cevapDizisi: string) => {
+  const setCevapDizisi = useCallback((dersIdOrKodu: string, cevapDizisi: string) => {
     setState(prev => {
       const yeniCevaplar = prev.step2.cevaplar.map(c => {
-        if (c.dersId === dersId) {
+        // dersId VEYA dersKodu ile eşleştir (dersId boş olabilir)
+        if (c.dersId === dersIdOrKodu || c.dersKodu === dersIdOrKodu) {
           const girilenCevap = cevapDizisi.replace(/[^A-Ea-e]/g, '').length;
           return {
             ...c,

@@ -494,16 +494,17 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
         </div>
 
         <div className="space-y-3">
-          {step2.cevaplar.map((cevap) => {
-            const ders = step1.dersler.find(d => d.dersId === cevap.dersId);
+          {step2.cevaplar.map((cevap, index) => {
+            // dersId boş olabilir, dersKodu ile eşleştir
+            const ders = step1.dersler.find(d => d.dersKodu === cevap.dersKodu || d.dersId === cevap.dersId);
             const renk = ders?.renkKodu || getDersRenk(cevap.dersKodu);
-            const isOpen = acikDers === cevap.dersId;
+            const isOpen = acikDers === cevap.dersKodu; // dersKodu ile kontrol
             
             return (
-              <div key={cevap.dersId} className="border rounded-lg overflow-hidden">
+              <div key={cevap.dersKodu || index} className="border rounded-lg overflow-hidden">
                 {/* Ders Başlık */}
                 <button
-                  onClick={() => setAcikDers(isOpen ? null : cevap.dersId)}
+                  onClick={() => setAcikDers(isOpen ? null : cevap.dersKodu)}
                   className="w-full p-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -556,7 +557,7 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
                       <input
                         type="text"
                         value={cevap.cevapDizisi}
-                        onChange={(e) => setCevapDizisi(cevap.dersId, parseCevapDizisi(e.target.value))}
+                        onChange={(e) => setCevapDizisi(cevap.dersKodu, parseCevapDizisi(e.target.value))}
                         placeholder={`${cevap.soruSayisi} cevap yazın veya yapıştırın... (örn: ABCDABCD)`}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
                       />
@@ -581,7 +582,7 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
                                   onClick={() => {
                                     const yeniDizi = cevap.cevapDizisi.padEnd(cevap.soruSayisi, ' ').split('');
                                     yeniDizi[idx] = secenek;
-                                    setCevapDizisi(cevap.dersId, yeniDizi.join('').replace(/ /g, ''));
+                                    setCevapDizisi(cevap.dersKodu, yeniDizi.join('').replace(/ /g, ''));
                                   }}
                                   className={cn(
                                     'w-5 h-5 text-[10px] rounded border transition-all font-medium',
