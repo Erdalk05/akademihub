@@ -91,19 +91,14 @@ export async function POST(request: NextRequest) {
       userId,
     } = body;
 
-    console.log('🔍 [BACKEND] POST body received:', { organizationId, sinavAdi, sinavTuru, derslerCount: dersler?.length });
-
     // Validasyon
     if (!organizationId) {
-      console.log('❌ [BACKEND] Validation FAILED: organizationId missing');
       return NextResponse.json({ error: 'organizationId gerekli' }, { status: 400 });
     }
     if (!sinavAdi || sinavAdi.trim().length < 3) {
-      console.log('❌ [BACKEND] Validation FAILED: sinavAdi invalid:', sinavAdi);
       return NextResponse.json({ error: 'Sınav adı en az 3 karakter olmalı' }, { status: 400 });
     }
     if (!sinavTuru) {
-      console.log('❌ [BACKEND] Validation FAILED: sinavTuru missing');
       return NextResponse.json({ error: 'Sınav türü gerekli' }, { status: 400 });
     }
 
@@ -114,8 +109,6 @@ export async function POST(request: NextRequest) {
 
     // Toplam soru sayısını hesapla
     const toplamSoru = dersler?.reduce((total: number, ders: any) => total + (ders.soruSayisi || 0), 0) || 0;
-    
-    console.log('🔍 [BACKEND] toplamSoru calculated:', { toplamSoru, derslerLength: dersler?.length });
 
     // Sınav kodu oluştur (LGS-2026-001 formatı)
     const yil = new Date().getFullYear();
@@ -141,10 +134,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       // Sınav kodu oluştururken hata olsa bile devam et (default kod kullan)
-      console.warn('⚠️ [BACKEND] Sınav kodu generation fallback:', err);
     }
-
-    console.log('🔍 [BACKEND] BEFORE ea_sinavlar insert:', { organizationId, sinavKodu, sinavAdi, toplamSoru });
 
     // 1. SINAV OLUŞTUR
     // Boş stringleri null'a çevir (UUID alanları için)
@@ -172,20 +162,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sinavError) {
-      console.error('❌ [BACKEND] ea_sinavlar INSERT FAILED:', {
-        message: sinavError.message,
-        code: sinavError.code,
-        details: sinavError.details,
-        hint: sinavError.hint
-      });
+      console.error('[EA Sinavlar] Sınav oluşturma hatası:', sinavError);
       return NextResponse.json({ 
         error: `Sınav oluşturulamadı: ${sinavError.message}`,
         details: sinavError.details || sinavError.hint
       }, { status: 400 });
     }
-
-    // ✅ SUCCESS — Sınav başarıyla oluşturuldu
-    console.log('✅ [BACKEND] SUCCESS - exam created:', { sinavId: sinav.id, sinavKodu: sinav.sinav_kodu });
 
     // TODO: Ders dağılımı (ea_sinav_dersler) ayrı bir endpoint'te yapılacak
     // Örnek: PATCH /api/admin/exam-analytics/exams/:id/subjects
