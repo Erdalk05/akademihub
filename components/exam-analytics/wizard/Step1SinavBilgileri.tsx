@@ -48,19 +48,24 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
   const [dersListesi, setDersListesi] = useState<EADers[]>([]);
   const [dersYukleniyor, setDersYukleniyor] = useState(false);
   const [dersEkleModalAcik, setDersEkleModalAcik] = useState(false);
+  const [dersYuklemeHatasi, setDersYuklemeHatasi] = useState<string | null>(null);
 
   // Ders listesini yükle
   useEffect(() => {
     async function fetchDersler() {
       setDersYukleniyor(true);
+      setDersYuklemeHatasi(null);
       try {
         const res = await fetch(`/api/admin/exam-analytics/dersler?organizationId=${organizationId}`);
         const json = await res.json();
-        if (json.data) {
+        if (json.data && json.data.length > 0) {
           setDersListesi(json.data);
+        } else {
+          setDersYuklemeHatasi('Sistemde kayıtlı ders bulunamadı. Lütfen önce dersleri ekleyin.');
         }
       } catch (err) {
         console.error('Ders listesi yüklenemedi:', err);
+        setDersYuklemeHatasi('Ders listesi yüklenirken bir hata oluştu.');
       } finally {
         setDersYukleniyor(false);
       }
@@ -71,15 +76,21 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
     }
   }, [organizationId]);
 
-  const buildVarsayilanDersler = (tur: SinavTipi): SinavDers[] => {
+  const buildVarsayilanDersler = (tur: SinavTipi): { dersler: SinavDers[]; eksikler: string[] } => {
     const config = SINAV_TURLERI[tur];
-    if (!config?.varsayilanDersler?.length) return [];
+    if (!config?.varsayilanDersler?.length) return { dersler: [], eksikler: [] };
 
+    const eksikDersler: string[] = [];
     let baslangic = 1;
-    return config.varsayilanDersler.map((d, index) => {
+    
+    const dersler = config.varsayilanDersler.map((d, index) => {
       const eslesen = dersListesi.find(
         (ders) => ders.ders_kodu.toUpperCase() === d.kod.toUpperCase()
       );
+
+      if (!eslesen) {
+        eksikDersler.push(d.ad);
+      }
 
       const soruSayisi = d.soru;
       const kayit = {
@@ -95,11 +106,20 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
       baslangic += soruSayisi;
       return kayit;
     });
+
+    return { dersler, eksikler: eksikDersler };
   };
 
   const handleSinavTuruSec = (tur: SinavTipi) => {
-    const varsayilanDersler = buildVarsayilanDersler(tur);
-    setSinavTuru(tur, varsayilanDersler.length > 0 ? varsayilanDersler : undefined);
+    const { dersler, eksikler } = buildVarsayilanDersler(tur);
+    
+    if (eksikler.length > 0 && dersListesi.length === 0) {
+      // Hiç ders yoksa uyarı göster
+      alert('⚠️ Sistemde kayıtlı ders bulunamadı!\n\nLütfen önce Supabase\'de migration 008 (seed_dersler) dosyasını çalıştırın.');
+      return;
+    }
+    
+    setSinavTuru(tur, dersler.length > 0 ? dersler : undefined);
   };
 
   // Varsayılana sıfırla
@@ -125,6 +145,7 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
   // Toplam soru ve süre hesapla
   const toplamSoru = step1.dersler.reduce((t, d) => t + d.soruSayisi, 0);
   const eksikDersKodlari = step1.dersler.filter(d => !d.dersId).map(d => d.dersKodu);
+  const tumDerslerGecerli = step1.dersler.length > 0 && eksikDersKodlari.length === 0;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -138,6 +159,32 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
           <p className="text-sm text-gray-500">Sınavın temel bilgilerini girin</p>
         </div>
       </div>
+
+      {/* Ders Yükleme Durumu */}
+      {dersYukleniyor && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+          <span className="text-sm text-blue-700">Ders listesi yükleniyor...</span>
+        </div>
+      )}
+
+      {dersYuklemeHatasi && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-red-600 text-xl">⚠️</div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-800 mb-1">Ders Listesi Yüklenemedi</h3>
+              <p className="text-sm text-red-700 mb-3">{dersYuklemeHatasi}</p>
+              <div className="bg-red-100 rounded p-3 text-xs text-red-800 font-mono">
+                <p className="font-semibold mb-2">Çözüm:</p>
+                <p>1. Supabase Dashboard &gt; SQL Editor açın</p>
+                <p>2. <code className="bg-red-200 px-1 rounded">20260118_ea_008_seed_dersler.sql</code> dosyasını çalıştırın</p>
+                <p>3. Bu sayfayı yenileyin</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Form */}
       <div className="space-y-6">
@@ -308,51 +355,117 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
               <span className="text-sm">Ders Ekle</span>
             </button>
           </div>
+
+          {/* Eksik Dersler Uyarısı */}
           {eksikDersKodlari.length > 0 && (
-            <div className="mt-3 text-sm text-red-600">
-              Bu dersler sistemde bulunamadı: {eksikDersKodlari.join(', ')}. 
-              Lütfen bu dersleri önce ders listesinden ekleyin.
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-red-600 text-xl">❌</div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-800 mb-1">Eksik Dersler Tespit Edildi</h3>
+                  <p className="text-sm text-red-700 mb-2">
+                    Aşağıdaki dersler sistemde bulunamadı: <strong>{eksikDersKodlari.join(', ')}</strong>
+                  </p>
+                  <div className="bg-red-100 rounded p-3 text-xs text-red-800">
+                    <p className="font-semibold mb-1">Bu sorunu çözmek için:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Supabase Dashboard &gt; SQL Editor açın</li>
+                      <li><code className="bg-red-200 px-1 rounded">20260118_ea_008_seed_dersler.sql</code> dosyasını çalıştırın</li>
+                      <li>Bu sayfayı yenileyin (F5)</li>
+                      <li>Veya "Varsayılana Sıfırla" butonuna tıklayın</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Başarılı Durum */}
+          {tumDerslerGecerli && step1.dersler.length > 0 && (
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+              <span className="text-green-600 text-lg">✅</span>
+              <span className="text-sm text-green-700 font-medium">
+                Tüm dersler başarıyla yüklendi! ({step1.dersler.length} ders)
+              </span>
             </div>
           )}
         </div>
 
         {/* Özet Bar */}
-        <div className="bg-gray-50 border rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div>
-              <span className="text-sm text-gray-500">Toplam:</span>
-              <span className="ml-2 font-semibold text-gray-900">{toplamSoru} soru</span>
+        <div className={cn(
+          'border rounded-lg p-4 transition-all',
+          tumDerslerGecerli && step1.sinavAdi.length >= 3 && step1.sinavTuru
+            ? 'bg-green-50 border-green-300'
+            : 'bg-gray-50 border-gray-300'
+        )}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div>
+                <span className="text-sm text-gray-500">Toplam:</span>
+                <span className="ml-2 font-semibold text-gray-900">{toplamSoru} soru</span>
+              </div>
+              <div className="h-4 w-px bg-gray-300" />
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-500">Süre:</span>
+                <span className="ml-1 font-semibold text-gray-900">{step1.sureDakika} dk</span>
+              </div>
+              <div className="h-4 w-px bg-gray-300" />
+              <div>
+                <span className="text-sm text-gray-500">Yanlış:</span>
+                <span className="ml-2 font-semibold text-gray-900">
+                  {step1.yanlisKatsayi > 0 ? `1/${Math.round(1 / step1.yanlisKatsayi)}` : 'Yok'}
+                </span>
+              </div>
+              <div className="h-4 w-px bg-gray-300" />
+              <div>
+                <span className="text-sm text-gray-500">Dersler:</span>
+                <span className={cn(
+                  'ml-2 font-semibold',
+                  tumDerslerGecerli ? 'text-green-600' : 'text-red-600'
+                )}>
+                  {step1.dersler.length} / {step1.dersler.length}
+                  {tumDerslerGecerli ? ' ✓' : ' ⚠️'}
+                </span>
+              </div>
             </div>
-            <div className="h-4 w-px bg-gray-300" />
-            <div className="flex items-center gap-1">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-500">Süre:</span>
-              <span className="ml-1 font-semibold text-gray-900">{step1.sureDakika} dk</span>
-            </div>
-            <div className="h-4 w-px bg-gray-300" />
-            <div>
-              <span className="text-sm text-gray-500">Yanlış:</span>
-              <span className="ml-2 font-semibold text-gray-900">
-                {step1.yanlisKatsayi > 0 ? `1/${Math.round(1 / step1.yanlisKatsayi)}` : 'Yok'}
-              </span>
+            
+            <div className={cn(
+              'px-3 py-1 rounded-full text-sm font-medium',
+              step1.isCompleted && tumDerslerGecerli 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-yellow-100 text-yellow-700'
+            )}>
+              {step1.isCompleted && tumDerslerGecerli ? '✓ Hazır' : '⏳ Eksik bilgiler var'}
             </div>
           </div>
-          
-          <div className={cn(
-            'px-3 py-1 rounded-full text-sm font-medium',
-            step1.isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-          )}>
-            {step1.isCompleted ? '✓ Tamamlandı' : 'Devam ediyor...'}
-          </div>
+
+          {/* Eksik Bilgiler Listesi */}
+          {(!step1.isCompleted || !tumDerslerGecerli) && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-xs text-gray-600 mb-2">Devam etmek için:</p>
+              <ul className="text-xs text-gray-700 space-y-1">
+                {!step1.sinavAdi && <li>• Sınav adı girin (en az 3 karakter)</li>}
+                {!step1.sinavTuru && <li>• Sınav türü seçin</li>}
+                {step1.dersler.length === 0 && <li>• En az 1 ders ekleyin</li>}
+                {!tumDerslerGecerli && <li className="text-red-600 font-medium">• Eksik dersleri sisteme ekleyin (migration 008)</li>}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Ders Ekle Modal */}
       {dersEkleModalAcik && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Ders Ekle</h3>
+              <div>
+                <h3 className="text-lg font-semibold">Ders Ekle</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {dersListesi.length} ders mevcut
+                </p>
+              </div>
               <button
                 onClick={() => setDersEkleModalAcik(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -362,9 +475,29 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
             </div>
 
             {dersYukleniyor ? (
-              <div className="py-8 text-center text-gray-500">Yükleniyor...</div>
+              <div className="py-8 text-center text-gray-500 flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                Yükleniyor...
+              </div>
+            ) : dersListesi.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="text-4xl mb-3">📚</div>
+                <p className="text-gray-700 font-medium mb-2">Sistemde ders bulunamadı</p>
+                <p className="text-sm text-gray-500 mb-4">
+                  Lütfen önce dersleri ekleyin
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-left">
+                  <p className="font-semibold text-yellow-800 mb-1">Çözüm:</p>
+                  <ol className="list-decimal list-inside text-yellow-700 space-y-1">
+                    <li>Supabase Dashboard açın</li>
+                    <li>SQL Editor &gt; <code className="bg-yellow-100 px-1">20260118_ea_008_seed_dersler.sql</code></li>
+                    <li>Run tuşuna basın</li>
+                    <li>Bu sayfayı yenileyin</li>
+                  </ol>
+                </div>
+              </div>
             ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
+              <div className="space-y-2 overflow-y-auto flex-1">
                 {dersListesi
                   .filter(d => !step1.dersler.find(sd => sd.dersId === d.id))
                   .map((ders) => (
@@ -374,19 +507,24 @@ export function Step1SinavBilgileri({ wizard, organizationId }: Step1Props) {
                       className="w-full p-3 border rounded-lg text-left hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center gap-3"
                     >
                       <div
-                        className="w-3 h-3 rounded-full"
+                        className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: ders.renk_kodu || getDersRenk(ders.ders_kodu) }}
                       />
-                      <div>
-                        <div className="font-medium">{ders.ders_adi}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{ders.ders_adi}</div>
                         <div className="text-xs text-gray-500">{ders.ders_kodu}</div>
                       </div>
+                      <Plus className="w-4 h-4 text-gray-400" />
                     </button>
                   ))}
                 
                 {dersListesi.filter(d => !step1.dersler.find(sd => sd.dersId === d.id)).length === 0 && (
-                  <div className="py-4 text-center text-gray-500">
-                    Tüm dersler eklenmiş
+                  <div className="py-8 text-center">
+                    <div className="text-4xl mb-2">✅</div>
+                    <p className="text-gray-700 font-medium">Tüm dersler eklenmiş</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Sınavda {step1.dersler.length} ders bulunuyor
+                    </p>
                   </div>
                 )}
               </div>
