@@ -48,17 +48,28 @@ export default function CreateExamPage() {
 
   // OrganizationId'yi currentOrganization üzerinden senkronla
   useEffect(() => {
-    const storedOrgId = localStorage.getItem('selectedOrganizationId') || '';
-    const orgId = currentOrganization?.id || storedOrgId || '';
-    setOrganizationId(orgId);
-    setPageLoading(false);
-  }, [currentOrganization?.id]);
+    if (currentOrganization?.id) {
+      setOrganizationId(currentOrganization.id);
+      setPageLoading(false);
+    } else {
+      // fallback: localStorage
+      const storedOrgId = localStorage.getItem('selectedOrganizationId');
+      if (storedOrgId) {
+        setOrganizationId(storedOrgId);
+      }
+      setPageLoading(false);
+    }
+  }, [currentOrganization]);
 
   // Adım 1 tamamlandığında API'ye kaydet
   const handleStep1Complete = async () => {
     if (!state.step1.isCompleted) return;
 
+    console.log('[Step1] organizationId:', organizationId);
+    console.log('[Step1] currentOrganization:', currentOrganization);
+
     if (!organizationId || isAllOrganizations) {
+      alert('⚠️ Kurum seçili değil!\n\nLütfen üst menüden bir kurum seçin.');
       setError('Kurum seçili değil. Lütfen üst menüden bir kurum seçin.');
       return;
     }
