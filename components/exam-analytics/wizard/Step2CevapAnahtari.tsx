@@ -92,6 +92,10 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  
+  // Tek seferde yapıştır
+  const [topluCevap, setTopluCevap] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -255,6 +259,110 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
   // Kitapçık tamamlandı mı
   const kitapcikTamamlandi = kitapcikGirilenCevap === step2.toplamCevap;
 
+  // Toplu cevap uygula
+  const handleTopluCevapUygula = useCallback(() => {
+    const parsed = parseCevapDizisi(topluCevap);
+    
+    if (parsed.length !== step2.toplamCevap) {
+      setParseError(`Beklenen: ${step2.toplamCevap} cevap, Girilen: ${parsed.length} cevap`);
+      return;
+    }
+    
+    setParseError(null);
+    
+    // Her derse cevapları dağıt
+    let index = 0;
+    step2.cevaplar.forEach(cevap => {
+      const dersCevap = parsed.substring(index, index + cevap.soruSayisi);
+      handleCevapDegistir(cevap.dersKodu, dersCevap);
+      index += cevap.soruSayisi;
+    });
+    
+    setTopluCevap('');
+  }, [topluCevap, step2.toplamCevap, step2.cevaplar, parseCevapDizisi, handleCevapDegistir]);
+
+  // Temizle
+  const handleTemizle = useCallback(() => {
+    setTopluCevap('');
+    setParseError(null);
+    step2.cevaplar.forEach(c => {
+      handleCevapDegistir(c.dersKodu, '');
+    });
+  }, [step2.cevaplar, handleCevapDegistir]);
+
+  // Şablonları yükle
+  useEffect(() => {
+    if (showLibrary) {
+      fetchTemplates();
+    }
+  }, [showLibrary, fetchTemplates]);
+
+  // Şablon yükle
+  const handleLoadTemplate = useCallback((template: any) => {
+    const primaryKitapcik = template.kitapciklar?.find((k: any) => k.is_primary) || template.kitapciklar?.[0];
+    if (primaryKitapcik?.cevap_dizisi) {
+      setTopluCevap(primaryKitapcik.cevap_dizisi);
+      
+      // Cevapları dağıt
+      let index = 0;
+      step2.cevaplar.forEach(cevap => {
+        const dersCevap = primaryKitapcik.cevap_dizisi.substring(index, index + cevap.soruSayisi);
+        handleCevapDegistir(cevap.dersKodu, dersCevap);
+        index += cevap.soruSayisi;
+      });
+    }
+    setShowLibrary(false);
+  }, [step2.cevaplar, handleCevapDegistir]);
+
+  // Şablon kaydet
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim() || !organizationId) return;
+    
+    setSavingTemplate(true);
+    try {
+      const tumCevaplar = step2.cevaplar.map(c => c.cevapDizisi).join('');
+      
+      const res = await fetch('/api/admin/exam-analytics/answer-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId,
+          sablonAdi: templateName.trim(),
+          sinavTipi: step1.sinavTuru,
+          toplamSoru: step2.toplamCevap,
+          dersDagilimi: step1.dersler.map(d => ({
+            dersKodu: d.dersKodu,
+            soruSayisi: d.soruSayisi,
+            baslangic: d.baslangicSoru,
+            bitis: d.bitisSoru,
+          })),
+          kitapciklar: [{
+            kitapcikKodu: step2.kitapcik,
+            cevapDizisi: tumCevaplar,
+          }],
+        }),
+      });
+
+      if (res.ok) {
+        setShowSaveDialog(false);
+        setTemplateName('');
+        fetchTemplates();
+      } else {
+        const json = await res.json();
+        alert(`Hata: ${json.error}`);
+      }
+    } catch (err) {
+      console.error('Şablon kaydetme hatası:', err);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  // Canlı sayaç
+  const liveCount = useMemo(() => {
+    return parseCevapDizisi(topluCevap).length;
+  }, [topluCevap, parseCevapDizisi]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
       {/* Header */}
@@ -295,6 +403,196 @@ export function Step2CevapAnahtari({ wizard, organizationId }: Step2Props) {
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
         
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* CEVAP ANAHTARI KÜTÜPHANESİ */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Library className="w-6 h-6 text-indigo-600" />
+              <span className="font-bold text-lg text-indigo-900">Cevap Anahtarı Kütüphanesi</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowLibrary(!showLibrary)}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+              >
+                <BookOpen className="w-4 h-4" />
+                {showLibrary ? 'Gizle' : 'Kütüphaneyi Aç'}
+              </button>
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                disabled={!kitapcikTamamlandi}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                Şablon Olarak Kaydet
+              </button>
+            </div>
+          </div>
+
+          {/* Şablon Listesi */}
+          {showLibrary && (
+            <div className="mt-4 bg-white rounded-xl border border-indigo-100 overflow-hidden">
+              <div className="p-3 bg-gray-50 border-b flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">
+                  Kayıtlı Şablonlar ({templates.length})
+                </span>
+                <button
+                  onClick={fetchTemplates}
+                  disabled={loadingTemplates}
+                  className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                >
+                  <RefreshCw className={cn("w-4 h-4", loadingTemplates && "animate-spin")} />
+                </button>
+              </div>
+              
+              {loadingTemplates ? (
+                <div className="p-8 text-center text-gray-500">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Yükleniyor...
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <Library className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  Henüz kayıtlı şablon yok
+                </div>
+              ) : (
+                <div className="divide-y max-h-64 overflow-y-auto">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900">{template.sablon_adi}</div>
+                        <div className="text-xs text-gray-500">
+                          {template.toplam_soru} soru • {template.kullanim_sayisi || 0} kullanım
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleLoadTemplate(template)}
+                          className="px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                        >
+                          Yükle
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Kaydet Dialog */}
+          {showSaveDialog && (
+            <div className="mt-4 bg-white rounded-xl border border-indigo-200 p-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Şablon adı girin..."
+                  className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={!templateName.trim() || savingTemplate}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                >
+                  {savingTemplate ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+                <button
+                  onClick={() => setShowSaveDialog(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* TEK SEFERDE YAPIŞTIR */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Clipboard className="w-6 h-6 text-blue-600" />
+              <span className="font-bold text-lg text-blue-900">Tek Seferde Yapıştır</span>
+              <span className="text-sm text-blue-600">90 sorunun tamamını tek alana yapıştırın</span>
+            </div>
+            <span className={cn(
+              "text-sm font-bold px-3 py-1.5 rounded-full",
+              liveCount === step2.toplamCevap 
+                ? "bg-green-100 text-green-700" 
+                : liveCount > step2.toplamCevap
+                  ? "bg-red-100 text-red-700"
+                  : "bg-blue-100 text-blue-700"
+            )}>
+              {liveCount} / {step2.toplamCevap}
+            </span>
+          </div>
+          
+          <div className="mb-4">
+            <textarea
+              value={topluCevap}
+              onChange={(e) => {
+                setTopluCevap(e.target.value);
+                setParseError(null);
+              }}
+              placeholder={`Örnek: ABCDABCDABCD... (toplam ${step2.toplamCevap} cevap)\n\nDesteklenen formatlar:\n• ABCDABCD...\n• A B C D...\n• 1:A, 2:B...\n• Satır satır`}
+              className={cn(
+                "w-full h-32 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono text-sm",
+                parseError ? "border-red-300 bg-red-50" : "border-blue-200"
+              )}
+            />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-gray-500">
+                Desteklenen: ABCDABCD... | A B C D... | 1:A, 2:B... | Satır satır
+              </p>
+              {parseError && (
+                <p className="text-xs text-red-600 font-medium">{parseError}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleTemizle}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Temizle
+            </button>
+            
+            <button
+              onClick={() => {
+                const tumCevaplar = step2.cevaplar.map(c => c.cevapDizisi).join('');
+                navigator.clipboard.writeText(tumCevaplar);
+              }}
+              disabled={kitapcikGirilenCevap === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              <Copy className="w-4 h-4" />
+              Kopyala
+            </button>
+
+            <div className="flex-1" />
+
+            <button
+              onClick={handleTopluCevapUygula}
+              disabled={!topluCevap || liveCount !== step2.toplamCevap}
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
+            >
+              <Check className="w-5 h-5" />
+              Cevapları Uygula
+            </button>
+          </div>
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {/* KİTAPÇIK SEÇİMİ */}
         {/* ═══════════════════════════════════════════════════════════════════ */}
